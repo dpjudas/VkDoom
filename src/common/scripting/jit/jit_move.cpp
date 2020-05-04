@@ -5,6 +5,10 @@
 #include "texturemanager.h"
 #include "palutil.h"
 
+#if 1
+
+#else
+
 void JitCompiler::EmitMOVE()
 {
 	cc.mov(regD[A], regD[B]);
@@ -288,3 +292,5 @@ void JitCompiler::EmitDYNCASTC_K()
 	call->setArg(1, c);
 	cc.mov(regA[A], result);
 }
+
+#endif

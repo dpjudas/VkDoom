@@ -3,6 +3,19 @@
 #include "jit.h"
 #include "jitintern.h"
 
+#if 1
+
+FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames)
+{
+	return {};
+}
+
+void JitRelease()
+{
+}
+
+#else
+
 #ifdef WIN32
 #include <DbgHelp.h>
 #include <psapi.h>
@@ -990,3 +1003,5 @@ FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames, int max
 	}
 	return s;
 }
+
+#endif

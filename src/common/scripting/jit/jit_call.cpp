@@ -3,6 +3,10 @@
 #include <map>
 #include <memory>
 
+#if 1
+
+#else
+
 void JitCompiler::EmitPARAM()
 {
 	ParamOpcodes.Push(pc);
@@ -719,3 +723,5 @@ asmjit::FuncSignature JitCompiler::CreateFuncSignature()
 	signature.init(CallConv::kIdHost, rettype, cachedArgs->Data(), cachedArgs->Size());
 	return signature;
 }
+
+#endif

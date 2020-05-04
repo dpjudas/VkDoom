@@ -10,6 +10,19 @@ extern PStruct* TypeVector4;
 extern PStruct* TypeQuaternion;
 extern PStruct* TypeFQuaternion;
 
+#if 1
+
+JitFuncPtr JitCompile(VMScriptFunction* sfunc)
+{
+	return nullptr;
+}
+
+void JitDumpLog(FILE* file, VMScriptFunction* sfunc)
+{
+}
+
+#else
+
 static void OutputJitLog(const asmjit::StringLogger &logger);
 
 JitFuncPtr JitCompile(VMScriptFunction *sfunc)
@@ -607,3 +620,5 @@ void JitCompiler::EmitNOP()
 {
 	cc.nop();
 }
+
+#endif

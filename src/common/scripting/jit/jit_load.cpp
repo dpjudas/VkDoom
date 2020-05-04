@@ -1,6 +1,10 @@
 
 #include "jitintern.h"
 
+#if 1
+
+#else
+
 /////////////////////////////////////////////////////////////////////////////
 // Load constants.
 
@@ -458,3 +462,5 @@ void JitCompiler::EmitLBIT()
 	cc.cmp(regD[A], 0);
 	cc.setne(regD[A]);
 }
+
+#endif
