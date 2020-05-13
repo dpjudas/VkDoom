@@ -87,7 +87,7 @@ void JitCompiler::EmitRET()
 		cc.CreateCondBr(cc.CreateICmpSLE(ConstValueD(retnum), numret), ifbb, endifbb);
 		cc.SetInsertPoint(ifbb);
 
-		IRValue* location = Load(ToPtrPtr(ret, retnum * sizeof(VMReturn)));
+		IRValue* location = Load(ToInt8PtrPtr(ret, retnum * sizeof(VMReturn)));
 
 		int regtype = B;
 		int regnum = C;
@@ -95,9 +95,9 @@ void JitCompiler::EmitRET()
 		{
 		case REGT_INT:
 			if (regtype & REGT_KONST)
-				Store32(ConstD(regnum), ToInt32Ptr(location));
+				Store(ConstD(regnum), ToInt32Ptr(location));
 			else
-				Store32(LoadD(regnum), ToInt32Ptr(location));
+				Store(LoadD(regnum), ToInt32Ptr(location));
 			break;
 		case REGT_FLOAT:
 			if (regtype & REGT_KONST)
@@ -111,18 +111,18 @@ void JitCompiler::EmitRET()
 				}
 				else if (regtype & REGT_MULTIREG3)
 				{
-					StoreDouble(ConstF(regnum), ToDoublePtr(location));
-					StoreDouble(ConstF(regnum + 1), ToDoublePtr(location, 8));
-					StoreDouble(ConstF(regnum + 2), ToDoublePtr(location, 16));
+					Store(ConstF(regnum), ToDoublePtr(location));
+					Store(ConstF(regnum + 1), ToDoublePtr(location, 8));
+					Store(ConstF(regnum + 2), ToDoublePtr(location, 16));
 				}
 				else if (regtype & REGT_MULTIREG2)
 				{
-					StoreDouble(ConstF(regnum), ToDoublePtr(location));
-					StoreDouble(ConstF(regnum + 1), ToDoublePtr(location, 8));
+					Store(ConstF(regnum), ToDoublePtr(location));
+					Store(ConstF(regnum + 1), ToDoublePtr(location, 8));
 				}
 				else
 				{
-					StoreDouble(ConstF(regnum), ToDoublePtr(location));
+					Store(ConstF(regnum), ToDoublePtr(location));
 				}
 			}
 			else
@@ -136,18 +136,18 @@ void JitCompiler::EmitRET()
 				}
 				else if (regtype & REGT_MULTIREG3)
 				{
-					StoreDouble(LoadF(regnum), ToDoublePtr(location));
-					StoreDouble(LoadF(regnum + 1), ToDoublePtr(location, 8));
-					StoreDouble(LoadF(regnum + 2), ToDoublePtr(location, 16));
+					Store(LoadF(regnum), ToDoublePtr(location));
+					Store(LoadF(regnum + 1), ToDoublePtr(location, 8));
+					Store(LoadF(regnum + 2), ToDoublePtr(location, 16));
 				}
 				else if (regtype & REGT_MULTIREG2)
 				{
-					StoreDouble(LoadF(regnum), ToDoublePtr(location));
-					StoreDouble(LoadF(regnum + 1), ToDoublePtr(location, 8));
+					Store(LoadF(regnum), ToDoublePtr(location));
+					Store(LoadF(regnum + 1), ToDoublePtr(location, 8));
 				}
 				else
 				{
-					StoreDouble(LoadF(regnum), ToDoublePtr(location));
+					Store(LoadF(regnum), ToDoublePtr(location));
 				}
 			}
 			break;
@@ -159,11 +159,11 @@ void JitCompiler::EmitRET()
 		case REGT_POINTER:
 			if (regtype & REGT_KONST)
 			{
-				StorePtr(ConstA(regnum), ToPtrPtr(location));
+				Store(ConstA(regnum), ToInt8PtrPtr(location));
 			}
 			else
 			{
-				StorePtr(LoadA(regnum), ToPtrPtr(location));
+				Store(LoadA(regnum), ToInt8PtrPtr(location));
 			}
 			break;
 		}
@@ -199,8 +199,8 @@ void JitCompiler::EmitRETI()
 	cc.CreateCondBr(cc.CreateICmpSLE(ConstValueD(retnum), numret), ifbb, endifbb);
 	cc.SetInsertPoint(ifbb);
 
-	IRValue* location = Load(ToPtrPtr(ret, retnum * sizeof(VMReturn)));
-	Store32(ConstValueD(BCs), ToInt32Ptr(location));
+	IRValue* location = Load(ToInt8PtrPtr(ret, retnum * sizeof(VMReturn)));
+	Store(ConstValueD(BCs), ToInt32Ptr(location));
 
 	if (a & RET_FINAL)
 	{

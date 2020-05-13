@@ -326,7 +326,7 @@ void JitCompiler::SetupSimpleFrame()
 		const PType *type = sfunc->Proto->ArgumentTypes[i];
 		if (sfunc->ArgFlags.Size() && sfunc->ArgFlags[i] & (VARF_Out | VARF_Ref))
 		{
-			StoreA(Load(ToPtrPtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a))), rega++);
+			StoreA(Load(ToInt8PtrPtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a))), rega++);
 		}
 		else if (type == TypeVector2 || type == TypeFVector2)
 		{
@@ -360,7 +360,7 @@ void JitCompiler::SetupSimpleFrame()
 		}
 		else
 		{
-			StoreA(Load(ToPtrPtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a))), rega++);
+			StoreA(Load(ToInt8PtrPtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a))), rega++);
 		}
 	}
 
@@ -410,8 +410,8 @@ void JitCompiler::SetupFullVMFrame()
 {
 	vmframestack = cc.CreateCall(GetNativeFunc<VMFrameStack*, VMScriptFunction*, VMValue*, int>("__CreateFullVMFrame", CreateFullVMFrame), { ConstValueA(sfunc), args, numargs });
 
-	IRValue* Blocks = Load(ToPtrPtr(vmframestack)); // vmframestack->Blocks
-	vmframe = Load(ToPtrPtr(Blocks, VMFrameStack::OffsetLastFrame())); // Blocks->LastFrame
+	IRValue* Blocks = Load(ToInt8PtrPtr(vmframestack)); // vmframestack->Blocks
+	vmframe = Load(ToInt8PtrPtr(Blocks, VMFrameStack::OffsetLastFrame())); // Blocks->LastFrame
 
 	for (int i = 0; i < sfunc->NumRegD; i++)
 		StoreD(Load(ToInt32Ptr(vmframe, offsetD + i * sizeof(int32_t))), i);
@@ -420,10 +420,10 @@ void JitCompiler::SetupFullVMFrame()
 		StoreF(Load(ToDoublePtr(vmframe, offsetF + i * sizeof(double))), i);
 
 	for (int i = 0; i < sfunc->NumRegS; i++)
-		StoreS(Load(ToPtrPtr(vmframe, offsetS + i * sizeof(FString))), i);
+		StoreS(Load(ToInt8PtrPtr(vmframe, offsetS + i * sizeof(FString))), i);
 
 	for (int i = 0; i < sfunc->NumRegA; i++)
-		StoreA(Load(ToPtrPtr(vmframe, offsetA + i * sizeof(void*))), i);
+		StoreA(Load(ToInt8PtrPtr(vmframe, offsetA + i * sizeof(void*))), i);
 }
 
 static void PopFullVMFrame(VMFrameStack * vmframestack)
