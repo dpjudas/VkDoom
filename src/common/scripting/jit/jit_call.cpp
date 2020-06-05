@@ -85,7 +85,8 @@ void JitCompiler::EmitVMCall(IRValue* vmfunc, VMFunction* target)
 	IRValue* paramsptr = OffsetPtr(vmframe, offsetParams);
 	IRValue* scriptcall = Load(ToInt8PtrPtr(vmfunc, myoffsetof(VMScriptFunction, ScriptCall)));
 
-	IRInst* call = cc.CreateCall(cc.CreateBitCast(scriptcall, GetFunctionType5<int, VMFunction*, VMValue*, int, VMReturn*, int>()), { vmfunc, paramsptr, ConstValueD(B), GetCallReturns(), ConstValueD(C) });
+	IRFunctionType* functype = ircontext->getFunctionType(int32Ty, { int8PtrTy, int8PtrTy, int32Ty, int8PtrTy, int32Ty });
+	IRInst* call = cc.CreateCall(cc.CreateBitCast(scriptcall, functype), { vmfunc, paramsptr, ConstValueD(B), GetCallReturns(), ConstValueD(C) });
 	call->comment = std::string("call ") + (target ? target->PrintableName.GetChars() : "VMCall");
 
 	LoadInOuts();
@@ -542,7 +543,7 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 	{
 		if (ParamOpcodes[i]->op == OP_PARAMI)
 		{
-			args.push_back(ircontext->getInt32Ty());
+			args.push_back(int32Ty);
 		}
 		else // OP_PARAM
 		{
@@ -556,28 +557,28 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 			case REGT_INT | REGT_ADDROF:
 			case REGT_POINTER | REGT_ADDROF:
 			case REGT_FLOAT | REGT_ADDROF:
-				args.push_back(ircontext->getInt8PtrTy());
+				args.push_back(int8PtrTy);
 				break;
 			case REGT_INT:
 			case REGT_INT | REGT_KONST:
-				args.push_back(ircontext->getInt32Ty());
+				args.push_back(int32Ty);
 				break;
 			case REGT_STRING:
 			case REGT_STRING | REGT_KONST:
-				args.push_back(ircontext->getInt8PtrTy());
+				args.push_back(int8PtrTy);
 				break;
 			case REGT_FLOAT:
 			case REGT_FLOAT | REGT_KONST:
-				args.push_back(ircontext->getDoublePtrTy());
+				args.push_back(doublePtrTy);
 				break;
 			case REGT_FLOAT | REGT_MULTIREG2:
-				args.push_back(ircontext->getDoublePtrTy());
-				args.push_back(ircontext->getDoublePtrTy());
+				args.push_back(doublePtrTy);
+				args.push_back(doublePtrTy);
 				break;
 			case REGT_FLOAT | REGT_MULTIREG3:
-				args.push_back(ircontext->getDoublePtrTy());
-				args.push_back(ircontext->getDoublePtrTy());
-				args.push_back(ircontext->getDoublePtrTy());
+				args.push_back(doublePtrTy);
+				args.push_back(doublePtrTy);
+				args.push_back(doublePtrTy);
 				break;
 			case REGT_FLOAT | REGT_MULTIREG4:
 				args.Push(TypeIdOf<double>::kTypeId);
@@ -597,7 +598,7 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 	const VMOP *retval = pc + 1;
 	int numret = C;
 
-	IRType* rettype = ircontext->getVoidTy();
+	IRType* rettype = voidTy;
 
 	// Check if first return value can be placed in the function's real return value slot
 	int startret = 1;
@@ -612,13 +613,13 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 		switch (type)
 		{
 		case REGT_INT:
-			rettype = ircontext->getInt32Ty();
+			rettype = int32Ty;
 			break;
 		case REGT_FLOAT:
-			rettype = ircontext->getDoublePtrTy();
+			rettype = doublePtrTy;
 			break;
 		case REGT_POINTER:
-			rettype = ircontext->getInt8PtrTy();
+			rettype = int8PtrTy;
 			break;
 		case REGT_STRING:
 		default:
@@ -635,7 +636,7 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 			I_Error("Expected OP_RESULT to follow OP_CALL\n");
 		}
 
-		args.push_back(ircontext->getInt8PtrTy());
+		args.push_back(int8PtrTy);
 	}
 
 	return ircontext->getFunctionType(rettype, args);
