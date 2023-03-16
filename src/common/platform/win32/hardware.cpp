@@ -43,7 +43,6 @@
 #include "m_argv.h"
 #include "version.h"
 #include "printf.h"
-#include "win32glvideo.h"
 #ifdef HAVE_VULKAN
 #include "win32vulkanvideo.h"
 #endif
@@ -53,40 +52,9 @@
 
 IVideo *Video;
 
-// do not include GL headers here, only declare the necessary functions.
-IVideo *gl_CreateVideo();
-
 void I_RestartRenderer();
 int currentcanvas = -1;
-int currentgpuswitch = -1;
 bool changerenderer;
-
-// Optimus/Hybrid switcher
-CUSTOM_CVAR(Int, vid_gpuswitch, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
-{
-	if (self != currentgpuswitch)
-	{
-		switch (self)
-		{
-		case 0:
-			Printf("Selecting default GPU...\n");
-			break;
-		case 1:
-			Printf("Selecting high-performance dedicated GPU...\n");
-			break;
-		case 2:
-			Printf("Selecting power-saving integrated GPU...\n");
-			break;
-		default:
-			Printf("Unknown option (%d) - falling back to 'default'\n", *vid_gpuswitch);
-			self = 0;
-			break;
-		}
-		Printf("You must restart " GAMENAME " for this change to take effect.\n");
-	}
-}
-
-
 
 void I_ShutdownGraphics ()
 {
@@ -102,13 +70,6 @@ void I_ShutdownGraphics ()
 
 void I_InitGraphics ()
 {
-	// todo: implement ATI version of this. this only works for nvidia notebooks, for now.
-	currentgpuswitch = vid_gpuswitch;
-	if (currentgpuswitch == 1)
-		_putenv("SHIM_MCCOMPAT=0x800000001"); // discrete
-	else if (currentgpuswitch == 2)
-		_putenv("SHIM_MCCOMPAT=0x800000000"); // integrated
-
 	// If the focus window is destroyed, it doesn't go back to the active window.
 	// (e.g. because the net pane was up, and a button on it had focus)
 	if (GetFocus() == NULL && GetActiveWindow() == mainwindow.GetHandle())
@@ -126,24 +87,8 @@ void I_InitGraphics ()
 	}
 
 #ifdef HAVE_VULKAN
-	if (V_GetBackend() == 1)
-	{
-		// first try Vulkan, if that fails OpenGL
-		try
-		{
-			Video = new Win32VulkanVideo();
-		}
-		catch (CVulkanError &error)
-		{
-			Printf(TEXTCOLOR_RED "Initialization of Vulkan failed: %s\n", error.what());
-			Video = new Win32GLVideo();
-		}
-	}
-	else
+	Video = new Win32VulkanVideo();
 #endif
-	{
-		Video = new Win32GLVideo();
-	}
 
 	// we somehow STILL don't have a display!!
 	if (Video == NULL)
