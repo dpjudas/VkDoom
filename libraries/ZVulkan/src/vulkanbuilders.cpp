@@ -128,29 +128,143 @@ ShaderBuilder::ShaderBuilder()
 {
 }
 
-ShaderBuilder& ShaderBuilder::VertexShader(const std::string& c)
+ShaderBuilder& ShaderBuilder::Type(ShaderType type)
 {
-	code = c;
-	stage = EShLanguage::EShLangVertex;
+	switch (type)
+	{
+	case ShaderType::Vertex: stage = EShLanguage::EShLangVertex; break;
+	case ShaderType::TessControl: stage = EShLanguage::EShLangTessControl; break;
+	case ShaderType::TessEvaluation: stage = EShLanguage::EShLangTessEvaluation; break;
+	case ShaderType::Geometry: stage = EShLanguage::EShLangGeometry; break;
+	case ShaderType::Fragment: stage = EShLanguage::EShLangFragment; break;
+	case ShaderType::Compute: stage = EShLanguage::EShLangCompute; break;
+	}
 	return *this;
 }
 
-ShaderBuilder& ShaderBuilder::FragmentShader(const std::string& c)
+ShaderBuilder& ShaderBuilder::AddSource(const std::string& name, const std::string& code)
 {
-	code = c;
-	stage = EShLanguage::EShLangFragment;
+	sources.push_back({ name, code });
 	return *this;
 }
+
+ShaderBuilder& ShaderBuilder::OnIncludeSystem(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem)
+{
+	this->onIncludeSystem = std::move(onIncludeSystem);
+	return *this;
+}
+
+ShaderBuilder& ShaderBuilder::OnIncludeLocal(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal)
+{
+	this->onIncludeLocal = std::move(onIncludeLocal);
+	return *this;
+}
+
+class ShaderBuilderIncluderImpl : public glslang::TShader::Includer
+{
+public:
+	ShaderBuilderIncluderImpl(ShaderBuilder* shaderBuilder) : shaderBuilder(shaderBuilder)
+	{
+	}
+
+	IncludeResult* includeSystem(const char* headerName, const char* includerName, size_t inclusionDepth) override
+	{
+		if (!shaderBuilder->onIncludeSystem)
+		{
+			return nullptr;
+		}
+
+		try
+		{
+			std::unique_ptr<ShaderIncludeResult> result;
+			try
+			{
+				result = std::make_unique<ShaderIncludeResult>(shaderBuilder->onIncludeSystem(headerName, includerName, inclusionDepth));
+			}
+			catch (const std::exception& e)
+			{
+				result = std::make_unique<ShaderIncludeResult>(e.what());
+			}
+
+			if (!result || (result->name.empty() && result->text.empty()))
+			{
+				return nullptr;
+			}
+
+			IncludeResult* outer = new IncludeResult(result->name, result->text.data(), result->text.size(), result.get());
+			result.release();
+			return outer;
+		}
+		catch (...)
+		{
+			return nullptr;
+		}
+	}
+
+	IncludeResult* includeLocal(const char* headerName, const char* includerName, size_t inclusionDepth) override
+	{
+		if (!shaderBuilder->onIncludeLocal)
+		{
+			return nullptr;
+		}
+
+		try
+		{
+			std::unique_ptr<ShaderIncludeResult> result;
+			try
+			{
+				result = std::make_unique<ShaderIncludeResult>(shaderBuilder->onIncludeLocal(headerName, includerName, inclusionDepth));
+			}
+			catch (const std::exception& e)
+			{
+				result = std::make_unique<ShaderIncludeResult>(e.what());
+			}
+
+			if (!result || (result->name.empty() && result->text.empty()))
+			{
+				return nullptr;
+			}
+
+			IncludeResult* outer = new IncludeResult(result->name, result->text.data(), result->text.size(), result.get());
+			result.release();
+			return outer;
+		}
+		catch (...)
+		{
+			return nullptr;
+		}
+	}
+
+	void releaseInclude(IncludeResult* result) override
+	{
+		if (result)
+		{
+			delete (ShaderIncludeResult*)result->userData;
+			delete result;
+		}
+	}
+
+private:
+	ShaderBuilder* shaderBuilder = nullptr;
+};
 
 std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, VulkanDevice *device)
 {
 	EShLanguage stage = (EShLanguage)this->stage;
-	const char *sources[] = { code.c_str() };
+
+	std::vector<const char*> namesC, sourcesC;
+	std::vector<int> lengthsC;
+	for (const auto& s : sources)
+	{
+		namesC.push_back(s.first.c_str());
+		sourcesC.push_back(s.second.c_str());
+		lengthsC.push_back((int)s.second.size());
+	}
 
 	TBuiltInResource resources = DefaultTBuiltInResource;
 
 	glslang::TShader shader(stage);
-	shader.setStrings(sources, 1);
+	shader.setStringsWithLengthsAndNames(sourcesC.data(), lengthsC.data(), namesC.data(), (int)sources.size());
 	shader.setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, 100);
     if (device->Instance->ApiVersion >= VK_API_VERSION_1_2)
     {
@@ -162,7 +276,9 @@ std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, Vulk
         shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
     }
-	bool compileSuccess = shader.parse(&resources, 110, false, EShMsgVulkanRules);
+
+	ShaderBuilderIncluderImpl includer(this);
+	bool compileSuccess = shader.parse(&resources, 110, false, EShMsgVulkanRules, includer);
 	if (!compileSuccess)
 	{
 		throw std::runtime_error(std::string("Shader compile failed: ") + shader.getInfoLog());

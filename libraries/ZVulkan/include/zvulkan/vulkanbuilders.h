@@ -196,6 +196,26 @@ private:
 	VkDeviceSize minAlignment = 0;
 };
 
+enum class ShaderType
+{
+	Vertex,
+	TessControl,
+	TessEvaluation,
+	Geometry,
+	Fragment,
+	Compute
+};
+
+class ShaderIncludeResult
+{
+public:
+	ShaderIncludeResult(std::string name, std::string text) : name(std::move(name)), text(std::move(text)) { }
+	ShaderIncludeResult(std::string error) : text(std::move(error)) { }
+
+	std::string name; // fully resolved name of the included header file
+	std::string text; // the file contents - or include error message if name is empty
+};
+
 class ShaderBuilder
 {
 public:
@@ -204,16 +224,23 @@ public:
 	static void Init();
 	static void Deinit();
 
-	ShaderBuilder& VertexShader(const std::string &code);
-	ShaderBuilder& FragmentShader(const std::string&code);
+	ShaderBuilder& Type(ShaderType type);
+	ShaderBuilder& AddSource(const std::string& name, const std::string& code);
+
+	ShaderBuilder& OnIncludeSystem(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem);
+	ShaderBuilder& OnIncludeLocal(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal);
+
 	ShaderBuilder& DebugName(const char* name) { debugName = name; return *this; }
 
 	std::unique_ptr<VulkanShader> Create(const char *shadername, VulkanDevice *device);
 
 private:
-	std::string code;
+	std::vector<std::pair<std::string, std::string>> sources;
+	std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem;
+	std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal;
 	int stage = 0;
 	const char* debugName = nullptr;
+	friend class ShaderBuilderIncluderImpl;
 };
 
 class AccelerationStructureBuilder
