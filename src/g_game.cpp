@@ -2196,6 +2196,9 @@ CUSTOM_CVAR (Int, quicksaverotationcount, 4, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 
 void G_DoAutoSave ()
 {
+	if ((primaryLevel->flags9 & LEVEL9_NOUSERSAVE))
+		return;
+
 	FString description;
 	FString file;
 	// Keep up to four autosaves at a time
