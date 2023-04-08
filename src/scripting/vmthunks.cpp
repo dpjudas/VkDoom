@@ -2806,6 +2806,9 @@ DEFINE_FIELD_BIT(FLevelLocals, flags2, no_dlg_freeze, LEVEL2_CONV_SINGLE_UNFREEZ
 DEFINE_FIELD_BIT(FLevelLocals, flags2, keepfullinventory, LEVEL2_KEEPFULLINVENTORY)
 DEFINE_FIELD_BIT(FLevelLocals, flags3, removeitems, LEVEL3_REMOVEITEMS)
 
+DEFINE_FIELD_BIT(FLevelLocals, flags9, nousersave, LEVEL9_NOUSERSAVE)
+DEFINE_FIELD_BIT(FLevelLocals, flags9, noautomap, LEVEL9_NOAUTOMAP)
+
 DEFINE_FIELD_X(Sector, sector_t, floorplane)
 DEFINE_FIELD_X(Sector, sector_t, ceilingplane)
 DEFINE_FIELD_X(Sector, sector_t, Colormap)
