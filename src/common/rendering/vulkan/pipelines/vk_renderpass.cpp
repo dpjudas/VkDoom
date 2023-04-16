@@ -62,7 +62,7 @@ VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 	{
 	}
 
-	PipelineCache = builder.Create(fb->device.get());
+	PipelineCache = builder.Create(fb->GetDevice());
 }
 
 VkRenderPassManager::~VkRenderPassManager()
@@ -154,7 +154,7 @@ VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(int numLayers)
 		builder.AddSetLayout(descriptors->GetTextureSetLayout(numLayers));
 	builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants));
 	builder.DebugName("VkRenderPassManager.PipelineLayout");
-	layout = builder.Create(fb->device.get());
+	layout = builder.Create(fb->GetDevice());
 	return layout.get();
 }
 
@@ -221,7 +221,7 @@ std::unique_ptr<VulkanRenderPass> VkRenderPassSetup::CreateRenderPass(int clearT
 			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
 	}
 	builder.DebugName("VkRenderPassSetup.RenderPass");
-	return builder.Create(fb->device.get());
+	return builder.Create(fb->GetDevice());
 }
 
 VulkanRenderPass *VkRenderPassSetup::GetRenderPass(int clearTargets)
@@ -302,7 +302,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	builder.Topology(vktopology[key.DrawType]);
 	builder.DepthStencilEnable(key.DepthTest, key.DepthWrite, key.StencilTest);
 	builder.DepthFunc(depthfunc2vk[key.DepthFunc]);
-	if (fb->device->EnabledFeatures.Features.depthClamp)
+	if (fb->GetDevice()->EnabledFeatures.Features.depthClamp)
 		builder.DepthClampEnable(key.DepthClamp);
 	builder.DepthBias(key.DepthBias, 0.0f, 0.0f, 0.0f);
 
@@ -320,7 +320,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	builder.RenderPass(GetRenderPass(0));
 	builder.DebugName("VkRenderPassSetup.Pipeline");
 
-	return builder.Create(fb->device.get());
+	return builder.Create(fb->GetDevice());
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -345,7 +345,7 @@ void VkPPRenderPassSetup::CreateDescriptorLayout(const VkPPRenderPassKey& key)
 		builder.AddBinding(LIGHTLIST_BINDINGPOINT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	}
 	builder.DebugName("VkPPRenderPassSetup.DescriptorLayout");
-	DescriptorLayout = builder.Create(fb->device.get());
+	DescriptorLayout = builder.Create(fb->GetDevice());
 }
 
 void VkPPRenderPassSetup::CreatePipelineLayout(const VkPPRenderPassKey& key)
@@ -355,7 +355,7 @@ void VkPPRenderPassSetup::CreatePipelineLayout(const VkPPRenderPassKey& key)
 	if (key.Uniforms > 0)
 		builder.AddPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, key.Uniforms);
 	builder.DebugName("VkPPRenderPassSetup.PipelineLayout");
-	PipelineLayout = builder.Create(fb->device.get());
+	PipelineLayout = builder.Create(fb->GetDevice());
 }
 
 void VkPPRenderPassSetup::CreatePipeline(const VkPPRenderPassKey& key)
@@ -385,7 +385,7 @@ void VkPPRenderPassSetup::CreatePipeline(const VkPPRenderPassKey& key)
 	builder.Layout(PipelineLayout.get());
 	builder.RenderPass(RenderPass.get());
 	builder.DebugName("VkPPRenderPassSetup.Pipeline");
-	Pipeline = builder.Create(fb->device.get());
+	Pipeline = builder.Create(fb->GetDevice());
 }
 
 void VkPPRenderPassSetup::CreateRenderPass(const VkPPRenderPassKey& key)
@@ -433,7 +433,7 @@ void VkPPRenderPassSetup::CreateRenderPass(const VkPPRenderPassKey& key)
 	}
 
 	builder.DebugName("VkPPRenderPassSetup.RenderPass");
-	RenderPass = builder.Create(fb->device.get());
+	RenderPass = builder.Create(fb->GetDevice());
 }
 
 /////////////////////////////////////////////////////////////////////////////
