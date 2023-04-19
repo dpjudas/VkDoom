@@ -481,6 +481,8 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	const auto &vp = Viewpoint;
 	RenderAll.Clock();
 
+	state.SetLightMode((int)lightmode);
+
 	state.SetDepthMask(true);
 
 	state.EnableFog(true);
