@@ -340,4 +340,12 @@ MISCMNU_TITLE = "$$OPTMNU_MISCELLANEOUS";
 
 GLMNU_TEXOPT = "$$GLTEXMNU_TITLE";
 
+// newly added text not in the string table
 
+OPTMNU_SWRENDERER = "Software Renderer";
+OPTMNU_INPUT = "Input Options";
+OPTMNU_MULTIPLAYER = "Multiplayer Options";
+OPTMNU_SYSTEM = "System Options";
+OPTMNU_LIGHT = "Light Options";
+OPTMNU_SPRITE = "Sprite Options";
+GLPREFMNU_CORONAS = "Coronas";
