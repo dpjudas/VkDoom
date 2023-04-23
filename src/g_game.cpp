@@ -202,8 +202,6 @@ int				lookspeed[2] = {450, 512};
 #define SLOWTURNTICS	6 
 
 CVAR (Bool,		cl_run,			true,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)		// Always run?
-CVAR (Bool,		invertmouse,	false,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)		// Invert mouse look down/up?
-CVAR (Bool,		invertmousex,	false,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)		// Invert mouse look left/right?
 CVAR (Bool,		freelook,		true,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)		// Always mlook?
 CVAR (Bool,		lookstrafe,		false,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)		// Always strafe with mouse?
 CVAR (Float,	m_forward,		1.f,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)
@@ -2621,10 +2619,12 @@ void G_BeginRecording (const char *startmap)
 	{
 		if (playeringame[i])
 		{
-			StartChunk (UINF_ID, &demo_p);
-			WriteByte ((uint8_t)i, &demo_p);
-			D_WriteUserInfoStrings (i, &demo_p);
-			FinishChunk (&demo_p);
+			StartChunk(UINF_ID, &demo_p);
+			WriteByte((uint8_t)i, &demo_p);
+			auto str = D_GetUserInfoStrings(i);
+			memcpy(demo_p, str.GetChars(), str.Len() + 1);
+			demo_p += str.Len();
+			FinishChunk(&demo_p);
 		}
 	}
 
