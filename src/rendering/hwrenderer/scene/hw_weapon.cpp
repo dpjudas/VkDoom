@@ -488,7 +488,7 @@ bool HUDSprite::GetWeaponRenderStyle(DPSprite *psp, AActor *playermo, sector_t *
 //
 //==========================================================================
 
-bool HUDSprite::GetWeaponRect(HWDrawInfo *di, DPSprite *psp, float sx, float sy, player_t *player, double ticfrac)
+bool HUDSprite::GetWeaponRect(HWDrawInfo *di, FRenderState& state, DPSprite *psp, float sx, float sy, player_t *player, double ticfrac)
 {
 	float			tx;
 	float			scale;
@@ -652,7 +652,7 @@ bool HUDSprite::GetWeaponRect(HWDrawInfo *di, DPSprite *psp, float sx, float sy,
 		Vert.v[3].X < vw))
 		return false;
 	*/
-	auto verts = screen->mVertexData->AllocVertices(4);
+	auto verts = state.AllocVertices(4);
 	mx = verts.second;
 
 	verts.first[0].Set(Vert.v[0].X, Vert.v[0].Y, 0, u1, v1);
@@ -669,7 +669,7 @@ bool HUDSprite::GetWeaponRect(HWDrawInfo *di, DPSprite *psp, float sx, float sy,
 // R_DrawPlayerSprites
 //
 //==========================================================================
-void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area)
+void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area, FRenderState& state)
 {
 	AActor * playermo = players[consoleplayer].camera;
 	player_t * player = playermo->player;
@@ -712,7 +712,7 @@ void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area)
 			GetDynSpriteLight(playermo, nullptr, hudsprite.dynrgb);
 		}
 
-		if (!hudsprite.GetWeaponRect(this, psp, spos.X, spos.Y, player, vp.TicFrac)) continue;
+		if (!hudsprite.GetWeaponRect(this, state, psp, spos.X, spos.Y, player, vp.TicFrac)) continue;
 		hudsprites.Push(hudsprite);
 	}
 	lightmode = oldlightmode;
@@ -772,7 +772,7 @@ void HWDrawInfo::PreparePlayerSprites3D(sector_t * viewsector, area_t in_area)
 	lightmode = oldlightmode;
 }
 
-void HWDrawInfo::PreparePlayerSprites(sector_t * viewsector, area_t in_area)
+void HWDrawInfo::PreparePlayerSprites(sector_t * viewsector, area_t in_area, FRenderState& state)
 {
 
 	AActor * playermo = players[consoleplayer].camera;
@@ -798,10 +798,10 @@ void HWDrawInfo::PreparePlayerSprites(sector_t * viewsector, area_t in_area)
 	}
 	else
 	{
-		PreparePlayerSprites2D(viewsector,in_area);
+		PreparePlayerSprites2D(viewsector,in_area,state);
 	}
 
-	PrepareTargeterSprites(vp.TicFrac);
+	PrepareTargeterSprites(vp.TicFrac,state);
 }
 
 
@@ -811,7 +811,7 @@ void HWDrawInfo::PreparePlayerSprites(sector_t * viewsector, area_t in_area)
 //
 //==========================================================================
 
-void HWDrawInfo::PrepareTargeterSprites(double ticfrac)
+void HWDrawInfo::PrepareTargeterSprites(double ticfrac, FRenderState& state)
 {
 	AActor * playermo = players[consoleplayer].camera;
 	player_t * player = playermo->player;
@@ -844,7 +844,7 @@ void HWDrawInfo::PrepareTargeterSprites(double ticfrac)
 		{
 			hudsprite.weapon = psp;
 			
-			if (hudsprite.GetWeaponRect(this, psp, psp->x, psp->y, player, ticfrac))
+			if (hudsprite.GetWeaponRect(this, state, psp, psp->x, psp->y, player, ticfrac))
 			{
 				hudsprites.Push(hudsprite);
 			}
