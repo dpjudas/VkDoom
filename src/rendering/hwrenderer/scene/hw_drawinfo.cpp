@@ -446,7 +446,6 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	ProcessAll.Clock();
 
 	// clip the scene and fill the drawlists
-	screen->mVertexData->Map();
 
 	if (!gl_meshcache)
 		RenderBSP(Level->HeadNode(), drawpsprites, state);
@@ -459,7 +458,6 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	HandleHackedSubsectors(state);	// open sector hacks for deep water
 	PrepareUnhandledMissingTextures(state);
 	DispatchRenderHacks(state);
-	screen->mVertexData->Unmap();
 
 	ProcessAll.Unclock();
 
@@ -589,7 +587,7 @@ void HWDrawInfo::RenderPortal(HWPortal *p, FRenderState &state, bool usestencil)
 	state.SetLightIndex(-1);
 	gp->DrawContents(new_di, state);
 	new_di->EndDrawInfo();
-	state.SetVertexBuffer(screen->mVertexData);
+	state.SetFlatVertexBuffer();
 	state.SetViewpoint(vpIndex);
 	gp->RemoveStencil(this, state, usestencil);
 
