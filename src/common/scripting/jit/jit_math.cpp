@@ -191,7 +191,7 @@ void JitCompiler::EmitDIVU_KR()
 	auto continuebb = irfunc->createBasicBlock({});
 	cc.CreateCondBr(cc.CreateICmpEQ(LoadD(C), ConstValueD(0)), exceptionbb, continuebb);
 	cc.SetInsertPoint(continuebb);
-	StoreD(cc.CreateUDiv(ConstD(B), LoadD(B)), A);
+	StoreD(cc.CreateUDiv(ConstD(B), LoadD(C)), A);
 }
 
 void JitCompiler::EmitMOD_RR()
@@ -221,7 +221,7 @@ void JitCompiler::EmitMOD_KR()
 	auto continuebb = irfunc->createBasicBlock({});
 	cc.CreateCondBr(cc.CreateICmpEQ(LoadD(C), ConstValueD(0)), exceptionbb, continuebb);
 	cc.SetInsertPoint(continuebb);
-	StoreD(cc.CreateSRem(ConstD(B), LoadD(B)), A);
+	StoreD(cc.CreateSRem(ConstD(B), LoadD(C)), A);
 }
 
 void JitCompiler::EmitMODU_RR()
@@ -251,7 +251,7 @@ void JitCompiler::EmitMODU_KR()
 	auto continuebb = irfunc->createBasicBlock({});
 	cc.CreateCondBr(cc.CreateICmpEQ(LoadD(C), ConstValueD(0)), exceptionbb, continuebb);
 	cc.SetInsertPoint(continuebb);
-	StoreD(cc.CreateURem(ConstD(B), LoadD(B)), A);
+	StoreD(cc.CreateURem(ConstD(B), LoadD(C)), A);
 }
 
 void JitCompiler::EmitAND_RR()
