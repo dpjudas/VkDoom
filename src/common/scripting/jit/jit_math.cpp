@@ -161,7 +161,7 @@ void JitCompiler::EmitDIV_KR()
 	auto continuebb = irfunc->createBasicBlock({});
 	cc.CreateCondBr(cc.CreateICmpEQ(LoadD(C), ConstValueD(0)), exceptionbb, continuebb);
 	cc.SetInsertPoint(continuebb);
-	StoreD(cc.CreateSDiv(ConstD(B), LoadD(B)), A);
+	StoreD(cc.CreateSDiv(ConstD(B), LoadD(C)), A);
 }
 
 void JitCompiler::EmitDIVU_RR()

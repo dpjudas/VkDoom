@@ -54,7 +54,7 @@ void JitCompiler::EmitSCOPE()
 {
 	auto continuebb = irfunc->createBasicBlock({});
 	auto exceptionbb = EmitThrowExceptionLabel(X_READ_NIL);
-	cc.CreateCondBr(cc.CreateICmpEQ(LoadD(A), ConstValueA(0)), exceptionbb, continuebb);
+	cc.CreateCondBr(cc.CreateICmpEQ(LoadA(A), ConstValueA(0)), exceptionbb, continuebb);
 	cc.SetInsertPoint(continuebb);
 	cc.CreateCall(validateCall, { LoadA(A), ConstA(C), ConstValueD(B) });
 }
