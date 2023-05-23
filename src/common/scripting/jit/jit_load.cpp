@@ -279,6 +279,80 @@ void JitCompiler::EmitLV3_R()
 	StoreF(Load(OffsetPtr(base, 2)), A + 2);
 }
 
+void JitCompiler::EmitLV4()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToDoublePtr(LoadA(B), ConstD(C));
+	StoreF(Load(base), A);
+	StoreF(Load(OffsetPtr(base, 1)), A + 1);
+	StoreF(Load(OffsetPtr(base, 2)), A + 2);
+	StoreF(Load(OffsetPtr(base, 3)), A + 3);
+}
+
+void JitCompiler::EmitLV4_R()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToDoublePtr(LoadA(B), LoadD(C));
+	StoreF(Load(base), A);
+	StoreF(Load(OffsetPtr(base, 1)), A + 1);
+	StoreF(Load(OffsetPtr(base, 2)), A + 2);
+	StoreF(Load(OffsetPtr(base, 3)), A + 3);
+}
+
+void JitCompiler::EmitLFV2()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToFloatPtr(LoadA(B), ConstD(C));
+	StoreF(cc.CreateFPExt(Load(base), doubleTy), A);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 1)), doubleTy), A + 1);
+}
+
+void JitCompiler::EmitLFV2_R()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToFloatPtr(LoadA(B), LoadD(C));
+	StoreF(cc.CreateFPExt(Load(base), doubleTy), A);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 1)), doubleTy), A + 1);
+}
+
+void JitCompiler::EmitLFV3()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToFloatPtr(LoadA(B), ConstD(C));
+	StoreF(cc.CreateFPExt(Load(base), doubleTy), A);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 1)), doubleTy), A + 1);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 2)), doubleTy), A + 2);
+}
+
+void JitCompiler::EmitLFV3_R()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToFloatPtr(LoadA(B), LoadD(C));
+	StoreF(cc.CreateFPExt(Load(base), doubleTy), A);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 1)), doubleTy), A + 1);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 2)), doubleTy), A + 2);
+}
+
+void JitCompiler::EmitLFV4()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToFloatPtr(LoadA(B), ConstD(C));
+	StoreF(cc.CreateFPExt(Load(base), doubleTy), A);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 1)), doubleTy), A + 1);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 2)), doubleTy), A + 2);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 3)), doubleTy), A + 3);
+}
+
+void JitCompiler::EmitLFV4_R()
+{
+	EmitNullPointerThrow(B, X_READ_NIL);
+	IRValue* base = ToFloatPtr(LoadA(B), LoadD(C));
+	StoreF(cc.CreateFPExt(Load(base), doubleTy), A);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 1)), doubleTy), A + 1);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 2)), doubleTy), A + 2);
+	StoreF(cc.CreateFPExt(Load(OffsetPtr(base, 3)), doubleTy), A + 3);
+}
+
 void JitCompiler::EmitLCS()
 {
 	EmitNullPointerThrow(B, X_READ_NIL);

@@ -1157,152 +1157,92 @@ void JitCompiler::EmitEQV3_K()
 
 void JitCompiler::EmitNEGV4()
 {
-	auto mask = cc.newDoubleConst(asmjit::kConstScopeLocal, -0.0);
-	auto maskXmm = newTempXmmSd();
-	cc.movsd(maskXmm, mask);
-	cc.movsd(regF[A], regF[B]);
-	cc.xorpd(regF[A], maskXmm);
-	cc.movsd(regF[A + 1], regF[B + 1]);
-	cc.xorpd(regF[A + 1], maskXmm);
-	cc.movsd(regF[A + 2], regF[B + 2]);
-	cc.xorpd(regF[A + 2], maskXmm);
-	cc.movsd(regF[A + 3], regF[B + 3]);
-	cc.xorpd(regF[A + 3], maskXmm);
+	StoreF(cc.CreateFNeg(LoadF(B)), A);
+	StoreF(cc.CreateFNeg(LoadF(B + 1)), A + 1);
+	StoreF(cc.CreateFNeg(LoadF(B + 2)), A + 2);
+	StoreF(cc.CreateFNeg(LoadF(B + 3)), A + 3);
 }
 
 void JitCompiler::EmitADDV4_RR()
 {
-	auto rc0 = CheckRegF(C, A);
-	auto rc1 = CheckRegF(C + 1, A + 1);
-	auto rc2 = CheckRegF(C + 2, A + 2);
-	auto rc3 = CheckRegF(C + 3, A + 3);
-	cc.movsd(regF[A], regF[B]);
-	cc.addsd(regF[A], rc0);
-	cc.movsd(regF[A + 1], regF[B + 1]);
-	cc.addsd(regF[A + 1], rc1);
-	cc.movsd(regF[A + 2], regF[B + 2]);
-	cc.addsd(regF[A + 2], rc2);
-	cc.movsd(regF[A + 3], regF[B + 3]);
-	cc.addsd(regF[A + 3], rc3);
+	StoreF(cc.CreateFAdd(LoadF(B), LoadF(C)), A);
+	StoreF(cc.CreateFAdd(LoadF(B + 1), LoadF(C + 1)), A + 1);
+	StoreF(cc.CreateFAdd(LoadF(B + 2), LoadF(C + 2)), A + 2);
+	StoreF(cc.CreateFAdd(LoadF(B + 3), LoadF(C + 3)), A + 3);
 }
 
 void JitCompiler::EmitSUBV4_RR()
 {
-	auto rc0 = CheckRegF(C, A);
-	auto rc1 = CheckRegF(C + 1, A + 1);
-	auto rc2 = CheckRegF(C + 2, A + 2);
-	auto rc3 = CheckRegF(C + 3, A + 3);
-	cc.movsd(regF[A], regF[B]);
-	cc.subsd(regF[A], rc0);
-	cc.movsd(regF[A + 1], regF[B + 1]);
-	cc.subsd(regF[A + 1], rc1);
-	cc.movsd(regF[A + 2], regF[B + 2]);
-	cc.subsd(regF[A + 2], rc2);
-	cc.movsd(regF[A + 3], regF[B + 3]);
-	cc.subsd(regF[A + 3], rc3);
+	StoreF(cc.CreateFSub(LoadF(B), LoadF(C)), A);
+	StoreF(cc.CreateFSub(LoadF(B + 1), LoadF(C + 1)), A + 1);
+	StoreF(cc.CreateFSub(LoadF(B + 2), LoadF(C + 2)), A + 2);
+	StoreF(cc.CreateFSub(LoadF(B + 3), LoadF(C + 3)), A + 3);
 }
 
 void JitCompiler::EmitDOTV4_RR()
 {
-	auto rb1 = CheckRegF(B + 1, A);
-	auto rb2 = CheckRegF(B + 2, A);
-	auto rb3 = CheckRegF(B + 3, A);
-	auto rc0 = CheckRegF(C, A);
-	auto rc1 = CheckRegF(C + 1, A);
-	auto rc2 = CheckRegF(C + 2, A);
-	auto rc3 = CheckRegF(C + 3, A);
-	auto tmp = newTempXmmSd();
-	cc.movsd(regF[A], regF[B]);
-	cc.mulsd(regF[A], rc0);
-	cc.movsd(tmp, rb1);
-	cc.mulsd(tmp, rc1);
-	cc.addsd(regF[A], tmp);
-	cc.movsd(tmp, rb2);
-	cc.mulsd(tmp, rc2);
-	cc.addsd(regF[A], tmp);
-	cc.movsd(tmp, rb3);
-	cc.mulsd(tmp, rc3);
-	cc.addsd(regF[A], tmp);
+	StoreF(
+		cc.CreateFAdd(
+			cc.CreateFAdd(
+				cc.CreateFAdd(
+					cc.CreateFMul(LoadF(B), LoadF(C)),
+					cc.CreateFMul(LoadF(B + 1), LoadF(C + 1))),
+				cc.CreateFMul(LoadF(B + 2), LoadF(C + 2))),
+			cc.CreateFMul(LoadF(B + 3), LoadF(C + 3))),
+		A);
 }
 
 void JitCompiler::EmitMULVF4_RR()
 {
-	auto rc = CheckRegF(C, A, A + 1, A + 2, A + 3);
-	cc.movsd(regF[A], regF[B]);
-	cc.movsd(regF[A + 1], regF[B + 1]);
-	cc.movsd(regF[A + 2], regF[B + 2]);
-	cc.movsd(regF[A + 3], regF[B + 3]);
-	cc.mulsd(regF[A], rc);
-	cc.mulsd(regF[A + 1], rc);
-	cc.mulsd(regF[A + 2], rc);
-	cc.mulsd(regF[A + 3], rc);
+	IRValue* rc = LoadF(C);
+	StoreF(cc.CreateFMul(LoadF(B), rc), A);
+	StoreF(cc.CreateFMul(LoadF(B + 1), rc), A + 1);
+	StoreF(cc.CreateFMul(LoadF(B + 2), rc), A + 2);
+	StoreF(cc.CreateFMul(LoadF(B + 3), rc), A + 3);
 }
 
 void JitCompiler::EmitMULVF4_RK()
 {
-	auto tmp = newTempIntPtr();
-	cc.movsd(regF[A], regF[B]);
-	cc.movsd(regF[A + 1], regF[B + 1]);
-	cc.movsd(regF[A + 2], regF[B + 2]);
-	cc.movsd(regF[A + 3], regF[B + 3]);
-	cc.mov(tmp, asmjit::imm_ptr(&konstf[C]));
-	cc.mulsd(regF[A], asmjit::x86::qword_ptr(tmp));
-	cc.mulsd(regF[A + 1], asmjit::x86::qword_ptr(tmp));
-	cc.mulsd(regF[A + 2], asmjit::x86::qword_ptr(tmp));
-	cc.mulsd(regF[A + 3], asmjit::x86::qword_ptr(tmp));
+	IRValue* rc = ConstF(C);
+	StoreF(cc.CreateFMul(LoadF(B), rc), A);
+	StoreF(cc.CreateFMul(LoadF(B + 1), rc), A + 1);
+	StoreF(cc.CreateFMul(LoadF(B + 2), rc), A + 2);
+	StoreF(cc.CreateFMul(LoadF(B + 3), rc), A + 3);
 }
 
 void JitCompiler::EmitDIVVF4_RR()
 {
-	auto rc = CheckRegF(C, A, A + 1, A + 2, A + 3);
-	cc.movsd(regF[A], regF[B]);
-	cc.movsd(regF[A + 1], regF[B + 1]);
-	cc.movsd(regF[A + 2], regF[B + 2]);
-	cc.movsd(regF[A + 3], regF[B + 3]);
-	cc.divsd(regF[A], rc);
-	cc.divsd(regF[A + 1], rc);
-	cc.divsd(regF[A + 2], rc);
-	cc.divsd(regF[A + 3], rc);
+	IRValue* rc = LoadF(C);
+	StoreF(cc.CreateFDiv(LoadF(B), rc), A);
+	StoreF(cc.CreateFDiv(LoadF(B + 1), rc), A + 1);
+	StoreF(cc.CreateFDiv(LoadF(B + 2), rc), A + 2);
+	StoreF(cc.CreateFDiv(LoadF(B + 3), rc), A + 3);
 }
 
 void JitCompiler::EmitDIVVF4_RK()
 {
-	auto tmp = newTempIntPtr();
-	cc.movsd(regF[A], regF[B]);
-	cc.movsd(regF[A + 1], regF[B + 1]);
-	cc.movsd(regF[A + 2], regF[B + 2]);
-	cc.movsd(regF[A + 3], regF[B + 3]);
-	cc.mov(tmp, asmjit::imm_ptr(&konstf[C]));
-	cc.divsd(regF[A], asmjit::x86::qword_ptr(tmp));
-	cc.divsd(regF[A + 1], asmjit::x86::qword_ptr(tmp));
-	cc.divsd(regF[A + 2], asmjit::x86::qword_ptr(tmp));
-	cc.divsd(regF[A + 3], asmjit::x86::qword_ptr(tmp));
+	IRValue* rc = ConstF(C);
+	StoreF(cc.CreateFDiv(LoadF(B), rc), A);
+	StoreF(cc.CreateFDiv(LoadF(B + 1), rc), A + 1);
+	StoreF(cc.CreateFDiv(LoadF(B + 2), rc), A + 2);
+	StoreF(cc.CreateFDiv(LoadF(B + 3), rc), A + 3);
 }
 
 void JitCompiler::EmitLENV4()
 {
-	auto rb1 = CheckRegF(B + 1, A);
-	auto rb2 = CheckRegF(B + 2, A);
-	auto rb3 = CheckRegF(B + 3, A);
-	auto tmp = newTempXmmSd();
-	cc.movsd(regF[A], regF[B]);
-	cc.mulsd(regF[A], regF[B]);
-	cc.movsd(tmp, rb1);
-	cc.mulsd(tmp, rb1);
-	cc.addsd(regF[A], tmp);
-	cc.movsd(tmp, rb2);
-	cc.mulsd(tmp, rb2);
-	cc.addsd(regF[A], tmp);
-	cc.movsd(tmp, rb3);
-	cc.mulsd(tmp, rb3);
-	cc.addsd(regF[A], tmp);
-	CallSqrt(regF[A], regF[A]);
+	IRValue* x = LoadF(B);
+	IRValue* y = LoadF(B + 1);
+	IRValue* z = LoadF(B + 2);
+	IRValue* w = LoadF(B + 3);
+	IRValue* dotproduct = cc.CreateFAdd(cc.CreateFAdd(cc.CreateFAdd(cc.CreateFMul(x, x), cc.CreateFMul(y, y)), cc.CreateFMul(z, z)), cc.CreateFMul(w, w));
+	IRValue* len = cc.CreateCall(doubleSqrt, { dotproduct });
+	StoreF(len, A);
 }
 
 void JitCompiler::EmitEQV4_R()
 {
-	EmitComparisonOpcode([&](bool check, asmjit::Label& fail, asmjit::Label& success) {
-		EmitVectorComparison<4> (check, fail, success);
+	EmitComparisonOpcode([&](bool check) {
+		return EmitVectorComparison(4, check);
 	});
 }
 
@@ -1324,6 +1264,7 @@ void FuncMULQV3(void *result, double ax, double ay, double az, double aw, double
 
 void JitCompiler::EmitMULQQ_RR()
 {
+#if 0
 	auto stack = GetTemporaryVectorStackStorage();
 	auto tmp = newTempIntPtr();
 	cc.lea(tmp, stack);
@@ -1343,10 +1284,13 @@ void JitCompiler::EmitMULQQ_RR()
 	cc.movsd(regF[A + 1], asmjit::x86::qword_ptr(tmp, 8));
 	cc.movsd(regF[A + 2], asmjit::x86::qword_ptr(tmp, 16));
 	cc.movsd(regF[A + 3], asmjit::x86::qword_ptr(tmp, 24));
+#endif
+	I_FatalError("EmitMULQQ_RR not implemented");
 }
 
 void JitCompiler::EmitMULQV3_RR()
 {
+#if 0
 	auto stack = GetTemporaryVectorStackStorage();
 	auto tmp = newTempIntPtr();
 	cc.lea(tmp, stack);
@@ -1364,8 +1308,9 @@ void JitCompiler::EmitMULQV3_RR()
 	cc.movsd(regF[A + 0], asmjit::x86::qword_ptr(tmp, 0));
 	cc.movsd(regF[A + 1], asmjit::x86::qword_ptr(tmp, 8));
 	cc.movsd(regF[A + 2], asmjit::x86::qword_ptr(tmp, 16));
+#endif
+	I_FatalError("EmitMULQV3_RR not implemented");
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 // Pointer math.

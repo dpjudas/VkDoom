@@ -171,7 +171,7 @@ int JitCompiler::StoreCallParams()
 		case REGT_FLOAT | REGT_MULTIREG4:
 			for (int j = 0; j < 4; j++)
 			{
-				cc.movsd(x86::qword_ptr(vmframe, offsetParams + (slot + j) * sizeof(VMValue) + myoffsetof(VMValue, f)), regF[bc + j]);
+				Store(LoadF(bc + j), ToDoublePtr(vmframe, offsetParams + (slot + j) * sizeof(VMValue) + myoffsetof(VMValue, f)));
 			}
 			numparams += 3;
 			break;
@@ -249,9 +249,9 @@ void JitCompiler::LoadCallResult(int type, int regnum, bool addrof)
 		}
 		else if (type & REGT_MULTIREG4)
 		{
-			cc.movsd(regF[regnum + 1], asmjit::x86::qword_ptr(vmframe, offsetF + (regnum + 1) * sizeof(double)));
-			cc.movsd(regF[regnum + 2], asmjit::x86::qword_ptr(vmframe, offsetF + (regnum + 2) * sizeof(double)));
-			cc.movsd(regF[regnum + 3], asmjit::x86::qword_ptr(vmframe, offsetF + (regnum + 3) * sizeof(double)));
+			StoreF(Load(ToDoublePtr(vmframe, offsetF + (regnum + 1) * sizeof(double))), regnum + 1);
+			StoreF(Load(ToDoublePtr(vmframe, offsetF + (regnum + 2) * sizeof(double))), regnum + 2);
+			StoreF(Load(ToDoublePtr(vmframe, offsetF + (regnum + 3) * sizeof(double))), regnum + 3);
 		}
 		break;
 	case REGT_STRING:
@@ -384,9 +384,10 @@ void JitCompiler::EmitNativeCall(VMNativeFunction *target)
 				args.push_back(LoadF(bc + 2));
 				break;
 			case REGT_FLOAT | REGT_MULTIREG4:
-				for (int j = 0; j < 4; j++)
-					call->setArg(slot + j, regF[bc + j]);
-				numparams += 3;
+				args.push_back(LoadF(bc));
+				args.push_back(LoadF(bc + 1));
+				args.push_back(LoadF(bc + 2));
+				args.push_back(LoadF(bc + 3));
 				break;
 			case REGT_FLOAT | REGT_KONST:
 				args.push_back(ConstF(bc));
@@ -516,10 +517,10 @@ void JitCompiler::EmitNativeCall(VMNativeFunction *target)
 			StoreF(Load(ToDoublePtr(vmframe, offsetF + (regnum + 2) * sizeof(double))), regnum + 2);
 			break;
 		case REGT_FLOAT | REGT_MULTIREG4:
-			cc.movsd(regF[regnum], asmjit::x86::qword_ptr(vmframe, offsetF + regnum * sizeof(double)));
-			cc.movsd(regF[regnum + 1], asmjit::x86::qword_ptr(vmframe, offsetF + (regnum + 1) * sizeof(double)));
-			cc.movsd(regF[regnum + 2], asmjit::x86::qword_ptr(vmframe, offsetF + (regnum + 2) * sizeof(double)));
-			cc.movsd(regF[regnum + 3], asmjit::x86::qword_ptr(vmframe, offsetF + (regnum + 3) * sizeof(double)));
+			StoreF(Load(ToDoublePtr(vmframe, offsetF + regnum * sizeof(double))), regnum);
+			StoreF(Load(ToDoublePtr(vmframe, offsetF + (regnum + 1) * sizeof(double))), regnum + 1);
+			StoreF(Load(ToDoublePtr(vmframe, offsetF + (regnum + 2) * sizeof(double))), regnum + 2);
+			StoreF(Load(ToDoublePtr(vmframe, offsetF + (regnum + 3) * sizeof(double))), regnum + 3);
 			break;
 		case REGT_STRING:
 			// We don't have to do anything in this case. String values are never moved to virtual registers.
@@ -584,11 +585,10 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 				args.push_back(doubleTy);
 				break;
 			case REGT_FLOAT | REGT_MULTIREG4:
-				args.Push(TypeIdOf<double>::kTypeId);
-				args.Push(TypeIdOf<double>::kTypeId);
-				args.Push(TypeIdOf<double>::kTypeId);
-				args.Push(TypeIdOf<double>::kTypeId);
-				key += "ffff";
+				args.push_back(doubleTy);
+				args.push_back(doubleTy);
+				args.push_back(doubleTy);
+				args.push_back(doubleTy);
 				break;
 
 			default:

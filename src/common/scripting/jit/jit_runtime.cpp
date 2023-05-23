@@ -14,7 +14,7 @@ JITRuntime* GetJITRuntime()
 	return JITRuntimeVar;
 }
 
-FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames)
+FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames, int maxFrames)
 {
 	FString lines;
 

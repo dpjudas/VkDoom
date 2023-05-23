@@ -94,10 +94,10 @@ void JitCompiler::EmitRET()
 			{
 				if (regtype & REGT_MULTIREG4)
 				{
-					StoreDouble(ConstF(regnum), ToDoublePtr(location));
-					StoreDouble(ConstF(regnum + 1), ToDoublePtr(location, 8));
-					StoreDouble(ConstF(regnum + 2), ToDoublePtr(location, 16));
-					StoreDouble(ConstF(regnum + 3), ToDoublePtr(location, 24));
+					Store(ConstF(regnum), ToDoublePtr(location));
+					Store(ConstF(regnum + 1), ToDoublePtr(location, 8));
+					Store(ConstF(regnum + 2), ToDoublePtr(location, 16));
+					Store(ConstF(regnum + 3), ToDoublePtr(location, 24));
 				}
 				else if (regtype & REGT_MULTIREG3)
 				{
@@ -119,10 +119,10 @@ void JitCompiler::EmitRET()
 			{
 				if (regtype & REGT_MULTIREG4)
 				{
-					StoreDouble(LoadF(regnum), ToDoublePtr(location));
-					StoreDouble(LoadF(regnum + 1), ToDoublePtr(location, 8));
-					StoreDouble(LoadF(regnum + 2), ToDoublePtr(location, 16));
-					StoreDouble(LoadF(regnum + 3), ToDoublePtr(location, 24));
+					Store(LoadF(regnum), ToDoublePtr(location));
+					Store(LoadF(regnum + 1), ToDoublePtr(location, 8));
+					Store(LoadF(regnum + 2), ToDoublePtr(location, 16));
+					Store(LoadF(regnum + 3), ToDoublePtr(location, 24));
 				}
 				else if (regtype & REGT_MULTIREG3)
 				{

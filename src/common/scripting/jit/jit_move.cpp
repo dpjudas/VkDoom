@@ -73,12 +73,7 @@ void JitCompiler::EmitCAST()
 		cc.CreateCall(castV32S, { LoadS(A), LoadF(B), LoadF(B + 1), LoadF(B + 2) });
 		break;
 	case CAST_V42S:
-		call = CreateCall<void, FString*, double, double, double>(CastV42S);
-		call->setArg(0, regS[A]);
-		call->setArg(1, regF[B]);
-		call->setArg(2, regF[B + 1]);
-		call->setArg(3, regF[B + 2]);
-		call->setArg(4, regF[B + 3]);
+		cc.CreateCall(castV42S, { LoadS(A), LoadF(B), LoadF(B + 1), LoadF(B + 2), LoadF(B + 3) });
 		break;
 	case CAST_P2S:
 		cc.CreateCall(castP2S, { LoadS(A), LoadA(B) });

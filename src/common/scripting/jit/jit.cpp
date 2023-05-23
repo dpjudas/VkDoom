@@ -305,10 +305,10 @@ void JitCompiler::SetupSimpleFrame()
 		}
 		else if (type == TypeVector4 || type == TypeFVector4 || type == TypeQuaternion || type == TypeFQuaternion)
 		{
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
 		}
 		else if (type == TypeFloat64)
 		{
@@ -540,15 +540,16 @@ static void CastU2S(FString* a, int b) { a->Format("%u", b); }
 static void CastF2S(FString* a, double b) { a->Format("%.5f", b); }
 static void CastV22S(FString* a, double b, double b1) { a->Format("(%.5f, %.5f)", b, b1); }
 static void CastV32S(FString* a, double b, double b1, double b2) { a->Format("(%.5f, %.5f, %.5f)", b, b1, b2); }
+static void CastV42S(FString* a, double b, double b1, double b2, double b3) { a->Format("(%.5f, %.5f, %.5f, %.5f)", b, b1, b2, b3); }
 static void CastP2S(FString* a, void* b) { if (b == nullptr) *a = "null"; else a->Format("%p", b); }
 static int CastS2I(FString* b) { return (int)b->ToLong(); }
 static double CastS2F(FString* b) { return b->ToDouble(); }
 static int CastS2N(FString* b) { return b->Len() == 0 ? NAME_None : FName(*b).GetIndex(); }
 static void CastN2S(FString* a, int b) { FName name = FName(ENamedName(b)); *a = name.IsValidName() ? name.GetChars() : ""; }
-static int CastS2Co(FString* b) { return V_GetColor(nullptr, *b); }
+static int CastS2Co(FString* b) { return V_GetColor(*b); }
 static void CastCo2S(FString* a, int b) { PalEntry c(b); a->Format("%02x %02x %02x", c.r, c.g, c.b); }
-static int CastS2So(FString* b) { return FSoundID(*b); }
-static void CastSo2S(FString* a, int b) { *a = soundEngine->GetSoundName(b); }
+static int CastS2So(FString* b) { return S_FindSound(*b).index(); }
+static void CastSo2S(FString* a, int b) { *a = soundEngine->GetSoundName(FSoundID::fromInt(b)); }
 static void CastSID2S(FString* a, unsigned int b) { VM_CastSpriteIDToString(a, b); }
 static void CastTID2S(FString* a, int b) { auto tex = TexMan.GetGameTexture(*(FTextureID*)&b); *a = (tex == nullptr) ? "(null)" : tex->GetName().GetChars(); }
 static int CastB_S(FString* s) { return s->Len() > 0; }
@@ -616,6 +617,7 @@ void JitCompiler::CreateNativeFunctions()
 	castF2S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy }, "__CastF2S", CastF2S);
 	castV22S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy }, "__CastV22S", CastV22S);
 	castV32S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy, doubleTy }, "__CastV32S", CastV32S);
+	castV42S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__CastV42S", CastV42S);
 	castP2S = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__CastP2S", CastP2S);
 	castS2I = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2I", CastS2I);
 	castS2F = CreateNativeFunction(doubleTy, { int8PtrTy }, "__CastS2F", CastS2F);

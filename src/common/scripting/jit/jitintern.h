@@ -7,7 +7,7 @@
 #include <functional>
 #include <vector>
 
-#include "ir/IR.h"
+#include <dragonbook.h>
 
 extern cycle_t VMCycles[10];
 extern int VMCalls[10];
@@ -223,6 +223,7 @@ private:
 	IRFunction* castF2S = nullptr;
 	IRFunction* castV22S = nullptr;
 	IRFunction* castV32S = nullptr;
+	IRFunction* castV42S = nullptr;
 	IRFunction* castP2S = nullptr;
 	IRFunction* castS2I = nullptr;
 	IRFunction* castS2F = nullptr;

@@ -383,8 +383,7 @@ include_directories( "${ZLIB_INCLUDE_DIR}" "${BZIP2_INCLUDE_DIR}" "${LZMA_INCLUD
 
 if( ${HAVE_VM_JIT} )
 	add_definitions( -DHAVE_VM_JIT )
-	include_directories( "${DRAGONBOOK_INCLUDE_DIR}" )
-	set( PROJECT_LIBRARIES ${PROJECT_LIBRARIES} "${DRAGONBOOK_LIBRARIES}")
+	set( PROJECT_LIBRARIES ${PROJECT_LIBRARIES} "dragonbook")
 endif()
 
 # Start defining source files for ZDoom
@@ -1300,6 +1299,7 @@ include_directories( .
 	rendering
 	../libraries/gdtoa
 	../libraries/ZVulkan/include
+	../libraries/dragonbook/src
 	${CMAKE_BINARY_DIR}/libraries/gdtoa
 	${SYSTEM_SOURCES_DIR}
 )
