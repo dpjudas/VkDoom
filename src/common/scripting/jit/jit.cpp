@@ -47,6 +47,8 @@ void JitDumpLog(FILE* file, VMScriptFunction* sfunc)
 		IRContext context;
 		JitCompiler compiler(&context, sfunc);
 		IRFunction* func = compiler.Codegen();
+		static std::string sep = "\n----------------------------------------------------------------------\n\n";
+		fwrite(sep.data(), sep.size(), 1, file);
 		std::string text = context.getFunctionAssembly(func);
 		fwrite(text.data(), text.size(), 1, file);
 	}
