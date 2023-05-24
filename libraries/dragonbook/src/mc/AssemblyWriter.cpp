@@ -4,6 +4,14 @@
 
 void AssemblyWriter::codegen()
 {
+	int nameIndex = 0;
+	setBasicBlockName(sfunc->prolog, nameIndex++);
+	for (MachineBasicBlock* bb : sfunc->basicBlocks)
+	{
+		setBasicBlockName(bb, nameIndex++);
+	}
+	setBasicBlockName(sfunc->epilog, nameIndex++);
+
 	basicblock(sfunc->prolog);
 
 	for (MachineBasicBlock* bb : sfunc->basicBlocks)
@@ -145,6 +153,7 @@ void AssemblyWriter::opcode(MachineInst* inst)
 	case MachineInstOpcode::cvtsi2ss: cvtsi2ss(inst); break;
 	case MachineInstOpcode::jmp: jmp(inst); break;
 	case MachineInstOpcode::je: je(inst); break;
+	case MachineInstOpcode::jne: jne(inst); break;
 	case MachineInstOpcode::call: call(inst); break;
 	case MachineInstOpcode::ret: ret(inst); break;
 	case MachineInstOpcode::push: push(inst); break;
@@ -226,13 +235,14 @@ void AssemblyWriter::writeInst(const char* name, MachineInst* inst, int ptrindex
 
 const char* AssemblyWriter::getBasicBlockName(MachineBasicBlock* bb)
 {
-	auto& name = bbNames[bb];
-	if (name.empty())
-	{
-		name = sfunc->name.empty() ? std::string("BB") : sfunc->name;
-		name += ".BB" + std::to_string(nextBBNameIndex++);
-	}
-	return name.c_str();
+	return bbNames.find(bb)->second.c_str();
+}
+
+void AssemblyWriter::setBasicBlockName(MachineBasicBlock* bb, int nameIndex)
+{
+	std::string name = sfunc->name.empty() ? std::string("BB") : sfunc->name;
+	name += ".BB" + std::to_string(nameIndex);
+	bbNames[bb] = std::move(name);
 }
 
 void AssemblyWriter::nop(MachineInst* inst)
@@ -818,6 +828,11 @@ void AssemblyWriter::jmp(MachineInst* inst)
 void AssemblyWriter::je(MachineInst* inst)
 {
 	writeInst("je", inst);
+}
+
+void AssemblyWriter::jne(MachineInst* inst)
+{
+	writeInst("jne", inst);
 }
 
 void AssemblyWriter::call(MachineInst* inst)

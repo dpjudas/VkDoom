@@ -25,6 +25,8 @@ public:
 	IRInstAlloca *createAlloca(IRType *type, IRValue *arraySize, const std::string &name = {});
 	IRBasicBlock *createBasicBlock(const std::string &comment);
 
+	void sortBasicBlocks();
+
 	IRContext *context;
 	std::string name;
 	std::vector<IRValue *> args;

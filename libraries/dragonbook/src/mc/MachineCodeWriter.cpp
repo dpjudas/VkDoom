@@ -148,6 +148,7 @@ void MachineCodeWriter::opcode(MachineInst* inst)
 	case MachineInstOpcode::cvtsi2ss: cvtsi2ss(inst); break;
 	case MachineInstOpcode::jmp: jmp(inst); break;
 	case MachineInstOpcode::je: je(inst); break;
+	case MachineInstOpcode::jne: jne(inst); break;
 	case MachineInstOpcode::call: call(inst); break;
 	case MachineInstOpcode::ret: ret(inst); break;
 	case MachineInstOpcode::push: push(inst); break;
@@ -917,6 +918,13 @@ void MachineCodeWriter::jmp(MachineInst* inst)
 void MachineCodeWriter::je(MachineInst* inst)
 {
 	writeOpcode(0, { 0x0f, 0x84 }, 0, 0, 0);
+	writeImm(32, 0xffffffff);
+	codeholder->bbRelocateInfo.push_back({ codeholder->code.size() - 4, inst->operands[0].bb });
+}
+
+void MachineCodeWriter::jne(MachineInst* inst)
+{
+	writeOpcode(0, { 0x0f, 0x85 }, 0, 0, 0);
 	writeImm(32, 0xffffffff);
 	codeholder->bbRelocateInfo.push_back({ codeholder->code.size() - 4, inst->operands[0].bb });
 }

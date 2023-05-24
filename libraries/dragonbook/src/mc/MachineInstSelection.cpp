@@ -4,6 +4,8 @@
 
 MachineFunction* MachineInstSelection::codegen(IRFunction* sfunc)
 {
+	sfunc->sortBasicBlocks();
+
 	MachineInstSelection selection(sfunc);
 	selection.mfunc = sfunc->context->newMachineFunction(sfunc->name);
 	selection.mfunc->type = dynamic_cast<IRFunctionType*>(sfunc->type);
@@ -595,8 +597,8 @@ void MachineInstSelection::inst(IRInstCondBr* node)
 	else
 	{
 		emitInst(MachineInstOpcode::cmp8, node->condition, 3, newImm(1));
-		emitInst(MachineInstOpcode::je, node->bb1);
-		emitInst(MachineInstOpcode::jmp, node->bb2);
+		emitInst(MachineInstOpcode::jne, node->bb2);
+		emitInst(MachineInstOpcode::jmp, node->bb1);
 	}
 }
 

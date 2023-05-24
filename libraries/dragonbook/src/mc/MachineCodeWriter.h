@@ -134,6 +134,7 @@ private:
 	void cvtsi2ss(MachineInst* inst);
 	void jmp(MachineInst* inst);
 	void je(MachineInst* inst);
+	void jne(MachineInst* inst);
 	void call(MachineInst* inst);
 	void ret(MachineInst* inst);
 	void push(MachineInst* inst);

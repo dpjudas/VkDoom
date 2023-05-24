@@ -90,7 +90,7 @@ void RegisterAllocator::run()
 				setAsMostRecentlyUsed((int)RegisterName::xmm0);
 			}
 
-			if (inst->opcode == MachineInstOpcode::je)
+			if (inst->opcode == MachineInstOpcode::je || inst->opcode == MachineInstOpcode::jne)
 			{
 				assignAllToStack();
 			}
