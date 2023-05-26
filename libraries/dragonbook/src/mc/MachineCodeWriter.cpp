@@ -339,12 +339,12 @@ void MachineCodeWriter::movsx32_64(MachineInst* inst)
 
 void MachineCodeWriter::movzx8_16(MachineInst* inst)
 {
-	emitInstRM(OpFlags::SizeOverride, { 0x0f, 0xb6 }, inst);
+	emitInstRM(OpFlags::RexW | OpFlags::SizeOverride, { 0x0f, 0xb6 }, inst);
 }
 
 void MachineCodeWriter::movzx8_32(MachineInst* inst)
 {
-	emitInstRM(0, { 0x0f, 0xb6 }, inst);
+	emitInstRM(OpFlags::RexW, { 0x0f, 0xb6 }, inst);
 }
 
 void MachineCodeWriter::movzx8_64(MachineInst* inst)
@@ -354,7 +354,7 @@ void MachineCodeWriter::movzx8_64(MachineInst* inst)
 
 void MachineCodeWriter::movzx16_32(MachineInst* inst)
 {
-	emitInstRM(0, { 0x0f, 0xb7 }, inst);
+	emitInstRM(OpFlags::RexW, { 0x0f, 0xb7 }, inst);
 }
 
 void MachineCodeWriter::movzx16_64(MachineInst* inst)
