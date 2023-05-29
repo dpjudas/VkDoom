@@ -2,6 +2,10 @@
 #include "jit.h"
 #include "jitintern.h"
 #include "printf.h"
+#include "v_video.h"
+#include "s_soundinternal.h"
+#include "texturemanager.h"
+#include "palutil.h"
 
 extern PString *TypeString;
 extern PStruct *TypeVector2;
@@ -10,57 +14,46 @@ extern PStruct* TypeVector4;
 extern PStruct* TypeQuaternion;
 extern PStruct* TypeFQuaternion;
 
-static void OutputJitLog(const asmjit::StringLogger &logger);
+JITRuntime* GetJITRuntime();
 
-JitFuncPtr JitCompile(VMScriptFunction *sfunc)
+JitFuncPtr JitCompile(VMScriptFunction* sfunc)
 {
 #if 0
-	if (strcmp(sfunc->PrintableName.GetChars(), "StatusScreen.drawNum") != 0)
+	if (strcmp(sfunc->PrintableName.GetChars(), "ListMenu.MenuEvent") != 0)
 		return nullptr;
 #endif
 
-	using namespace asmjit;
-	StringLogger logger;
 	try
 	{
-		ThrowingErrorHandler errorHandler;
-		CodeHolder code;
-		code.init(GetHostCodeInfo());
-		code.setErrorHandler(&errorHandler);
-		code.setLogger(&logger);
-
-		JitCompiler compiler(&code, sfunc);
-		return reinterpret_cast<JitFuncPtr>(AddJitFunction(&code, &compiler));
+		JITRuntime* jit = GetJITRuntime();
+		IRContext context;
+		JitCompiler compiler(&context, sfunc);
+		IRFunction* func = compiler.Codegen();
+		jit->add(&context);
+		//std::string text = context.getFunctionAssembly(func);
+		return reinterpret_cast<JitFuncPtr>(jit->getPointerToFunction(func->name));
 	}
-	catch (const CRecoverableError &e)
+	catch (...)
 	{
-		OutputJitLog(logger);
-		Printf("%s: Unexpected JIT error: %s\n",sfunc->PrintableName.GetChars(), e.what());
-		return nullptr;
+		Printf("%s: Unexpected JIT error encountered\n", sfunc->PrintableName.GetChars());
+		throw;
 	}
 }
 
-void JitDumpLog(FILE *file, VMScriptFunction *sfunc)
+void JitDumpLog(FILE* file, VMScriptFunction* sfunc)
 {
-	using namespace asmjit;
-	StringLogger logger;
 	try
 	{
-		ThrowingErrorHandler errorHandler;
-		CodeHolder code;
-		code.init(GetHostCodeInfo());
-		code.setErrorHandler(&errorHandler);
-		code.setLogger(&logger);
-
-		JitCompiler compiler(&code, sfunc);
-		compiler.Codegen();
-
-		fwrite(logger.getString(), logger.getLength(), 1, file);
+		IRContext context;
+		JitCompiler compiler(&context, sfunc);
+		IRFunction* func = compiler.Codegen();
+		static std::string sep = "\n----------------------------------------------------------------------\n\n";
+		fwrite(sep.data(), sep.size(), 1, file);
+		std::string text = context.getFunctionAssembly(func);
+		fwrite(text.data(), text.size(), 1, file);
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
-		fwrite(logger.getString(), logger.getLength(), 1, file);
-
 		FString err;
 		err.Format("Unexpected JIT error: %s\n", e.what());
 		fwrite(err.GetChars(), err.Len(), 1, file);
@@ -70,10 +63,11 @@ void JitDumpLog(FILE *file, VMScriptFunction *sfunc)
 	}
 }
 
-static void OutputJitLog(const asmjit::StringLogger &logger)
+/*
+static void OutputJitLog(const char *text)
 {
 	// Write line by line since I_FatalError seems to cut off long strings
-	const char *pos = logger.getString();
+	const char *pos = text;
 	const char *end = pos;
 	while (*end)
 	{
@@ -88,6 +82,7 @@ static void OutputJitLog(const asmjit::StringLogger &logger)
 	if (pos != end)
 		Printf("%s\n", pos);
 }
+*/
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -98,7 +93,7 @@ static const char *OpNames[NUM_OPS] =
 #undef xx
 };
 
-asmjit::CCFunc *JitCompiler::Codegen()
+IRFunction* JitCompiler::Codegen()
 {
 	Setup();
 
@@ -111,58 +106,47 @@ asmjit::CCFunc *JitCompiler::Codegen()
 		int i = (int)(ptrdiff_t)(pc - sfunc->Code);
 		op = pc->op;
 
-		int curLine = sfunc->PCToLine(pc);
-		if (curLine != lastLine)
+		if (labels[i].block) // This is already a known jump target
 		{
-			lastLine = curLine;
-
-			auto label = cc.newLabel();
-			cc.bind(label);
-
-			JitLineInfo info;
-			info.Label = label;
-			info.LineNumber = curLine;
-			LineInfo.Push(info);
+			if (cc.GetInsertBlock())
+				cc.CreateBr(labels[i].block);
+			cc.SetInsertPoint(labels[i].block);
+		}
+		else // Save start location in case GetLabel gets called later
+		{
+			if (!cc.GetInsertBlock())
+				cc.SetInsertPoint(irfunc->createBasicBlock({}));
+			labels[i].block = cc.GetInsertBlock();
 		}
 
+		labels[i].index = labels[i].block->code.size();
+
+		int curLine = sfunc->PCToLine(pc);
+
+		FString lineinfo;
 		if (op != OP_PARAM && op != OP_PARAMI && op != OP_VTBL)
 		{
-			FString lineinfo;
-			lineinfo.Format("; line %d: %02x%02x%02x%02x %s", curLine, pc->op, pc->a, pc->b, pc->c, OpNames[op]);
-			cc.comment("", 0);
-			cc.comment(lineinfo.GetChars(), lineinfo.Len());
+			lineinfo.Format("line %d: %02x%02x%02x%02x %s", curLine, pc->op, pc->a, pc->b, pc->c, OpNames[op]);
 		}
 
-		labels[i].cursor = cc.getCursor();
-		ResetTemp();
 		EmitOpcode();
+
+		// Add line info to first instruction emitted for the opcode
+		if (labels[i].block->code.size() != labels[i].index)
+		{
+			IRInst* inst = labels[i].block->code[labels[i].index];
+			inst->fileIndex = 0;
+			inst->lineNumber = curLine;
+			if (inst->comment.empty())
+				inst->comment = lineinfo.GetChars();
+			else
+				inst->comment = lineinfo.GetChars() + ("; " + inst->comment);
+		}
 
 		pc++;
 	}
 
-	BindLabels();
-
-	cc.endFunc();
-	cc.finalize();
-
-	auto code = cc.getCode ();
-	for (unsigned int j = 0; j < LineInfo.Size (); j++)
-	{
-		auto info = LineInfo[j];
-
-		if (!code->isLabelValid (info.Label))
-		{
-			continue;
-		}
-
-		info.InstructionIndex = code->getLabelOffset (info.Label);
-
-		LineInfo[j] = info;
-	}
-
-	std::stable_sort(LineInfo.begin(), LineInfo.end(), [](const JitLineInfo &a, const JitLineInfo &b) { return a.InstructionIndex < b.InstructionIndex; });
-
-	return func;
+	return irfunc;
 }
 
 void JitCompiler::EmitOpcode()
@@ -179,84 +163,89 @@ void JitCompiler::EmitOpcode()
 	}
 }
 
-void JitCompiler::BindLabels()
-{
-	asmjit::CBNode *cursor = cc.getCursor();
-	unsigned int size = labels.Size();
-	for (unsigned int i = 0; i < size; i++)
-	{
-		const OpcodeLabel &label = labels[i];
-		if (label.inUse)
-		{
-			cc.setCursor(label.cursor);
-			cc.bind(label.label);
-		}
-	}
-	cc.setCursor(cursor);
-}
-
 void JitCompiler::CheckVMFrame()
 {
-	if (!vmframeAllocated)
+	if (!vmframe)
 	{
-		auto cursor = cc.getCursor();
-		cc.setCursor(vmframeCursor);
-
-		auto vmstack = cc.newStack(sfunc->StackSize, 16, "vmstack");
-		vmframe = cc.newIntPtr("vmframe");
-		cc.lea(vmframe, vmstack);
-
-		cc.setCursor(cursor);
-		vmframeAllocated = true;
+		vmframe = irfunc->createAlloca(int8Ty, ircontext->getConstantInt(sfunc->StackSize), "vmframe");
 	}
 }
 
-asmjit::X86Gp JitCompiler::GetCallReturns()
+IRValue* JitCompiler::GetCallReturns()
 {
-	if (!callReturnsAllocated)
+	if (!callReturns)
 	{
-		auto cursor = cc.getCursor();
-		cc.setCursor(callReturnsCursor);
-		auto stackalloc = cc.newStack(sizeof(VMReturn) * MAX_RETURNS, alignof(VMReturn), "stackalloc");
-		callReturns = cc.newIntPtr("callReturns");
-		cc.lea(callReturns, stackalloc);
-		cc.setCursor(cursor);
-		callReturnsAllocated = true;
+		callReturns = irfunc->createAlloca(int8Ty, ircontext->getConstantInt(sizeof(VMReturn) * MAX_RETURNS), "callReturns");
 	}
 	return callReturns;
 }
 
+IRBasicBlock* JitCompiler::GetLabel(size_t pos)
+{
+	if (labels[pos].index != 0) // Jump targets can only point at the start of a basic block
+	{
+		IRBasicBlock* curbb = labels[pos].block;
+		size_t splitpos = labels[pos].index;
+
+		// Split basic block
+		IRBasicBlock* newlabelbb = irfunc->createBasicBlock({});
+		auto itbegin = curbb->code.begin() + splitpos;
+		auto itend = curbb->code.end();
+		newlabelbb->code.insert(newlabelbb->code.begin(), itbegin, itend);
+		curbb->code.erase(itbegin, itend);
+
+		// Jump from prev block to next
+		IRBasicBlock* old = cc.GetInsertBlock();
+		cc.SetInsertPoint(curbb);
+		cc.CreateBr(newlabelbb);
+		cc.SetInsertPoint(old);
+
+		// Update label
+		labels[pos].block = newlabelbb;
+		labels[pos].index = 0;
+
+		// Update other label references
+		for (size_t i = 0; i < labels.Size(); i++)
+		{
+			if (labels[i].block == curbb && labels[i].index >= splitpos)
+			{
+				labels[i].block = newlabelbb;
+				labels[i].index -= splitpos;
+			}
+		}
+	}
+	else if (!labels[pos].block)
+	{
+		labels[pos].block = irfunc->createBasicBlock({});
+	}
+
+	return labels[pos].block;
+}
+
 void JitCompiler::Setup()
 {
-	using namespace asmjit;
+	GetTypes();
+	CreateNativeFunctions();
 
-	ResetTemp();
+	//static const char *marks = "=======================================================";
+	//cc.comment("", 0);
+	//cc.comment(marks, 56);
 
-	static const char *marks = "=======================================================";
-	cc.comment("", 0);
-	cc.comment(marks, 56);
+	//FString funcname;
+	//funcname.Format("Function: %s", sfunc->PrintableName.GetChars());
+	//cc.comment(funcname.GetChars(), funcname.Len());
 
-	FString funcname;
-	funcname.Format("Function: %s", sfunc->PrintableName.GetChars());
-	cc.comment(funcname.GetChars(), funcname.Len());
+	//cc.comment(marks, 56);
+	//cc.comment("", 0);
 
-	cc.comment(marks, 56);
-	cc.comment("", 0);
+	IRFunctionType* functype = ircontext->getFunctionType(int32Ty, { int8PtrTy, int8PtrTy, int32Ty, int8PtrTy, int32Ty });
+	irfunc = ircontext->createFunction(functype, sfunc->PrintableName.GetChars());
+	irfunc->fileInfo.push_back({ sfunc->PrintableName.GetChars(), sfunc->SourceFileName.GetChars() });
 
-	auto unusedFunc = cc.newIntPtr("func"); // VMFunction*
-	args = cc.newIntPtr("args"); // VMValue *params
-	numargs = cc.newInt32("numargs"); // int numargs
-	ret = cc.newIntPtr("ret"); // VMReturn *ret
-	numret = cc.newInt32("numret"); // int numret
-
-	func = cc.addFunc(FuncSignature5<int, VMFunction *, void *, int, void *, int>());
-	cc.setArg(0, unusedFunc);
-	cc.setArg(1, args);
-	cc.setArg(2, numargs);
-	cc.setArg(3, ret);
-	cc.setArg(4, numret);
-
-	callReturnsCursor = cc.getCursor();
+	args = irfunc->args[1];
+	numargs = irfunc->args[2];
+	ret = irfunc->args[3];
+	numret = irfunc->args[4];
 
 	konstd = sfunc->KonstD;
 	konstf = sfunc->KonstF;
@@ -264,6 +253,8 @@ void JitCompiler::Setup()
 	konsta = sfunc->KonstA;
 
 	labels.Resize(sfunc->CodeSize);
+
+	cc.SetInsertPoint(irfunc->createBasicBlock("entry"));
 
 	CreateRegisters();
 	IncrementVMCalls();
@@ -280,11 +271,11 @@ void JitCompiler::SetupFrame()
 	offsetD = offsetA + (int)(sfunc->NumRegA * sizeof(void*));
 	offsetExtra = (offsetD + (int)(sfunc->NumRegD * sizeof(int32_t)) + 15) & ~15;
 
-	if (sfunc->SpecialInits.Size() == 0 && sfunc->NumRegS == 0 && sfunc->ExtraSpace == 0)
+	/*if (sfunc->SpecialInits.Size() == 0 && sfunc->NumRegS == 0 && sfunc->ExtraSpace == 0)
 	{
 		SetupSimpleFrame();
 	}
-	else
+	else*/
 	{
 		SetupFullVMFrame();
 	}
@@ -292,11 +283,7 @@ void JitCompiler::SetupFrame()
 
 void JitCompiler::SetupSimpleFrame()
 {
-	using namespace asmjit;
-
 	// This is a simple frame with no constructors or destructors. Allocate it on the stack ourselves.
-
-	vmframeCursor = cc.getCursor();
 
 	int argsPos = 0;
 	int regd = 0, regf = 0, rega = 0;
@@ -305,29 +292,29 @@ void JitCompiler::SetupSimpleFrame()
 		const PType *type = sfunc->Proto->ArgumentTypes[i];
 		if (sfunc->ArgFlags.Size() && sfunc->ArgFlags[i] & (VARF_Out | VARF_Ref))
 		{
-			cc.mov(regA[rega++], x86::ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a)));
+			StoreA(Load(ToInt8PtrPtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a))), rega++);
 		}
 		else if (type == TypeVector2 || type == TypeFVector2)
 		{
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
 		}
 		else if (type == TypeVector3 || type == TypeFVector3)
 		{
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
 		}
 		else if (type == TypeVector4 || type == TypeFVector4 || type == TypeQuaternion || type == TypeFQuaternion)
 		{
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
 		}
 		else if (type == TypeFloat64)
 		{
-			cc.movsd(regF[regf++], x86::qword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f)));
+			StoreF(Load(ToDoublePtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, f))), regf++);
 		}
 		else if (type == TypeString)
 		{
@@ -335,11 +322,11 @@ void JitCompiler::SetupSimpleFrame()
 		}
 		else if (type->isIntCompatible())
 		{
-			cc.mov(regD[regd++], x86::dword_ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, i)));
+			StoreD(Load(ToInt32Ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, i))), regd++);
 		}
 		else
 		{
-			cc.mov(regA[rega++], x86::ptr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a)));
+			StoreA(Load(ToInt8PtrPtr(args, argsPos++ * sizeof(VMValue) + offsetof(VMValue, a))), rega++);
 		}
 	}
 
@@ -368,75 +355,48 @@ void JitCompiler::SetupSimpleFrame()
 	}
 
 	for (int i = regd; i < sfunc->NumRegD; i++)
-		cc.xor_(regD[i], regD[i]);
+		StoreD(ConstValueD(0), i);
 
 	for (int i = regf; i < sfunc->NumRegF; i++)
-		cc.xorpd(regF[i], regF[i]);
+		StoreF(ConstValueF(0.0), i);
 
 	for (int i = rega; i < sfunc->NumRegA; i++)
-		cc.xor_(regA[i], regA[i]);
-}
-
-static VMFrameStack *CreateFullVMFrame(VMScriptFunction *func, VMValue *args, int numargs)
-{
-	VMFrameStack *stack = &GlobalVMStack;
-	VMFrame *newf = stack->AllocFrame(func);
-	VMFillParams(args, newf, numargs);
-	return stack;
+		StoreA(ConstValueA(nullptr), i);
 }
 
 void JitCompiler::SetupFullVMFrame()
 {
-	using namespace asmjit;
+	vmframestack = cc.CreateCall(createFullVMFrame, { ConstValueA(sfunc), args, numargs });
 
-	stack = cc.newIntPtr("stack");
-	auto allocFrame = CreateCall<VMFrameStack *, VMScriptFunction *, VMValue *, int>(CreateFullVMFrame);
-	allocFrame->setRet(0, stack);
-	allocFrame->setArg(0, imm_ptr(sfunc));
-	allocFrame->setArg(1, args);
-	allocFrame->setArg(2, numargs);
-
-	vmframe = cc.newIntPtr("vmframe");
-	cc.mov(vmframe, x86::ptr(stack)); // stack->Blocks
-	cc.mov(vmframe, x86::ptr(vmframe, VMFrameStack::OffsetLastFrame())); // Blocks->LastFrame
-	vmframeAllocated = true;
+	IRValue* Blocks = Load(ToInt8PtrPtr(vmframestack)); // vmframestack->Blocks
+	vmframe = Load(ToInt8PtrPtr(Blocks, VMFrameStack::OffsetLastFrame())); // Blocks->LastFrame
 
 	for (int i = 0; i < sfunc->NumRegD; i++)
-		cc.mov(regD[i], x86::dword_ptr(vmframe, offsetD + i * sizeof(int32_t)));
+		StoreD(Load(ToInt32Ptr(vmframe, offsetD + i * sizeof(int32_t))), i);
 
 	for (int i = 0; i < sfunc->NumRegF; i++)
-		cc.movsd(regF[i], x86::qword_ptr(vmframe, offsetF + i * sizeof(double)));
+		StoreF(Load(ToDoublePtr(vmframe, offsetF + i * sizeof(double))), i);
 
 	for (int i = 0; i < sfunc->NumRegS; i++)
-		cc.lea(regS[i], x86::ptr(vmframe, offsetS + i * sizeof(FString)));
+		StoreS(OffsetPtr(vmframe, offsetS + i * sizeof(FString)), i);
 
 	for (int i = 0; i < sfunc->NumRegA; i++)
-		cc.mov(regA[i], x86::ptr(vmframe, offsetA + i * sizeof(void*)));
-}
-
-static void PopFullVMFrame(VMFrameStack *stack)
-{
-	stack->PopFrame();
+		StoreA(Load(ToInt8PtrPtr(vmframe, offsetA + i * sizeof(void*))), i);
 }
 
 void JitCompiler::EmitPopFrame()
 {
-	if (sfunc->SpecialInits.Size() != 0 || sfunc->NumRegS != 0 || sfunc->ExtraSpace != 0)
+	//if (sfunc->SpecialInits.Size() != 0 || sfunc->NumRegS != 0 || sfunc->ExtraSpace != 0)
 	{
-		auto popFrame = CreateCall<void, VMFrameStack *>(PopFullVMFrame);
-		popFrame->setArg(0, stack);
+		cc.CreateCall(popFullVMFrame, { vmframestack });
 	}
 }
 
 void JitCompiler::IncrementVMCalls()
 {
 	// VMCalls[0]++
-	auto vmcallsptr = newTempIntPtr();
-	auto vmcalls = newTempInt32();
-	cc.mov(vmcallsptr, asmjit::imm_ptr(VMCalls));
-	cc.mov(vmcalls, asmjit::x86::dword_ptr(vmcallsptr));
-	cc.add(vmcalls, (int)1);
-	cc.mov(asmjit::x86::dword_ptr(vmcallsptr), vmcalls);
+	IRValue* vmcallsptr = ircontext->getConstantInt(int32PtrTy, (uint64_t)VMCalls);
+	cc.CreateStore(cc.CreateAdd(cc.CreateLoad(vmcallsptr), ircontext->getConstantInt(1)), vmcallsptr);
 }
 
 void JitCompiler::CreateRegisters()
@@ -446,164 +406,240 @@ void JitCompiler::CreateRegisters()
 	regA.Resize(sfunc->NumRegA);
 	regS.Resize(sfunc->NumRegS);
 
+	FString regname;
+	IRValue* arraySize = ircontext->getConstantInt(1);
+
 	for (int i = 0; i < sfunc->NumRegD; i++)
 	{
 		regname.Format("regD%d", i);
-		regD[i] = cc.newInt32(regname.GetChars());
+		regD[i] = irfunc->createAlloca(int32Ty, arraySize, regname.GetChars());
 	}
 
 	for (int i = 0; i < sfunc->NumRegF; i++)
 	{
 		regname.Format("regF%d", i);
-		regF[i] = cc.newXmmSd(regname.GetChars());
+		regF[i] = irfunc->createAlloca(doubleTy, arraySize, regname.GetChars());
 	}
 
 	for (int i = 0; i < sfunc->NumRegS; i++)
 	{
 		regname.Format("regS%d", i);
-		regS[i] = cc.newIntPtr(regname.GetChars());
+		regS[i] = irfunc->createAlloca(int8PtrTy, arraySize, regname.GetChars());
 	}
 
 	for (int i = 0; i < sfunc->NumRegA; i++)
 	{
 		regname.Format("regA%d", i);
-		regA[i] = cc.newIntPtr(regname.GetChars());
+		regA[i] = irfunc->createAlloca(int8PtrTy, arraySize, regname.GetChars());
 	}
 }
 
 void JitCompiler::EmitNullPointerThrow(int index, EVMAbortException reason)
 {
-	auto label = EmitThrowExceptionLabel(reason);
-	cc.test(regA[index], regA[index]);
-	cc.je(label);
-}
-
-void JitCompiler::ThrowException(int reason)
-{
-	ThrowAbortException((EVMAbortException)reason, nullptr);
+	auto continuebb = irfunc->createBasicBlock({});
+	auto exceptionbb = EmitThrowExceptionLabel(reason);
+	cc.CreateCondBr(cc.CreateICmpEQ(LoadA(index), ConstValueA(nullptr)), exceptionbb, continuebb);
+	cc.SetInsertPoint(continuebb);
 }
 
 void JitCompiler::EmitThrowException(EVMAbortException reason)
 {
-	auto call = CreateCall<void, int>(&JitCompiler::ThrowException);
-	call->setArg(0, asmjit::imm(reason));
+	cc.CreateCall(throwException, { ConstValueD(reason) });
+	cc.CreateRet(ConstValueD(0));
 }
 
-asmjit::Label JitCompiler::EmitThrowExceptionLabel(EVMAbortException reason)
+IRBasicBlock* JitCompiler::EmitThrowExceptionLabel(EVMAbortException reason)
 {
-	auto label = cc.newLabel();
-	auto cursor = cc.getCursor();
-	cc.bind(label);
+	auto bb = irfunc->createBasicBlock({});
+	auto cursor = cc.GetInsertBlock();
+	cc.SetInsertPoint(bb);
 	EmitThrowException(reason);
-	cc.setCursor(cursor);
-
-	JitLineInfo info;
-	info.Label = label;
-	info.LineNumber = sfunc->PCToLine(pc);
-	LineInfo.Push(info);
-
-	return label;
-}
-
-asmjit::X86Gp JitCompiler::CheckRegD(int r0, int r1)
-{
-	if (r0 != r1)
-	{
-		return regD[r0];
-	}
-	else
-	{
-		auto copy = newTempInt32();
-		cc.mov(copy, regD[r0]);
-		return copy;
-	}
-}
-
-asmjit::X86Xmm JitCompiler::CheckRegF(int r0, int r1)
-{
-	if (r0 != r1)
-	{
-		return regF[r0];
-	}
-	else
-	{
-		auto copy = newTempXmmSd();
-		cc.movsd(copy, regF[r0]);
-		return copy;
-	}
-}
-
-asmjit::X86Xmm JitCompiler::CheckRegF(int r0, int r1, int r2)
-{
-	if (r0 != r1 && r0 != r2)
-	{
-		return regF[r0];
-	}
-	else
-	{
-		auto copy = newTempXmmSd();
-		cc.movsd(copy, regF[r0]);
-		return copy;
-	}
-}
-
-asmjit::X86Xmm JitCompiler::CheckRegF(int r0, int r1, int r2, int r3)
-{
-	if (r0 != r1 && r0 != r2 && r0 != r3)
-	{
-		return regF[r0];
-	}
-	else
-	{
-		auto copy = newTempXmmSd();
-		cc.movsd(copy, regF[r0]);
-		return copy;
-	}
-}
-
-asmjit::X86Xmm JitCompiler::CheckRegF(int r0, int r1, int r2, int r3, int r4)
-{
-	if (r0 != r1 && r0 != r2 && r0 != r3 && r0 != r4)
-	{
-		return regF[r0];
-	}
-	else
-	{
-		auto copy = newTempXmmSd();
-		cc.movsd(copy, regF[r0]);
-		return copy;
-	}
-}
-
-asmjit::X86Gp JitCompiler::CheckRegS(int r0, int r1)
-{
-	if (r0 != r1)
-	{
-		return regS[r0];
-	}
-	else
-	{
-		auto copy = newTempIntPtr();
-		cc.mov(copy, regS[r0]);
-		return copy;
-	}
-}
-
-asmjit::X86Gp JitCompiler::CheckRegA(int r0, int r1)
-{
-	if (r0 != r1)
-	{
-		return regA[r0];
-	}
-	else
-	{
-		auto copy = newTempIntPtr();
-		cc.mov(copy, regA[r0]);
-		return copy;
-	}
+	bb->code.front()->lineNumber = sfunc->PCToLine(pc);
+	cc.SetInsertPoint(cursor);
+	return bb;
 }
 
 void JitCompiler::EmitNOP()
 {
-	cc.nop();
+	// The IR doesn't have a NOP instruction
+}
+
+static void ValidateCall(DObject* o, VMFunction* f, int b)
+{
+	FScopeBarrier::ValidateCall(o->GetClass(), f, b - 1);
+}
+
+static void SetReturnString(VMReturn* ret, FString* str)
+{
+	ret->SetString(*str);
+}
+
+static VMFrameStack* CreateFullVMFrame(VMScriptFunction* func, VMValue* args, int numargs)
+{
+	VMFrameStack* stack = &GlobalVMStack;
+	VMFrame* newf = stack->AllocFrame(func);
+	VMFillParams(args, newf, numargs);
+	return stack;
+}
+
+static void PopFullVMFrame(VMFrameStack* vmframestack)
+{
+	vmframestack->PopFrame();
+}
+
+static void ThrowException(int reason)
+{
+	ThrowAbortException((EVMAbortException)reason, nullptr);
+}
+
+static void ThrowArrayOutOfBounds(int index, int size)
+{
+	if (index >= size)
+	{
+		ThrowAbortException(X_ARRAY_OUT_OF_BOUNDS, "Max.index = %u, current index = %u\n", size, index);
+	}
+	else
+	{
+		ThrowAbortException(X_ARRAY_OUT_OF_BOUNDS, "Negative current index = %i\n", index);
+	}
+}
+
+static DObject* ReadBarrier(DObject* p) { return GC::ReadBarrier(p); }
+static void WriteBarrier(DObject* p) { GC::WriteBarrier(p); }
+
+static void StringAssignmentOperator(FString* to, FString* from) { *to = *from; }
+static void StringAssignmentOperatorCStr(FString* to, char** from) { *to = *from; }
+static void StringPlusOperator(FString* to, FString* first, FString* second) { *to = *first + *second; }
+static int StringLength(FString* str) { return static_cast<int>(str->Len()); }
+static int StringCompareNoCase(FString* first, FString* second) { return first->CompareNoCase(*second); }
+static int StringCompare(FString* first, FString* second) { return first->Compare(*second); }
+
+static double DoubleModF(double a, double b) { return a - floor(a / b) * b; }
+static double DoublePow(double a, double b) { return g_pow(a, b); }
+static double DoubleAtan2(double a, double b) { return g_atan2(a, b); }
+static double DoubleFabs(double a) { return fabs(a); }
+static double DoubleExp(double a) { return g_exp(a); }
+static double DoubleLog(double a) { return g_log(a); }
+static double DoubleLog10(double a) { return g_log10(a); }
+static double DoubleSqrt(double a) { return g_sqrt(a); }
+static double DoubleCeil(double a) { return ceil(a); }
+static double DoubleFloor(double a) { return floor(a); }
+static double DoubleAcos(double a) { return g_acos(a); }
+static double DoubleAsin(double a) { return g_asin(a); }
+static double DoubleAtan(double a) { return g_atan(a); }
+static double DoubleCos(double a) { return g_cos(a); }
+static double DoubleSin(double a) { return g_sin(a); }
+static double DoubleTan(double a) { return g_tan(a); }
+static double DoubleCosDeg(double a) { return g_cosdeg(a); }
+static double DoubleSinDeg(double a) { return g_sindeg(a); }
+static double DoubleCosh(double a) { return g_cosh(a); }
+static double DoubleSinh(double a) { return g_sinh(a); }
+static double DoubleTanh(double a) { return g_tanh(a); }
+static double DoubleRound(double a) { return round(a); }
+
+static void CastI2S(FString* a, int b) { a->Format("%d", b); }
+static void CastU2S(FString* a, int b) { a->Format("%u", b); }
+static void CastF2S(FString* a, double b) { a->Format("%.5f", b); }
+static void CastV22S(FString* a, double b, double b1) { a->Format("(%.5f, %.5f)", b, b1); }
+static void CastV32S(FString* a, double b, double b1, double b2) { a->Format("(%.5f, %.5f, %.5f)", b, b1, b2); }
+static void CastV42S(FString* a, double b, double b1, double b2, double b3) { a->Format("(%.5f, %.5f, %.5f, %.5f)", b, b1, b2, b3); }
+static void CastP2S(FString* a, void* b) { if (b == nullptr) *a = "null"; else a->Format("%p", b); }
+static int CastS2I(FString* b) { return (int)b->ToLong(); }
+static double CastS2F(FString* b) { return b->ToDouble(); }
+static int CastS2N(FString* b) { return b->Len() == 0 ? NAME_None : FName(*b).GetIndex(); }
+static void CastN2S(FString* a, int b) { FName name = FName(ENamedName(b)); *a = name.IsValidName() ? name.GetChars() : ""; }
+static int CastS2Co(FString* b) { return V_GetColor(*b); }
+static void CastCo2S(FString* a, int b) { PalEntry c(b); a->Format("%02x %02x %02x", c.r, c.g, c.b); }
+static int CastS2So(FString* b) { return S_FindSound(*b).index(); }
+static void CastSo2S(FString* a, int b) { *a = soundEngine->GetSoundName(FSoundID::fromInt(b)); }
+static void CastSID2S(FString* a, unsigned int b) { VM_CastSpriteIDToString(a, b); }
+static void CastTID2S(FString* a, int b) { auto tex = TexMan.GetGameTexture(*(FTextureID*)&b); *a = (tex == nullptr) ? "(null)" : tex->GetName().GetChars(); }
+static int CastB_S(FString* s) { return s->Len() > 0; }
+
+static DObject* DynCast(DObject* obj, PClass* cls) { return (obj && obj->IsKindOf(cls)) ? obj : nullptr; }
+static PClass* DynCastC(PClass* cls1, PClass* cls2) { return (cls1 && cls1->IsDescendantOf(cls2)) ? cls1 : nullptr; }
+
+void JitCompiler::GetTypes()
+{
+	voidTy = ircontext->getVoidTy();
+	int8Ty = ircontext->getInt8Ty();
+	int8PtrTy = ircontext->getInt8PtrTy();
+	int8PtrPtrTy = int8PtrTy->getPointerTo(ircontext);
+	int16Ty = ircontext->getInt16Ty();
+	int16PtrTy = ircontext->getInt16PtrTy();
+	int32Ty = ircontext->getInt32Ty();
+	int32PtrTy = ircontext->getInt32PtrTy();
+	int64Ty = ircontext->getInt64Ty();
+	floatTy = ircontext->getFloatTy();
+	floatPtrTy = ircontext->getFloatPtrTy();
+	doubleTy = ircontext->getDoubleTy();
+	doublePtrTy = ircontext->getDoublePtrTy();
+}
+
+void JitCompiler::CreateNativeFunctions()
+{
+	validateCall = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy, int32Ty }, "__ValidateCall", ValidateCall);
+	setReturnString = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__SetReturnString", SetReturnString);
+	createFullVMFrame = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy, int32Ty }, "__CreateFullVMFrame", CreateFullVMFrame);
+	popFullVMFrame = CreateNativeFunction(voidTy, { int8PtrTy }, "__PopFullVMFrame", PopFullVMFrame);
+	throwException = CreateNativeFunction(voidTy, { int32Ty }, "__ThrowException", ThrowException);
+	throwArrayOutOfBounds = CreateNativeFunction(voidTy, { int32Ty, int32Ty }, "__ThrowArrayOutOfBounds", ThrowArrayOutOfBounds);
+	stringAssignmentOperator = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__StringAssignmentOperator", StringAssignmentOperator);
+	stringAssignmentOperatorCStr = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__StringAssignmentOperatorCStr", StringAssignmentOperatorCStr);
+	stringPlusOperator = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy, int8PtrTy }, "__StringPlusOperator", StringPlusOperator);
+	stringCompare = CreateNativeFunction(int32Ty, { int8PtrTy, int8PtrTy }, "__StringCompare", StringCompare);
+	stringCompareNoCase = CreateNativeFunction(int32Ty, { int8PtrTy, int8PtrTy }, "__StringCompareNoCase", StringCompareNoCase);
+	stringLength = CreateNativeFunction(int32Ty, { int8PtrTy }, "__StringLength", StringLength);
+	readBarrier = CreateNativeFunction(int8PtrTy, { int8PtrTy }, "__ReadBarrier", ReadBarrier);
+	writeBarrier = CreateNativeFunction(voidTy, { int8PtrTy }, "__WriteBarrier", WriteBarrier);
+	doubleModF = CreateNativeFunction(doubleTy, { doubleTy, doubleTy }, "__DoubleModF", DoubleModF);
+	doublePow = CreateNativeFunction(doubleTy, { doubleTy, doubleTy }, "__DoublePow", DoublePow);
+	doubleAtan2 = CreateNativeFunction(doubleTy, { doubleTy, doubleTy }, "__DoubleAtan2", DoubleAtan2);
+	doubleFabs = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleFabs", DoubleFabs);
+	doubleExp = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleExp", DoubleExp);
+	doubleLog = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleLog", DoubleLog);
+	doubleLog10 = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleLog10", DoubleLog10);
+	doubleSqrt = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleSqrt", DoubleSqrt);
+	doubleCeil = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleCeil", DoubleCeil);
+	doubleFloor = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleFloor", DoubleFloor);
+	doubleAcos = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleAcos", DoubleAcos);
+	doubleAsin = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleAsin", DoubleAsin);
+	doubleAtan = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleAtan", DoubleAtan);
+	doubleCos = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleCos", DoubleCos);
+	doubleSin = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleSin", DoubleSin);
+	doubleTan = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleTan", DoubleTan);
+	doubleCosDeg = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleCosDeg", DoubleCosDeg);
+	doubleSinDeg = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleSinDeg", DoubleSinDeg);
+	doubleCosh = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleCosh", DoubleCosh);
+	doubleSinh = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleSinh", DoubleSinh);
+	doubleTanh = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleTanh", DoubleTanh);
+	doubleRound = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleRound", DoubleRound);
+	castI2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastI2S", CastI2S);
+	castU2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastU2S", CastU2S);
+	castF2S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy }, "__CastF2S", CastF2S);
+	castV22S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy }, "__CastV22S", CastV22S);
+	castV32S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy, doubleTy }, "__CastV32S", CastV32S);
+	castV42S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__CastV42S", CastV42S);
+	castP2S = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__CastP2S", CastP2S);
+	castS2I = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2I", CastS2I);
+	castS2F = CreateNativeFunction(doubleTy, { int8PtrTy }, "__CastS2F", CastS2F);
+	castS2N = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2N", CastS2N);
+	castN2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastN2S", CastN2S);
+	castS2Co = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2Co", CastS2Co);
+	castCo2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastCo2S", CastCo2S);
+	castS2So = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2So", CastS2So);
+	castSo2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastSo2S", CastSo2S);
+	castSID2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastSID2S", CastSID2S);
+	castTID2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastTID2S", CastTID2S);
+	castB_S = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastB_S", CastB_S);
+	dynCast = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy }, "__DynCast", DynCast);
+	dynCastC = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy }, "__DynCastC", DynCastC);
+}
+
+IRFunction* JitCompiler::CreateNativeFunction(IRType* returnType, std::vector<IRType*> args, const char* name, void* ptr)
+{
+	IRFunctionType* functype = ircontext->getFunctionType(returnType, args);
+	IRFunction* func = ircontext->createFunction(functype, name);
+	ircontext->addGlobalMapping(func, ptr);
+	return func;
 }

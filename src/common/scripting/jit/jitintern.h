@@ -4,14 +4,10 @@
 #include "types.h"
 #include "stats.h"
 
-// To do: get cmake to define these..
-#define ASMJIT_BUILD_EMBED
-#define ASMJIT_STATIC
-
-#include <asmjit/asmjit.h>
-#include <asmjit/x86.h>
 #include <functional>
 #include <vector>
+
+#include <dragonbook.h>
 
 extern cycle_t VMCycles[10];
 extern int VMCalls[10];
@@ -25,22 +21,18 @@ extern int VMCalls[10];
 #define ABCs			(pc[0].i24)
 #define JMPOFS(x)		((x)->i24)
 
-struct JitLineInfo
+struct JitLabel
 {
-	ptrdiff_t InstructionIndex = 0;
-	int32_t LineNumber = -1;
-	asmjit::Label Label;
+	IRBasicBlock* block = nullptr;
+	size_t index = 0;
 };
 
 class JitCompiler
 {
 public:
-	JitCompiler(asmjit::CodeHolder *code, VMScriptFunction *sfunc) : cc(code), sfunc(sfunc) { }
+	JitCompiler(IRContext* ircontext, VMScriptFunction* sfunc) : ircontext(ircontext), sfunc(sfunc) { }
 
-	asmjit::CCFunc *Codegen();
-	VMScriptFunction *GetScriptFunction() { return sfunc; }
-
-	TArray<JitLineInfo> LineInfo;
+	IRFunction* Codegen();
 
 private:
 	// Declare EmitXX functions for the opcodes:
@@ -48,7 +40,22 @@ private:
 	#include "vmops.h"
 	#undef xx
 
-	asmjit::FuncSignature CreateFuncSignature();
+	IRBasicBlock* GetLabel(size_t pos);
+
+	void EmitNativeCall(VMNativeFunction* target);
+	void EmitVMCall(IRValue* ptr, VMFunction* target);
+	void EmitVtbl(const VMOP* op);
+	int StoreCallParams();
+	void LoadInOuts();
+	void LoadReturns(const VMOP* retval, int numret);
+	void FillReturns(const VMOP* retval, int numret);
+	void LoadCallResult(int type, int regnum, bool addrof);
+
+	void EmitReadBarrier();
+
+	void EmitNullPointerThrow(int index, EVMAbortException reason);
+	void EmitThrowException(EVMAbortException reason);
+	IRBasicBlock* EmitThrowExceptionLabel(EVMAbortException reason);
 
 	void Setup();
 	void CreateRegisters();
@@ -56,302 +63,179 @@ private:
 	void SetupFrame();
 	void SetupSimpleFrame();
 	void SetupFullVMFrame();
-	void BindLabels();
 	void EmitOpcode();
 	void EmitPopFrame();
 
-	void EmitNativeCall(VMNativeFunction *target);
-	void EmitVMCall(asmjit::X86Gp ptr, VMFunction *target);
-	void EmitVtbl(const VMOP *op);
+	void CheckVMFrame();
+	IRValue* GetCallReturns();
 
-	int StoreCallParams();
-	void LoadInOuts();
-	void LoadReturns(const VMOP *retval, int numret);
-	void FillReturns(const VMOP *retval, int numret);
-	void LoadCallResult(int type, int regnum, bool addrof);
+	IRFunctionType* GetFuncSignature();
+
+	void GetTypes();
+	void CreateNativeFunctions();
+	IRFunction* CreateNativeFunction(IRType* returnType, std::vector<IRType*> args, const char* name, void* ptr);
 
 	template <typename Func>
 	void EmitComparisonOpcode(Func jmpFunc)
 	{
-		using namespace asmjit;
-
 		int i = (int)(ptrdiff_t)(pc - sfunc->Code);
-
-		auto successLabel = cc.newLabel();
-
-		auto failLabel = GetLabel(i + 2 + JMPOFS(pc + 1));
-
-		jmpFunc(static_cast<bool>(A & CMP_CHECK), failLabel, successLabel);
-
-		cc.bind(successLabel);
+		IRBasicBlock* successbb = irfunc->createBasicBlock({});
+		IRBasicBlock* failbb = GetLabel(i + 2 + JMPOFS(pc + 1));
+		IRValue* result = jmpFunc(static_cast<bool>(A & CMP_CHECK));
+		cc.CreateCondBr(result, failbb, successbb);
+		cc.SetInsertPoint(successbb);
 		pc++; // This instruction uses two instruction slots - skip the next one
 	}
 
-	template<int N>
-	void EmitVectorComparison(bool check, asmjit::Label& fail, asmjit::Label& success)
-	{
-		bool approx = static_cast<bool>(A & CMP_APPROX);
-		if (!approx)
-		{
-			for (int i = 0; i < N; i++)
-			{
-				cc.ucomisd(regF[B + i], regF[C + i]);
-				if (check)
-				{
-					cc.jp(success);
-					if (i == (N - 1))
-					{
-						cc.je(fail);
-					}
-					else
-					{
-						cc.jne(success);
-					}
-				}
-				else
-				{
-					cc.jp(fail);
-					cc.jne(fail);
-				}
-			}
-		}
-		else
-		{
-			auto tmp = newTempXmmSd();
+	IRValue* EmitVectorComparison(int N, bool check);
 
-			const int64_t absMaskInt = 0x7FFFFFFFFFFFFFFF;
-			auto absMask = cc.newDoubleConst(asmjit::kConstScopeLocal, reinterpret_cast<const double&>(absMaskInt));
-			auto absMaskXmm = newTempXmmPd();
+	IRValue* LoadD(int index) { return cc.CreateLoad(regD[index]); }
+	IRValue* LoadF(int index) { return cc.CreateLoad(regF[index]); }
+	IRValue* LoadA(int index) { return cc.CreateLoad(regA[index]); }
+	IRValue* LoadS(int index) { return cc.CreateLoad(regS[index]); }
+	IRValue* ConstD(int index) { return ircontext->getConstantInt(konstd[index]); }
+	IRValue* ConstF(int index) { return ircontext->getConstantFloat(doubleTy, konstf[index]); }
+	IRValue* ConstA(int index) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)konsta[index].v); }
+	IRValue* ConstS(int index) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)&konsts[index]); }
+	IRValue* ConstValueD(int value) { return ircontext->getConstantInt(value); }
+	IRValue* ConstValueF(double value) { return ircontext->getConstantFloat(doubleTy, value); }
+	IRValue* ConstValueA(void* value) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)value); }
+	IRValue* ConstValueS(void* value) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)value); }
+	void StoreD(IRValue* value, int index) { cc.CreateStore(value, regD[index]); }
+	void StoreF(IRValue* value, int index) { cc.CreateStore(value, regF[index]); }
+	void StoreA(IRValue* value, int index) { cc.CreateStore(value, regA[index]); }
+	void StoreS(IRValue* value, int index) { cc.CreateStore(value, regS[index]); }
 
-			auto epsilon = cc.newDoubleConst(asmjit::kConstScopeLocal, VM_EPSILON);
-			auto epsilonXmm = newTempXmmSd();
+	IRValue* OffsetPtr(IRValue* ptr, IRValue* offset) { return cc.CreateGEP(ptr, { offset }); }
+	IRValue* OffsetPtr(IRValue* ptr, int offset) { return cc.CreateGEP(ptr, { ircontext->getConstantInt(offset) }); }
+	IRValue* ToInt8Ptr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int8PtrTy); }
+	IRValue* ToInt8Ptr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int8PtrTy); }
+	IRValue* ToInt16Ptr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int16PtrTy); }
+	IRValue* ToInt32Ptr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int32PtrTy); }
+	IRValue* ToInt32Ptr(IRValue* ptr) { return cc.CreateBitCast(ptr, int32PtrTy); }
+	IRValue* ToInt32Ptr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int32PtrTy); }
+	IRValue* ToFloatPtr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), floatPtrTy); }
+	IRValue* ToDoublePtr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), doublePtrTy); }
+	IRValue* ToDoublePtr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), doublePtrTy); }
+	IRValue* ToDoublePtr(IRValue* ptr) { return cc.CreateBitCast(ptr, doublePtrTy); }
+	IRValue* ToInt8PtrPtr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int8PtrPtrTy); }
+	IRValue* ToInt8PtrPtr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int8PtrPtrTy); }
+	IRValue* ToInt8PtrPtr(IRValue* ptr) { return cc.CreateBitCast(ptr, int8PtrPtrTy); }
+	IRValue* Trunc8(IRValue* value) { return cc.CreateTrunc(value, int8Ty); }
+	IRValue* Trunc16(IRValue* value) { return cc.CreateTrunc(value, int16Ty); }
+	IRValue* FPTrunc(IRValue* value) { return cc.CreateFPTrunc(value, floatTy); }
+	IRValue* ZExt(IRValue* value) { return cc.CreateZExt(value, int32Ty); }
+	IRValue* SExt(IRValue* value) { return cc.CreateSExt(value, int32Ty); }
+	IRValue* FPExt(IRValue* value) { return cc.CreateFPExt(value, doubleTy); }
+	void Store(IRValue* value, IRValue* ptr) { cc.CreateStore(value, ptr); }
+	IRValue* Load(IRValue* ptr) { return cc.CreateLoad(ptr); }
 
-			for (int i = 0; i < N; i++)
-			{
-				cc.movsd(tmp, regF[B + i]);
-				cc.subsd(tmp, regF[C + i]);
-				cc.movsd(absMaskXmm, absMask);
-				cc.andpd(tmp, absMaskXmm);
-				cc.movsd(epsilonXmm, epsilon);
-				cc.ucomisd(epsilonXmm, tmp);
+	VMScriptFunction* sfunc = nullptr;
 
-				if (check)
-				{
-					cc.jp(success);
-					if (i == (N - 1))
-					{
-						cc.ja(fail);
-					}
-					else
-					{
-						cc.jna(success);
-					}
-				}
-				else
-				{
-					cc.jp(fail);
-					cc.jna(fail);
-				}
-			}
-		}
-	}
+	IRContext* ircontext = nullptr;
+	IRFunction* irfunc = nullptr;
+	IRBuilder cc;
 
-	static uint64_t ToMemAddress(const void *d)
-	{
-		return (uint64_t)(ptrdiff_t)d;
-	}
+	IRValue* args = nullptr;
+	IRValue* numargs = nullptr;
+	IRValue* ret = nullptr;
+	IRValue* numret = nullptr;
 
-	void CallSqrt(const asmjit::X86Xmm &a, const asmjit::X86Xmm &b);
+	const int* konstd = nullptr;
+	const double* konstf = nullptr;
+	const FString* konsts = nullptr;
+	const FVoidObj* konsta = nullptr;
 
-	static void CallAssignString(FString* to, FString* from) {
-		*to = *from;
-	}
+	TArray<IRValue*> regD;
+	TArray<IRValue*> regF;
+	TArray<IRValue*> regA;
+	TArray<IRValue*> regS;
 
-	template<typename RetType, typename P1>
-	asmjit::CCFuncCall *CreateCall(RetType(*func)(P1 p1)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1)>(func))), asmjit::FuncSignature1<RetType, P1>()); }
+	const VMOP* pc = nullptr;
+	VM_UBYTE op = 0;
 
-	template<typename RetType, typename P1, typename P2>
-	asmjit::CCFuncCall *CreateCall(RetType(*func)(P1 p1, P2 p2)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2)>(func))), asmjit::FuncSignature2<RetType, P1, P2>()); }
+	TArray<const VMOP*> ParamOpcodes;
+	IRValue* callReturns = nullptr;
 
-	template<typename RetType, typename P1, typename P2, typename P3>
-	asmjit::CCFuncCall *CreateCall(RetType(*func)(P1 p1, P2 p2, P3 p3)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2, P3)>(func))), asmjit::FuncSignature3<RetType, P1, P2, P3>()); }
+	IRValue* vmframestack = nullptr;
+	IRValue* vmframe = nullptr;
+	int offsetParams = 0;
+	int offsetF = 0;
+	int offsetS = 0;
+	int offsetA = 0;
+	int offsetD = 0;
+	int offsetExtra = 0;
 
-	template<typename RetType, typename P1, typename P2, typename P3, typename P4>
-	asmjit::CCFuncCall *CreateCall(RetType(*func)(P1 p1, P2 p2, P3 p3, P4 p4)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2, P3, P4)>(func))), asmjit::FuncSignature4<RetType, P1, P2, P3, P4>()); }
+	TArray<JitLabel> labels;
 
-	template<typename RetType, typename P1, typename P2, typename P3, typename P4, typename P5>
-	asmjit::CCFuncCall *CreateCall(RetType(*func)(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2, P3, P4, P5)>(func))), asmjit::FuncSignature5<RetType, P1, P2, P3, P4, P5>()); }
+	IRType* voidTy = nullptr;
+	IRType* int8Ty = nullptr;
+	IRType* int8PtrTy = nullptr;
+	IRType* int8PtrPtrTy = nullptr;
+	IRType* int16Ty = nullptr;
+	IRType* int16PtrTy = nullptr;
+	IRType* int32Ty = nullptr;
+	IRType* int32PtrTy = nullptr;
+	IRType* int64Ty = nullptr;
+	IRType* floatTy = nullptr;
+	IRType* floatPtrTy = nullptr;
+	IRType* doubleTy = nullptr;
+	IRType* doublePtrTy = nullptr;
 
-	template<typename RetType, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6>
-	asmjit::CCFuncCall *CreateCall(RetType(*func)(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2, P3, P4, P5, P6)>(func))), asmjit::FuncSignature6<RetType, P1, P2, P3, P4, P5, P6>()); }
-
-	template<typename RetType, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7>
-	asmjit::CCFuncCall* CreateCall(RetType(*func)(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6, P7 p7)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2, P3, P4, P5, P6, P7)>(func))), asmjit::FuncSignature7<RetType, P1, P2, P3, P4, P5, P6, P7>()); }
-
-	template<typename RetType, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8>
-	asmjit::CCFuncCall* CreateCall(RetType(*func)(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6, P7 p7, P8 p8)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2, P3, P4, P5, P6, P7, P8)>(func))), asmjit::FuncSignature8<RetType, P1, P2, P3, P4, P5, P6, P7, P8>()); }
-
-	template<typename RetType, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9>
-	asmjit::CCFuncCall* CreateCall(RetType(*func)(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6, P7 p7, P8 p8, P9 p9)) { return cc.call(asmjit::imm_ptr(reinterpret_cast<void*>(static_cast<RetType(*)(P1, P2, P3, P4, P5, P6, P7, P8, P9)>(func))), asmjit::FuncSignature9<RetType, P1, P2, P3, P4, P5, P6, P7, P8, P9>()); }
-
-	FString regname;
-	size_t tmpPosInt32, tmpPosInt64, tmpPosIntPtr, tmpPosXmmSd, tmpPosXmmSs, tmpPosXmmPd, resultPosInt32, resultPosIntPtr, resultPosXmmSd;
-	std::vector<asmjit::X86Gp> regTmpInt32, regTmpInt64, regTmpIntPtr, regResultInt32, regResultIntPtr;
-	std::vector<asmjit::X86Xmm> regTmpXmmSd, regTmpXmmSs, regTmpXmmPd, regResultXmmSd;
-
-	void ResetTemp()
-	{
-		tmpPosInt32 = 0;
-		tmpPosInt64 = 0;
-		tmpPosIntPtr = 0;
-		tmpPosXmmSd = 0;
-		tmpPosXmmSs = 0;
-		tmpPosXmmPd = 0;
-		resultPosInt32 = 0;
-		resultPosIntPtr = 0;
-		resultPosXmmSd = 0;
-	}
-
-	template<typename T, typename NewFunc>
-	T newTempRegister(std::vector<T> &tmpVector, size_t &tmpPos, const char *name, NewFunc newCallback)
-	{
-		if (tmpPos == tmpVector.size())
-		{
-			regname.Format("%s%d", name, (int)tmpVector.size());
-			tmpVector.push_back(newCallback(regname.GetChars()));
-		}
-		return tmpVector[tmpPos++];
-	}
-
-	asmjit::X86Gp newTempInt32() { return newTempRegister(regTmpInt32, tmpPosInt32, "tmpDword", [&](const char *name) { return cc.newInt32(name); }); }
-	asmjit::X86Gp newTempInt64() { return newTempRegister(regTmpInt64, tmpPosInt64, "tmpQword", [&](const char *name) { return cc.newInt64(name); }); }
-	asmjit::X86Gp newTempIntPtr() { return newTempRegister(regTmpIntPtr, tmpPosIntPtr, "tmpPtr", [&](const char *name) { return cc.newIntPtr(name); }); }
-	asmjit::X86Xmm newTempXmmSd() { return newTempRegister(regTmpXmmSd, tmpPosXmmSd, "tmpXmmSd", [&](const char *name) { return cc.newXmmSd(name); }); }
-	asmjit::X86Xmm newTempXmmSs() { return newTempRegister(regTmpXmmSs, tmpPosXmmSs, "tmpXmmSs", [&](const char *name) { return cc.newXmmSs(name); }); }
-	asmjit::X86Xmm newTempXmmPd() { return newTempRegister(regTmpXmmPd, tmpPosXmmPd, "tmpXmmPd", [&](const char *name) { return cc.newXmmPd(name); }); }
-
-	asmjit::X86Gp newResultInt32() { return newTempRegister(regResultInt32, resultPosInt32, "resultDword", [&](const char *name) { return cc.newInt32(name); }); }
-	asmjit::X86Gp newResultIntPtr() { return newTempRegister(regResultIntPtr, resultPosIntPtr, "resultPtr", [&](const char *name) { return cc.newIntPtr(name); }); }
-	asmjit::X86Xmm newResultXmmSd() { return newTempRegister(regResultXmmSd, resultPosXmmSd, "resultXmmSd", [&](const char *name) { return cc.newXmmSd(name); }); }
-
-	void EmitReadBarrier();
-
-	void EmitNullPointerThrow(int index, EVMAbortException reason);
-	void EmitThrowException(EVMAbortException reason);
-	asmjit::Label EmitThrowExceptionLabel(EVMAbortException reason);
-
-	static void ThrowArrayOutOfBounds(int index, int size);
-	static void ThrowException(int reason);
-
-	asmjit::X86Gp CheckRegD(int r0, int r1);
-	asmjit::X86Xmm CheckRegF(int r0, int r1);
-	asmjit::X86Xmm CheckRegF(int r0, int r1, int r2);
-	asmjit::X86Xmm CheckRegF(int r0, int r1, int r2, int r3);
-	asmjit::X86Xmm CheckRegF(int r0, int r1, int r2, int r3, int r4);
-	asmjit::X86Gp CheckRegS(int r0, int r1);
-	asmjit::X86Gp CheckRegA(int r0, int r1);
-
-	asmjit::X86Compiler cc;
-	VMScriptFunction *sfunc;
-
-	asmjit::CCFunc *func = nullptr;
-	asmjit::X86Gp args;
-	asmjit::X86Gp numargs;
-	asmjit::X86Gp ret;
-	asmjit::X86Gp numret;
-	asmjit::X86Gp stack;
-
-	int offsetParams;
-	int offsetF;
-	int offsetS;
-	int offsetA;
-	int offsetD;
-	int offsetExtra;
-
-	TArray<const VMOP *> ParamOpcodes;
-
-	void CheckVMFrame();
-	asmjit::X86Gp GetCallReturns();
-
-	bool vmframeAllocated = false;
-	asmjit::CBNode *vmframeCursor = nullptr;
-	asmjit::X86Gp vmframe;
-
-	bool callReturnsAllocated = false;
-	asmjit::CBNode *callReturnsCursor = nullptr;
-	asmjit::X86Gp callReturns;
-
-	const int *konstd;
-	const double *konstf;
-	const FString *konsts;
-	const FVoidObj *konsta;
-
-	TArray<asmjit::X86Gp> regD;
-	TArray<asmjit::X86Xmm> regF;
-	TArray<asmjit::X86Gp> regA;
-	TArray<asmjit::X86Gp> regS;
-
-	struct OpcodeLabel
-	{
-		asmjit::CBNode *cursor = nullptr;
-		asmjit::Label label;
-		bool inUse = false;
-	};
-
-	asmjit::Label GetLabel(size_t pos)
-	{
-		auto &label = labels[pos];
-		if (!label.inUse)
-		{
-			label.label = cc.newLabel();
-			label.inUse = true;
-		}
-		return label.label;
-	}
-
-	TArray<OpcodeLabel> labels;
-
-	// Get temporary storage enough for DVector4 which is required by operation such as MULQQ and MULQV3
-	bool vectorStackAllocated = false;
-	asmjit::X86Mem vectorStack;
-	asmjit::X86Mem GetTemporaryVectorStackStorage()
-	{
-		if (!vectorStackAllocated)
-		{
-			vectorStack = cc.newStack(sizeof(DVector4), alignof(DVector4), "tmpDVector4");
-			vectorStackAllocated = true;
-		}
-		return vectorStack;
-	}
-
-	const VMOP *pc;
-	VM_UBYTE op;
+	IRFunction* validateCall = nullptr;
+	IRFunction* setReturnString = nullptr;
+	IRFunction* createFullVMFrame = nullptr;
+	IRFunction* popFullVMFrame = nullptr;
+	IRFunction* throwException = nullptr;
+	IRFunction* throwArrayOutOfBounds = nullptr;
+	IRFunction* stringAssignmentOperator = nullptr;
+	IRFunction* stringAssignmentOperatorCStr = nullptr;
+	IRFunction* stringPlusOperator = nullptr;
+	IRFunction* stringCompare = nullptr;
+	IRFunction* stringCompareNoCase = nullptr;
+	IRFunction* stringLength = nullptr;
+	IRFunction* readBarrier = nullptr;
+	IRFunction* writeBarrier = nullptr;
+	IRFunction* doubleModF = nullptr;
+	IRFunction* doublePow = nullptr;
+	IRFunction* doubleAtan2 = nullptr;
+	IRFunction* doubleFabs = nullptr;
+	IRFunction* doubleExp = nullptr;
+	IRFunction* doubleLog = nullptr;
+	IRFunction* doubleLog10 = nullptr;
+	IRFunction* doubleSqrt = nullptr;
+	IRFunction* doubleCeil = nullptr;
+	IRFunction* doubleFloor = nullptr;
+	IRFunction* doubleAcos = nullptr;
+	IRFunction* doubleAsin = nullptr;
+	IRFunction* doubleAtan = nullptr;
+	IRFunction* doubleCos = nullptr;
+	IRFunction* doubleSin = nullptr;
+	IRFunction* doubleTan = nullptr;
+	IRFunction* doubleCosDeg = nullptr;
+	IRFunction* doubleSinDeg = nullptr;
+	IRFunction* doubleCosh = nullptr;
+	IRFunction* doubleSinh = nullptr;
+	IRFunction* doubleTanh = nullptr;
+	IRFunction* doubleRound = nullptr;
+	IRFunction* castI2S = nullptr;
+	IRFunction* castU2S = nullptr;
+	IRFunction* castF2S = nullptr;
+	IRFunction* castV22S = nullptr;
+	IRFunction* castV32S = nullptr;
+	IRFunction* castV42S = nullptr;
+	IRFunction* castP2S = nullptr;
+	IRFunction* castS2I = nullptr;
+	IRFunction* castS2F = nullptr;
+	IRFunction* castS2N = nullptr;
+	IRFunction* castN2S = nullptr;
+	IRFunction* castS2Co = nullptr;
+	IRFunction* castCo2S = nullptr;
+	IRFunction* castS2So = nullptr;
+	IRFunction* castSo2S = nullptr;
+	IRFunction* castSID2S = nullptr;
+	IRFunction* castTID2S = nullptr;
+	IRFunction* castB_S = nullptr;
+	IRFunction* dynCast = nullptr;
+	IRFunction* dynCastC = nullptr;
 };
-
-class AsmJitException : public std::exception
-{
-public:
-	AsmJitException(asmjit::Error error, const char *message) noexcept : error(error), message(message)
-	{
-	}
-
-	const char* what() const noexcept override
-	{
-		return message.GetChars();
-	}
-
-	asmjit::Error error;
-	FString message;
-};
-
-class ThrowingErrorHandler : public asmjit::ErrorHandler
-{
-public:
-	bool handleError(asmjit::Error err, const char *message, asmjit::CodeEmitter *origin) override
-	{
-		throw AsmJitException(err, message);
-	}
-};
-
-void *AddJitFunction(asmjit::CodeHolder* code, JitCompiler *compiler);
-asmjit::CodeInfo GetHostCodeInfo();
