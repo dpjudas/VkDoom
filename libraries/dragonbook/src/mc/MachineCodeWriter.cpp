@@ -309,12 +309,12 @@ void MachineCodeWriter::mov8(MachineInst* inst)
 
 void MachineCodeWriter::movsx8_16(MachineInst* inst)
 {
-	emitInstRM(OpFlags::SizeOverride, { 0x0f, 0xbe }, inst);
+	emitInstRM(OpFlags::Rex | OpFlags::SizeOverride, { 0x0f, 0xbe }, inst);
 }
 
 void MachineCodeWriter::movsx8_32(MachineInst* inst)
 {
-	emitInstRM(0, { 0x0f, 0xbe }, inst);
+	emitInstRM(OpFlags::Rex, { 0x0f, 0xbe }, inst);
 }
 
 void MachineCodeWriter::movsx8_64(MachineInst* inst)
@@ -339,12 +339,12 @@ void MachineCodeWriter::movsx32_64(MachineInst* inst)
 
 void MachineCodeWriter::movzx8_16(MachineInst* inst)
 {
-	emitInstRM(OpFlags::RexW | OpFlags::SizeOverride, { 0x0f, 0xb6 }, inst);
+	emitInstRM(OpFlags::Rex | OpFlags::SizeOverride, { 0x0f, 0xb6 }, inst);
 }
 
 void MachineCodeWriter::movzx8_32(MachineInst* inst)
 {
-	emitInstRM(OpFlags::RexW, { 0x0f, 0xb6 }, inst);
+	emitInstRM(OpFlags::Rex, { 0x0f, 0xb6 }, inst);
 }
 
 void MachineCodeWriter::movzx8_64(MachineInst* inst)
@@ -354,7 +354,7 @@ void MachineCodeWriter::movzx8_64(MachineInst* inst)
 
 void MachineCodeWriter::movzx16_32(MachineInst* inst)
 {
-	emitInstRM(OpFlags::RexW, { 0x0f, 0xb7 }, inst);
+	emitInstRM(0, { 0x0f, 0xb7 }, inst);
 }
 
 void MachineCodeWriter::movzx16_64(MachineInst* inst)
@@ -643,7 +643,7 @@ void MachineCodeWriter::or8(MachineInst* inst)
 	if (inst->operands[1].type == MachineOperandType::imm)
 		emitInstMI(OpFlags::Rex, 0x80, 1, 8, inst);
 	else
-		emitInstRM(OpFlags::Rex, 0x0b, inst);
+		emitInstRM(OpFlags::Rex, 0x0a, inst);
 }
 
 void MachineCodeWriter::xorpd(MachineInst* inst)
@@ -725,7 +725,7 @@ void MachineCodeWriter::imul16(MachineInst* inst)
 void MachineCodeWriter::imul8(MachineInst* inst)
 {
 	// Doesn't have an immediate multiply. AX <- AL * r/m byte
-	emitInstM(0, 0xf6, 5, inst);
+	emitInstM(OpFlags::Rex, 0xf6, 5, inst);
 }
 
 void MachineCodeWriter::divss(MachineInst* inst)

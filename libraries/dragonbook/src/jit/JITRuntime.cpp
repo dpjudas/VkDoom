@@ -343,7 +343,7 @@ void* JITRuntime::allocJitMemory(size_t size)
 	}
 	else
 	{
-		size_t allocSize = 1024 * 1024;
+		size_t allocSize = size > 1024 * 1024 ? size : 1024 * 1024;
 		void* base = virtualAlloc(allocSize);
 		if (!base)
 			throw std::runtime_error("VirtualAllocEx failed");

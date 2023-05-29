@@ -6,6 +6,7 @@ class MachineInstSelection : IRInstVisitor
 {
 public:
 	static MachineFunction *codegen(IRFunction* function);
+	static MachineFunction* dumpinstructions(IRFunction* function);
 
 private:
 	MachineInstSelection(IRFunction* sfunc) : context(sfunc->context), sfunc(sfunc) { }

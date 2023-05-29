@@ -870,7 +870,19 @@ void MachineInstSelection::simpleCompareInst(IRInstBinary* node, MachineInstOpco
 	auto dst = newReg(node);
 
 	// Perform comparison
-	emitInst(cmpOps[dataSizeType], src1, node->operand2, dataSizeType);
+
+	// 64 bit constants needs to be moved into a register first
+	bool needs64BitImm = (dataSizeType == 2) && isConstantInt(node->operand2) && (getConstantValueInt(node->operand2) < -0x7fffffff || getConstantValueInt(node->operand2) > 0x7fffffff);
+	if (needs64BitImm)
+	{
+		auto immreg = newTempReg(MachineRegClass::gp);
+		emitInst(movOps[dataSizeType], immreg, node->operand2, dataSizeType);
+		emitInst(cmpOps[dataSizeType], src1, immreg);
+	}
+	else
+	{
+		emitInst(cmpOps[dataSizeType], src1, node->operand2, dataSizeType);
+	}
 
 	// Move result flag to register
 	emitInst(opSet, dst);
@@ -887,7 +899,19 @@ void MachineInstSelection::simpleBinaryInst(IRInstBinary* node, const MachineIns
 	emitInst(movOps[dataSizeType], dst, node->operand1, dataSizeType);
 
 	// Apply operand2 to dest
-	emitInst(binaryOps[dataSizeType], dst, node->operand2, dataSizeType);
+
+	// 64 bit constants needs to be moved into a register first
+	bool needs64BitImm = (dataSizeType == 2) && isConstantInt(node->operand2) && (getConstantValueInt(node->operand2) < -0x7fffffff || getConstantValueInt(node->operand2) > 0x7fffffff);
+	if (needs64BitImm)
+	{
+		auto immreg = newTempReg(MachineRegClass::gp);
+		emitInst(movOps[dataSizeType], immreg, node->operand2, dataSizeType);
+		emitInst(binaryOps[dataSizeType], dst, immreg);
+	}
+	else
+	{
+		emitInst(binaryOps[dataSizeType], dst, node->operand2, dataSizeType);
+	}
 }
 
 void MachineInstSelection::shiftBinaryInst(IRInstBinary* node, const MachineInstOpcode* binaryOps)
@@ -1197,4 +1221,227 @@ double MachineInstSelection::getConstantValueDouble(IRValue* value)
 		return static_cast<IRConstantFP*>(value)->value;
 	else
 		return 0.0;
+}
+
+MachineFunction* MachineInstSelection::dumpinstructions(IRFunction* sfunc)
+{
+	MachineInstSelection selection(sfunc);
+	selection.mfunc = sfunc->context->newMachineFunction(sfunc->name);
+	selection.mfunc->type = dynamic_cast<IRFunctionType*>(sfunc->type);
+	selection.mfunc->prolog = sfunc->context->newMachineBasicBlock();
+	selection.mfunc->epilog = sfunc->context->newMachineBasicBlock();
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // rax
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // rcx
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // rdx
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // rbx
+	selection.mfunc->registers.push_back(MachineRegClass::reserved); // rsp
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // rbp
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // rsi
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // rdi
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r8
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r9
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r10
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r11
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r12
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r13
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r14
+	selection.mfunc->registers.push_back(MachineRegClass::gp); // r15
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm0
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm1
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm2
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm3
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm4
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm5
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm6
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm7
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm8
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm9
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm10
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm11
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm12
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm13
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm14
+	selection.mfunc->registers.push_back(MachineRegClass::xmm); // xmm15
+	selection.mfunc->registers.resize((size_t)RegisterName::vregstart);
+
+	selection.findMaxCallArgsSize();
+
+	MachineBasicBlock* mbb = sfunc->context->newMachineBasicBlock();
+	selection.mfunc->basicBlocks.push_back(mbb);
+	selection.bb = mbb;
+
+	std::vector<RegisterName> gpRegs =
+	{
+		RegisterName::rax, RegisterName::rcx, RegisterName::rdx, RegisterName::rbx,
+		RegisterName::rsp, RegisterName::rbp, RegisterName::rsi, RegisterName::rdi,
+		RegisterName::r8, RegisterName::r9, RegisterName::r10, RegisterName::r11,
+		RegisterName::r12, RegisterName::r13, RegisterName::r14, RegisterName::r15
+	};
+
+	std::vector<RegisterName> xmmRegs =
+	{
+		RegisterName::xmm0, RegisterName::xmm1, RegisterName::xmm2, RegisterName::xmm3,
+		RegisterName::xmm4, RegisterName::xmm5, RegisterName::xmm6, RegisterName::xmm7,
+		RegisterName::xmm8, RegisterName::xmm9, RegisterName::xmm10, RegisterName::xmm11,
+		RegisterName::xmm12, RegisterName::xmm13, RegisterName::xmm14, RegisterName::xmm15
+	};
+
+	std::vector<MachineInstOpcode> intBinaryOps =
+	{
+		MachineInstOpcode::mov64, MachineInstOpcode::mov32, MachineInstOpcode::mov16, MachineInstOpcode::mov8,
+		MachineInstOpcode::add64, MachineInstOpcode::add32, MachineInstOpcode::add16, MachineInstOpcode::add8,
+		MachineInstOpcode::sub64, MachineInstOpcode::sub32, MachineInstOpcode::sub16, MachineInstOpcode::sub8,
+		MachineInstOpcode::and64, MachineInstOpcode::and32, MachineInstOpcode::and16, MachineInstOpcode::and8,
+		MachineInstOpcode::or64, MachineInstOpcode::or32, MachineInstOpcode::or16, MachineInstOpcode::or8,
+		MachineInstOpcode::xor64, MachineInstOpcode::xor32, MachineInstOpcode::xor16, MachineInstOpcode::xor8,
+		MachineInstOpcode::cmp64, MachineInstOpcode::cmp32, MachineInstOpcode::cmp16, MachineInstOpcode::cmp8,
+		MachineInstOpcode::imul64, MachineInstOpcode::imul32, MachineInstOpcode::imul16, MachineInstOpcode::imul8,
+	};
+
+	std::vector<MachineInstOpcode> intUnaryOps =
+	{
+		MachineInstOpcode::not64, MachineInstOpcode::not32, MachineInstOpcode::not16, MachineInstOpcode::not8,
+		MachineInstOpcode::neg64, MachineInstOpcode::neg32, MachineInstOpcode::neg16, MachineInstOpcode::neg8,
+		MachineInstOpcode::setl, MachineInstOpcode::setb, MachineInstOpcode::seta, MachineInstOpcode::setg,
+		MachineInstOpcode::setle, MachineInstOpcode::setbe, MachineInstOpcode::setae, MachineInstOpcode::setge,
+		MachineInstOpcode::sete, MachineInstOpcode::setne,
+	};
+
+	std::vector<MachineInstOpcode> intShiftOps =
+	{
+		MachineInstOpcode::shl64, MachineInstOpcode::shl32, MachineInstOpcode::shl16, MachineInstOpcode::shl8,
+		MachineInstOpcode::shr64, MachineInstOpcode::shr32, MachineInstOpcode::shr16, MachineInstOpcode::shr8,
+		MachineInstOpcode::sar64, MachineInstOpcode::sar32, MachineInstOpcode::sar16, MachineInstOpcode::sar8,
+	};
+
+	std::vector<MachineInstOpcode> intDivOps =
+	{
+		MachineInstOpcode::idiv64, MachineInstOpcode::idiv32, MachineInstOpcode::idiv16, MachineInstOpcode::idiv8,
+		MachineInstOpcode::div64, MachineInstOpcode::div32, MachineInstOpcode::div16, MachineInstOpcode::div8,
+	};
+
+	std::vector<MachineInstOpcode> intExtOps =
+	{
+		MachineInstOpcode::movsx8_16, MachineInstOpcode::movsx8_32, MachineInstOpcode::movsx8_64,
+		MachineInstOpcode::movsx16_32, MachineInstOpcode::movsx16_64,
+		MachineInstOpcode::movsx32_64,
+		MachineInstOpcode::movzx8_16, MachineInstOpcode::movzx8_32, MachineInstOpcode::movzx8_64,
+		MachineInstOpcode::movzx16_32, MachineInstOpcode::movzx16_64,
+	};
+
+	// Load/store tests:
+
+	// Register/register tests:
+/*
+	for (MachineInstOpcode opcode : intUnaryOps)
+	{
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand;
+			operand.type = MachineOperandType::reg;
+			operand.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand);
+		}
+	}
+
+	for (MachineInstOpcode opcode : intShiftOps)
+	{
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::rcx;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
+	for (MachineInstOpcode opcode : intDivOps)
+	{
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand;
+			operand.type = MachineOperandType::reg;
+			operand.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand);
+		}
+	}
+
+	for (MachineInstOpcode opcode : intBinaryOps)
+	{
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::rax;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::rax;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
+	for (MachineInstOpcode opcode : intExtOps)
+	{
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::rax;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::rax;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+*/
+	// Register/constant tests:
+
+	for (MachineInstOpcode opcode : intBinaryOps)
+	{
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1;
+			operand1.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			MachineOperand operand2 = selection.newImm(0x0123456879abcdef);
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
+	for (MachineInstOpcode opcode : intShiftOps)
+	{
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1;
+			operand1.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			MachineOperand operand2 = selection.newImm(5);
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
+	// Register/global tests:
+
+
+	return selection.mfunc;
 }

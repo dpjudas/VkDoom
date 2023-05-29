@@ -14,8 +14,13 @@ void MachineCodeHolder::addFunction(IRFunction* func)
 		entry.func = func;
 		entry.beginAddress = code.size();
 
+#if 0 // for checking if the machine code actually matches with a disassembler
+		MachineFunction* mcfunc = MachineInstSelection::dumpinstructions(func);
+#else
 		MachineFunction* mcfunc = MachineInstSelection::codegen(func);
 		RegisterAllocator::run(func->context, mcfunc);
+#endif
+
 		MachineCodeWriter mcwriter(this, mcfunc);
 		mcwriter.codegen();
 
