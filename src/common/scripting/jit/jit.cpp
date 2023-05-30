@@ -19,7 +19,7 @@ JITRuntime* GetJITRuntime();
 JitFuncPtr JitCompile(VMScriptFunction* sfunc)
 {
 #if 0
-	if (strcmp(sfunc->PrintableName.GetChars(), "ListMenu.MenuEvent") != 0)
+	if (strcmp(sfunc->PrintableName.GetChars(), "DisdainPlayer.StopDashing") != 0)
 		return nullptr;
 #endif
 
@@ -537,6 +537,9 @@ static double DoubleSinh(double a) { return g_sinh(a); }
 static double DoubleTanh(double a) { return g_tanh(a); }
 static double DoubleRound(double a) { return round(a); }
 
+static void MULQQ(void* result, double ax, double ay, double az, double aw, double bx, double by, double bz, double bw) { *reinterpret_cast<DQuaternion*>(result) = DQuaternion(ax, ay, az, aw) * DQuaternion(bx, by, bz, bw); }
+static void MULQV3(void* result, double ax, double ay, double az, double aw, double bx, double by, double bz) { *reinterpret_cast<DVector3*>(result) = DQuaternion(ax, ay, az, aw) * DVector3(bx, by, bz); }
+
 static void CastI2S(FString* a, int b) { a->Format("%d", b); }
 static void CastU2S(FString* a, int b) { a->Format("%u", b); }
 static void CastF2S(FString* a, double b) { a->Format("%.5f", b); }
@@ -634,6 +637,8 @@ void JitCompiler::CreateNativeFunctions()
 	castB_S = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastB_S", CastB_S);
 	dynCast = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy }, "__DynCast", DynCast);
 	dynCastC = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy }, "__DynCastC", DynCastC);
+	mulQQ = CreateNativeFunction(voidTy, { doublePtrTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__MULQQ", MULQQ);
+	mulQV3 = CreateNativeFunction(voidTy, { doublePtrTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__MULQV3", MULQV3);
 }
 
 IRFunction* JitCompiler::CreateNativeFunction(IRType* returnType, std::vector<IRType*> args, const char* name, void* ptr)

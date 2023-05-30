@@ -89,6 +89,18 @@ private:
 
 	IRValue* EmitVectorComparison(int N, bool check);
 
+	// Get temporary storage enough for DVector4 which is required by operation such as MULQQ and MULQV3
+	IRValue* vectorStack = nullptr;
+	IRValue* GetTemporaryVectorStackStorage()
+	{
+		if (!vectorStack)
+		{
+			IRValue* arraySize = ircontext->getConstantInt(4);
+			vectorStack = irfunc->createAlloca(doubleTy, arraySize, "vectorStack");
+		}
+		return vectorStack;
+	}
+
 	IRValue* LoadD(int index) { return cc.CreateLoad(regD[index]); }
 	IRValue* LoadF(int index) { return cc.CreateLoad(regF[index]); }
 	IRValue* LoadA(int index) { return cc.CreateLoad(regA[index]); }
@@ -238,4 +250,6 @@ private:
 	IRFunction* castB_S = nullptr;
 	IRFunction* dynCast = nullptr;
 	IRFunction* dynCastC = nullptr;
+	IRFunction* mulQQ = nullptr;
+	IRFunction* mulQV3 = nullptr;
 };

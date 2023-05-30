@@ -1251,65 +1251,27 @@ void JitCompiler::EmitEQV4_K()
 	I_Error("EQV4_K is not used.");
 }
 
-// Quaternion ops
-void FuncMULQQ(void *result, double ax, double ay, double az, double aw, double bx, double by, double bz, double bw)
-{
-	*reinterpret_cast<DQuaternion*>(result) = DQuaternion(ax, ay, az, aw) * DQuaternion(bx, by, bz, bw);
-}
-
-void FuncMULQV3(void *result, double ax, double ay, double az, double aw, double bx, double by, double bz)
-{
-	*reinterpret_cast<DVector3*>(result) = DQuaternion(ax, ay, az, aw) * DVector3(bx, by, bz);
-}
-
 void JitCompiler::EmitMULQQ_RR()
 {
-#if 0
-	auto stack = GetTemporaryVectorStackStorage();
-	auto tmp = newTempIntPtr();
-	cc.lea(tmp, stack);
+	auto tmp = GetTemporaryVectorStackStorage();
 
-	auto call = CreateCall<void, void*, double, double, double, double, double, double, double, double>(FuncMULQQ);
-	call->setArg(0, tmp);
-	call->setArg(1, regF[B + 0]);
-	call->setArg(2, regF[B + 1]);
-	call->setArg(3, regF[B + 2]);
-	call->setArg(4, regF[B + 3]);
-	call->setArg(5, regF[C + 0]);
-	call->setArg(6, regF[C + 1]);
-	call->setArg(7, regF[C + 2]);
-	call->setArg(8, regF[C + 3]);
+	cc.CreateCall(mulQQ, { tmp, LoadF(B + 0), LoadF(B + 1), LoadF(B + 2), LoadF(B + 3), LoadF(C + 0), LoadF(C + 1), LoadF(C + 2), LoadF(C + 3) });
 
-	cc.movsd(regF[A + 0], asmjit::x86::qword_ptr(tmp, 0));
-	cc.movsd(regF[A + 1], asmjit::x86::qword_ptr(tmp, 8));
-	cc.movsd(regF[A + 2], asmjit::x86::qword_ptr(tmp, 16));
-	cc.movsd(regF[A + 3], asmjit::x86::qword_ptr(tmp, 24));
-#endif
-	I_FatalError("EmitMULQQ_RR not implemented");
+	StoreF(cc.CreateLoad(cc.CreateConstGEP1_32(tmp, 0)), A + 0);
+	StoreF(cc.CreateLoad(cc.CreateConstGEP1_32(tmp, 1)), A + 1);
+	StoreF(cc.CreateLoad(cc.CreateConstGEP1_32(tmp, 2)), A + 2);
+	StoreF(cc.CreateLoad(cc.CreateConstGEP1_32(tmp, 3)), A + 3);
 }
 
 void JitCompiler::EmitMULQV3_RR()
 {
-#if 0
-	auto stack = GetTemporaryVectorStackStorage();
-	auto tmp = newTempIntPtr();
-	cc.lea(tmp, stack);
-	
-	auto call = CreateCall<void, void*, double, double, double, double, double, double, double>(FuncMULQV3);
-	call->setArg(0, tmp);
-	call->setArg(1, regF[B + 0]);
-	call->setArg(2, regF[B + 1]);
-	call->setArg(3, regF[B + 2]);
-	call->setArg(4, regF[B + 3]);
-	call->setArg(5, regF[C + 0]);
-	call->setArg(6, regF[C + 1]);
-	call->setArg(7, regF[C + 2]);
+	auto tmp = GetTemporaryVectorStackStorage();
 
-	cc.movsd(regF[A + 0], asmjit::x86::qword_ptr(tmp, 0));
-	cc.movsd(regF[A + 1], asmjit::x86::qword_ptr(tmp, 8));
-	cc.movsd(regF[A + 2], asmjit::x86::qword_ptr(tmp, 16));
-#endif
-	I_FatalError("EmitMULQV3_RR not implemented");
+	cc.CreateCall(mulQV3, { tmp, LoadF(B + 0), LoadF(B + 1), LoadF(B + 2), LoadF(B + 3), LoadF(C + 0), LoadF(C + 1), LoadF(C + 2) });
+
+	StoreF(cc.CreateLoad(cc.CreateConstGEP1_32(tmp, 0)), A + 0);
+	StoreF(cc.CreateLoad(cc.CreateConstGEP1_32(tmp, 1)), A + 1);
+	StoreF(cc.CreateLoad(cc.CreateConstGEP1_32(tmp, 2)), A + 2);
 }
 
 /////////////////////////////////////////////////////////////////////////////
