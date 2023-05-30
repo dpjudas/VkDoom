@@ -122,12 +122,21 @@ IRConstantStruct *IRContext::getConstantStruct(IRStructType *type, const std::ve
 
 IRConstantFP *IRContext::getConstantFloat(IRType *type, double value)
 {
-	auto it = floatConstants.find({ type, value });
+	// Since the constant can be NaN we have to use its binary value.
+	union
+	{
+		double f;
+		uint64_t i;
+	} key;
+
+	key.f = value;
+
+	auto it = floatConstants.find({ type, key.i });
 	if (it != floatConstants.end())
 		return it->second;
 
 	IRConstantFP *c = newValue<IRConstantFP>(type, value);
-	floatConstants[{ type, value }] = c;
+	floatConstants[{ type, key.i }] = c;
 	return c;
 }
 

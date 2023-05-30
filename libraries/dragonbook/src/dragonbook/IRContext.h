@@ -122,7 +122,7 @@ private:
 	std::vector<IRFunctionType *> functionTypes;
 	std::map<std::string, IRFunction *> functions;
 	std::map<std::string, IRGlobalVariable *> globalVars;
-	std::map<std::pair<IRType*, double>, IRConstantFP *> floatConstants;
+	std::map<std::pair<IRType*, uint64_t>, IRConstantFP *> floatConstants;
 	std::map<std::pair<IRType*, uint64_t>, IRConstantInt *> intConstants;
 	std::vector<IRConstantStruct *> constantStructs;
 	std::map<IRValue *, void *> globalMappings;
