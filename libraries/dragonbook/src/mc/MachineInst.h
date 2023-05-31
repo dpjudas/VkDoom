@@ -34,7 +34,7 @@ enum class MachineInstOpcode
 	cvttsd2si, cvttss2si,
 	cvtsi2sd, cvtsi2ss,
 	jmp, je, jne,
-	call, ret, push, pop
+	call, ret, push, pop, movdqa
 };
 
 enum class MachineOperandType

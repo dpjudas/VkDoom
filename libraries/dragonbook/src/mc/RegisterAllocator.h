@@ -86,8 +86,8 @@ private:
 	std::vector<RARegisterInfo> reginfo;
 	RARegisterClass regclass[2];
 
-	int nextStackOffset = 0;
-	std::vector<int> freeStackOffsets;
+	int nextSpillOffset = 0;
+	std::vector<int> freeSpillOffsets;
 
 	std::vector<MachineInst*> emittedInstructions;
 };

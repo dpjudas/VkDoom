@@ -136,12 +136,30 @@ void RegisterAllocator::run()
 		}
 	}
 
+#if 0 // Force save all non-volatile registers (for debugging)
+	savedRegs =
+	{
+		RegisterName::rbx,
+		RegisterName::rsp, RegisterName::rbp, RegisterName::rsi, RegisterName::rdi,
+		RegisterName::r12, RegisterName::r13, RegisterName::r14, RegisterName::r15
+	};
+
+	savedXmmRegs =
+	{
+		RegisterName::xmm8, RegisterName::xmm9, RegisterName::xmm10, RegisterName::xmm11,
+		RegisterName::xmm12, RegisterName::xmm13, RegisterName::xmm14, RegisterName::xmm15
+	};
+#endif
+
 	// [funcargs] [retaddr] <framebase> [save/spill area] <spillbase> [dsa/alloca area] [callargs] <rsp>
 
 	int callReturnAddr = 8;
 	int pushStackAdjustment = (int)savedRegs.size() * 8;
-	int spillAreaSize = (int)savedXmmRegs.size() * 16 + nextStackOffset;
+	int spillAreaSize = (int)savedXmmRegs.size() * 16 + nextSpillOffset;
 	int callargsSize = (func->maxCallArgsSize + 15) / 16 * 16;
+
+	if ((savedRegs.size() & 1) == 0) // xmm must be 16-byte aligned
+		spillAreaSize += 8;
 
 	// rsp is 16-byte aligned + 8 bytes (for the call return address) when entering the prolog.
 	// Alloca needs to be 16-byte aligned, so the sum of the return address, the pushed registers and spill area needs to end at a 16-byte boundary
@@ -213,19 +231,23 @@ void RegisterAllocator::emitProlog(const std::vector<RegisterName>& savedRegs, c
 		func->prolog->code.push_back(inst);
 	}
 
+	int xmmStartOffset = -(int)savedRegs.size() * 8;
+	if ((savedRegs.size() & 1) == 0) // xmm must be 16-byte aligned
+		xmmStartOffset -= 8;
+
 	int i = 1;
 	for (RegisterName physReg : savedXmmRegs)
 	{
 		MachineOperand dst;
 		dst.type = MachineOperandType::frameOffset;
-		dst.frameOffset = -(int)savedRegs.size() * 8 - i * 16;
+		dst.frameOffset = xmmStartOffset - i * 16;
 
 		MachineOperand src;
 		src.type = MachineOperandType::reg;
 		src.registerIndex = (int)physReg;
 
 		auto inst = context->newMachineInst();
-		inst->opcode = MachineInstOpcode::storesd;
+		inst->opcode = MachineInstOpcode::movdqa;
 		inst->operands.push_back(dst);
 		inst->operands.push_back(src);
 		inst->unwindHint = MachineUnwindHint::RegisterStackLocation;
@@ -271,6 +293,10 @@ void RegisterAllocator::emitEpilog(const std::vector<RegisterName>& savedRegs, c
 		func->epilog->code.push_back(inst);
 	}
 
+	int xmmStartOffset = -(int)savedRegs.size() * 8;
+	if ((savedRegs.size() & 1) == 0) // xmm must be 16-byte aligned
+		xmmStartOffset -= 8;
+
 	int i = 1;
 	for (RegisterName physReg : savedXmmRegs)
 	{
@@ -280,10 +306,10 @@ void RegisterAllocator::emitEpilog(const std::vector<RegisterName>& savedRegs, c
 
 		MachineOperand src;
 		src.type = MachineOperandType::frameOffset;
-		src.frameOffset = -(int)savedRegs.size() * 8 - i * 16;
+		src.frameOffset = xmmStartOffset - i * 16;
 
 		auto inst = context->newMachineInst();
-		inst->opcode = MachineInstOpcode::loadsd;
+		inst->opcode = MachineInstOpcode::movdqa;
 		inst->operands.push_back(dst);
 		inst->operands.push_back(src);
 		func->epilog->code.push_back(inst);
@@ -352,10 +378,10 @@ void RegisterAllocator::allocStackVars()
 	for (const MachineStackAlloc& stackvar : func->stackvars)
 	{
 		auto& vreg = reginfo[stackvar.registerIndex];
-		vreg.stacklocation.spillOffset = nextStackOffset;
+		vreg.stacklocation.spillOffset = nextSpillOffset;
 		vreg.stackvar = true;
 		vreg.name = &stackvar.name;
-		nextStackOffset += (int)stackvar.size;
+		nextSpillOffset += (int)stackvar.size;
 	}
 }
 
@@ -424,7 +450,7 @@ void RegisterAllocator::killVirtRegister(int vregIndex)
 	}
 
 	if (vreg.stacklocation.type == MachineOperandType::spillOffset && vreg.stacklocation.spillOffset != -1)
-		freeStackOffsets.push_back(vreg.stacklocation.stackOffset);
+		freeSpillOffsets.push_back(vreg.stacklocation.spillOffset);
 }
 
 void RegisterAllocator::assignVirt2Phys(int vregIndex, int pregIndex)
@@ -516,15 +542,15 @@ void RegisterAllocator::assignVirt2StackSlot(int vregIndex)
 	{
 		if (vreg.stacklocation.spillOffset == -1)
 		{
-			if (freeStackOffsets.empty())
+			if (freeSpillOffsets.empty())
 			{
-				vreg.stacklocation.spillOffset = nextStackOffset;
-				nextStackOffset += 8;
+				vreg.stacklocation.spillOffset = nextSpillOffset;
+				nextSpillOffset += 8;
 			}
 			else
 			{
-				vreg.stacklocation.spillOffset = freeStackOffsets.back();
-				freeStackOffsets.pop_back();
+				vreg.stacklocation.spillOffset = freeSpillOffsets.back();
+				freeSpillOffsets.pop_back();
 			}
 		}
 

@@ -135,7 +135,7 @@ IRConstantFP *IRContext::getConstantFloat(IRType *type, double value)
 	if (it != floatConstants.end())
 		return it->second;
 
-	IRConstantFP *c = newValue<IRConstantFP>(type, value);
+	IRConstantFP* c = newValue<IRConstantFP>(type, value);
 	floatConstants[{ type, key.i }] = c;
 	return c;
 }

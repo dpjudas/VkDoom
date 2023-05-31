@@ -158,6 +158,7 @@ void AssemblyWriter::opcode(MachineInst* inst)
 	case MachineInstOpcode::ret: ret(inst); break;
 	case MachineInstOpcode::push: push(inst); break;
 	case MachineInstOpcode::pop: pop(inst); break;
+	case MachineInstOpcode::movdqa: movdqa(inst); break;
 	}
 }
 
@@ -853,4 +854,9 @@ void AssemblyWriter::push(MachineInst* inst)
 void AssemblyWriter::pop(MachineInst* inst)
 {
 	writeInst("pop", inst);
+}
+
+void AssemblyWriter::movdqa(MachineInst* inst)
+{
+	writeInst("movdqa", inst);
 }
