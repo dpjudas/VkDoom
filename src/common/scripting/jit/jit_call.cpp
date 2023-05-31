@@ -132,13 +132,13 @@ int JitCompiler::StoreCallParams()
 			Store(ConstD(bc), ToInt32Ptr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, i)));
 			break;
 		case REGT_STRING:
-			Store(LoadS(bc), ToInt8PtrPtr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, sp)));
+			Store(LoadS(bc), ToStringPtrPtr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, sp)));
 			break;
 		case REGT_STRING | REGT_ADDROF:
-			Store(LoadS(bc), ToInt8PtrPtr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, a)));
+			Store(LoadS(bc), ToStringPtrPtr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, a)));
 			break;
 		case REGT_STRING | REGT_KONST:
-			Store(ConstS(bc), ToInt8PtrPtr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, sp)));
+			Store(ConstS(bc), ToStringPtrPtr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, sp)));
 			break;
 		case REGT_POINTER:
 			Store(LoadA(bc), ToInt8PtrPtr(vmframe, offsetParams + slot * sizeof(VMValue) + myoffsetof(VMValue, a)));
@@ -459,7 +459,7 @@ void JitCompiler::EmitNativeCall(VMNativeFunction *target)
 				args.push_back(OffsetPtr(vmframe, offsetF + (int)(regnum * sizeof(double))));
 				break;
 			case REGT_STRING:
-				args.push_back(OffsetPtr(vmframe, offsetS + (int)(regnum * sizeof(FString))));
+				args.push_back(ToStringPtr(vmframe, offsetS + (int)(regnum * sizeof(FString))));
 				break;
 			case REGT_POINTER:
 				args.push_back(OffsetPtr(vmframe, offsetA + (int)(regnum * sizeof(void*))));
@@ -557,7 +557,6 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 			case REGT_NIL:
 			case REGT_POINTER:
 			case REGT_POINTER | REGT_KONST:
-			case REGT_STRING | REGT_ADDROF:
 			case REGT_INT | REGT_ADDROF:
 			case REGT_POINTER | REGT_ADDROF:
 			case REGT_FLOAT | REGT_ADDROF:
@@ -569,7 +568,8 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 				break;
 			case REGT_STRING:
 			case REGT_STRING | REGT_KONST:
-				args.push_back(int8PtrTy);
+			case REGT_STRING | REGT_ADDROF:
+				args.push_back(stringPtrTy);
 				break;
 			case REGT_FLOAT:
 			case REGT_FLOAT | REGT_KONST:
@@ -639,7 +639,8 @@ IRFunctionType* JitCompiler::GetFuncSignature()
 			I_Error("Expected OP_RESULT to follow OP_CALL\n");
 		}
 
-		args.push_back(int8PtrTy);
+		int type = retval[i].b;
+		args.push_back(type == REGT_STRING ? stringPtrTy : int8PtrTy);
 	}
 
 	return ircontext->getFunctionType(rettype, args);

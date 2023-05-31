@@ -43,8 +43,7 @@ void JitCompiler::EmitLKF_R()
 
 void JitCompiler::EmitLKS_R()
 {
-	IRValue* base = ircontext->getConstantInt(int8PtrPtrTy, (uint64_t)&konsts[C]);
-	cc.CreateCall(stringAssignmentOperator, { LoadS(A), Load(OffsetPtr(base, LoadD(B))) });
+	cc.CreateCall(stringAssignmentOperator, { LoadS(A), OffsetPtr(ConstS(C), LoadD(B)) });
 }
 
 void JitCompiler::EmitLKP_R()
@@ -174,13 +173,13 @@ void JitCompiler::EmitLDP_R()
 void JitCompiler::EmitLS()
 {
 	EmitNullPointerThrow(B, X_READ_NIL);
-	cc.CreateCall(stringAssignmentOperator, { LoadS(A), OffsetPtr(LoadA(B), ConstD(C)) });
+	cc.CreateCall(stringAssignmentOperator, { LoadS(A), ToStringPtr(LoadA(B), ConstD(C)) });
 }
 
 void JitCompiler::EmitLS_R()
 {
 	EmitNullPointerThrow(B, X_READ_NIL);
-	cc.CreateCall(stringAssignmentOperator, { LoadS(A), OffsetPtr(LoadA(B), LoadD(C)) });
+	cc.CreateCall(stringAssignmentOperator, { LoadS(A), ToStringPtr(LoadA(B), LoadD(C)) });
 }
 
 #if 0 // Inline read barrier impl

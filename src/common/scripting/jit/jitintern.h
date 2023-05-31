@@ -108,11 +108,11 @@ private:
 	IRValue* ConstD(int index) { return ircontext->getConstantInt(konstd[index]); }
 	IRValue* ConstF(int index) { return ircontext->getConstantFloat(doubleTy, konstf[index]); }
 	IRValue* ConstA(int index) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)konsta[index].v); }
-	IRValue* ConstS(int index) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)&konsts[index]); }
+	IRValue* ConstS(int index) { return ircontext->getConstantInt(stringPtrTy, (uint64_t)&konsts[index]); }
 	IRValue* ConstValueD(int value) { return ircontext->getConstantInt(value); }
 	IRValue* ConstValueF(double value) { return ircontext->getConstantFloat(doubleTy, value); }
 	IRValue* ConstValueA(void* value) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)value); }
-	IRValue* ConstValueS(void* value) { return ircontext->getConstantInt(int8PtrTy, (uint64_t)value); }
+	IRValue* ConstValueS(void* value) { return ircontext->getConstantInt(stringPtrTy, (uint64_t)value); }
 	void StoreD(IRValue* value, int index) { cc.CreateStore(value, regD[index]); }
 	void StoreF(IRValue* value, int index) { cc.CreateStore(value, regF[index]); }
 	void StoreA(IRValue* value, int index) { cc.CreateStore(value, regA[index]); }
@@ -130,9 +130,14 @@ private:
 	IRValue* ToDoublePtr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), doublePtrTy); }
 	IRValue* ToDoublePtr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), doublePtrTy); }
 	IRValue* ToDoublePtr(IRValue* ptr) { return cc.CreateBitCast(ptr, doublePtrTy); }
+	IRValue* ToStringPtr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), stringPtrTy); }
+	IRValue* ToStringPtr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), stringPtrTy); }
 	IRValue* ToInt8PtrPtr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int8PtrPtrTy); }
 	IRValue* ToInt8PtrPtr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), int8PtrPtrTy); }
 	IRValue* ToInt8PtrPtr(IRValue* ptr) { return cc.CreateBitCast(ptr, int8PtrPtrTy); }
+	IRValue* ToStringPtrPtr(IRValue* ptr, IRValue* offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), stringPtrPtrTy); }
+	IRValue* ToStringPtrPtr(IRValue* ptr, int offset) { return cc.CreateBitCast(OffsetPtr(ptr, offset), stringPtrPtrTy); }
+	IRValue* ToStringPtrPtr(IRValue* ptr) { return cc.CreateBitCast(ptr, stringPtrPtrTy); }
 	IRValue* Trunc8(IRValue* value) { return cc.CreateTrunc(value, int8Ty); }
 	IRValue* Trunc16(IRValue* value) { return cc.CreateTrunc(value, int16Ty); }
 	IRValue* FPTrunc(IRValue* value) { return cc.CreateFPTrunc(value, floatTy); }
@@ -193,6 +198,8 @@ private:
 	IRType* floatPtrTy = nullptr;
 	IRType* doubleTy = nullptr;
 	IRType* doublePtrTy = nullptr;
+	IRType* stringPtrTy = nullptr;
+	IRType* stringPtrPtrTy = nullptr;
 
 	IRFunction* validateCall = nullptr;
 	IRFunction* setReturnString = nullptr;

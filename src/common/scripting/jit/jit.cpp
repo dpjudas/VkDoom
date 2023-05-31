@@ -19,7 +19,7 @@ JITRuntime* GetJITRuntime();
 JitFuncPtr JitCompile(VMScriptFunction* sfunc)
 {
 #if 0
-	if (strcmp(sfunc->PrintableName.GetChars(), "DisdainPlayer.StopDashing") != 0)
+	if (strcmp(sfunc->PrintableName.GetChars(), "DisdainPlayer.AddBloodStain") != 0)
 		return nullptr;
 #endif
 
@@ -378,7 +378,7 @@ void JitCompiler::SetupFullVMFrame()
 		StoreF(Load(ToDoublePtr(vmframe, offsetF + i * sizeof(double))), i);
 
 	for (int i = 0; i < sfunc->NumRegS; i++)
-		StoreS(OffsetPtr(vmframe, offsetS + i * sizeof(FString)), i);
+		StoreS(ToStringPtr(vmframe, offsetS + i * sizeof(FString)), i);
 
 	for (int i = 0; i < sfunc->NumRegA; i++)
 		StoreA(Load(ToInt8PtrPtr(vmframe, offsetA + i * sizeof(void*))), i);
@@ -424,7 +424,7 @@ void JitCompiler::CreateRegisters()
 	for (int i = 0; i < sfunc->NumRegS; i++)
 	{
 		regname.Format("regS%d", i);
-		regS[i] = irfunc->createAlloca(int8PtrTy, arraySize, regname.GetChars());
+		regS[i] = irfunc->createAlloca(stringPtrTy, arraySize, regname.GetChars());
 	}
 
 	for (int i = 0; i < sfunc->NumRegA; i++)
@@ -577,22 +577,24 @@ void JitCompiler::GetTypes()
 	floatPtrTy = ircontext->getFloatPtrTy();
 	doubleTy = ircontext->getDoubleTy();
 	doublePtrTy = ircontext->getDoublePtrTy();
+	stringPtrTy = ircontext->getInt64PtrTy();
+	stringPtrPtrTy = stringPtrTy->getPointerTo(ircontext);
 }
 
 void JitCompiler::CreateNativeFunctions()
 {
 	validateCall = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy, int32Ty }, "__ValidateCall", ValidateCall);
-	setReturnString = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__SetReturnString", SetReturnString);
+	setReturnString = CreateNativeFunction(voidTy, { int8PtrTy, stringPtrTy }, "__SetReturnString", SetReturnString);
 	createFullVMFrame = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy, int32Ty }, "__CreateFullVMFrame", CreateFullVMFrame);
 	popFullVMFrame = CreateNativeFunction(voidTy, { int8PtrTy }, "__PopFullVMFrame", PopFullVMFrame);
 	throwException = CreateNativeFunction(voidTy, { int32Ty }, "__ThrowException", ThrowException);
 	throwArrayOutOfBounds = CreateNativeFunction(voidTy, { int32Ty, int32Ty }, "__ThrowArrayOutOfBounds", ThrowArrayOutOfBounds);
-	stringAssignmentOperator = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__StringAssignmentOperator", StringAssignmentOperator);
-	stringAssignmentOperatorCStr = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__StringAssignmentOperatorCStr", StringAssignmentOperatorCStr);
-	stringPlusOperator = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy, int8PtrTy }, "__StringPlusOperator", StringPlusOperator);
-	stringCompare = CreateNativeFunction(int32Ty, { int8PtrTy, int8PtrTy }, "__StringCompare", StringCompare);
-	stringCompareNoCase = CreateNativeFunction(int32Ty, { int8PtrTy, int8PtrTy }, "__StringCompareNoCase", StringCompareNoCase);
-	stringLength = CreateNativeFunction(int32Ty, { int8PtrTy }, "__StringLength", StringLength);
+	stringAssignmentOperator = CreateNativeFunction(voidTy, { stringPtrTy, stringPtrTy }, "__StringAssignmentOperator", StringAssignmentOperator);
+	stringAssignmentOperatorCStr = CreateNativeFunction(voidTy, { stringPtrTy, stringPtrTy }, "__StringAssignmentOperatorCStr", StringAssignmentOperatorCStr);
+	stringPlusOperator = CreateNativeFunction(voidTy, { stringPtrTy, stringPtrTy, stringPtrTy }, "__StringPlusOperator", StringPlusOperator);
+	stringCompare = CreateNativeFunction(int32Ty, { stringPtrTy, stringPtrTy }, "__StringCompare", StringCompare);
+	stringCompareNoCase = CreateNativeFunction(int32Ty, { stringPtrTy, stringPtrTy }, "__StringCompareNoCase", StringCompareNoCase);
+	stringLength = CreateNativeFunction(int32Ty, { stringPtrTy }, "__StringLength", StringLength);
 	readBarrier = CreateNativeFunction(int8PtrTy, { int8PtrTy }, "__ReadBarrier", ReadBarrier);
 	writeBarrier = CreateNativeFunction(voidTy, { int8PtrTy }, "__WriteBarrier", WriteBarrier);
 	doubleModF = CreateNativeFunction(doubleTy, { doubleTy, doubleTy }, "__DoubleModF", DoubleModF);
@@ -617,24 +619,24 @@ void JitCompiler::CreateNativeFunctions()
 	doubleSinh = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleSinh", DoubleSinh);
 	doubleTanh = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleTanh", DoubleTanh);
 	doubleRound = CreateNativeFunction(doubleTy, { doubleTy }, "__DoubleRound", DoubleRound);
-	castI2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastI2S", CastI2S);
-	castU2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastU2S", CastU2S);
-	castF2S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy }, "__CastF2S", CastF2S);
-	castV22S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy }, "__CastV22S", CastV22S);
-	castV32S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy, doubleTy }, "__CastV32S", CastV32S);
-	castV42S = CreateNativeFunction(voidTy, { int8PtrTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__CastV42S", CastV42S);
-	castP2S = CreateNativeFunction(voidTy, { int8PtrTy, int8PtrTy }, "__CastP2S", CastP2S);
-	castS2I = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2I", CastS2I);
-	castS2F = CreateNativeFunction(doubleTy, { int8PtrTy }, "__CastS2F", CastS2F);
-	castS2N = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2N", CastS2N);
-	castN2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastN2S", CastN2S);
-	castS2Co = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2Co", CastS2Co);
-	castCo2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastCo2S", CastCo2S);
-	castS2So = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastS2So", CastS2So);
-	castSo2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastSo2S", CastSo2S);
-	castSID2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastSID2S", CastSID2S);
-	castTID2S = CreateNativeFunction(voidTy, { int8PtrTy, int32Ty }, "__CastTID2S", CastTID2S);
-	castB_S = CreateNativeFunction(int32Ty, { int8PtrTy }, "__CastB_S", CastB_S);
+	castI2S = CreateNativeFunction(voidTy, { stringPtrTy, int32Ty }, "__CastI2S", CastI2S);
+	castU2S = CreateNativeFunction(voidTy, { stringPtrTy, int32Ty }, "__CastU2S", CastU2S);
+	castF2S = CreateNativeFunction(voidTy, { stringPtrTy, doubleTy }, "__CastF2S", CastF2S);
+	castV22S = CreateNativeFunction(voidTy, { stringPtrTy, doubleTy, doubleTy }, "__CastV22S", CastV22S);
+	castV32S = CreateNativeFunction(voidTy, { stringPtrTy, doubleTy, doubleTy, doubleTy }, "__CastV32S", CastV32S);
+	castV42S = CreateNativeFunction(voidTy, { stringPtrTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__CastV42S", CastV42S);
+	castP2S = CreateNativeFunction(voidTy, { stringPtrTy, int8PtrTy }, "__CastP2S", CastP2S);
+	castS2I = CreateNativeFunction(int32Ty, { stringPtrTy }, "__CastS2I", CastS2I);
+	castS2F = CreateNativeFunction(doubleTy, { stringPtrTy }, "__CastS2F", CastS2F);
+	castS2N = CreateNativeFunction(int32Ty, { stringPtrTy }, "__CastS2N", CastS2N);
+	castN2S = CreateNativeFunction(voidTy, { stringPtrTy, int32Ty }, "__CastN2S", CastN2S);
+	castS2Co = CreateNativeFunction(int32Ty, { stringPtrTy }, "__CastS2Co", CastS2Co);
+	castCo2S = CreateNativeFunction(voidTy, { stringPtrTy, int32Ty }, "__CastCo2S", CastCo2S);
+	castS2So = CreateNativeFunction(int32Ty, { stringPtrTy }, "__CastS2So", CastS2So);
+	castSo2S = CreateNativeFunction(voidTy, { stringPtrTy, int32Ty }, "__CastSo2S", CastSo2S);
+	castSID2S = CreateNativeFunction(voidTy, { stringPtrTy, int32Ty }, "__CastSID2S", CastSID2S);
+	castTID2S = CreateNativeFunction(voidTy, { stringPtrTy, int32Ty }, "__CastTID2S", CastTID2S);
+	castB_S = CreateNativeFunction(int32Ty, { stringPtrTy }, "__CastB_S", CastB_S);
 	dynCast = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy }, "__DynCast", DynCast);
 	dynCastC = CreateNativeFunction(int8PtrTy, { int8PtrTy, int8PtrTy }, "__DynCastC", DynCastC);
 	mulQQ = CreateNativeFunction(voidTy, { doublePtrTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__MULQQ", MULQQ);
