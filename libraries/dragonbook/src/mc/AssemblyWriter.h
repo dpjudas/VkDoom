@@ -138,6 +138,7 @@ private:
 	void ret(MachineInst* inst);
 	void push(MachineInst* inst);
 	void pop(MachineInst* inst);
+	void movdqa(MachineInst* inst);
 
 	bool isVoid(IRType* type) const { return dynamic_cast<IRVoidType*>(type); }
 	bool isInt1(IRType* type) const { return dynamic_cast<IRInt1Type*>(type); }

@@ -153,6 +153,7 @@ void MachineCodeWriter::opcode(MachineInst* inst)
 	case MachineInstOpcode::ret: ret(inst); break;
 	case MachineInstOpcode::push: push(inst); break;
 	case MachineInstOpcode::pop: pop(inst); break;
+	case MachineInstOpcode::movdqa: movdqa(inst); break;
 	}
 }
 
@@ -962,6 +963,18 @@ void MachineCodeWriter::push(MachineInst* inst)
 void MachineCodeWriter::pop(MachineInst* inst)
 {
 	emitInstO(0, 0x58, inst);
+}
+
+void MachineCodeWriter::movdqa(MachineInst* inst)
+{
+	if (inst->operands[0].type == MachineOperandType::reg)
+	{
+		emitInstSSE_RM(OpFlags::SizeOverride, { 0x0f, 0x6f }, inst);
+	}
+	else
+	{
+		emitInstSSE_MR(OpFlags::SizeOverride, { 0x0f, 0x7f }, inst);
+	}
 }
 
 void MachineCodeWriter::emitInstZO(int flags, int opcode)
