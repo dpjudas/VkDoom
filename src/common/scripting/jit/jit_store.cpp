@@ -64,13 +64,13 @@ void JitCompiler::EmitSDP_R()
 void JitCompiler::EmitSS()
 {
 	EmitNullPointerThrow(A, X_WRITE_NIL);
-	cc.CreateCall(stringAssignmentOperator, { OffsetPtr(LoadA(A), ConstD(C)), LoadS(B) });
+	cc.CreateCall(stringAssignmentOperator, { ToStringPtr(LoadA(A), ConstD(C)), LoadS(B) });
 }
 
 void JitCompiler::EmitSS_R()
 {
 	EmitNullPointerThrow(A, X_WRITE_NIL);
-	cc.CreateCall(stringAssignmentOperator, { OffsetPtr(LoadA(A), LoadD(C)), LoadS(B) });
+	cc.CreateCall(stringAssignmentOperator, { ToStringPtr(LoadA(A), LoadD(C)), LoadS(B) });
 }
 
 void JitCompiler::EmitSO()
