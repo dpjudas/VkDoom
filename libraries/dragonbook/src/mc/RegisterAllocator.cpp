@@ -449,7 +449,7 @@ void RegisterAllocator::killVirtRegister(int vregIndex)
 		setAsLeastRecentlyUsed(pregIndex);
 	}
 
-	if (vreg.stacklocation.type == MachineOperandType::spillOffset && vreg.stacklocation.spillOffset != -1)
+	if (!vreg.stackvar && vreg.stacklocation.type == MachineOperandType::spillOffset && vreg.stacklocation.spillOffset != -1)
 		freeSpillOffsets.push_back(vreg.stacklocation.spillOffset);
 }
 
