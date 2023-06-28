@@ -79,11 +79,11 @@ private:
 	void EmitComparisonOpcode(Func jmpFunc)
 	{
 		int i = (int)(ptrdiff_t)(pc - sfunc->Code);
-		IRBasicBlock* successbb = irfunc->createBasicBlock({});
+		IRBasicBlock* successbb = GetLabel(i + 2);
 		IRBasicBlock* failbb = GetLabel(i + 2 + JMPOFS(pc + 1));
 		IRValue* result = jmpFunc(static_cast<bool>(A & CMP_CHECK));
-		cc.CreateCondBr(result, failbb, successbb);
-		cc.SetInsertPoint(successbb);
+		cc.CreateCondBr(result, successbb, failbb);
+		cc.SetInsertPoint(nullptr);
 		pc++; // This instruction uses two instruction slots - skip the next one
 	}
 

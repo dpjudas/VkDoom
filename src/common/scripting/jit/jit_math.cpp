@@ -28,18 +28,18 @@ void JitCompiler::EmitCMPS()
 		int method = A & CMP_METHOD_MASK;
 		if (method == CMP_EQ)
 		{
-			if (check) result = cc.CreateICmpEQ(result, zero);
-			else       result = cc.CreateICmpNE(result, zero);
+			if (check) result = cc.CreateICmpNE(result, zero);
+			else       result = cc.CreateICmpEQ(result, zero);
 		}
 		else if (method == CMP_LT)
 		{
-			if (check) result = cc.CreateICmpSLT(result, zero);
-			else       result = cc.CreateICmpSGE(result, zero);
+			if (check) result = cc.CreateICmpSGE(result, zero);
+			else       result = cc.CreateICmpSLT(result, zero);
 		}
 		else
 		{
-			if (check) result = cc.CreateICmpSLE(result, zero);
-			else       result = cc.CreateICmpSGT(result, zero);
+			if (check) result = cc.CreateICmpSGT(result, zero);
+			else       result = cc.CreateICmpSLE(result, zero);
 		}
 
 		return result;
@@ -457,8 +457,8 @@ void JitCompiler::EmitEQ_R()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpEQ(LoadD(B), LoadD(C));
-		else       result = cc.CreateICmpNE(LoadD(B), LoadD(C));
+		if (check) result = cc.CreateICmpNE(LoadD(B), LoadD(C));
+		else       result = cc.CreateICmpEQ(LoadD(B), LoadD(C));
 		return result;
 	});
 }
@@ -467,8 +467,8 @@ void JitCompiler::EmitEQ_K()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpEQ(LoadD(B), ConstD(C));
-		else       result = cc.CreateICmpNE(LoadD(B), ConstD(C));
+		if (check) result = cc.CreateICmpNE(LoadD(B), ConstD(C));
+		else       result = cc.CreateICmpEQ(LoadD(B), ConstD(C));
 		return result;
 	});
 }
@@ -477,8 +477,8 @@ void JitCompiler::EmitLT_RR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpSLT(LoadD(B), LoadD(C));
-		else       result = cc.CreateICmpSGE(LoadD(B), LoadD(C));
+		if (check) result = cc.CreateICmpSGE(LoadD(B), LoadD(C));
+		else       result = cc.CreateICmpSLT(LoadD(B), LoadD(C));
 		return result;
 	});
 }
@@ -487,8 +487,8 @@ void JitCompiler::EmitLT_RK()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpSLT(LoadD(B), ConstD(C));
-		else       result = cc.CreateICmpSGE(LoadD(B), ConstD(C));
+		if (check) result = cc.CreateICmpSGE(LoadD(B), ConstD(C));
+		else       result = cc.CreateICmpSLT(LoadD(B), ConstD(C));
 		return result;
 	});
 }
@@ -497,8 +497,8 @@ void JitCompiler::EmitLT_KR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpSLT(ConstD(B), LoadD(C));
-		else       result = cc.CreateICmpSGE(ConstD(B), LoadD(C));
+		if (check) result = cc.CreateICmpSGE(ConstD(B), LoadD(C));
+		else       result = cc.CreateICmpSLT(ConstD(B), LoadD(C));
 		return result;
 	});
 }
@@ -507,8 +507,8 @@ void JitCompiler::EmitLE_RR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpSLE(LoadD(B), LoadD(C));
-		else       result = cc.CreateICmpSGT(LoadD(B), LoadD(C));
+		if (check) result = cc.CreateICmpSGT(LoadD(B), LoadD(C));
+		else       result = cc.CreateICmpSLE(LoadD(B), LoadD(C));
 		return result;
 	});
 }
@@ -517,8 +517,8 @@ void JitCompiler::EmitLE_RK()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpSLE(LoadD(B), ConstD(C));
-		else       result = cc.CreateICmpSGT(LoadD(B), ConstD(C));
+		if (check) result = cc.CreateICmpSGT(LoadD(B), ConstD(C));
+		else       result = cc.CreateICmpSLE(LoadD(B), ConstD(C));
 		return result;
 	});
 }
@@ -527,8 +527,8 @@ void JitCompiler::EmitLE_KR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpSLE(ConstD(B), LoadD(C));
-		else       result = cc.CreateICmpSGT(ConstD(B), LoadD(C));
+		if (check) result = cc.CreateICmpSGT(ConstD(B), LoadD(C));
+		else       result = cc.CreateICmpSLE(ConstD(B), LoadD(C));
 		return result;
 	});
 }
@@ -537,8 +537,8 @@ void JitCompiler::EmitLTU_RR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpULT(LoadD(B), LoadD(C));
-		else       result = cc.CreateICmpUGE(LoadD(B), LoadD(C));
+		if (check) result = cc.CreateICmpUGE(LoadD(B), LoadD(C));
+		else       result = cc.CreateICmpULT(LoadD(B), LoadD(C));
 		return result;
 	});
 }
@@ -547,8 +547,8 @@ void JitCompiler::EmitLTU_RK()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpULT(LoadD(B), ConstD(C));
-		else       result = cc.CreateICmpUGE(LoadD(B), ConstD(C));
+		if (check) result = cc.CreateICmpUGE(LoadD(B), ConstD(C));
+		else       result = cc.CreateICmpULT(LoadD(B), ConstD(C));
 		return result;
 	});
 }
@@ -557,8 +557,8 @@ void JitCompiler::EmitLTU_KR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpULT(ConstD(B), LoadD(C));
-		else       result = cc.CreateICmpUGE(ConstD(B), LoadD(C));
+		if (check) result = cc.CreateICmpUGE(ConstD(B), LoadD(C));
+		else       result = cc.CreateICmpULT(ConstD(B), LoadD(C));
 		return result;
 	});
 }
@@ -567,8 +567,8 @@ void JitCompiler::EmitLEU_RR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpULE(LoadD(B), LoadD(C));
-		else       result = cc.CreateICmpUGT(LoadD(B), LoadD(C));
+		if (check) result = cc.CreateICmpUGT(LoadD(B), LoadD(C));
+		else       result = cc.CreateICmpULE(LoadD(B), LoadD(C));
 		return result;
 	});
 }
@@ -577,8 +577,8 @@ void JitCompiler::EmitLEU_RK()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpULE(LoadD(B), ConstD(C));
-		else       result = cc.CreateICmpUGT(LoadD(B), ConstD(C));
+		if (check) result = cc.CreateICmpUGT(LoadD(B), ConstD(C));
+		else       result = cc.CreateICmpULE(LoadD(B), ConstD(C));
 		return result;
 	});
 }
@@ -587,8 +587,8 @@ void JitCompiler::EmitLEU_KR()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpULE(ConstD(B), LoadD(C));
-		else       result = cc.CreateICmpUGT(ConstD(B), LoadD(C));
+		if (check) result = cc.CreateICmpUGT(ConstD(B), LoadD(C));
+		else       result = cc.CreateICmpULE(ConstD(B), LoadD(C));
 		return result;
 	});
 }
@@ -857,9 +857,9 @@ void JitCompiler::EmitEQF_K()
 		{
 			IRValue* result;
 			if (check)
-				result = cc.CreateFCmpUEQ(LoadF(B), ConstF(C));
-			else
 				result = cc.CreateFCmpUNE(LoadF(B), ConstF(C));
+			else
+				result = cc.CreateFCmpUEQ(LoadF(B), ConstF(C));
 
 			return result;
 		}
@@ -868,13 +868,13 @@ void JitCompiler::EmitEQF_K()
 			IRValue* diff = cc.CreateFSub(ConstF(C), LoadF(B));
 			IRValue* result;
 			if (check)
-				result = cc.CreateAnd(
-					cc.CreateFCmpUGT(diff, ConstValueF(-VM_EPSILON)),
-					cc.CreateFCmpULT(diff, ConstValueF(VM_EPSILON)));
-			else
 				result = cc.CreateOr(
 					cc.CreateFCmpULE(diff, ConstValueF(-VM_EPSILON)),
 					cc.CreateFCmpUGE(diff, ConstValueF(VM_EPSILON)));
+			else
+				result = cc.CreateAnd(
+					cc.CreateFCmpUGT(diff, ConstValueF(-VM_EPSILON)),
+					cc.CreateFCmpULT(diff, ConstValueF(VM_EPSILON)));
 
 			return result;
 		}
@@ -888,9 +888,9 @@ void JitCompiler::EmitLTF_RR()
 
 		IRValue* result;
 		if (check)
-			result = cc.CreateFCmpULT(LoadF(B), LoadF(C));
-		else
 			result = cc.CreateFCmpUGE(LoadF(B), LoadF(C));
+		else
+			result = cc.CreateFCmpULT(LoadF(B), LoadF(C));
 
 		return result;
 	});
@@ -903,9 +903,9 @@ void JitCompiler::EmitLTF_RK()
 
 		IRValue* result;
 		if (check)
-			result = cc.CreateFCmpULT(LoadF(B), ConstF(C));
-		else
 			result = cc.CreateFCmpUGE(LoadF(B), ConstF(C));
+		else
+			result = cc.CreateFCmpULT(LoadF(B), ConstF(C));
 
 		return result;
 	});
@@ -918,9 +918,9 @@ void JitCompiler::EmitLTF_KR()
 
 		IRValue* result;
 		if (check)
-			result = cc.CreateFCmpULT(ConstF(B), LoadF(C));
-		else
 			result = cc.CreateFCmpUGE(ConstF(B), LoadF(C));
+		else
+			result = cc.CreateFCmpULT(ConstF(B), LoadF(C));
 
 		return result;
 	});
@@ -933,9 +933,9 @@ void JitCompiler::EmitLEF_RR()
 
 		IRValue* result;
 		if (check)
-			result = cc.CreateFCmpULE(LoadF(B), LoadF(C));
-		else
 			result = cc.CreateFCmpUGT(LoadF(B), LoadF(C));
+		else
+			result = cc.CreateFCmpULE(LoadF(B), LoadF(C));
 
 		return result;
 	});
@@ -948,9 +948,9 @@ void JitCompiler::EmitLEF_RK()
 
 		IRValue* result;
 		if (check)
-			result = cc.CreateFCmpULE(LoadF(B), ConstF(C));
-		else
 			result = cc.CreateFCmpUGT(LoadF(B), ConstF(C));
+		else
+			result = cc.CreateFCmpULE(LoadF(B), ConstF(C));
 
 		return result;
 	});
@@ -963,9 +963,9 @@ void JitCompiler::EmitLEF_KR()
 
 		IRValue* result;
 		if (check)
-			result = cc.CreateFCmpULE(ConstF(B), LoadF(C));
-		else
 			result = cc.CreateFCmpUGT(ConstF(B), LoadF(C));
+		else
+			result = cc.CreateFCmpULE(ConstF(B), LoadF(C));
 
 		return result;
 	});
@@ -1328,8 +1328,8 @@ void JitCompiler::EmitEQA_R()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpEQ(LoadA(B), LoadA(C));
-		else       result = cc.CreateICmpNE(LoadA(B), LoadA(C));
+		if (check) result = cc.CreateICmpNE(LoadA(B), LoadA(C));
+		else       result = cc.CreateICmpEQ(LoadA(B), LoadA(C));
 		return result;
 	});
 }
@@ -1338,8 +1338,8 @@ void JitCompiler::EmitEQA_K()
 {
 	EmitComparisonOpcode([&](bool check) {
 		IRValue* result;
-		if (check) result = cc.CreateICmpEQ(LoadA(B), ConstA(C));
-		else       result = cc.CreateICmpNE(LoadA(B), ConstA(C));
+		if (check) result = cc.CreateICmpNE(LoadA(B), ConstA(C));
+		else       result = cc.CreateICmpEQ(LoadA(B), ConstA(C));
 		return result;
 	});
 }
@@ -1354,21 +1354,21 @@ IRValue* JitCompiler::EmitVectorComparison(int N, bool check)
 		if (!approx)
 		{
 			if (check)
-				elementresult = cc.CreateFCmpUEQ(LoadF(B + i), LoadF(C + i));
-			else
 				elementresult = cc.CreateFCmpUNE(LoadF(B + i), LoadF(C + i));
+			else
+				elementresult = cc.CreateFCmpUEQ(LoadF(B + i), LoadF(C + i));
 		}
 		else
 		{
 			IRValue* diff = cc.CreateFSub(LoadF(C + i), LoadF(B + i));
 			if (check)
-				elementresult = cc.CreateAnd(
-					cc.CreateFCmpUGT(diff, ConstValueF(-VM_EPSILON)),
-					cc.CreateFCmpULT(diff, ConstValueF(VM_EPSILON)));
-			else
 				elementresult = cc.CreateOr(
 					cc.CreateFCmpULE(diff, ConstValueF(-VM_EPSILON)),
 					cc.CreateFCmpUGE(diff, ConstValueF(VM_EPSILON)));
+			else
+				elementresult = cc.CreateAnd(
+					cc.CreateFCmpUGT(diff, ConstValueF(-VM_EPSILON)),
+					cc.CreateFCmpULT(diff, ConstValueF(VM_EPSILON)));
 		}
 
 		if (i == 0)

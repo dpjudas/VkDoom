@@ -649,7 +649,7 @@ void MachineCodeWriter::or8(MachineInst* inst)
 
 void MachineCodeWriter::xorpd(MachineInst* inst)
 {
-	emitInstSSE_RM(0, { 0x66, 0x0f, 0x57 }, inst);
+	emitInstSSE_RM(OpFlags::SizeOverride, { 0x0f, 0x57 }, inst);
 }
 
 void MachineCodeWriter::xorps(MachineInst* inst)
@@ -789,7 +789,7 @@ void MachineCodeWriter::div8(MachineInst* inst)
 
 void MachineCodeWriter::ucomisd(MachineInst* inst)
 {
-	emitInstSSE_RM(0, { 0x66, 0x0f, 0x2e }, inst);
+	emitInstSSE_RM(OpFlags::SizeOverride, { 0x0f, 0x2e }, inst);
 }
 
 void MachineCodeWriter::ucomiss(MachineInst* inst)
