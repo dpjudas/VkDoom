@@ -19,7 +19,7 @@ JITRuntime* GetJITRuntime();
 JitFuncPtr JitCompile(VMScriptFunction* sfunc)
 {
 #if 0
-	if (strcmp(sfunc->PrintableName.GetChars(), "DisdainPlayer.AddBloodStain") != 0)
+	if (strcmp(sfunc->PrintableName.GetChars(), "DisdainPlayer.MovePlayer") != 0)
 		return nullptr;
 #endif
 
@@ -109,20 +109,19 @@ IRFunction* JitCompiler::Codegen()
 		int i = (int)(ptrdiff_t)(pc - sfunc->Code);
 		op = pc->op;
 
-		if (labels[i].block) // This is already a known jump target
+		if (labels[i].block) // This is already a known jump target (GetLabel already called for this index)
 		{
 			if (cc.GetInsertBlock())
 				cc.CreateBr(labels[i].block);
 			cc.SetInsertPoint(labels[i].block);
 		}
-		else // Save start location in case GetLabel gets called later
+		else // Save location in case GetLabel gets called later
 		{
 			if (!cc.GetInsertBlock())
 				cc.SetInsertPoint(irfunc->createBasicBlock({}));
 			labels[i].block = cc.GetInsertBlock();
+			labels[i].index = labels[i].block->code.size();
 		}
-
-		labels[i].index = labels[i].block->code.size();
 
 		int curLine = sfunc->PCToLine(pc);
 
@@ -198,10 +197,10 @@ IRBasicBlock* JitCompiler::GetLabel(size_t pos)
 		curbb->code.erase(itbegin, itend);
 
 		// Jump from prev block to next
-		IRBasicBlock* old = cc.GetInsertBlock();
+		IRBasicBlock* activebb = cc.GetInsertBlock();
 		cc.SetInsertPoint(curbb);
 		cc.CreateBr(newlabelbb);
-		cc.SetInsertPoint(old);
+		cc.SetInsertPoint(activebb == curbb ? newlabelbb : activebb);
 
 		// Update label
 		labels[pos].block = newlabelbb;
