@@ -52,4 +52,9 @@ public:
 	FPortalSceneState portalState;
 
 	TArray<FDynamicLight*> addedLightsArray;
+
+	int recursion = 0;
+	int ssao_portals_available = 0;
+
+	TArray<SortNode*> sortspritelist;
 };

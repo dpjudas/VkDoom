@@ -17,8 +17,8 @@ public:
 	VulkanCommandBuffer* GetTransferCommands();
 	VulkanCommandBuffer* GetDrawCommands();
 
-	std::unique_ptr<VulkanCommandBuffer> BeginThreadCommands();
-	void EndThreadCommands(std::unique_ptr<VulkanCommandBuffer> commands);
+	std::unique_ptr<VulkanCommandBuffer> BeginThreadCommands(int threadIndex);
+	void EndThreadCommands(int threadIndex, std::unique_ptr<VulkanCommandBuffer> commands);
 
 	void FlushCommands(bool finish, bool lastsubmit = false, bool uploadOnly = false);
 
@@ -64,13 +64,21 @@ public:
 private:
 	void FlushCommands(VulkanCommandBuffer** commands, size_t count, bool finish, bool lastsubmit);
 
+	struct ThreadCommandInfo
+	{
+		std::unique_ptr<VulkanCommandPool> CommandPool;
+		std::vector<std::unique_ptr<VulkanCommandBuffer>> Pending;
+		std::vector<std::unique_ptr<VulkanCommandBuffer>> Submitted;
+		std::vector<std::unique_ptr<VulkanCommandBuffer>> NeedsDelete;
+	};
+
 	VulkanRenderDevice* fb = nullptr;
 
 	std::unique_ptr<VulkanCommandPool> mCommandPool;
 
 	std::unique_ptr<VulkanCommandBuffer> mTransferCommands;
 	std::unique_ptr<VulkanCommandBuffer> mDrawCommands;
-	std::vector<std::unique_ptr<VulkanCommandBuffer>> mThreadCommands;
+	std::vector<ThreadCommandInfo> mThreads;
 
 	enum { maxConcurrentSubmitCount = 8 };
 	std::unique_ptr<VulkanSemaphore> mSubmitSemaphore[maxConcurrentSubmitCount];

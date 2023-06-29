@@ -843,7 +843,7 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 
 	validcount++;	// used for processing sidedefs only once by the renderer.
 
-	multithread = gl_multithread;
+	multithread = false;// gl_multithread;
 	if (multithread)
 	{
 		jobQueue.ReleaseAll();

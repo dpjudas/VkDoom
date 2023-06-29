@@ -96,6 +96,164 @@ void CollectLights(FLevelLocals* Level)
 	}
 }
 
+#include <thread>
+#include <condition_variable>
+#include <mutex>
+
+class HWThreadSlices
+{
+public:
+	~HWThreadSlices()
+	{
+		StopThreads();
+	}
+
+	void DrawScene(FRenderViewpoint& mainvp, float fov, VSMatrix projection, DVector3 eyeoffset, bool mainview, bool toscreen)
+	{
+		this->fov = fov;
+		this->projection = projection;
+		this->eyeoffset = eyeoffset;
+		this->mainview = mainview;
+		this->toscreen = toscreen;
+		this->mainvp = &mainvp;
+
+		meshcache.Update(&maindrawcontext, mainvp);
+
+		StartThreads();
+		DrawScene(0, &maindrawcontext);
+	}
+
+private:
+	void StartThreads()
+	{
+		while (threads.size() + 1 < (size_t)screen->MaxThreads)
+		{
+			int threadIndex = (int)threads.size() + 1;
+			threads.push_back(std::thread([=]() { WorkerThreadMain(threadIndex); }));
+		}
+
+		std::unique_lock<std::mutex> lock(mutex);
+		startingThreads = threads.size();
+		lock.unlock();
+		condvar.notify_all();
+	}
+
+	void StopThreads()
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		stopFlag = true;
+		lock.unlock();
+		condvar.notify_all();
+		for (auto& thread : threads)
+			thread.join();
+		threads.clear();
+	}
+
+	void WaitThreads()
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		condvar.wait(lock, [&]() { return finishedThreads == threads.size(); });
+		finishedThreads = 0;
+	}
+
+	void WorkerThreadMain(int threadIndex)
+	{
+		HWDrawContext drawcontext;
+		while (true)
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			condvar.wait(lock, [&]() { return startingThreads > 0 || stopFlag; });
+			if (stopFlag)
+				break;
+			startingThreads--;
+			lock.unlock();
+
+			DrawScene(threadIndex, &drawcontext);
+
+			lock.lock();
+			finishedThreads++;
+			if (finishedThreads == threads.size())
+				condvar.notify_all();
+		}
+
+	}
+
+	void DrawScene(int threadIndex, HWDrawContext* drawcontext)
+	{
+		auto& RenderState = *screen->RenderState(threadIndex);
+
+		if (mainview) // Bind the scene frame buffer and turn on draw buffers used by ssao
+		{
+			bool useSSAO = (gl_ssao != 0);
+			RenderState.SetPassType(useSSAO ? GBUFFER_PASS : NORMAL_PASS);
+			RenderState.EnableDrawBuffers(RenderState.GetPassDrawBufferCount(), true);
+		}
+
+		hw_ClearFakeFlat(drawcontext);
+
+		auto di = HWDrawInfo::StartDrawInfo(drawcontext, mainvp->ViewLevel, nullptr, *mainvp, nullptr);
+		auto& vp = di->Viewpoint;
+
+		di->Set3DViewport(RenderState);
+		di->SetViewArea();
+		auto cm = di->SetFullbrightFlags(mainview ? vp.camera->player : nullptr);
+		float flash = 1.f;
+
+		// Only used by the GLES2 renderer
+		RenderState.SetSpecialColormap(cm, flash);
+
+		di->Viewpoint.FieldOfView = DAngle::fromDeg(fov);	// Set the real FOV for the current scene (it's not necessarily the same as the global setting in r_viewpoint)
+
+		// Stereo mode specific perspective projection
+		di->VPUniforms.mProjectionMatrix = projection;
+		// Stereo mode specific viewpoint adjustment
+		vp.Pos += eyeoffset;
+		di->SetupView(RenderState, vp.Pos.X, vp.Pos.Y, vp.Pos.Z, false, false);
+
+		di->ProcessScene(toscreen, RenderState);
+
+		if (threadIndex == 0)
+		{
+			WaitThreads();
+
+			if (mainview)
+			{
+				PostProcess.Clock();
+				if (toscreen) di->EndDrawScene(mainvp->sector, RenderState); // do not call this for camera textures.
+
+				if (RenderState.GetPassType() == GBUFFER_PASS) // Turn off ssao draw buffers
+				{
+					RenderState.SetPassType(NORMAL_PASS);
+					RenderState.EnableDrawBuffers(1);
+				}
+
+				screen->PostProcessScene(false, cm, flash, [&]() { di->DrawEndScene2D(mainvp->sector, RenderState); });
+				PostProcess.Unclock();
+			}
+		}
+
+		// Reset colormap so 2D drawing isn't affected
+		RenderState.SetSpecialColormap(CM_DEFAULT, 1);
+
+		di->EndDrawInfo();
+	}
+
+	HWDrawContext maindrawcontext;
+
+	float fov = {};
+	VSMatrix projection;
+	DVector3 eyeoffset;
+	bool mainview = {};
+	bool toscreen = {};
+	FRenderViewpoint* mainvp = nullptr;
+
+	std::vector<std::thread> threads;
+	std::condition_variable condvar;
+	std::mutex mutex;
+	bool stopFlag = false;
+	size_t startingThreads = 0;
+	size_t finishedThreads = 0;
+};
 
 //-----------------------------------------------------------------------------
 //
@@ -105,8 +263,6 @@ void CollectLights(FLevelLocals* Level)
 
 sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bounds, float fov, float ratio, float fovratio, bool mainview, bool toscreen)
 {
-	auto& RenderState = *screen->RenderState(0);
-
 	R_SetupFrame(mainvp, r_viewwindow, camera);
 
 	if (mainview && toscreen && !(camera->Level->flags3 & LEVEL3_NOSHADOWMAP) && camera->Level->HasDynamicLights && gl_light_shadowmap && screen->allowSSBO() && (screen->hwcaps & RFL_SHADER_STORAGE_BUFFER))
@@ -126,11 +282,7 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 
 	screen->SetLevelMesh(camera->Level->levelMesh);
 
-	static HWDrawContext mainthread_drawctx;
-
-	hw_ClearFakeFlat(&mainthread_drawctx);
-
-	meshcache.Update(&mainthread_drawctx, mainvp);
+	static HWThreadSlices threadslices;
 
 	// Update the attenuation flag of all light defaults for each viewpoint.
 	// This function will only do something if the setting differs.
@@ -146,53 +298,14 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		const auto& eye = vrmode->mEyes[eye_ix];
 		screen->SetViewportRects(bounds);
 
-		if (mainview) // Bind the scene frame buffer and turn on draw buffers used by ssao
+		if (mainview)
 		{
 			bool useSSAO = (gl_ssao != 0);
 			screen->SetSceneRenderTarget(useSSAO);
-			RenderState.SetPassType(useSSAO ? GBUFFER_PASS : NORMAL_PASS);
-			RenderState.EnableDrawBuffers(RenderState.GetPassDrawBufferCount(), true);
 		}
 
-		auto di = HWDrawInfo::StartDrawInfo(&mainthread_drawctx, mainvp.ViewLevel, nullptr, mainvp, nullptr);
-		auto& vp = di->Viewpoint;
+		threadslices.DrawScene(mainvp, fov, eye.GetProjection(fov, ratio, fovratio), eye.GetViewShift(mainvp.HWAngles.Yaw.Degrees()), mainview, toscreen);
 
-		di->Set3DViewport(RenderState);
-		di->SetViewArea();
-		auto cm = di->SetFullbrightFlags(mainview ? vp.camera->player : nullptr);
-		float flash = 1.f;
-
-		// Only used by the GLES2 renderer
-		RenderState.SetSpecialColormap(cm, flash);
-
-		di->Viewpoint.FieldOfView = DAngle::fromDeg(fov);	// Set the real FOV for the current scene (it's not necessarily the same as the global setting in r_viewpoint)
-
-		// Stereo mode specific perspective projection
-		di->VPUniforms.mProjectionMatrix = eye.GetProjection(fov, ratio, fovratio);
-		// Stereo mode specific viewpoint adjustment
-		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
-		di->SetupView(RenderState, vp.Pos.X, vp.Pos.Y, vp.Pos.Z, false, false);
-
-		di->ProcessScene(toscreen, *screen->RenderState(0));
-
-		if (mainview)
-		{
-			PostProcess.Clock();
-			if (toscreen) di->EndDrawScene(mainvp.sector, RenderState); // do not call this for camera textures.
-
-			if (RenderState.GetPassType() == GBUFFER_PASS) // Turn off ssao draw buffers
-			{
-				RenderState.SetPassType(NORMAL_PASS);
-				RenderState.EnableDrawBuffers(1);
-			}
-
-			screen->PostProcessScene(false, cm, flash, [&]() { di->DrawEndScene2D(mainvp.sector, RenderState); });
-			PostProcess.Unclock();
-		}
-		// Reset colormap so 2D drawing isn't affected
-		RenderState.SetSpecialColormap(CM_DEFAULT, 1);
-
-		di->EndDrawInfo();
 		if (eyeCount - eye_ix > 1)
 			screen->NextEye(eyeCount);
 	}
@@ -279,8 +392,13 @@ void WriteSavePic(player_t* player, FileWriter* file, int width, int height)
 		screen->ImageTransitionScene(true);
 
 		hw_postprocess.SetTonemapMode(level.info ? level.info->tonemap : ETonemapMode::None);
-		RenderState.ResetVertices();
-		RenderState.SetFlatVertexBuffer();
+
+		for (int threadIndex = 0; threadIndex < screen->MaxThreads; threadIndex++)
+		{
+			auto RenderState = screen->RenderState(threadIndex);
+			RenderState->SetFlatVertexBuffer();
+			RenderState->ResetVertices();
+		}
 
 		// This shouldn't overwrite the global viewpoint even for a short time.
 		FRenderViewpoint savevp;
@@ -316,9 +434,13 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 
 sector_t* RenderView(player_t* player)
 {
-	auto RenderState = screen->RenderState(0);
-	RenderState->SetFlatVertexBuffer();
-	RenderState->ResetVertices();
+	for (int threadIndex = 0; threadIndex < screen->MaxThreads; threadIndex++)
+	{
+		auto RenderState = screen->RenderState(threadIndex);
+		RenderState->SetFlatVertexBuffer();
+		RenderState->ResetVertices();
+	}
+
 	hw_postprocess.SetTonemapMode(level.info ? level.info->tonemap : ETonemapMode::None);
 
 	sector_t* retsec;
@@ -348,7 +470,7 @@ sector_t* RenderView(player_t* player)
 
 		// Shader start time does not need to be handled per level. Just use the one from the camera to render from.
 		if (player->camera)
-			CheckTimer(*RenderState, player->camera->Level->ShaderStartTime);
+			CheckTimer(*screen->RenderState(0), player->camera->Level->ShaderStartTime);
 
 		// Draw all canvases that changed
 		for (FCanvas* canvas : AllCanvases)

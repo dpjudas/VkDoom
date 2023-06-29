@@ -194,9 +194,9 @@ void VulkanRenderDevice::InitializeState()
 	for (int threadIndex = 0; threadIndex < MaxThreads; threadIndex++)
 	{
 #ifdef __APPLE__
-		mRenderState.push_back(std::make_unique<VkRenderStateMolten>(this));
+		mRenderState.push_back(std::make_unique<VkRenderStateMolten>(this, threadIndex));
 #else
-		mRenderState.push_back(std::make_unique<VkRenderState>(this, 0));
+		mRenderState.push_back(std::make_unique<VkRenderState>(this, threadIndex));
 #endif
 	}
 }

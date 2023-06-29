@@ -140,7 +140,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 
 HWDrawInfo *HWDrawInfo::EndDrawInfo()
 {
-	assert(this == gl_drawinfo);
+	assert(this == drawctx->gl_drawinfo);
 	for (int i = 0; i < GLDL_TYPES; i++) drawlists[i].Reset();
 	drawctx->gl_drawinfo = outer;
 	drawctx->di_list.Release(this);
@@ -754,24 +754,22 @@ void HWDrawInfo::Set3DViewport(FRenderState &state)
 
 void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 {
-	static int recursion = 0;
-	static int ssao_portals_available = 0;
 	const auto& vp = Viewpoint;
 
 	bool applySSAO = false;
 	if (drawmode == DM_MAINVIEW)
 	{
-		ssao_portals_available = gl_ssao_portals;
+		drawctx->ssao_portals_available = gl_ssao_portals;
 		applySSAO = true;
 	}
 	else if (drawmode == DM_OFFSCREEN)
 	{
-		ssao_portals_available = 0;
+		drawctx->ssao_portals_available = 0;
 	}
-	else if (drawmode == DM_PORTAL && ssao_portals_available > 0)
+	else if (drawmode == DM_PORTAL && drawctx->ssao_portals_available > 0)
 	{
 		applySSAO = (mCurrentPortal->AllowSSAO() || Level->flags3&LEVEL3_SKYBOXAO);
-		ssao_portals_available--;
+		drawctx->ssao_portals_available--;
 	}
 
 	if (vp.camera != nullptr)
@@ -786,7 +784,7 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	}
 
 	state.SetDepthMask(true);
-	if (!gl_no_skyclear) drawctx->portalState.RenderFirstSkyPortal(recursion, this, state);
+	if (!gl_no_skyclear) drawctx->portalState.RenderFirstSkyPortal(drawctx->recursion, this, state);
 
 	RenderScene(state);
 
@@ -798,9 +796,9 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 
 	// Handle all portals after rendering the opaque objects but before
 	// doing all translucent stuff
-	recursion++;
+	drawctx->recursion++;
 	drawctx->portalState.EndFrame(this, state);
-	recursion--;
+	drawctx->recursion--;
 	RenderTranslucent(state);
 }
 

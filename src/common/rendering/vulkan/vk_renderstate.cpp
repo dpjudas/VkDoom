@@ -316,7 +316,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 		}
 		else
 		{
-			mThreadCommandBuffer = fb->GetCommands()->BeginThreadCommands();
+			mThreadCommandBuffer = fb->GetCommands()->BeginThreadCommands(threadIndex);
 			mCommandBuffer = mThreadCommandBuffer.get();
 		}
 
@@ -724,7 +724,7 @@ void VkRenderState::EndRenderPass()
 
 	if (mThreadCommandBuffer)
 	{
-		fb->GetCommands()->EndThreadCommands(std::move(mThreadCommandBuffer));
+		fb->GetCommands()->EndThreadCommands(threadIndex, std::move(mThreadCommandBuffer));
 	}
 
 	// Force rebind of everything on next draw

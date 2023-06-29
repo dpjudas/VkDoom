@@ -91,21 +91,35 @@ VulkanCommandBuffer* VkCommandBufferManager::GetDrawCommands()
 	return mDrawCommands.get();
 }
 
-std::unique_ptr<VulkanCommandBuffer> VkCommandBufferManager::BeginThreadCommands()
+std::unique_ptr<VulkanCommandBuffer> VkCommandBufferManager::BeginThreadCommands(int threadIndex)
 {
 	std::unique_lock<std::mutex> lock(mMutex);
-	auto commands = mCommandPool->createBuffer();
+
+	if (mThreads.size() <= (size_t)threadIndex)
+		mThreads.resize(threadIndex + 1);
+
+	if (!mThreads[threadIndex].CommandPool)
+	{
+		mThreads[threadIndex].CommandPool = CommandPoolBuilder()
+			.QueueFamily(fb->GetDevice()->GraphicsFamily)
+			.DebugName("mThreads.CommandPool")
+			.Create(fb->GetDevice());
+	}
+
+	mThreads[threadIndex].NeedsDelete.clear();
+
+	auto commands = mThreads[threadIndex].CommandPool->createBuffer();
 	commands->SetDebugName("ThreadCommands");
 	lock.unlock();
 	commands->begin();
 	return commands;
 }
 
-void VkCommandBufferManager::EndThreadCommands(std::unique_ptr<VulkanCommandBuffer> commands)
+void VkCommandBufferManager::EndThreadCommands(int threadIndex, std::unique_ptr<VulkanCommandBuffer> commands)
 {
 	commands->end();
 	std::unique_lock<std::mutex> lock(mMutex);
-	mThreadCommands.push_back(std::move(commands));
+	mThreads[threadIndex].Pending.push_back(std::move(commands));
 }
 
 void VkCommandBufferManager::BeginFrame()
@@ -171,12 +185,15 @@ void VkCommandBufferManager::FlushCommands(bool finish, bool lastsubmit, bool up
 			DrawDeleteList->Add(std::move(mDrawCommands));
 		}
 
-		for (auto& buffer : mThreadCommands)
+		for (auto& threadInfo : mThreads)
 		{
-			mFlushCommands.push_back(buffer.get());
-			DrawDeleteList->Add(std::move(buffer));
+			for (auto& buffer : threadInfo.Pending)
+			{
+				mFlushCommands.push_back(buffer.get());
+				threadInfo.Submitted.push_back(std::move(buffer));
+			}
+			threadInfo.Pending.clear();
 		}
-		mThreadCommands.clear();
 	}
 
 	if (!mFlushCommands.empty())
@@ -229,6 +246,15 @@ void VkCommandBufferManager::DeleteFrameObjects(bool uploadOnly)
 	TransferDeleteList = std::make_unique<DeleteList>();
 	if (!uploadOnly)
 		DrawDeleteList = std::make_unique<DeleteList>();
+
+	// Command buffers allocated on threads needs to be released on those threads
+	// (they are deleted on next BeginThreadCommands call for that thread)
+	for (ThreadCommandInfo& threadInfo : mThreads)
+	{
+		for (auto& cmdbuf : threadInfo.Submitted)
+			threadInfo.NeedsDelete.push_back(std::move(cmdbuf));
+		threadInfo.Submitted.clear();
+	}
 }
 
 void VkCommandBufferManager::PushGroup(const FString& name)

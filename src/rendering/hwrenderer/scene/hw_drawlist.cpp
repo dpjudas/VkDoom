@@ -574,24 +574,22 @@ SortNode * HWDrawList::SortSpriteList(SortNode * head)
 	int count;
 	unsigned i;
 
-	static TArray<SortNode*> sortspritelist;
-
 	SortNode * parent=head->parent;
 
-	sortspritelist.Clear();
-	for(count=0,n=head;n;n=n->next) sortspritelist.Push(n);
-	std::stable_sort(sortspritelist.begin(), sortspritelist.end(), [=](SortNode *a, SortNode *b)
+	drawctx->sortspritelist.Clear();
+	for(count=0,n=head;n;n=n->next) drawctx->sortspritelist.Push(n);
+	std::stable_sort(drawctx->sortspritelist.begin(), drawctx->sortspritelist.end(), [=](SortNode *a, SortNode *b)
 	{
 		return CompareSprites(a, b) < 0;
 	});
 
-	for(i=0;i<sortspritelist.Size();i++)
+	for(i=0;i< drawctx->sortspritelist.Size();i++)
 	{
-		sortspritelist[i]->next=NULL;
-		if (parent) parent->equal=sortspritelist[i];
-		parent=sortspritelist[i];
+		drawctx->sortspritelist[i]->next=NULL;
+		if (parent) parent->equal= drawctx->sortspritelist[i];
+		parent= drawctx->sortspritelist[i];
 	}
-	return sortspritelist[0];
+	return drawctx->sortspritelist[0];
 }
 
 //==========================================================================
