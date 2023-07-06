@@ -349,3 +349,5 @@ OPTMNU_SYSTEM = "System Options";
 OPTMNU_LIGHT = "Light Options";
 OPTMNU_SPRITE = "Sprite Options";
 GLPREFMNU_CORONAS = "Coronas";
+DSPLYMNU_APPEARANCE = "Appearance";
+DSPLYMNU_ADVANCED = "Advanced Display Options";
