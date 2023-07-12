@@ -268,3 +268,4 @@ xx(BuiltinNameToClass)
 xx(BuiltinClassCast)
 
 xx(ScreenJobRunner)
+xx(Action)

@@ -26,6 +26,7 @@
 #include "vulkan/buffers/vk_buffer.h"
 #include <zvulkan/vulkanbuilders.h>
 #include "flatvertices.h"
+#include "cmdlib.h"
 
 VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 {

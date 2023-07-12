@@ -1,6 +1,7 @@
 
 #include "hw_mesh.h"
 #include "v_video.h"
+#include "cmdlib.h"
 
 #define USE_MESH_VERTEX_BUFFER
 

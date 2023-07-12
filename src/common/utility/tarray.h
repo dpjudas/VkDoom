@@ -54,6 +54,7 @@
 #include <new>
 #include <utility>
 #include <iterator>
+#include <algorithm>
 
 #if !defined(_WIN32)
 #include <inttypes.h>		// for intptr_t
@@ -327,9 +328,10 @@ public:
 	}
 
 	// returns address of first element
-	T *Data() const
+	T *Data(size_t index = 0) const
 	{
-		return &Array[0];
+		assert(index <= Count);
+		return &Array[index];
 	}
 
 	unsigned IndexOf(const T& elem) const
@@ -416,6 +418,26 @@ public:
 			new(&Array[start + i]) T(std::move(item[i]));
 		}
 		item.Clear();
+		return start;
+	}
+
+	unsigned AppendFill(const T& val, unsigned append_count)
+	{
+		unsigned start = Count;
+
+		Grow(append_count);
+		Count += append_count;
+		if constexpr (std::is_trivially_copyable<T>::value)
+		{
+			std::fill(Array + start, Array + Count, val);
+		}
+		else
+		{
+			for (unsigned i = 0; i < append_count; i++)
+			{
+				new(&Array[start + i]) T(val);
+			}
+		}
 		return start;
 	}
 
