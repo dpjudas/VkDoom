@@ -2,54 +2,6 @@
 
 IWad
 {
-	Name = "Rise Of The Wool Ball"
-	Autoname = "woolball.rotwb"
-	Game = "Doom"
-	Config = "WoolBall"
-	IWADName = "rotwb.wad"
-	Mapinfo = "mapinfo/doom2.txt"
-	MustContain = "E3M6", "B3DED", "WORLDMAP", "NUCLSKYM", "PLANETLE", "MEOWZEKI", "ZEKIINTR", "NOWAYBAC"
-	BannerColors = "32 54 43", "c6 dc d1"
-}
-
-IWad
-{
-	Name = "Delaweare"
-	Autoname = "delaweare"
-	Game = "Doom"
-	Config = "Delaweare"
-	Mapinfo = "mapinfo/doom2.txt"
-	IWADName = "delaweare.wad"
-	MustContain = "TITLEMAP", "ROVEA0", "GRLURD01", "SQOUI01"
-	BannerColors = "00 00 00", "ff ff ff"
-}
-
-IWad
-{
-	Name = "The Adventures of Square"
-	Autoname = "square.square"
-	Game = "Doom"
-	Config = "Square"
-	IWADName = "square.pk3"
-	Mapinfo = "mapinfo/mindefaults.txt"
-	MustContain = "SQU-IWAD", "E1A1"
-	BannerColors = "ff ff ff", "80 00 80"
-}
-
-IWad
-{
-	Name = "The Adventures of Square (Square-ware)"
-	Autoname = "square.squareware"
-	Game = "Doom"
-	Config = "Square"
-	IWADName = "square1.pk3"
-	Mapinfo = "mapinfo/mindefaults.txt"
-	MustContain = "SQU-SWE1", "E1A1"
-	BannerColors = "ff ff ff", "80 00 80"
-}
-
-IWad
-{
 	Name = "Harmony"
 	Autoname = "harmony"
 	Game = "Doom"
@@ -64,40 +16,16 @@ IWad
 
 IWad
 {
-	Name = "Hacx 2.0"
-	Game = "Doom"
-	Config = "Hacx"
-	Autoname = "hacx.hacx2"
-	IWADName = "hacx2.wad"
-	Mapinfo = "mapinfo/doom2.txt"
-	MustContain = "MAP01", "HACX-E"
-	BannerColors = "ff ff ff", "00 88 22"
-}
-
-IWad
-{
 	Name = "Hacx: Twitch'n Kill"
 	Game = "Doom"
 	Config = "Hacx"
-	Autoname = "hacx.hacx1"
+	Autoname = "hacx"
 	IWADName = "hacx.wad"
 	Mapinfo = "mapinfo/doom2.txt"
 	MustContain = "MAP01", "HACX-R"
 	BannerColors = "00 00 a8", "a8 a8 a8"
 	DeleteLumps = "FONTDEFS"
 	IgnoreTitlePatches = 1
-}
-
-IWad
-{
-	Name = "Action Doom 2: Urban Brawl"
-	Autoname = "urbanbrawl"
-	Game = "Doom"
-	Config = "UrbanBrawl"
-	IWADName = "action2.wad"
-	Mapinfo = "mapinfo/doom2.txt"
-	MustContain = "MAP01", "AD2LIB"
-	BannerColors = "a8 a8 00", "a8 00 00"
 }
 
 IWad
@@ -600,13 +528,8 @@ Names
 	"blasphemer.wad"
 	"chex.wad"
 	"chex3.wad"
-	"action2.wad"
 	"harm1.wad"
 	"hacx.wad"
-	"hacx2.wad"
-	"square1.pk3"
-	"delaweare.wad"
-	"rotwb.wad"
 }
 
 Order	// Order in the IWAD selection box
@@ -643,12 +566,6 @@ Order	// Order in the IWAD selection box
 	"Blasphemer"
 	"Chex(R) Quest"
 	"Chex(R) Quest 3"
-	"Action Doom 2: Urban Brawl"
 	"Harmony"
 	"Hacx: Twitch'n Kill"
-	"Hacx 2.0"
-	"The Adventures of Square"
-	"The Adventures of Square (Square-ware)"
-	"Delaweare"
-	"Rise Of The Wool Ball"
 }
