@@ -1263,6 +1263,7 @@ enum EChangeLevelFlags
 	CHANGELEVEL_NOINTERMISSION = 16,
 	CHANGELEVEL_RESETHEALTH = 32,
 	CHANGELEVEL_PRERAISEWEAPON = 64,
+	CHANGELEVEL_NOAUTOSAVE = 128,
 };
 
 enum ELevelFlags
@@ -1382,7 +1383,7 @@ enum ELevelFlags
 
 	LEVEL9_NOUSERSAVE			= 0x00000001,
 	LEVEL9_NOAUTOMAP			= 0x00000002,
-    LEVEL9_NOAUTOSAVEONENTER	= 0x00000004,	// don't make an autosave when entering a map
+	LEVEL9_NOAUTOSAVEONENTER	= 0x00000004,	// don't make an autosave when entering a map
 };
 
 // [RH] Compatibility flags.
