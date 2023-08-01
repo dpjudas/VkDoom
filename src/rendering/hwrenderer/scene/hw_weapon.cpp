@@ -775,7 +775,7 @@ void HWDrawInfo::PreparePlayerSprites3D(sector_t * viewsector, area_t in_area, F
 	DVector3 rotation = DVector3(weap.rotation);
 	DVector3 pivot = DVector3(weap.pivot);
 
-	if(weap.weapon)
+	if(weap.weapon && weap.weapon->GetCaller())
 	{
 		PClass * cls = weap.weapon->GetCaller()->GetClass();
 		ModifyBobLayer3D = cls->Virtuals.Size() > ModifyBobLayer3DVIndex ? cls->Virtuals[ModifyBobLayer3DVIndex] : nullptr;
