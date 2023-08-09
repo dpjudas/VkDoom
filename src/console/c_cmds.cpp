@@ -700,7 +700,7 @@ UNSAFE_CCMD (load)
 
 UNSAFE_CCMD(save)
 {
-	if ((primaryLevel->flags9 & LEVEL9_NOUSERSAVE))
+	if ((primaryLevel->vkdflags & VKDLEVELFLAG_NOUSERSAVE))
 	{
 		Printf("%s\n", GStrings("SAVEDEAD"));
 		return;

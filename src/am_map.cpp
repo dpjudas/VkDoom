@@ -1547,7 +1547,7 @@ void DAutomap::Ticker ()
 	if (!automapactive)
 		return;
 
-	if ((primaryLevel->flags9 & LEVEL9_NOAUTOMAP))
+	if ((primaryLevel->vkdflags & VKDLEVELFLAG_NOAUTOMAP))
 	{
 		AM_ToggleMap();
 		return;
@@ -3453,7 +3453,7 @@ void AM_ToggleMap()
 	if (!primaryLevel || !primaryLevel->automap)
 		return;
 
-	if (!automapactive && (primaryLevel->flags9 & LEVEL9_NOAUTOMAP))
+	if (!automapactive && (primaryLevel->vkdflags & VKDLEVELFLAG_NOAUTOMAP))
 		return;
 
 	if (!automapactive)
