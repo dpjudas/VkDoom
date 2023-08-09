@@ -977,6 +977,8 @@ set (PCH_SOURCES
 	common/fonts/specialfont.cpp
 	common/fonts/font.cpp
 	common/fonts/hexfont.cpp
+	common/fonts/ttffont.cpp
+	common/fonts/schrift.cpp
 	common/fonts/v_font.cpp
 	common/fonts/v_text.cpp	
 	common/textures/hw_ihwtexture.cpp
