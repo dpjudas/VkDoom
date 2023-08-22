@@ -70,20 +70,21 @@
 #include "actorinlines.h"
 #include "types.h"
 #include "model.h"
+#include "shadowinlines.h"
 
 static FRandom pr_camissile ("CustomActorfire");
 static FRandom pr_cabullet ("CustomBullet");
 static FRandom pr_cwjump ("CustomWpJump");
 static FRandom pr_cwpunch ("CustomWpPunch");
 static FRandom pr_grenade ("ThrowGrenade");
-static FRandom pr_crailgun ("CustomRailgun");
+	   FRandom pr_crailgun ("CustomRailgun");
 static FRandom pr_spawndebris ("SpawnDebris");
 static FRandom pr_spawnitemex ("SpawnItemEx");
 static FRandom pr_burst ("Burst");
 static FRandom pr_monsterrefire ("MonsterRefire");
 static FRandom pr_teleport("A_Teleport");
 static FRandom pr_bfgselfdamage("BFGSelfDamage");
-FRandom pr_cajump("CustomJump");
+	   FRandom pr_cajump("CustomJump");
 
 //==========================================================================
 //
@@ -129,7 +130,7 @@ static int CallStateChain (AActor *self, AActor *actor, FState *state)
 				// If an unsafe function (i.e. one that accesses user variables) is being detected, print a warning once and remove the bogus function. We may not call it because that would inevitably crash.
 				auto owner = FState::StaticFindStateOwner(state);
 				Printf(TEXTCOLOR_RED "Unsafe state call in state %s to %s which accesses user variables. The action function has been removed from this state\n",
-					FState::StaticGetStateName(state).GetChars(), state->ActionFunc->PrintableName.GetChars());
+					FState::StaticGetStateName(state).GetChars(), state->ActionFunc->PrintableName);
 				state->ActionFunc = nullptr;
 			}
 
@@ -1226,11 +1227,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_CustomRailgun)
 			self->Angles.Yaw = self->AngleTo(self->target,- self->target->Vel.X * veleffect, -self->target->Vel.Y * veleffect);
 		}
 
-		if (self->target->flags & MF_SHADOW)
-		{
-			DAngle rnd = DAngle::fromDeg(pr_crailgun.Random2() * (45. / 256.));
-			self->Angles.Yaw += rnd;
-		}
+		A_CustomRailgun_ShadowHandling(self, spawnofs_xy, spawnofs_z, spread_xy, flags);
 	}
 
 	if (!(flags & CRF_EXPLICITANGLE))
@@ -1399,7 +1396,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_LogFloat)
 
 	if (local && !self->CheckLocalView()) return 0;
 	IGNORE_FORMAT_PRE
-	Printf("%H\n", num);
+	Printf("%g\n", num);
 	IGNORE_FORMAT_POST
 	return 0;
 }
@@ -2092,6 +2089,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_Respawn)
 		self->flags6 = defs->flags6;
 		self->flags7 = defs->flags7;
 		self->flags8 = defs->flags8;
+		self->flags9 = defs->flags9;
 		self->SetState (self->SpawnState);
 		self->renderflags &= ~RF_INVISIBLE;
 
@@ -3369,8 +3367,11 @@ DEFINE_ACTION_FUNCTION(AActor, A_QuakeEx)
 	PARAM_INT(highpoint);
 	PARAM_FLOAT(rollIntensity);
 	PARAM_FLOAT(rollWave);
+	PARAM_FLOAT(damageMultiplier);
+	PARAM_FLOAT(thrustMultiplier);
+	PARAM_INT(damage);
 	P_StartQuakeXYZ(self->Level, self, 0, intensityX, intensityY, intensityZ, duration, damrad, tremrad, sound, flags, mulWaveX, mulWaveY, mulWaveZ, falloff, highpoint, 
-		rollIntensity, rollWave);
+		rollIntensity, rollWave, damageMultiplier, thrustMultiplier, damage);
 	return 0;
 }
 
@@ -3526,7 +3527,7 @@ DEFINE_ACTION_FUNCTION(AActor, A_WolfAttack)
 	hitchance -= idist * (dodge ? 16 : 8);
 
 	// While we're here, we may as well do something for this:
-	if (self->target->flags & MF_SHADOW)
+	if (A_WolfAttack_ShadowHandling(self))
 	{
 		hitchance >>= 2;
 	}
