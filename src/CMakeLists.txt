@@ -750,6 +750,8 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/textures/vk_texture.cpp
 	common/rendering/vulkan/framebuffers/vk_framebuffer.cpp
 	common/rendering/vulkan/accelstructs/vk_raytrace.cpp
+	common/rendering/vulkan/accelstructs/vk_lightmap.cpp
+	common/rendering/vulkan/accelstructs/halffloat.cpp
 )
 
 if (HAVE_VULKAN)
@@ -1263,6 +1265,7 @@ include_directories(
 	scripting/zscript
 	rendering
 	../libraries/ZVulkan/include
+	../libraries/dp_rect_pack
 	${SYSTEM_SOURCES_DIR}
 )
 
