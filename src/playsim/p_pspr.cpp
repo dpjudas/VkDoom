@@ -326,6 +326,13 @@ DPSprite *player_t::GetPSprite(PSPLayers layer)
 	else
 	{
 		oldcaller = pspr->Caller;
+
+		// update scaling properties here
+		if (newcaller != nullptr && newcaller->IsKindOf(NAME_Weapon))
+		{
+			pspr->baseScale.X = newcaller->FloatVar(NAME_WeaponScaleX);
+			pspr->baseScale.Y = newcaller->FloatVar(NAME_WeaponScaleY);
+		}
 	}
 
 	// Always update the caller here in case we switched weapon
@@ -556,7 +563,7 @@ void DPSprite::SetState(FState *newstate, bool pending)
 			{
 				// If an unsafe function (i.e. one that accesses user variables) is being detected, print a warning once and remove the bogus function. We may not call it because that would inevitably crash.
 				Printf(TEXTCOLOR_RED "Unsafe state call in state %sd to %s which accesses user variables. The action function has been removed from this state\n", 
-					FState::StaticGetStateName(newstate).GetChars(), newstate->ActionFunc->PrintableName.GetChars());
+					FState::StaticGetStateName(newstate).GetChars(), newstate->ActionFunc->PrintableName);
 				newstate->ActionFunc = nullptr;
 			}
 			if (newstate->CallAction(Owner->mo, Caller, &stp, &nextstate))

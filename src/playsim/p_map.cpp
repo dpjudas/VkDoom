@@ -92,6 +92,7 @@
 #include "r_sky.h"
 #include "g_levellocals.h"
 #include "actorinlines.h"
+#include <shadowinlines.h>
 
 CVAR(Bool, cl_bloodsplats, true, CVAR_ARCHIVE)
 CVAR(Int, sv_smartaim, 0, CVAR_ARCHIVE | CVAR_SERVERINFO)
@@ -3517,6 +3518,16 @@ bool FSlide::BounceWall(AActor *mo)
 	}
 	line = bestslideline;
 
+	if (mo->flags & MF_MISSILE)
+	{
+		switch (mo->SpecialBounceHit(nullptr, line, nullptr))
+		{
+			case 1:		return true;
+			case 0:		return false;
+			default:	break;
+		}
+	}
+
 	if (line->special == Line_Horizon || ((mo->BounceFlags & BOUNCE_NotOnSky) && line->hitSkyWall(mo)))
 	{
 		mo->SeeSound = mo->BounceSound = NO_SOUND;	// it might make a sound otherwise
@@ -3602,6 +3613,13 @@ bool P_BounceActor(AActor *mo, AActor *BlockingMobj, bool ontop)
 	if (mo && (mo->flags & MF_MISSILE) && BlockingMobj)
 	{
 		switch (mo->SpecialMissileHit(BlockingMobj))
+		{
+			case 1:		return true;
+			case 0:		return false;
+			default:	break;
+		}
+
+		switch (mo->SpecialBounceHit(BlockingMobj, nullptr, nullptr))
 		{
 			case 1:		return true;
 			case 0:		return false;
@@ -3704,6 +3722,48 @@ bool P_BounceActor(AActor *mo, AActor *BlockingMobj, bool ontop)
 		return true;
 	}
 	return false;
+}
+
+bool P_ReflectOffActor(AActor* mo, AActor* blocking)
+{
+	if (!(blocking->flags2 & MF2_REFLECTIVE))
+		return false;
+
+	// Don't change the angle if there's THRUREFLECT on the monster.
+	if (!(blocking->flags7 & MF7_THRUREFLECT))
+	{
+		DAngle angle = blocking->AngleTo(mo);
+		if (mo->AdjustReflectionAngle(blocking, angle))
+			return false;
+
+		// Change angle for deflection/reflection
+		auto target = mo->target != NULL ? mo->target : blocking->target;
+		if (target && (blocking->flags7 & MF7_AIMREFLECT))
+		{
+			//dest->x - source->x
+			DVector3 vect = mo->Vec3To(target);
+			vect.Z += target->Height * 0.5;
+			mo->Vel = vect.Resized(mo->Speed);
+		}
+		else if (blocking->flags7 & MF7_MIRRORREFLECT)
+		{
+			mo->Angles.Yaw += DAngle::fromDeg(180.0);
+			mo->Vel *= -0.5;
+		}
+		else
+		{
+			mo->Angles.Yaw = angle;
+			mo->VelFromAngle(mo->Speed * 0.5);
+			mo->Vel.Z *= -0.5;
+		}
+	}
+	
+	if (mo->flags2 & MF2_SEEKERMISSILE)
+		mo->tracer = mo->target;
+
+	mo->target = blocking;
+
+	return true;
 }
 
 //============================================================================
@@ -4452,6 +4512,11 @@ DAngle P_AimLineAttack(AActor *t1, DAngle angle, double distance, FTranslatedLin
 	{
 		*pLineTarget = *result;
 	}
+
+	DAngle newPitch = P_AimLineAttack_ShadowHandling(t1,target,result->linetarget,shootz);
+	if (newPitch != nullAngle)
+		result->pitch = newPitch;
+
 	return result->linetarget ? result->pitch : t1->Angles.Pitch;
 }
 
@@ -5838,7 +5903,7 @@ int P_UsePuzzleItem(AActor *PuzzleItemUser, int PuzzleItemType)
 //==========================================================================
 //
 // RADIUS ATTACK
-//
+// Most of the explosion code resides here. Except P_GeometryRadiusAttack().
 //
 //==========================================================================
 
@@ -5864,7 +5929,7 @@ CUSTOM_CVAR(Float, splashfactor, 1.f, CVAR_SERVERINFO)
 // Used by anything without OLDRADIUSDMG flag
 //==========================================================================
 
-static double GetRadiusDamage(bool fromaction, AActor *bombspot, AActor *thing, int bombdamage, int bombdistance, int fulldamagedistance, bool thingbombsource)
+static double GetRadiusDamage(bool fromaction, AActor *bombspot, AActor *thing, int bombdamage, int bombdistance, int fulldamagedistance, bool thingbombsource, bool round)
 {
 	// [RH] New code. The bounding box only covers the
 	// height of the thing and not the height of the map.
@@ -5876,41 +5941,49 @@ static double GetRadiusDamage(bool fromaction, AActor *bombspot, AActor *thing, 
 	double bombdistancefloat = 1. / (double)(bombdistance - fulldamagedistance);
 	double bombdamagefloat = (double)bombdamage;
 
-	DVector2 vec = bombspot->Vec2To(thing);
-	dx = fabs(vec.X);
-	dy = fabs(vec.Y);
-	boxradius = thing->radius;
-
-	// The damage pattern is square, not circular.
-	len = double(dx > dy ? dx : dy);
-
-	if (bombspot->Z() < thing->Z() || bombspot->Z() >= thing->Top())
+	if (!round)
 	{
-		double dz;
+		DVector2 vec = bombspot->Vec2To(thing);
+		dx = fabs(vec.X);
+		dy = fabs(vec.Y);
+		boxradius = thing->radius;
 
-		if (bombspot->Z() > thing->Z())
+		// The damage pattern is square, not circular.
+		len = double(dx > dy ? dx : dy);
+
+		if (bombspot->Z() < thing->Z() || bombspot->Z() >= thing->Top())
 		{
-			dz = double(bombspot->Z() - thing->Top());
-		}
-		else
-		{
-			dz = double(thing->Z() - bombspot->Z());
-		}
-		if (len <= boxradius)
-		{
-			len = dz;
+			double dz;
+
+			if (bombspot->Z() > thing->Z())
+			{
+				dz = double(bombspot->Z() - thing->Top());
+			}
+			else
+			{
+				dz = double(thing->Z() - bombspot->Z());
+			}
+			if (len <= boxradius)
+			{
+				len = dz;
+			}
+			else
+			{
+				len -= boxradius;
+				len = g_sqrt(len*len + dz*dz);
+			}
 		}
 		else
 		{
 			len -= boxradius;
-			len = g_sqrt(len*len + dz*dz);
+			if (len < 0.f)
+				len = 0.f;
 		}
 	}
+	//[inkoalwetrust]: Round explosions just use the actual distance between the source and victim.
 	else
 	{
-		len -= boxradius;
-		if (len < 0.f)
-			len = 0.f;
+		len = bombspot->Distance3D (thing);
 	}
 	len = clamp<double>(len - (double)fulldamagedistance, 0, len);
 	points = bombdamagefloat * (1. - len * bombdistancefloat);
@@ -5985,7 +6058,7 @@ static int GetOldRadiusDamage(bool fromaction, AActor *bombspot, AActor *thing, 
 // damage and not taking into account any damage reduction.
 //==========================================================================
 
-int P_GetRadiusDamage(AActor *self, AActor *thing, int damage, int distance, int fulldmgdistance, bool oldradiusdmg)
+int P_GetRadiusDamage(AActor *self, AActor *thing, int damage, int distance, int fulldmgdistance, bool oldradiusdmg, bool circular)
 {
 
 	if (!thing)
@@ -6005,7 +6078,7 @@ int P_GetRadiusDamage(AActor *self, AActor *thing, int damage, int distance, int
 
 	const int newdam = oldradiusdmg
 		? GetOldRadiusDamage(true, self, thing, damage, distance, fulldmgdistance)
-		: int(GetRadiusDamage(true, self, thing, damage, distance, fulldmgdistance, false));
+		: int(GetRadiusDamage(true, self, thing, damage, distance, fulldmgdistance, false, circular));
 
 	return newdam;
 }
@@ -6072,10 +6145,12 @@ int P_RadiusAttack(AActor *bombspot, AActor *bombsource, int bombdamage, int bom
 			)
 			)	continue;
 
-		if((species != NAME_None) && (thing->Species != species))
-		{
+		if ((species != NAME_None) && (thing->Species != species))
 			continue;
-		}
+
+		//[inkoalawetrust] Don't harm actors friendly to the explosions' source. But do harm the source.
+		if ((flags & RADF_NOALLIES) && bombsource->IsFriend(thing) && !(thing == bombsource || thing == bombspot))
+			continue;
 
 		if (bombsource && thing != bombsource && bombsource->player && P_ShouldPassThroughPlayer(bombsource, thing))
 			continue;
@@ -6092,7 +6167,7 @@ int P_RadiusAttack(AActor *bombspot, AActor *bombsource, int bombdamage, int bom
 		if ((flags & RADF_NODAMAGE) || (!((bombspot->flags5 | thing->flags5) & MF5_OLDRADIUSDMG) && 
 			!(flags & RADF_OLDRADIUSDAMAGE) && !(thing->Level->i_compatflags2 & COMPATF2_EXPLODE2)))
 		{
-			double points = GetRadiusDamage(false, bombspot, thing, bombdamage, bombdistance, fulldamagedistance, bombsource == thing);
+			double points = GetRadiusDamage(false, bombspot, thing, bombdamage, bombdistance, fulldamagedistance, bombsource == thing,!!(flags & RADF_CIRCULAR));
 			double check = int(points) * bombdamage;
 			// points and bombdamage should be the same sign (the double cast of 'points' is needed to prevent overflows and incorrect values slipping through.)
 			if ((check > 0 || (check == 0 && bombspot->flags7 & MF7_FORCEZERORADIUSDMG)) && P_CheckSight(thing, bombspot, SF_IGNOREVISIBILITY | SF_IGNOREWATERBOUNDARY))
@@ -6101,15 +6176,22 @@ int P_RadiusAttack(AActor *bombspot, AActor *bombsource, int bombdamage, int bom
 				double thrust;
 				int damage = abs((int)points);
 				int newdam = damage;
+				int dmgmask = 0;
 
 				if (!(flags & RADF_NODAMAGE))
 				{
+					//[inkoalawetrust] Thrustless explosions don't push anything.
+					if (!(flags & RADF_THRUSTLESS))
+						dmgmask = DMG_EXPLOSION;
+					else
+						dmgmask = DMG_EXPLOSION | DMG_THRUSTLESS;
+
 					//[MC] Don't count actors saved by buddha if already at 1 health.
 					int prehealth = thing->health;
-					newdam = P_DamageMobj(thing, bombspot, bombsource, damage, bombmod, DMG_EXPLOSION);
+					newdam = P_DamageMobj(thing, bombspot, bombsource, damage, bombmod, dmgmask);
 					if (thing->health < prehealth)	count++;
 				}
-				else if (thing->player == NULL && (!(flags & RADF_NOIMPACTDAMAGE) && !(thing->flags7 & MF7_DONTTHRUST)))
+				else if (thing->player == NULL && (!(flags & RADF_NOIMPACTDAMAGE && !(flags & RADF_THRUSTLESS)) && !(thing->flags7 & MF7_DONTTHRUST)))
 					thing->flags2 |= MF2_BLASTED;
 
 				if (!(thing->flags & MF_ICECORPSE))
@@ -6117,13 +6199,12 @@ int P_RadiusAttack(AActor *bombspot, AActor *bombsource, int bombdamage, int bom
 					if (!(flags & RADF_NODAMAGE) && !(bombspot->flags3 & MF3_BLOODLESSIMPACT))
 						P_TraceBleed(newdam > 0 ? newdam : damage, thing, bombspot);
 
-					if ((flags & RADF_NODAMAGE) || !(bombspot->flags2 & MF2_NODMGTHRUST))
+					if ((flags & RADF_NODAMAGE && !(flags & RADF_THRUSTLESS)) || !(bombspot->flags2 & MF2_NODMGTHRUST) && !(flags & RADF_THRUSTLESS))
 					{
 						if (bombsource == NULL || !(bombsource->flags2 & MF2_NODMGTHRUST))
 						{
 							if (!(thing->flags7 & MF7_DONTTHRUST))
 							{
-							
 								thrust = points * 0.5 / (double)thing->Mass;
 								if (bombsource == thing)
 								{
