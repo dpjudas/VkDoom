@@ -3466,7 +3466,7 @@ void MapLoader::BindLightmapSurfacesToGeometry()
 		l.Type = surface.type;
 		l.LightmapNum = 0;
 
-		l.TexCoords = &Level->levelMesh->LightmapUvs[surface.startUvIndex];
+		l.TexCoords = (float*) & Level->levelMesh->LightmapUvs[surface.startUvIndex];
 
 		l.LightmapNum = surface.atlasPageIndex;
 
