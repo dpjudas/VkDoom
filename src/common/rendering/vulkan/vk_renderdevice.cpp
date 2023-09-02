@@ -549,7 +549,6 @@ void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)
 
 		Printf("Running VkLightmap.\n");
 
-		GetCommands()->WaitForCommands(false);
 		GetLightmap()->Raytrace(mesh);
 
 		Printf("Copying data.\n");
