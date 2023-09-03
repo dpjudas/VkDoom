@@ -123,6 +123,7 @@ See documentation chapter: \ref statistics.
 
 #include <stdio.h>
 #ifdef __cplusplus
+#include <cstdio>
 extern "C" {
 #endif
 

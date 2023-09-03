@@ -1459,12 +1459,12 @@ PipelineBarrier& PipelineBarrier::AddBuffer(VulkanBuffer* buffer, VkDeviceSize o
 	return *this;
 }
 
-PipelineBarrier& PipelineBarrier::AddImage(VulkanImage* image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageAspectFlags aspectMask, int baseMipLevel, int levelCount)
+PipelineBarrier& PipelineBarrier::AddImage(VulkanImage* image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageAspectFlags aspectMask, int baseMipLevel, int levelCount, int baseArrayLayer, int layerCount)
 {
-	return AddImage(image->image, oldLayout, newLayout, srcAccessMask, dstAccessMask, aspectMask, baseMipLevel, levelCount);
+	return AddImage(image->image, oldLayout, newLayout, srcAccessMask, dstAccessMask, aspectMask, baseMipLevel, levelCount, baseArrayLayer, layerCount);
 }
 
-PipelineBarrier& PipelineBarrier::AddImage(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageAspectFlags aspectMask, int baseMipLevel, int levelCount)
+PipelineBarrier& PipelineBarrier::AddImage(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageAspectFlags aspectMask, int baseMipLevel, int levelCount, int baseArrayLayer, int layerCount)
 {
 	VkImageMemoryBarrier barrier = { };
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1478,8 +1478,8 @@ PipelineBarrier& PipelineBarrier::AddImage(VkImage image, VkImageLayout oldLayou
 	barrier.subresourceRange.aspectMask = aspectMask;
 	barrier.subresourceRange.baseMipLevel = baseMipLevel;
 	barrier.subresourceRange.levelCount = levelCount;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.baseArrayLayer = baseArrayLayer;
+	barrier.subresourceRange.layerCount = layerCount;
 	imageMemoryBarriers.push_back(barrier);
 	return *this;
 }
