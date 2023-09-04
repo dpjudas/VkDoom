@@ -1133,10 +1133,22 @@ public:
 			case NAME_lm_lightintensityline:
 			case NAME_lm_lightdistanceline:
 			case NAME_lm_sampledist_line:
+				CHECK_N(Zd | Zdt)
+				for (int i = 0; i < 3; ++i)
+					if (!ld->LightmapSampleDistance[i])
+						ld->LightmapSampleDistance[i] = CheckInt(key);
+				break;
 			case NAME_lm_sampledist_top:
+				CHECK_N(Zd | Zdt)
+				ld->LightmapSampleDistance[side_t::top] = CheckInt(key);
+				break;
 			case NAME_lm_sampledist_mid:
+				CHECK_N(Zd | Zdt)
+				ld->LightmapSampleDistance[side_t::mid] = CheckInt(key);
+				break;
 			case NAME_lm_sampledist_bot:
 				CHECK_N(Zd | Zdt)
+				ld->LightmapSampleDistance[side_t::bottom] = CheckInt(key);
 				break;
 
 			default:
@@ -1484,12 +1496,27 @@ public:
 			case NAME_lm_lightcolorline:
 			case NAME_lm_lightintensityline:
 			case NAME_lm_lightdistanceline:
+				CHECK_N(Zd | Zdt)
+				break;
+
 			case NAME_lm_sampledist_line:
+				CHECK_N(Zd | Zdt)
+				for (int i = 0; i < 3; ++i)
+					if (!sd->textures[i].LightmapSampleDistance)
+						sd->textures[i].LightmapSampleDistance = CheckInt(key);
+				break;
 			case NAME_lm_sampledist_top:
+				CHECK_N(Zd | Zdt)
+				sd->textures[side_t::top].LightmapSampleDistance = CheckInt(key);
+				break;
 			case NAME_lm_sampledist_mid:
+				CHECK_N(Zd | Zdt)
+				sd->textures[side_t::mid].LightmapSampleDistance = CheckInt(key);
+				break;
 			case NAME_lm_sampledist_bot:
 				CHECK_N(Zd | Zdt)
-					break;
+				sd->textures[side_t::bottom].LightmapSampleDistance = CheckInt(key);
+				break;
 
 			default:
 				if (strnicmp("user_", key.GetChars(), 5))
@@ -2005,9 +2032,17 @@ public:
 				case NAME_lm_lightcolorceiling:
 				case NAME_lm_lightintensityceiling:
 				case NAME_lm_lightdistanceceiling:
+					CHECK_N(Zd | Zdt)
+					break;
+
 				case NAME_lm_sampledist_floor:
+					CHECK_N(Zd | Zdt)
+					sec->planes[sector_t::floor].LightmapSampleDistance = CheckInt(key);
+					break;
+
 				case NAME_lm_sampledist_ceiling:
 					CHECK_N(Zd | Zdt)
+					sec->planes[sector_t::ceiling].LightmapSampleDistance = CheckInt(key);
 					break;
 
 				default:
