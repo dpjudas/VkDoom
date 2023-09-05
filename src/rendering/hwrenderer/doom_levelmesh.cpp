@@ -52,13 +52,10 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals &doomMap)
 		{
 			for (int j = 2; j < numVerts; j++)
 			{
-				if (!IsDegenerate(verts[0], verts[j - 1], verts[j]))
-				{
-					MeshElements.Push(pos);
-					MeshElements.Push(pos + j - 1);
-					MeshElements.Push(pos + j);
-					MeshSurfaceIndexes.Push((int)i);
-				}
+				MeshElements.Push(pos);
+				MeshElements.Push(pos + j - 1);
+				MeshElements.Push(pos + j);
+				MeshSurfaceIndexes.Push((int)i);
 			}
 		}
 		else if (s.Type == ST_MIDDLESIDE || s.Type == ST_UPPERSIDE || s.Type == ST_LOWERSIDE)
@@ -693,11 +690,6 @@ void DoomLevelMesh::CreateSubsectorSurfaces(FLevelLocals &doomMap)
 	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
 	{
 		subsector_t *sub = &doomMap.subsectors[i];
-
-		if (sub->numlines < 3)
-		{
-			continue;
-		}
 
 		sector_t *sector = sub->sector;
 		if (!sector || IsControlSector(sector))
