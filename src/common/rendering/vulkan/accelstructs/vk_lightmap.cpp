@@ -30,7 +30,7 @@ VkLightmap::~VkLightmap()
 		lights.Buffer->Unmap();
 }
 
-void VkLightmap::Raytrace(LevelMesh* level)
+void VkLightmap::Raytrace(LevelMesh* level, const TArray<LevelMeshSurface*>& surfaces)
 {
 	bool newLevel = (mesh != level);
 	mesh = level;
@@ -45,7 +45,7 @@ void VkLightmap::Raytrace(LevelMesh* level)
 
 	for (size_t pageIndex = 0; pageIndex < atlasImages.size(); pageIndex++)
 	{
-		RenderAtlasImage(pageIndex);
+		RenderAtlasImage(pageIndex, surfaces);
 	}
 
 	for (size_t pageIndex = 0; pageIndex < atlasImages.size(); pageIndex++)
@@ -56,7 +56,7 @@ void VkLightmap::Raytrace(LevelMesh* level)
 	}
 }
 
-void VkLightmap::RenderAtlasImage(size_t pageIndex)
+void VkLightmap::RenderAtlasImage(size_t pageIndex, const TArray<LevelMeshSurface*>& surfaces)
 {
 	LightmapImage& img = atlasImages[pageIndex];
 
@@ -78,9 +78,9 @@ void VkLightmap::RenderAtlasImage(size_t pageIndex)
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 1, raytrace.descriptorSet1.get());
 	}
 
-	for (int i = 0, count = mesh->GetSurfaceCount(); i < count; i++)
+	for (int i = 0, count = surfaces.Size(); i < count; i++)
 	{
-		LevelMeshSurface* targetSurface = mesh->GetSurface(i);
+		LevelMeshSurface* targetSurface = surfaces[i];
 		if (targetSurface->lightmapperAtlasPage != pageIndex)
 			continue;
 
