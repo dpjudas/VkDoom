@@ -8,6 +8,21 @@
 #include "halffloat.h"
 #include "filesystem.h"
 
+static int lastSurfaceCount;
+static glcycle_t lightmapRaytrace;
+static glcycle_t lightmapRaytraceLast;
+
+ADD_STAT(lightmapper)
+{
+	FString out;
+	out.Format("last: %.3fms\ntotal: %3.fms\nLast batch surface count: %d", lightmapRaytraceLast.TimeMS(), lightmapRaytrace.TimeMS(), lastSurfaceCount);
+	return out;
+}
+
+CVAR(Int, lm_background_updates, 8, CVAR_NOSAVE);
+CVAR(Int, lm_max_updates, 128, CVAR_NOSAVE);
+
+
 VkLightmap::VkLightmap(VulkanRenderDevice* fb) : fb(fb)
 {
 	useRayQuery = fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery;
@@ -30,18 +45,9 @@ VkLightmap::~VkLightmap()
 		lights.Buffer->Unmap();
 }
 
-static int lastSurfaceCount;
-static glcycle_t lightmapRaytrace;
-static glcycle_t lightmapRaytraceLast;
-
-ADD_STAT(lightmapper)
-{
-	FString out;
-	out.Format("last: %.3fms\ntotal: %3.fms\nLast batch surface count: %d", lightmapRaytraceLast.TimeMS(), lightmapRaytrace.TimeMS(), lastSurfaceCount);
-	return out;
-}
-
+#if 0
 #include <set>
+#endif
 
 void VkLightmap::Raytrace(LevelMesh* level, const TArray<int>& surfaceIndices)
 {
@@ -51,7 +57,6 @@ void VkLightmap::Raytrace(LevelMesh* level, const TArray<int>& surfaceIndices)
 	if (newLevel)
 	{
 		UpdateAccelStructDescriptors();
-		CreateAtlasImages();
 
 		lightmapRaytrace.Reset();
 		lightmapRaytraceLast.Reset();
@@ -62,6 +67,8 @@ void VkLightmap::Raytrace(LevelMesh* level, const TArray<int>& surfaceIndices)
 
 	lightmapRaytrace.Clock();
 	lightmapRaytraceLast.ResetAndClock();
+
+	CreateAtlasImages(surfaceIndices);
 
 #if 0
 	TArray<int> allSurfaces;
@@ -98,14 +105,20 @@ void VkLightmap::Raytrace(LevelMesh* level, const TArray<int>& surfaceIndices)
 
 	for (size_t pageIndex = 0; pageIndex < atlasImages.size(); pageIndex++)
 	{
-		RenderAtlasImage(pageIndex, allSurfaces);
+		if (atlasImages[pageIndex].pageMaxX && atlasImages[pageIndex].pageMaxY)
+		{
+			RenderAtlasImage(pageIndex, allSurfaces);
+		}
 	}
 
 	for (size_t pageIndex = 0; pageIndex < atlasImages.size(); pageIndex++)
 	{
-		ResolveAtlasImage(pageIndex);
-		BlurAtlasImage(pageIndex);
-		CopyAtlasImageResult(pageIndex, allSurfaces);
+		if (atlasImages[pageIndex].pageMaxX && atlasImages[pageIndex].pageMaxY)
+		{
+			ResolveAtlasImage(pageIndex);
+			BlurAtlasImage(pageIndex);
+			CopyAtlasImageResult(pageIndex, allSurfaces);
+		}
 	}
 
 	lightmapRaytrace.Unclock();
@@ -245,24 +258,39 @@ void VkLightmap::RenderAtlasImage(size_t pageIndex, const TArray<int>& surfaceIn
 	fb->GetCommands()->GetTransferCommands()->endRenderPass();
 }
 
-void VkLightmap::CreateAtlasImages()
+void VkLightmap::CreateAtlasImages(const TArray<int>& surfaceIndices)
 {
+	for (auto& page : atlasImages)
+	{
+		page.pageMaxX = 0;
+		page.pageMaxY = 0;
+	}
+
 	const int spacing = 3; // Note: the spacing is here to avoid that the resolve sampler finds data from other surface tiles
 	RectPacker packer(atlasImageSize, atlasImageSize, RectPacker::Spacing(spacing));
 
-	for (int i = 0, count = mesh->GetSurfaceCount(); i < count; i++)
+	size_t pageIndex = atlasImages.size();
+
+	for (int i = 0, count = surfaceIndices.Size(); i < count; i++)
 	{
-		LevelMeshSurface* surface = mesh->GetSurface(i);
+		LevelMeshSurface* surface = mesh->GetSurface(surfaceIndices[i]);
+	//for (int i = 0, count = mesh->GetSurfaceCount(); i < count; i++)
+	//{
+		//LevelMeshSurface* surface = mesh->GetSurface(i);
 
 		auto result = packer.insert(surface->texWidth + 2, surface->texHeight + 2);
 		surface->lightmapperAtlasX = result.pos.x + 1;
 		surface->lightmapperAtlasY = result.pos.y + 1;
 		surface->lightmapperAtlasPage = (int)result.pageIndex;
-	}
 
-	for (size_t pageIndex = atlasImages.size(); pageIndex < packer.getNumPages(); pageIndex++)
-	{
-		atlasImages.push_back(CreateImage(atlasImageSize, atlasImageSize));
+		for (;pageIndex <= result.pageIndex; pageIndex++)
+		{
+			atlasImages.push_back(CreateImage(atlasImageSize, atlasImageSize));
+		}
+
+		auto& image = atlasImages[result.pageIndex];
+		image.pageMaxX = std::max<uint16_t>(image.pageMaxX, uint16_t(surface->lightmapperAtlasX + surface->texWidth + spacing));
+		image.pageMaxY = std::max<uint16_t>(image.pageMaxY, uint16_t(surface->lightmapperAtlasY + surface->texHeight + spacing));
 	}
 }
 
@@ -296,7 +324,7 @@ void VkLightmap::ResolveAtlasImage(size_t pageIndex)
 
 	RenderPassBegin()
 		.RenderPass(resolve.renderPass.get())
-		.RenderArea(0, 0, atlasImageSize, atlasImageSize)
+		.RenderArea(0, 0, img.pageMaxX, img.pageMaxY)
 		.Framebuffer(img.resolve.Framebuffer.get())
 		.Execute(cmdbuffer);
 
@@ -307,8 +335,8 @@ void VkLightmap::ResolveAtlasImage(size_t pageIndex)
 
 	VkViewport viewport = {};
 	viewport.maxDepth = 1;
-	viewport.width = (float)atlasImageSize;
-	viewport.height = (float)atlasImageSize;
+	viewport.width = (float)img.pageMaxX;
+	viewport.height = (float)img.pageMaxY;
 	cmdbuffer->setViewport(0, 1, &viewport);
 
 	LightmapPushConstants pc;
@@ -347,7 +375,7 @@ void VkLightmap::BlurAtlasImage(size_t pageIndex)
 	{
 		RenderPassBegin()
 			.RenderPass(blur.renderPass.get())
-			.RenderArea(0, 0, atlasImageSize, atlasImageSize)
+			.RenderArea(0, 0, img.pageMaxX, img.pageMaxY)
 			.Framebuffer(img.blur.Framebuffer.get())
 			.Execute(cmdbuffer);
 
@@ -358,8 +386,8 @@ void VkLightmap::BlurAtlasImage(size_t pageIndex)
 
 		VkViewport viewport = {};
 		viewport.maxDepth = 1;
-		viewport.width = (float)atlasImageSize;
-		viewport.height = (float)atlasImageSize;
+		viewport.width = (float)img.pageMaxX;
+		viewport.height = (float)img.pageMaxY;
 		cmdbuffer->setViewport(0, 1, &viewport);
 
 		LightmapPushConstants pc;
@@ -392,7 +420,7 @@ void VkLightmap::BlurAtlasImage(size_t pageIndex)
 	{
 		RenderPassBegin()
 			.RenderPass(blur.renderPass.get())
-			.RenderArea(0, 0, atlasImageSize, atlasImageSize)
+			.RenderArea(0, 0, img.pageMaxX, img.pageMaxY)
 			.Framebuffer(img.resolve.Framebuffer.get())
 			.Execute(cmdbuffer);
 
@@ -403,8 +431,8 @@ void VkLightmap::BlurAtlasImage(size_t pageIndex)
 
 		VkViewport viewport = {};
 		viewport.maxDepth = 1;
-		viewport.width = (float)atlasImageSize;
-		viewport.height = (float)atlasImageSize;
+		viewport.width = (float)img.pageMaxX;
+		viewport.height = (float)img.pageMaxY;
 		cmdbuffer->setViewport(0, 1, &viewport);
 
 		LightmapPushConstants pc;
