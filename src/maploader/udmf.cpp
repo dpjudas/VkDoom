@@ -776,9 +776,6 @@ public:
 					DPrintf(DMSG_WARNING, "Can't set the global lm_sampledistance to %s\n", key.GetChars());
 				}
 				break;
-			case NAME_lm_gridsize:
-				CHECK_N(Zd | Zdt)
-				break;
 
 			default:
 				CHECK_N(Zd | Zdt)
@@ -1160,9 +1157,6 @@ public:
 				ld->healthgroup = CheckInt(key);
 				break;
 
-			case NAME_lm_lightcolorline:
-			case NAME_lm_lightintensityline:
-			case NAME_lm_lightdistanceline:
 			case NAME_lm_sampledist_line:
 				CHECK_N(Zd | Zdt)
 				for (int i = 0; i < 3; ++i)
@@ -1524,9 +1518,6 @@ public:
 					sd->Flags |= WALLF_EXTCOLOR;
 				break;
 
-			case NAME_lm_lightcolorline:
-			case NAME_lm_lightintensityline:
-			case NAME_lm_lightdistanceline:
 				CHECK_N(Zd | Zdt)
 				break;
 
@@ -2057,12 +2048,6 @@ public:
 					sec->health3dgroup = CheckInt(key);
 					break;
 
-				case NAME_lm_lightcolorfloor:
-				case NAME_lm_lightintensityfloor:
-				case NAME_lm_lightdistancefloor:
-				case NAME_lm_lightcolorceiling:
-				case NAME_lm_lightintensityceiling:
-				case NAME_lm_lightdistanceceiling:
 					CHECK_N(Zd | Zdt)
 					break;
 
