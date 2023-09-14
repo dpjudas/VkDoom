@@ -50,17 +50,14 @@ VkRaytrace::VkRaytrace(VulkanRenderDevice* fb) : fb(fb)
 	SetLevelMesh(nullptr);
 }
 
-void VkRaytrace::SetLevelMesh(hwrenderer::LevelMesh* mesh)
+void VkRaytrace::SetLevelMesh(LevelMesh* mesh)
 {
 	if (!mesh)
 		mesh = &NullMesh;
 
-	if (mesh != Mesh)
-	{
-		Reset();
-		Mesh = mesh;
-		CreateVulkanObjects();
-	}
+	Reset();
+	Mesh = mesh;
+	CreateVulkanObjects();
 }
 
 void VkRaytrace::Reset()
@@ -70,6 +67,9 @@ void VkRaytrace::Reset()
 	deletelist->Add(std::move(indexBuffer));
 	deletelist->Add(std::move(transferBuffer));
 	deletelist->Add(std::move(nodesBuffer));
+	deletelist->Add(std::move(surfaceBuffer));
+	deletelist->Add(std::move(surfaceIndexBuffer));
+	deletelist->Add(std::move(portalBuffer));
 	deletelist->Add(std::move(blScratchBuffer));
 	deletelist->Add(std::move(blAccelStructBuffer));
 	deletelist->Add(std::move(blAccelStruct));
@@ -82,7 +82,7 @@ void VkRaytrace::Reset()
 
 void VkRaytrace::CreateVulkanObjects()
 {
-	CreateVertexAndIndexBuffers();
+	CreateBuffers();
 	if (useRayQuery)
 	{
 		CreateBottomLevelAccelerationStructure();
@@ -90,7 +90,7 @@ void VkRaytrace::CreateVulkanObjects()
 	}
 }
 
-void VkRaytrace::CreateVertexAndIndexBuffers()
+void VkRaytrace::CreateBuffers()
 {
 	std::vector<CollisionNode> nodes = CreateCollisionNodes();
 
@@ -102,6 +102,27 @@ void VkRaytrace::CreateVertexAndIndexBuffers()
 
 	CollisionNodeBufferHeader nodesHeader;
 	nodesHeader.root = Mesh->Collision->get_root();
+
+	TArray<PortalInfo> portalInfo;
+	for (auto& portal : Mesh->Portals)
+	{
+		PortalInfo info;
+		info.transformation = portal.transformation;
+		portalInfo.Push(info);
+	}
+
+	TArray<SurfaceInfo> surfaceInfo;
+	for (int i = 0, count = Mesh->GetSurfaceCount(); i < count; i++)
+	{
+		LevelMeshSurface* surface = Mesh->GetSurface(i);
+
+		SurfaceInfo info;
+		info.Normal = surface->plane.XYZ();
+		info.PortalIndex = surface->portalIndex;
+		info.SamplingDistance = (float)surface->sampleDimension;
+		info.Sky = surface->bSky;
+		surfaceInfo.Push(info);
+	}
 
 	vertexBuffer = BufferBuilder()
 		.Usage(
@@ -133,14 +154,35 @@ void VkRaytrace::CreateVertexAndIndexBuffers()
 		.DebugName("nodesBuffer")
 		.Create(fb->GetDevice());
 
+	surfaceIndexBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(Mesh->MeshSurfaceIndexes.Size() * sizeof(int))
+		.DebugName("surfaceBuffer")
+		.Create(fb->GetDevice());
+
+	surfaceBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(surfaceInfo.Size() * sizeof(SurfaceInfo))
+		.DebugName("surfaceBuffer")
+		.Create(fb->GetDevice());
+
+	portalBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(portalInfo.Size() * sizeof(PortalInfo))
+		.DebugName("portalBuffer")
+		.Create(fb->GetDevice());
+
 	transferBuffer = BufferTransfer()
 		.AddBuffer(vertexBuffer.get(), vertices.data(), vertices.size() * sizeof(FVector4))
 		.AddBuffer(indexBuffer.get(), Mesh->MeshElements.Data(), (size_t)Mesh->MeshElements.Size() * sizeof(uint32_t))
 		.AddBuffer(nodesBuffer.get(), &nodesHeader, sizeof(CollisionNodeBufferHeader), nodes.data(), nodes.size() * sizeof(CollisionNode))
+		.AddBuffer(surfaceIndexBuffer.get(), Mesh->MeshSurfaceIndexes.Data(), Mesh->MeshSurfaceIndexes.Size() * sizeof(int))
+		.AddBuffer(surfaceBuffer.get(), surfaceInfo.Data(), surfaceInfo.Size() * sizeof(SurfaceInfo))
+		.AddBuffer(portalBuffer.get(), portalInfo.Data(), portalInfo.Size() * sizeof(PortalInfo))
 		.Execute(fb->GetDevice(), fb->GetCommands()->GetTransferCommands());
-
+	
 	PipelineBarrier()
-		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, useRayQuery ? VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR : VK_ACCESS_SHADER_READ_BIT)
 		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, useRayQuery ? VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
@@ -234,7 +276,7 @@ void VkRaytrace::CreateTopLevelAccelerationStructure()
 
 	// Finish transfering before using it as input
 	PipelineBarrier()
-		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
 		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
 
 	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };

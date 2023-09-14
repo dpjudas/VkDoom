@@ -155,7 +155,8 @@ public:
 	virtual bool IsVulkan() { return false; }
 	virtual bool IsPoly() { return false; }
 	virtual bool CompileNextShader() { return true; }
-	virtual void SetLevelMesh(hwrenderer::LevelMesh *mesh) { }
+	virtual void SetLevelMesh(LevelMesh *mesh) { }
+	virtual void UpdateLightmaps(const TArray<LevelMeshSurface*>& surfaces) {}
 	bool allowSSBO() const
 	{
 #ifndef HW_BLOCK_SSBO
@@ -219,8 +220,6 @@ public:
 	virtual int GetClientWidth() = 0;
 	virtual int GetClientHeight() = 0;
 	virtual void BlurScene(float amount) {}
-
-	virtual void InitLightmap(int LMTextureSize, int LMTextureCount, TArray<uint16_t>& LMTextureData) {}
 
     // Interface to hardware rendering resources
 	virtual IBuffer* CreateVertexBuffer(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute* attrs) { return nullptr; }

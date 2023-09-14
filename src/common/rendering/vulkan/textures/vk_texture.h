@@ -23,6 +23,7 @@ public:
 
 	void BeginFrame();
 
+	void CreateLightmap(int newLMTextureSize, int newLMTextureCount, TArray<uint16_t>&& newPixelData);
 	void SetLightmap(int LMTextureSize, int LMTextureCount, const TArray<uint16_t>& LMTextureData);
 
 	VkTextureImage* GetTexture(const PPTextureType& type, PPTexture* tex);
@@ -39,6 +40,8 @@ public:
 
 	VkTextureImage Shadowmap;
 	VkTextureImage Lightmap;
+	int LMTextureSize = 0;
+	int LMTextureCount = 0;
 
 private:
 	void CreateNullTexture();

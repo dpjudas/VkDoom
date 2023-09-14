@@ -17,7 +17,7 @@ struct Uniforms
 	float SunIntensity;
 };
 
-struct PushConstants
+struct LightmapPushConstants
 {
 	uint32_t LightStart;
 	uint32_t LightEnd;
@@ -45,9 +45,20 @@ struct LightmapImage
 		std::unique_ptr<VulkanImage> Image;
 		std::unique_ptr<VulkanImageView> View;
 		std::unique_ptr<VulkanFramebuffer> Framebuffer;
+		std::unique_ptr<VulkanDescriptorSet> DescriptorSet;
 	} resolve;
 
-	std::unique_ptr<VulkanBuffer> Transfer;
+	struct
+	{
+		std::unique_ptr<VulkanImage> Image;
+		std::unique_ptr<VulkanImageView> View;
+		std::unique_ptr<VulkanFramebuffer> Framebuffer;
+		std::unique_ptr<VulkanDescriptorSet> DescriptorSet[2];
+	} blur;
+
+	// how much of the page is used?
+	uint16_t pageMaxX = 0;
+	uint16_t pageMaxY = 0;
 };
 
 struct SceneVertex
@@ -79,35 +90,34 @@ public:
 	VkLightmap(VulkanRenderDevice* fb);
 	~VkLightmap();
 
-	void Raytrace(hwrenderer::LevelMesh* level);
-
+	void Raytrace(const TArray<LevelMeshSurface*>& surfaces);
+	void SetLevelMesh(LevelMesh* level);
 private:
 	void UpdateAccelStructDescriptors();
 
-	void BeginCommands();
-	void FinishCommands();
-
 	void UploadUniforms();
-	void CreateAtlasImages();
-	void RenderAtlasImage(size_t pageIndex);
+	void CreateAtlasImages(const TArray<LevelMeshSurface*>& surfaces);
+	void RenderAtlasImage(size_t pageIndex, const TArray<LevelMeshSurface*>& surfaces);
 	void ResolveAtlasImage(size_t pageIndex);
-	void DownloadAtlasImage(size_t pageIndex);
+	void BlurAtlasImage(size_t pageIndex);
+	void CopyAtlasImageResult(size_t pageIndex, const TArray<LevelMeshSurface*>& surfaces);
 
 	LightmapImage CreateImage(int width, int height);
 
 	void CreateShaders();
 	void CreateRaytracePipeline();
 	void CreateResolvePipeline();
+	void CreateBlurPipeline();
 	void CreateUniformBuffer();
 	void CreateSceneVertexBuffer();
 	void CreateSceneLightBuffer();
 
-	static FVector2 ToUV(const FVector3& vert, const hwrenderer::Surface* targetSurface);
+	static FVector2 ToUV(const FVector3& vert, const LevelMeshSurface* targetSurface);
 
 	static FString LoadPrivateShaderLump(const char* lumpname);
 
 	VulkanRenderDevice* fb = nullptr;
-	hwrenderer::LevelMesh* mesh = nullptr;
+	LevelMesh* mesh = nullptr;
 
 	bool useRayQuery = true;
 
@@ -143,6 +153,7 @@ private:
 		std::unique_ptr<VulkanShader> vert;
 		std::unique_ptr<VulkanShader> fragRaytrace;
 		std::unique_ptr<VulkanShader> fragResolve;
+		std::unique_ptr<VulkanShader> fragBlur[2];
 	} shaders;
 
 	struct
@@ -151,7 +162,8 @@ private:
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout1;
 		std::unique_ptr<VulkanPipelineLayout> pipelineLayout;
 		std::unique_ptr<VulkanPipeline> pipeline;
-		std::unique_ptr<VulkanRenderPass> renderPass;
+		std::unique_ptr<VulkanRenderPass> renderPassBegin;
+		std::unique_ptr<VulkanRenderPass> renderPassContinue;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool0;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool1;
 		std::unique_ptr<VulkanDescriptorSet> descriptorSet0;
@@ -165,13 +177,18 @@ private:
 		std::unique_ptr<VulkanPipeline> pipeline;
 		std::unique_ptr<VulkanRenderPass> renderPass;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool;
-		std::vector<std::unique_ptr<VulkanDescriptorSet>> descriptorSets;
 		std::unique_ptr<VulkanSampler> sampler;
 	} resolve;
 
-	std::unique_ptr<VulkanFence> submitFence;
-	std::unique_ptr<VulkanCommandPool> cmdpool;
-	std::unique_ptr<VulkanCommandBuffer> cmdbuffer;
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout;
+		std::unique_ptr<VulkanPipelineLayout> pipelineLayout;
+		std::unique_ptr<VulkanPipeline> pipeline[2];
+		std::unique_ptr<VulkanRenderPass> renderPass;
+		std::unique_ptr<VulkanDescriptorPool> descriptorPool;
+		std::unique_ptr<VulkanSampler> sampler;
+	} blur;
 
 	std::vector<LightmapImage> atlasImages;
 	static const int atlasImageSize = 2048;

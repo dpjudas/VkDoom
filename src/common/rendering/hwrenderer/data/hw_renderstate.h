@@ -3,11 +3,16 @@
 #include "vectors.h"
 #include "matrix.h"
 #include "hw_material.h"
+#include "hw_levelmesh.h"
 #include "texmanip.h"
 #include "version.h"
 #include "i_interface.h"
 #include "hw_viewpointuniforms.h"
 #include "hw_cvars.h"
+
+#include <atomic>
+
+EXTERN_CVAR(Int, lm_max_updates);
 
 struct FColormap;
 class IBuffer;
@@ -257,12 +262,17 @@ protected:
 
 	EPassType mPassType = NORMAL_PASS;
 
+	std::atomic<unsigned> mActiveLightmapSurfaceBufferIndex;
+	TArray<LevelMeshSurface*> mActiveLightmapSurfacesBuffer;
 public:
 
 	uint64_t firstFrame = 0;
 
 	void Reset()
 	{
+		mActiveLightmapSurfaceBufferIndex = { 0 };
+		mActiveLightmapSurfacesBuffer.Resize(lm_max_updates);
+
 		mTextureEnabled = true;
 		mBrightmapEnabled = mGradientEnabled = mFogEnabled = mGlowEnabled = false;
 		mFogColor = 0xffffffff;
@@ -727,6 +737,35 @@ public:
 		matrices.mProjectionMatrix.ortho(0, (float)width, (float)height, 0, -1.0f, 1.0f);
 		matrices.CalcDependencies();
 		return SetViewpoint(matrices);
+	}
+
+	inline void PushVisibleSurface(LevelMeshSurface* surface)
+	{
+		if (surface->needsUpdate) // TODO atomic? 
+		{
+			auto index = mActiveLightmapSurfaceBufferIndex.fetch_add(1);
+			if (index < mActiveLightmapSurfacesBuffer.Size())
+			{
+				mActiveLightmapSurfacesBuffer[index] = surface;
+				surface->needsUpdate = false;
+			}
+		}
+	}
+
+	inline auto& GetVisibleSurfaceList()
+	{
+		return mActiveLightmapSurfacesBuffer;
+	}
+
+	inline unsigned GetVisibleSurfaceListCount() const
+	{
+		return mActiveLightmapSurfaceBufferIndex;
+	}
+
+	inline void ClearVisibleSurfaceList()
+	{
+		mActiveLightmapSurfacesBuffer.Resize(lm_max_updates);
+		mActiveLightmapSurfaceBufferIndex = 0;
 	}
 
 	// API-dependent render interface

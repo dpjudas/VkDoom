@@ -43,6 +43,7 @@
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_postprocess.h"
 #include "vulkan/accelstructs/vk_raytrace.h"
+#include "vulkan/accelstructs/vk_lightmap.h"
 #include "vulkan/pipelines/vk_renderpass.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/shaders/vk_shader.h"
@@ -181,6 +182,7 @@ void VulkanRenderDevice::InitializeState()
 	mDescriptorSetManager.reset(new VkDescriptorSetManager(this));
 	mRenderPassManager.reset(new VkRenderPassManager(this));
 	mRaytrace.reset(new VkRaytrace(this));
+	mLightmap.reset(new VkLightmap(this));
 
 	mBufferManager->Init();
 
@@ -463,6 +465,30 @@ TArray<uint8_t> VulkanRenderDevice::GetScreenshotBuffer(int &pitch, ESSType &col
 
 void VulkanRenderDevice::BeginFrame()
 {
+	if (levelMeshChanged)
+	{
+		levelMeshChanged = false;
+		mRaytrace->SetLevelMesh(levelMesh);
+
+		if (levelMesh && levelMesh->GetSurfaceCount() > 0)
+		{
+			levelMesh->UpdateLightLists();
+			GetTextureManager()->CreateLightmap(levelMesh->LMTextureSize, levelMesh->LMTextureCount, std::move(levelMesh->LMTextureData));
+			GetLightmap()->SetLevelMesh(levelMesh);
+
+#if 0 // full lightmap generation
+			TArray<LevelMeshSurface*> surfaces;
+			surfaces.Reserve(mesh->GetSurfaceCount());
+			for (unsigned i = 0, count = mesh->GetSurfaceCount(); i < count; ++i)
+			{
+				surfaces[i] = mesh->GetSurface(i);
+			}
+
+			GetLightmap()->Raytrace(surfaces);
+#endif
+		}
+	}
+
 	SetViewportRects(nullptr);
 	mCommands->BeginFrame();
 	mTextureManager->BeginFrame();
@@ -471,15 +497,6 @@ void VulkanRenderDevice::BeginFrame()
 	for (auto& renderstate : mRenderState)
 		renderstate->BeginFrame();
 	mDescriptorSetManager->BeginFrame();
-}
-
-void VulkanRenderDevice::InitLightmap(int LMTextureSize, int LMTextureCount, TArray<uint16_t>& LMTextureData)
-{
-	if (LMTextureData.Size() > 0)
-	{
-		GetTextureManager()->SetLightmap(LMTextureSize, LMTextureCount, LMTextureData);
-		LMTextureData.Reset(); // We no longer need this, release the memory
-	}
 }
 
 void VulkanRenderDevice::Draw2D()
@@ -536,9 +553,18 @@ void VulkanRenderDevice::PrintStartupLog()
 	Printf("Min. uniform buffer offset alignment: %" PRIu64 "\n", limits.minUniformBufferOffsetAlignment);
 }
 
-void VulkanRenderDevice::SetLevelMesh(hwrenderer::LevelMesh* mesh)
+void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)
 {
-	mRaytrace->SetLevelMesh(mesh);
+	levelMesh = mesh;
+	levelMeshChanged = true;
+}
+
+void VulkanRenderDevice::UpdateLightmaps(const TArray<LevelMeshSurface*>& surfaces)
+{
+	if (surfaces.Size() > 0 && levelMesh)
+	{
+		GetLightmap()->Raytrace(surfaces);
+	}
 }
 
 void VulkanRenderDevice::SetShadowMaps(const TArray<float>& lights, hwrenderer::LevelAABBTree* tree, bool newTree)

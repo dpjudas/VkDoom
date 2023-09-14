@@ -454,13 +454,11 @@ public:
 	TArray<FLinePortal> linePortals;
 
 	// Lightmaps
-	TArray<LightmapSurface> LMSurfaces;
-	TArray<float> LMTexCoords;
-	int LMTextureCount = 0;
-	int LMTextureSize = 0;
-	TArray<uint16_t> LMTextureData;
+	bool lightmaps = false;
+	TArray<DoomLevelMeshSurface*> LMSurfaces;
 	FVector3 SunDirection;
 	FVector3 SunColor;
+	uint16_t LightmapSampleDistance;
 
 	// Portal information.
 	FDisplacementTable Displacements;

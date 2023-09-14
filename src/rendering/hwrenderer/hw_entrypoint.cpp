@@ -96,7 +96,6 @@ void CollectLights(FLevelLocals* Level)
 	}
 }
 
-
 //-----------------------------------------------------------------------------
 //
 // Renders one viewpoint in a scene
@@ -123,8 +122,6 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		screen->mShadowMap->SetAABBTree(nullptr);
 		screen->mShadowMap->SetCollectLights(nullptr);
 	}
-
-	screen->SetLevelMesh(camera->Level->levelMesh);
 
 	static HWDrawContext mainthread_drawctx;
 

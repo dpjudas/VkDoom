@@ -15,6 +15,7 @@ class VkDescriptorSetManager;
 class VkRenderPassManager;
 class VkFramebufferManager;
 class VkRaytrace;
+class VkLightmap;
 class VkRenderState;
 class VkStreamBuffer;
 class VkHardwareDataBuffer;
@@ -38,6 +39,7 @@ public:
 	VkDescriptorSetManager* GetDescriptorSetManager() { return mDescriptorSetManager.get(); }
 	VkRenderPassManager *GetRenderPassManager() { return mRenderPassManager.get(); }
 	VkRaytrace* GetRaytrace() { return mRaytrace.get(); }
+	VkLightmap* GetLightmap() { return mLightmap.get(); }
 	VkRenderState *GetRenderState(int threadIndex) { return mRenderState[threadIndex].get(); }
 	VkPostprocess *GetPostprocess() { return mPostprocess.get(); }
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
@@ -56,12 +58,12 @@ public:
 	void SetTextureFilterMode() override;
 	void StartPrecaching() override;
 	void BeginFrame() override;
-	void InitLightmap(int LMTextureSize, int LMTextureCount, TArray<uint16_t>& LMTextureData) override;
 	void BlurScene(float amount) override;
 	void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) override;
 	void AmbientOccludeScene(float m5) override;
 	void SetSceneRenderTarget(bool useSSAO) override;
-	void SetLevelMesh(hwrenderer::LevelMesh* mesh) override;
+	void SetLevelMesh(LevelMesh* mesh) override;
+	void UpdateLightmaps(const TArray<LevelMeshSurface*>& surfaces) override;
 	void SetShadowMaps(const TArray<float>& lights, hwrenderer::LevelAABBTree* tree, bool newTree) override;
 	void SetSaveBuffers(bool yes) override;
 	void ImageTransitionScene(bool unknown) override;
@@ -107,11 +109,15 @@ private:
 	std::unique_ptr<VkDescriptorSetManager> mDescriptorSetManager;
 	std::unique_ptr<VkRenderPassManager> mRenderPassManager;
 	std::unique_ptr<VkRaytrace> mRaytrace;
+	std::unique_ptr<VkLightmap> mLightmap;
 	std::vector<std::unique_ptr<VkRenderState>> mRenderState;
 
 	VkRenderBuffers *mActiveRenderBuffers = nullptr;
 
 	bool mVSync = false;
+
+	LevelMesh* levelMesh = nullptr;
+	bool levelMeshChanged = true;
 };
 
 class CVulkanError : public CEngineError

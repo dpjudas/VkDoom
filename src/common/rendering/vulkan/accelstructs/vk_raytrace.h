@@ -3,6 +3,7 @@
 
 #include "zvulkan/vulkanobjects.h"
 #include "hw_levelmesh.h"
+#include "common/utility/matrix.h"
 
 class VulkanRenderDevice;
 
@@ -26,22 +27,39 @@ struct CollisionNode
 	int padding3;
 };
 
+struct SurfaceInfo
+{
+	FVector3 Normal;
+	float Sky;
+	float SamplingDistance;
+	uint32_t PortalIndex;
+	float Padding1, Padding2;
+};
+
+struct PortalInfo
+{
+	VSMatrix transformation;
+};
+
 class VkRaytrace
 {
 public:
 	VkRaytrace(VulkanRenderDevice* fb);
 
-	void SetLevelMesh(hwrenderer::LevelMesh* mesh);
+	void SetLevelMesh(LevelMesh* mesh);
 
 	VulkanAccelerationStructure* GetAccelStruct() { return tlAccelStruct.get(); }
 	VulkanBuffer* GetVertexBuffer() { return vertexBuffer.get(); }
 	VulkanBuffer* GetIndexBuffer() { return indexBuffer.get(); }
 	VulkanBuffer* GetNodeBuffer() { return nodesBuffer.get(); }
+	VulkanBuffer* GetSurfaceIndexBuffer() { return surfaceIndexBuffer.get(); }
+	VulkanBuffer* GetSurfaceBuffer() { return surfaceBuffer.get(); }
+	VulkanBuffer* GetPortalBuffer() { return portalBuffer.get(); }
 
 private:
 	void Reset();
 	void CreateVulkanObjects();
-	void CreateVertexAndIndexBuffers();
+	void CreateBuffers();
 	void CreateBottomLevelAccelerationStructure();
 	void CreateTopLevelAccelerationStructure();
 
@@ -51,13 +69,16 @@ private:
 
 	bool useRayQuery = true;
 
-	hwrenderer::LevelMesh NullMesh;
-	hwrenderer::LevelMesh* Mesh = nullptr;
+	LevelMesh NullMesh;
+	LevelMesh* Mesh = nullptr;
 
 	std::unique_ptr<VulkanBuffer> vertexBuffer;
 	std::unique_ptr<VulkanBuffer> indexBuffer;
 	std::unique_ptr<VulkanBuffer> transferBuffer;
 	std::unique_ptr<VulkanBuffer> nodesBuffer;
+	std::unique_ptr<VulkanBuffer> surfaceIndexBuffer;
+	std::unique_ptr<VulkanBuffer> surfaceBuffer;
+	std::unique_ptr<VulkanBuffer> portalBuffer;
 
 	std::unique_ptr<VulkanBuffer> blScratchBuffer;
 	std::unique_ptr<VulkanBuffer> blAccelStructBuffer;
