@@ -741,13 +741,13 @@ public:
 
 	inline void PushVisibleSurface(LevelMeshSurface* surface)
 	{
-		if (surface->needsUpdate && !surface->portalIndex && !surface->bSky) // TODO atomic?
+		if (surface->needsUpdate && !surface->inVisibleList && !surface->portalIndex && !surface->bSky) // TODO atomic?
 		{
 			auto index = mActiveLightmapSurfaceBufferIndex.fetch_add(1);
 			if (index < mActiveLightmapSurfacesBuffer.Size())
 			{
 				mActiveLightmapSurfacesBuffer[index] = surface;
-				surface->needsUpdate = false;
+				surface->inVisibleList = true;
 			}
 		}
 	}

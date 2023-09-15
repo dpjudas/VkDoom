@@ -865,11 +865,16 @@ void UpdateLightmaps(DFrameBuffer* screen, FRenderState& RenderState)
 
 	list.Resize(min(list.Size(), unsigned(size)));
 
+	for (auto* surface : list)
+	{
+		surface->inVisibleList = false;
+	}
+
 	if (size < unsigned(lm_background_updates))
 	{
 		for (auto& e : level.levelMesh->Surfaces)
 		{
-			if (e.needsUpdate && !e.bSky && !e.portalIndex)
+			if (e.needsUpdate && !e.inVisibleList && !e.bSky && !e.portalIndex)
 			{
 				list.Push(&e);
 

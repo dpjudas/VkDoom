@@ -54,7 +54,7 @@ struct LevelMeshSurface
 	int texHeight = 0;
 
 	bool needsUpdate = true;
-	bool alreadyInVisibleList = false;
+	bool inVisibleList = false;
 
 	//
 	// Required for internal lightmapper:

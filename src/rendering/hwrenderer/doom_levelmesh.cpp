@@ -52,14 +52,24 @@ CCMD(invalidatelightmap)
 {
 	REQUIRE_LIGHTMAP();
 
+	int bad = 0;
 	int count = 0;
 	for (auto& surface : levelMesh->Surfaces)
 	{
 		if (!surface.needsUpdate)
 			++count;
 		surface.needsUpdate = true;
+
+		if (surface.inVisibleList)
+			++bad;
+		surface.inVisibleList = false;
 	}
 	Printf("Marked %d out of %d surfaces for update.\n", count, levelMesh->Surfaces.Size());
+
+	if (bad)
+	{
+		Printf("Error: removed 'inVisibleList' status from %d surfaces.\n", bad);
+	}
 }
 
 void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
