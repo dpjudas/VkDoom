@@ -212,6 +212,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (key.FogRadial) definesBlock << "#define FOG_RADIAL\n";
 	if (key.SWLightRadial) definesBlock << "#define SWLIGHT_RADIAL\n";
 	if (key.SWLightBanded) definesBlock << "#define SWLIGHT_BANDED\n";
+	if (key.FogBalls) definesBlock << "#define FOGBALLS\n";
 
 	FString layoutBlock;
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
