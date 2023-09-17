@@ -502,7 +502,7 @@ void VkRenderState::ApplyBufferSets()
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
 	uint32_t streamDataOffset = mRSBuffers->StreamBuffer->Offset();
 	uint32_t lightsOffset = mLightIndex >= 0 ? (uint32_t)(mLightIndex / MAX_LIGHT_DATA) * sizeof(LightBufferUBO) : mLastLightsOffset;
-	uint32_t fogballsOffset = mFogballIndex >= 0 ? (uint32_t)(mFogballIndex / MAX_FOGBALL_DATA) * sizeof(Fogball) : mLastFogballsOffset;
+	uint32_t fogballsOffset = mFogballIndex >= 0 ? (uint32_t)(mFogballIndex / MAX_FOGBALL_DATA) * sizeof(FogballBufferUBO) : mLastFogballsOffset;
 	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || streamDataOffset != mLastStreamDataOffset || lightsOffset != mLastLightsOffset || fogballsOffset != mLastFogballsOffset)
 	{
 		auto descriptors = fb->GetDescriptorSetManager();

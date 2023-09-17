@@ -65,7 +65,7 @@ void VkDescriptorSetManager::Init()
 		.AddBuffer(rsbufferset.get(), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->MatrixBuffer->UBO(), 0, sizeof(MatricesUBO))
 		.AddBuffer(rsbufferset.get(), 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->StreamBuffer->UBO(), 0, sizeof(StreamUBO))
 		.AddBuffer(rsbufferset.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
-		.AddBuffer(rsbufferset.get(), 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Fogballbuffer.UBO.get(), 0, sizeof(Fogball))
+		.AddBuffer(rsbufferset.get(), 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Fogballbuffer.UBO.get(), 0, sizeof(FogballBufferUBO))
 		.AddBuffer(rsbufferset.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
 		.Execute(fb->GetDevice());
 

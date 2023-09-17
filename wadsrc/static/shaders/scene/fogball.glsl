@@ -55,7 +55,8 @@ vec4 ProcessFogBalls(vec4 light)
 
 		vec3 fogcolor = fogballs[i].color * fogballs[i].fog;
 		float density = FogSphereDensity(rayOrigin, rayDirection, sphereCenter, sphereRadius, dbuffer);
-		light.rgb = mix(light.rgb, fogcolor * density, density);
+		float alpha = clamp(density, 0.0, 1.0);
+		light.rgb = mix(light.rgb, fogcolor * density, alpha);
 	}
 
 	return light;

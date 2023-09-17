@@ -42,6 +42,11 @@ struct LightBufferUBO
 
 #define MAX_FOGBALL_DATA ((int)(65536 / sizeof(Fogball)))
 
+struct FogballBufferUBO
+{
+	Fogball fogballs[MAX_FOGBALL_DATA];
+};
+
 struct PushConstants
 {
 	int uDataIndex; // streamdata index

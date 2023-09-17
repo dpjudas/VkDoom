@@ -54,7 +54,7 @@ public:
 	struct
 	{
 		int UploadIndex = 0;
-		int Count = 1000;
+		int Count = 10000;
 		std::unique_ptr<VulkanBuffer> UBO;
 		void* Data = nullptr;
 	} Fogballbuffer;

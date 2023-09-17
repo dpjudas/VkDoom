@@ -34,7 +34,6 @@ struct particle_t;
 struct FDynLightData;
 struct HUDSprite;
 class ACorona;
-class AFogball;
 class Clipper;
 class HWPortal;
 class HWScenePortalBase;
