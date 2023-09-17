@@ -224,6 +224,14 @@ struct StreamData
 	float padding3;
 };
 
+struct Fogball
+{
+	FVector3 Position;
+	float Radius;
+	FVector3 Color;
+	float Fog;
+};
+
 class FRenderState
 {
 protected:
@@ -236,6 +244,7 @@ protected:
 
 	int mLightIndex;
 	int mBoneIndexBase;
+	int mFogballIndex;
 	int mSpecialEffect;
 	int mTextureMode;
 	int mTextureClamp;
@@ -290,6 +299,7 @@ public:
 		mSpecialEffect = EFF_NONE;
 		mLightIndex = -1;
 		mBoneIndexBase = -1;
+		mFogballIndex = -1;
 		mStreamData.uInterpolationFactor = 0;
 		mRenderStyle = DefaultRenderStyle();
 		mMaterial.Reset();
@@ -578,6 +588,11 @@ public:
 		mBoneIndexBase = index;
 	}
 
+	void SetFogballIndex(int index)
+	{
+		mFogballIndex = index;
+	}
+
 	void SetRenderStyle(FRenderStyle rs)
 	{
 		mRenderStyle = rs;
@@ -750,6 +765,7 @@ public:
 	virtual void SetTextureMatrix(const VSMatrix& matrix) = 0;
 	virtual int UploadLights(const FDynLightData& lightdata) = 0;
 	virtual int UploadBones(const TArray<VSMatrix>& bones) = 0;
+	virtual int UploadFogballs(const TArray<Fogball>& balls) = 0;
 
 	// Draw commands
 	virtual void ClearScreen() = 0;

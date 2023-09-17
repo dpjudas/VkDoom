@@ -866,3 +866,4 @@ xx(skew_middle)
 xx(skew_top)
 
 xx(Corona)
+xx(Fogball)

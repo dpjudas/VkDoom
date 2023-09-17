@@ -9,6 +9,7 @@
 #include "v_video.h"
 #include "hw_weapon.h"
 #include "hw_drawlist.h"
+#include "hw_renderstate.h"
 
 EXTERN_CVAR(Bool, lm_always_update);
 EXTERN_CVAR(Int, lm_max_updates);
@@ -33,6 +34,7 @@ struct particle_t;
 struct FDynLightData;
 struct HUDSprite;
 class ACorona;
+class AFogball;
 class Clipper;
 class HWPortal;
 class HWScenePortalBase;
@@ -151,6 +153,7 @@ struct HWDrawInfo
 	TArray<HWDecal *> Decals[2];	// the second slot is for mirrors which get rendered in a separate pass.
 	TArray<HUDSprite> hudsprites;	// These may just be stored by value.
 	TArray<AActor*> Coronas;
+	TArray<Fogball> Fogballs;
 	TArray<LevelMeshSurface*> VisibleSurfaces;
 	uint64_t LastFrameTime = 0;
 

@@ -80,6 +80,7 @@ public:
 	void SetTextureMatrix(const VSMatrix& matrix) override { mTextureMatrix = matrix; }
 	int UploadLights(const FDynLightData& lightdata) override { return -1; }
 	int UploadBones(const TArray<VSMatrix>& bones) override { return -1; }
+	int UploadFogballs(const TArray<Fogball>& balls) override { return -1; }
 
 	// Draw commands
 	void Draw(int dt, int index, int count, bool apply = true) override;

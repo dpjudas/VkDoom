@@ -9,7 +9,7 @@ layout(push_constant) uniform PushConstants
 	int uDataIndex; // streamdata index
 	int uLightIndex; // dynamic lights
 	int uBoneIndexBase; // bone animation
-	int padding;
+	int uFogballIndex; // fog balls
 };
 
 // material types

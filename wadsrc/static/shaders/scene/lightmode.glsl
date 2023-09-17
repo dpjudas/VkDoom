@@ -88,7 +88,7 @@ vec4 getLightColor(Material material)
 
 	#endif
 
-	#if !defined(FOGBALLS)
+	#if defined(FOGBALLS)
 	frag = ProcessFogBalls(frag);
 	#endif
 

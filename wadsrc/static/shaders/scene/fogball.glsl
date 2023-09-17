@@ -46,13 +46,17 @@ vec4 ProcessFogBalls(vec4 light)
 	float dbuffer = distance(pixelpos.xyz, uCameraPos.xyz);
 	vec3 rayDirection = normalize(pixelpos.xyz - uCameraPos.xyz);
 
-	vec3 sphereCenter = vec3(715, 89, 743);
-	float sphereRadius = 400;
+	int first = uFogballIndex + 1;
+	int last = uFogballIndex + int(fogballs[uFogballIndex].position.x);
+	for (int i = first; i <= last; i++)
+	{
+		vec3 sphereCenter = fogballs[i].position.xzy;
+		float sphereRadius = fogballs[i].radius;
 
-	float fogintensity = 0.5;
-	vec3 fogcolor = vec3(1.0, 0.8, 0.5) * fogintensity;
-	float density = FogSphereDensity(rayOrigin, rayDirection, sphereCenter, sphereRadius, dbuffer);
-	light.rgb = mix(light.rgb, fogcolor * density, density);
+		vec3 fogcolor = fogballs[i].color * fogballs[i].fog;
+		float density = FogSphereDensity(rayOrigin, rayDirection, sphereCenter, sphereRadius, dbuffer);
+		light.rgb = mix(light.rgb, fogcolor * density, density);
+	}
 
 	return light;
 }

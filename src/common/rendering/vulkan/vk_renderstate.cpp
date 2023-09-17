@@ -283,6 +283,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.FogRadial = (fogset < -1 || fogset > 1);
 	pipelineKey.ShaderKey.SWLightRadial = (gl_fogmode == 2);
 	pipelineKey.ShaderKey.SWLightBanded = false; // gl_bandedswlight;
+	pipelineKey.ShaderKey.FogBalls = mFogballIndex >= 0;
 
 	float lightlevel = mStreamData.uLightLevel;
 	if (lightlevel < 0.0)
@@ -420,6 +421,7 @@ void VkRenderState::ApplyPushConstants()
 	mPushConstants.uDataIndex = mRSBuffers->StreamBuffer->DataIndex();
 	mPushConstants.uLightIndex = mLightIndex >= 0 ? (mLightIndex % MAX_LIGHT_DATA) : -1;
 	mPushConstants.uBoneIndexBase = mBoneIndexBase;
+	mPushConstants.uFogballIndex = mFogballIndex >= 0 ? (mFogballIndex % MAX_FOGBALL_DATA) : -1;
 
 	mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.NumTextureLayers), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
 }
@@ -500,19 +502,21 @@ void VkRenderState::ApplyBufferSets()
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
 	uint32_t streamDataOffset = mRSBuffers->StreamBuffer->Offset();
 	uint32_t lightsOffset = mLightIndex >= 0 ? (uint32_t)(mLightIndex / MAX_LIGHT_DATA) * sizeof(LightBufferUBO) : mLastLightsOffset;
-	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || streamDataOffset != mLastStreamDataOffset || lightsOffset != mLastLightsOffset)
+	uint32_t fogballsOffset = mFogballIndex >= 0 ? (uint32_t)(mFogballIndex / MAX_FOGBALL_DATA) * sizeof(Fogball) : mLastFogballsOffset;
+	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || streamDataOffset != mLastStreamDataOffset || lightsOffset != mLastLightsOffset || fogballsOffset != mLastFogballsOffset)
 	{
 		auto descriptors = fb->GetDescriptorSetManager();
 		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.NumTextureLayers);
 
-		uint32_t offsets[4] = { mViewpointOffset, matrixOffset, streamDataOffset, lightsOffset };
+		uint32_t offsets[5] = { mViewpointOffset, matrixOffset, streamDataOffset, lightsOffset, fogballsOffset };
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedDescriptorSet());
-		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(), 4, offsets);
+		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(), 5, offsets);
 
 		mLastViewpointOffset = mViewpointOffset;
 		mLastMatricesOffset = matrixOffset;
 		mLastStreamDataOffset = streamDataOffset;
 		mLastLightsOffset = lightsOffset;
+		mLastFogballsOffset = fogballsOffset;
 	}
 }
 
@@ -632,6 +636,35 @@ int VkRenderState::UploadBones(const TArray<VSMatrix>& bones)
 	else
 	{
 		return -1;	// Buffer is full. Since it is being used live at the point of the upload we cannot do much here but to abort.
+	}
+}
+
+int VkRenderState::UploadFogballs(const TArray<Fogball>& balls)
+{
+	int totalsize = balls.Size() + 1;
+	if (balls.Size() == 0)
+	{
+		return -1;
+	}
+
+	// Make sure the fogball list doesn't cross a page boundary
+	if (mRSBuffers->Fogballbuffer.UploadIndex % MAX_FOGBALL_DATA + totalsize > MAX_FOGBALL_DATA)
+		mRSBuffers->Fogballbuffer.UploadIndex = (mRSBuffers->Fogballbuffer.UploadIndex / MAX_FOGBALL_DATA + 1) * MAX_FOGBALL_DATA;
+
+	int thisindex = mRSBuffers->Fogballbuffer.UploadIndex;
+	mRSBuffers->Fogballbuffer.UploadIndex += totalsize;
+
+	if (thisindex + totalsize <= mRSBuffers->Fogballbuffer.Count)
+	{
+		Fogball sizeinfo; // First entry is actually not a fogball. It is the size of the array.
+		sizeinfo.Position.X = (float)balls.Size();
+		memcpy((Fogball*)mRSBuffers->Fogballbuffer.Data + thisindex, &sizeinfo, sizeof(Fogball));
+		memcpy((Fogball*)mRSBuffers->Fogballbuffer.Data + thisindex + 1, balls.Data(), balls.Size() * sizeof(Fogball));
+		return thisindex;
+	}
+	else
+	{
+		return -1;
 	}
 }
 

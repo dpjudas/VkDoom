@@ -40,12 +40,14 @@ struct LightBufferUBO
 	FVector4 lights[MAX_LIGHT_DATA];
 };
 
+#define MAX_FOGBALL_DATA ((int)(65536 / sizeof(Fogball)))
+
 struct PushConstants
 {
 	int uDataIndex; // streamdata index
 	int uLightIndex; // dynamic lights
 	int uBoneIndexBase; // bone animation
-	int padding;
+	int uFogballIndex; // fog balls
 };
 
 class VkShaderKey

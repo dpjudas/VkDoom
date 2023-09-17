@@ -33,6 +33,7 @@
 #include "r_sky.h"
 #include "r_utility.h"
 #include "a_pickups.h"
+#include "a_fogball.h"
 #include "d_player.h"
 #include "g_levellocals.h"
 #include "events.h"
@@ -748,9 +749,22 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 	// [ZZ] allow CustomSprite-style direct picnum specification
 	bool isPicnumOverride = thing->picnum.isValid();
 
+	bool isFogball = thing->IsKindOf(NAME_Fogball);
+
 	// Don't waste time projecting sprites that are definitely not visible.
-	if ((thing->sprite == 0 && !isPicnumOverride) || !thing->IsVisibleToPlayer() || ((thing->renderflags & RF_MASKROTATION) && !thing->IsInsideVisibleAngles()))
+	if ((thing->sprite == 0 && !isPicnumOverride && !isFogball) || !thing->IsVisibleToPlayer() || ((thing->renderflags & RF_MASKROTATION) && !thing->IsInsideVisibleAngles()))
 	{
+		return;
+	}
+
+	if (isFogball)
+	{
+		Fogball fogball;
+		fogball.Position = FVector3(thing->Pos());
+		fogball.Radius = (float)thing->renderradius;
+		fogball.Color = FVector3(1.0f, 0.8f, 0.5f);
+		fogball.Fog = 0.5f;
+		di->Fogballs.Push(fogball);
 		return;
 	}
 

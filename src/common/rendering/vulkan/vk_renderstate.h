@@ -48,6 +48,7 @@ public:
 	void SetTextureMatrix(const VSMatrix& matrix) override;
 	int UploadLights(const FDynLightData& lightdata) override;
 	int UploadBones(const TArray<VSMatrix>& bones) override;
+	int UploadFogballs(const TArray<Fogball>& balls) override;
 
 	// Vertices
 	std::pair<FFlatVertex*, unsigned int> AllocVertices(unsigned int count) override;
@@ -114,6 +115,7 @@ protected:
 	uint32_t mLastMatricesOffset = 0xffffffff;
 	uint32_t mLastStreamDataOffset = 0xffffffff;
 	uint32_t mLastLightsOffset = 0;
+	uint32_t mLastFogballsOffset = 0;
 	uint32_t mViewpointOffset = 0;
 
 	int mLastVertexOffsets[2] = { 0, 0 };

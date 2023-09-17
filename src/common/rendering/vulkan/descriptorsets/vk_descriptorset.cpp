@@ -66,6 +66,7 @@ void VkDescriptorSetManager::Init()
 		.AddBuffer(rsbufferset.get(), 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->StreamBuffer->UBO(), 0, sizeof(StreamUBO))
 		.AddBuffer(rsbufferset.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
 		.AddBuffer(rsbufferset.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
+		.AddBuffer(rsbufferset.get(), 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Fogballbuffer.UBO.get(), 0, sizeof(Fogball))
 		.Execute(fb->GetDevice());
 
 	RSBufferSet = std::move(rsbufferset);
@@ -258,6 +259,7 @@ void VkDescriptorSetManager::CreateRSBufferSetLayout()
 		.AddBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
+		.AddBinding(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.DebugName("VkDescriptorSetManager.RSBufferSetLayout")
 		.Create(fb->GetDevice());
 }
@@ -284,7 +286,7 @@ void VkDescriptorSetManager::CreateFixedSetLayout()
 void VkDescriptorSetManager::CreateRSBufferPool()
 {
 	RSBufferDescriptorPool = DescriptorPoolBuilder()
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 4)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 5)
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1)
 		.MaxSets(1)
 		.DebugName("VkDescriptorSetManager.RSBufferDescriptorPool")

@@ -93,6 +93,17 @@ VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 		.Create(fb->GetDevice());
 
 	Bonebuffer.Data = Bonebuffer.SSO->Map(0, Bonebuffer.SSO->size);
+
+	Fogballbuffer.UBO = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_UNKNOWN, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
+		.MemoryType(
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+		.Size(Fogballbuffer.Count * sizeof(Fogball))
+		.DebugName("Fogballbuffer.UBO")
+		.Create(fb->GetDevice());
+
+	Fogballbuffer.Data = Fogballbuffer.UBO->Map(0, Fogballbuffer.UBO->size);
 }
 
 VkRSBuffers::~VkRSBuffers()
@@ -113,6 +124,10 @@ VkRSBuffers::~VkRSBuffers()
 	if (Bonebuffer.SSO)
 		Bonebuffer.SSO->Unmap();
 	Bonebuffer.SSO.reset();
+
+	if (Fogballbuffer.UBO)
+		Fogballbuffer.UBO->Unmap();
+	Fogballbuffer.UBO.reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////

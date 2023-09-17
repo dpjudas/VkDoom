@@ -125,6 +125,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 	for (int i = 0; i < GLDL_TYPES; i++) drawlists[i].Reset();
 	hudsprites.Clear();
 	Coronas.Clear();
+	Fogballs.Clear();
 	VisibleSurfaces.Clear();
 	vpIndex = 0;
 
@@ -813,7 +814,11 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	state.SetDepthMask(true);
 	if (!gl_no_skyclear) drawctx->portalState.RenderFirstSkyPortal(recursion, this, state);
 
+	int fogballIndex = state.UploadFogballs(Fogballs);
+
+	state.SetFogballIndex(fogballIndex);
 	RenderScene(state);
+	state.SetFogballIndex(-1);
 
 	if (applySSAO && state.GetPassType() == GBUFFER_PASS)
 	{
@@ -826,7 +831,10 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	recursion++;
 	drawctx->portalState.EndFrame(this, state);
 	recursion--;
+
+	state.SetFogballIndex(fogballIndex);
 	RenderTranslucent(state);
+	state.SetFogballIndex(-1);
 }
 
 
