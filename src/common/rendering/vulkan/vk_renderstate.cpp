@@ -737,6 +737,7 @@ void VkRenderState::BeginFrame()
 	mRSBuffers->Viewpoint.UploadIndex = 0;
 	mRSBuffers->Lightbuffer.UploadIndex = 0;
 	mRSBuffers->Bonebuffer.UploadIndex = 0;
+	mRSBuffers->Fogballbuffer.UploadIndex = 0;
 }
 
 void VkRenderState::EndRenderPass()
