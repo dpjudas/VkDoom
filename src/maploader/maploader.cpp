@@ -2989,7 +2989,11 @@ void MapLoader::InitLevelMesh(MapData* map)
 
 	if (Level->lightmaps)
 	{
-		LoadLightmap(map);
+		if (!LoadLightmap(map))
+		{
+			Level->levelMesh->PackLightmapAtlas();
+		}
+
 		Level->levelMesh->BindLightmapSurfacesToGeometry(*Level);
 	}
 	else
@@ -2998,30 +3002,30 @@ void MapLoader::InitLevelMesh(MapData* map)
 	}
 }
 
-void MapLoader::LoadLightmap(MapData* map)
+bool MapLoader::LoadLightmap(MapData* map)
 {
 	if (!map->Size(ML_LIGHTMAP))
-		return;
+		return false;
 
 	FileReader fr;
 	if (!fr.OpenDecompressor(map->Reader(ML_LIGHTMAP), -1, METHOD_ZLIB, false, [](const char* err) { I_Error("%s", err); }))
-		return;
+		return false;
 
 	int version = fr.ReadInt32();
 	if (version == 0)
 	{
 		Printf(PRINT_HIGH, "LoadLightmap: This is an old unsupported alpha version of the lightmap lump. Please rebuild the map with a newer version of zdray.\n");
-		return;
+		return false;
 	}
 	if (version == 1)
 	{
 		Printf(PRINT_HIGH, "LoadLightmap: This is an old unsupported version of the lightmap lump. Please rebuild the map with a newer version of zdray.\n");
-		return;
+		return false;
 	}
 	if (version != 2)
 	{
 		Printf(PRINT_HIGH, "LoadLightmap: unsupported lightmap lump version\n");
-		return;
+		return false;
 	}
 
 	uint32_t numSurfaces = fr.ReadUInt32();
@@ -3034,7 +3038,7 @@ void MapLoader::LoadLightmap(MapData* map)
 	}
 
 	if (numSurfaces == 0 || numTexCoords == 0 || numTexPixels == 0)
-		return;
+		return false;
 
 	bool errors = false;
 
@@ -3078,7 +3082,8 @@ void MapLoader::LoadLightmap(MapData* map)
 	};
 
 	TMap<DoomLevelMeshSurface*, int> detectedSurfaces;
-	TArray<SurfaceEntry> zdraySurfaces; // TODO reserve ahead of time 'numSurfaces'
+	TArray<SurfaceEntry> zdraySurfaces;
+	zdraySurfaces.Reserve(numSurfaces);
 
 	for (auto& surface : Level->levelMesh->Surfaces)
 	{
@@ -3097,6 +3102,7 @@ void MapLoader::LoadLightmap(MapData* map)
 		}
 	}
 
+	uint32_t usedSurfaceIndex = 0;
 	for (uint32_t i = 0; i < numSurfaces; i++)
 	{
 		SurfaceEntry surface;
@@ -3165,11 +3171,18 @@ void MapLoader::LoadLightmap(MapData* map)
 		}
 		else
 		{
+			levelSurface->texWidth = surface.width;
+			levelSurface->texHeight = surface.height;
+
 			surface.targetSurface = levelSurface;
 			detectedSurfaces.Insert(levelSurface, 1);
-			zdraySurfaces.Push(surface);
+			zdraySurfaces[usedSurfaceIndex++] = surface;
 		}
 	}
+
+	Level->levelMesh->PackLightmapAtlas();
+
+	zdraySurfaces.Resize(usedSurfaceIndex);
 
 	if (developer >= 1)
 	{
@@ -3315,7 +3328,7 @@ void MapLoader::LoadLightmap(MapData* map)
 	// Use UVs from the lightmap
 	for (auto& surface : zdraySurfaces)
 	{
-		auto& realSurface = Level->levelMesh->Surfaces[findSurfaceIndex(surface.type, surface.typeIndex, getControlSector(surface.controlSector))];
+		auto& realSurface = *surface.targetSurface;
 
 		auto* UVs = &Level->levelMesh->LightmapUvs[realSurface.startUvIndex];
 		auto* newUVs = &zdrayUvs[surface.uvOffset];
