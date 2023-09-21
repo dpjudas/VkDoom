@@ -78,11 +78,15 @@ void VkLightmap::Raytrace(const TArray<LevelMeshSurface*>& surfaces)
 		SelectSurfaces(surfaces);
 		if (selectedSurfaces.Size() > 0)
 		{
+			fb->GetCommands()->PushGroup(fb->GetCommands()->GetTransferCommands(), "lightmap.total");
+
 			UploadUniforms();
 			RenderBakeImage();
 			ResolveBakeImage();
 			BlurBakeImage();
 			CopyBakeImageResult();
+
+			fb->GetCommands()->PopGroup(fb->GetCommands()->GetTransferCommands());
 		}
 
 		lightmapRaytrace.Unclock();
@@ -127,6 +131,8 @@ void VkLightmap::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
 void VkLightmap::RenderBakeImage()
 {
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	fb->GetCommands()->PushGroup(cmdbuffer, "lightmap.raytrace");
 
 	RenderPassBegin()
 		.RenderPass(raytrace.renderPass.get())
@@ -240,6 +246,8 @@ void VkLightmap::RenderBakeImage()
 	}
 
 	cmdbuffer->endRenderPass();
+
+	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
 void VkLightmap::UploadUniforms()
@@ -264,6 +272,8 @@ void VkLightmap::ResolveBakeImage()
 {
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
+	fb->GetCommands()->PushGroup(cmdbuffer, "lightmap.resolve");
+
 	PipelineBarrier()
 		.AddImage(bakeImage.raytrace.Image.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
@@ -286,11 +296,15 @@ void VkLightmap::ResolveBakeImage()
 	cmdbuffer->draw(3, 1, 0, 0);
 
 	cmdbuffer->endRenderPass();
+
+	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
 void VkLightmap::BlurBakeImage()
 {
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	fb->GetCommands()->PushGroup(cmdbuffer, "lightmap.blur");
 
 	PipelineBarrier()
 		.AddImage(bakeImage.resolve.Image.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
@@ -343,6 +357,8 @@ void VkLightmap::BlurBakeImage()
 
 		cmdbuffer->endRenderPass();
 	}
+
+	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
 void VkLightmap::CopyBakeImageResult()
@@ -385,6 +401,8 @@ void VkLightmap::CopyBakeImageResult()
 	{
 		auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
+		fb->GetCommands()->PushGroup(cmdbuffer, "lightmap.copy");
+
 		PipelineBarrier barrier0;
 		barrier0.AddImage(bakeImage.resolve.Image.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 		for (int pageIndex : seenPages)
@@ -397,6 +415,8 @@ void VkLightmap::CopyBakeImageResult()
 		for (int pageIndex : seenPages)
 			barrier1.AddImage(fb->GetTextureManager()->Lightmap.Image.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, pageIndex, 1);
 		barrier1.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+		fb->GetCommands()->PopGroup(cmdbuffer);
 	}
 }
 
