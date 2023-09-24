@@ -551,7 +551,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 				{
 					for (auto* surface : *sides)
 					{
-						if (surface)
+						if (surface && sector->Level->sides[surface->typeIndex].sector == sector)
 						{
 							di->PushVisibleSurface(surface);
 						}
