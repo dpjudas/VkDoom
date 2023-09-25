@@ -27,6 +27,7 @@ class DoomLevelSubmesh : public LevelSubmesh
 public:
 	void CreateStatic(FLevelLocals& doomMap);
 	void CreateDynamic(FLevelLocals& doomMap);
+	void UpdateDynamic(FLevelLocals& doomMap);
 
 	LevelMeshSurface* GetSurface(int index) override { return &Surfaces[index]; }
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
@@ -58,6 +59,8 @@ private:
 	void SetSideLightmap(DoomLevelMeshSurface* surface);
 
 	void SetupLightmapUvs(FLevelLocals& doomMap);
+
+	void CreateIndexes();
 
 	static bool IsTopSideSky(sector_t* frontsector, sector_t* backsector, side_t* side);
 	static bool IsTopSideVisible(side_t* side);
@@ -116,6 +119,8 @@ class DoomLevelMesh : public LevelMesh
 {
 public:
 	DoomLevelMesh(FLevelLocals &doomMap);
+
+	void BeginFrame(FLevelLocals& doomMap);
 	
 	bool TraceSky(const FVector3& start, FVector3 direction, float dist)
 	{

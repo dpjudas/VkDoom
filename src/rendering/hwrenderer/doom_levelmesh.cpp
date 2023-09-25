@@ -146,11 +146,20 @@ void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 
 	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
 	{
-		CreateSideSurfaces(doomMap, &doomMap.sides[i]);
+		bool isPolyLine = !!(doomMap.sides[i].Flags & WALLF_POLYOBJ);
+		if (!isPolyLine)
+			CreateSideSurfaces(doomMap, &doomMap.sides[i]);
 	}
 
 	CreateSubsectorSurfaces(doomMap);
 
+	CreateIndexes();
+	SetupLightmapUvs(doomMap);
+	UpdateCollision();
+}
+
+void DoomLevelSubmesh::CreateIndexes()
+{
 	for (size_t i = 0; i < Surfaces.Size(); i++)
 	{
 		DoomLevelMeshSurface& s = Surfaces[i];
@@ -200,15 +209,34 @@ void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 			}
 		}
 	}
-
-	SetupLightmapUvs(doomMap);
-
-	UpdateCollision();
 }
 
 void DoomLevelSubmesh::CreateDynamic(FLevelLocals& doomMap)
 {
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
+	BuildSectorGroups(doomMap);
+}
+
+void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap)
+{
+	Surfaces.Clear();
+	MeshVertices.Clear();
+	MeshVertexUVs.Clear();
+	MeshElements.Clear();
+	MeshUVIndex.Clear();
+	MeshSurfaceIndexes.Clear();
+	LightmapUvs.Clear();
+
+	for (unsigned int i = 0; i < doomMap.lines.Size(); i++)
+	{
+		bool isPolyLine = doomMap.lines[i].sidedef[0] && (doomMap.lines[i].sidedef[0]->Flags & WALLF_POLYOBJ);
+		if (isPolyLine)
+			CreateSideSurfaces(doomMap, doomMap.lines[i].sidedef[0]);
+	}
+
+	CreateIndexes();
+	SetupLightmapUvs(doomMap);
+	UpdateCollision();
 }
 
 DoomLevelMesh::DoomLevelMesh(FLevelLocals &doomMap)
@@ -221,6 +249,11 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals &doomMap)
 
 	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->CreateStatic(doomMap);
 	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->CreateDynamic(doomMap);
+}
+
+void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
+{
+	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->UpdateDynamic(doomMap);
 }
 
 void DoomLevelSubmesh::BuildSectorGroups(const FLevelLocals& doomMap)
