@@ -176,7 +176,7 @@ void VkLightmap::Render()
 		LightmapRaytracePC pc;
 		pc.TileX = (float)selectedSurface.X;
 		pc.TileY = (float)selectedSurface.Y;
-		pc.SurfaceIndex = mesh->GetSurfaceIndex(targetSurface);
+		pc.SurfaceIndex = mesh->StaticMesh->GetSurfaceIndex(targetSurface);
 		pc.TextureSize = (float)bakeImageSize;
 		pc.TileWidth = (float)targetSurface->texWidth;
 		pc.TileHeight = (float)targetSurface->texHeight;

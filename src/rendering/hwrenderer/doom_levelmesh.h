@@ -22,48 +22,35 @@ struct DoomLevelMeshSurface : public LevelMeshSurface
 	float* TexCoords;
 };
 
-class DoomLevelMesh : public LevelMesh
+class DoomLevelSubmesh : public LevelSubmesh
 {
 public:
-	DoomLevelMesh(FLevelLocals &doomMap);
-	
-	void CreatePortals();
-	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const;
-	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
-	void PackLightmapAtlas();
-
-	bool TraceSky(const FVector3& start, FVector3 direction, float dist)
-	{
-		FVector3 end = start + direction * dist;
-		auto surface = Trace(start, direction, dist);
-		return surface && surface->bSky;
-	}
-
-	int AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize) override;
+	void CreateStatic(FLevelLocals& doomMap);
+	void CreateDynamic(FLevelLocals& doomMap);
 
 	LevelMeshSurface* GetSurface(int index) override { return &Surfaces[index]; }
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
 	int GetSurfaceCount() override { return Surfaces.Size(); }
 
+	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const;
+
+	// Used by Maploader
+	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
+	void PackLightmapAtlas();
+	void CreatePortals();
+	void DisableLightmaps() { Surfaces.Clear(); } // Temp hack that disables lightmapping
+
 	TArray<DoomLevelMeshSurface> Surfaces;
-	std::vector<std::unique_ptr<LevelMeshLight>> Lights;
 	TArray<FVector2> LightmapUvs;
-	static_assert(alignof(FVector2) == alignof(float[2]) && sizeof(FVector2) == sizeof(float) * 2);
-
-	// utility
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
-
-	// runtime utility variables
-	TMap<const sector_t*, TArray<DoomLevelMeshSurface*>> XFloorToSurface;
-	TMap<const sector_t*, TArray<DoomLevelMeshSurface*>> XFloorToSurfaceSides;
 
 private:
 	void BuildSectorGroups(const FLevelLocals& doomMap);
 
-	void CreateSubsectorSurfaces(FLevelLocals &doomMap);
+	void CreateSubsectorSurfaces(FLevelLocals& doomMap);
 	void CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* sub, sector_t* sector, sector_t* controlSector, int typeIndex);
 	void CreateFloorSurface(FLevelLocals& doomMap, subsector_t* sub, sector_t* sector, sector_t* controlSector, int typeIndex);
-	void CreateSideSurfaces(FLevelLocals &doomMap, side_t *side);
+	void CreateSideSurfaces(FLevelLocals& doomMap, side_t* side);
 
 	void CreateSurfaceTextureUVs(FLevelLocals& doomMap);
 
@@ -91,7 +78,7 @@ private:
 		{
 			return ToPlane(pt1, pt2, pt4);
 		}
-		else if(pt1.ApproximatelyEquals(pt2) || pt2.ApproximatelyEquals(pt3))
+		else if (pt1.ApproximatelyEquals(pt2) || pt2.ApproximatelyEquals(pt3))
 		{
 			return ToPlane(pt1, pt3, pt4);
 		}
@@ -99,13 +86,7 @@ private:
 		return ToPlane(pt1, pt2, pt3);
 	}
 
-	static FVector2 ToFVector2(const DVector2& v) { return FVector2((float)v.X, (float)v.Y); }
-	static FVector3 ToFVector3(const DVector3& v) { return FVector3((float)v.X, (float)v.Y, (float)v.Z); }
-	static FVector4 ToFVector4(const DVector4& v) { return FVector4((float)v.X, (float)v.Y, (float)v.Z, (float)v.W); }
-
-	static bool IsDegenerate(const FVector3 &v0, const FVector3 &v1, const FVector3 &v2);
-
-	// WIP internal lightmapper
+	// Lightmapper
 
 	enum PlaneAxis
 	{
@@ -121,4 +102,67 @@ private:
 
 	void BuildSurfaceParams(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface);
 	void FinishSurface(int lightmapTextureWidth, int lightmapTextureHeight, RectPacker& packer, LevelMeshSurface& surface);
+
+	static bool IsDegenerate(const FVector3& v0, const FVector3& v1, const FVector3& v2);
+
+	static FVector2 ToFVector2(const DVector2& v) { return FVector2((float)v.X, (float)v.Y); }
+	static FVector3 ToFVector3(const DVector3& v) { return FVector3((float)v.X, (float)v.Y, (float)v.Z); }
+	static FVector4 ToFVector4(const DVector4& v) { return FVector4((float)v.X, (float)v.Y, (float)v.Z, (float)v.W); }
+};
+
+static_assert(alignof(FVector2) == alignof(float[2]) && sizeof(FVector2) == sizeof(float) * 2);
+
+class DoomLevelMesh : public LevelMesh
+{
+public:
+	DoomLevelMesh(FLevelLocals &doomMap);
+	
+	bool TraceSky(const FVector3& start, FVector3 direction, float dist)
+	{
+		FVector3 end = start + direction * dist;
+		auto surface = Trace(start, direction, dist);
+		return surface && surface->bSky;
+	}
+
+	int AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize) override;
+
+	void PackLightmapAtlas()
+	{
+		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->PackLightmapAtlas();
+	}
+
+	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
+	{
+		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->BindLightmapSurfacesToGeometry(doomMap);
+
+		// Runtime helper
+		for (auto& surface : static_cast<DoomLevelSubmesh*>(StaticMesh.get())->Surfaces)
+		{
+			if (surface.ControlSector)
+			{
+				if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
+				{
+					XFloorToSurface[surface.Subsector->sector].Push(&surface);
+				}
+				else if (surface.Type == ST_MIDDLESIDE)
+				{
+					XFloorToSurfaceSides[surface.ControlSector].Push(&surface);
+				}
+			}
+		}
+	}
+
+	void DisableLightmaps()
+	{
+		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DisableLightmaps();
+	}
+
+	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const
+	{
+		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DumpMesh(objFilename, mtlFilename);
+	}
+
+	// To do: remove these. Use ffloors on flats and sides to find the 3d surfaces as that is both faster and culls better
+	TMap<const sector_t*, TArray<DoomLevelMeshSurface*>> XFloorToSurface;
+	TMap<const sector_t*, TArray<DoomLevelMeshSurface*>> XFloorToSurfaceSides;
 };

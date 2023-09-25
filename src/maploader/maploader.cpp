@@ -2998,7 +2998,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 	}
 	else
 	{
-		Level->levelMesh->Surfaces.Clear(); // Temp hack that disables lightmapping
+		Level->levelMesh->DisableLightmaps();
 	}
 }
 
@@ -3058,7 +3058,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 				if (surface->ControlSector == sec)
 				{
-					return Level->levelMesh->GetSurfaceIndex(surface);
+					return Level->levelMesh->StaticMesh->GetSurfaceIndex(surface);
 				}
 			}
 		}
@@ -3085,7 +3085,9 @@ bool MapLoader::LoadLightmap(MapData* map)
 	TArray<SurfaceEntry> zdraySurfaces;
 	zdraySurfaces.Reserve(numSurfaces);
 
-	for (auto& surface : Level->levelMesh->Surfaces)
+	auto submesh = static_cast<DoomLevelSubmesh*>(Level->levelMesh->StaticMesh.get());
+
+	for (auto& surface : submesh->Surfaces)
 	{
 		surface.needsUpdate = false; // let's consider everything valid until we make a mistake trying to change this surface
 
@@ -3129,7 +3131,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 			continue;
 		}
 
-		if (i >= Level->levelMesh->Surfaces.Size())
+		if (i >= submesh->Surfaces.Size())
 		{
 			errors = true;
 			if (developer >= 1)
@@ -3139,15 +3141,15 @@ bool MapLoader::LoadLightmap(MapData* map)
 			continue;
 		}
 
-		auto levelSurface = &Level->levelMesh->Surfaces[i];
+		auto levelSurface = &submesh->Surfaces[i];
 
 		if (levelSurface->Type != surface.type || levelSurface->typeIndex != surface.typeIndex || levelSurface->ControlSector != controlSector)
 		{
 			auto internalIndex = findSurfaceIndex(surface.type, surface.typeIndex, controlSector);
 
-			if (internalIndex < Level->levelMesh->Surfaces.Size())
+			if (internalIndex < submesh->Surfaces.Size())
 			{
-				levelSurface = &Level->levelMesh->Surfaces[internalIndex];
+				levelSurface = &submesh->Surfaces[internalIndex];
 			}
 			else
 			{
@@ -3166,7 +3168,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 			(*ptr)++;
 			if (developer >= 1)
 			{
-				Printf(PRINT_HIGH, "Lightmap lump surface index %d is referencing surface %d (ref count: %d). Surface type:%d, typeindex:%d, controlsector:%d\n", i, Level->levelMesh->GetSurfaceIndex(levelSurface), *ptr, surface.type, surface.typeIndex, surface.controlSector);
+				Printf(PRINT_HIGH, "Lightmap lump surface index %d is referencing surface %d (ref count: %d). Surface type:%d, typeindex:%d, controlsector:%d\n", i, submesh->GetSurfaceIndex(levelSurface), *ptr, surface.type, surface.typeIndex, surface.controlSector);
 			}
 		}
 		else
@@ -3201,11 +3203,11 @@ bool MapLoader::LoadLightmap(MapData* map)
 	fr.Read(&zdrayUvs[0], numTexCoords * 2 * sizeof(float));
 
 	// Load lightmap textures
-	const auto textureSize = Level->levelMesh->LMTextureSize;
-	Level->levelMesh->LMTextureData.Resize(Level->levelMesh->LMTextureCount * textureSize * textureSize * 3);
+	const auto textureSize = submesh->LMTextureSize;
+	submesh->LMTextureData.Resize(submesh->LMTextureCount * textureSize * textureSize * 3);
 
-	auto pixels = &Level->levelMesh->LMTextureData[0];
-	for (int i = 0, count = Level->levelMesh->LMTextureData.Size(); i < count; i += 3)
+	auto pixels = &submesh->LMTextureData[0];
+	for (int i = 0, count = submesh->LMTextureData.Size(); i < count; i += 3)
 	{
 		pixels[i] = floatToHalf(0.0);
 		pixels[i + 1] = floatToHalf(0.0);
@@ -3213,14 +3215,14 @@ bool MapLoader::LoadLightmap(MapData* map)
 	}
 
 #if 0 // debug surface mapping
-	for (auto& surface : Level->levelMesh->Surfaces)
+	for (auto& surface : submesh->Surfaces)
 	{
 		int dstX = surface.atlasX;
 		int dstY = surface.atlasY;
 		int dstPage = surface.atlasPageIndex;
 
 		// copy pixels
-		uint16_t* dst = &Level->levelMesh->LMTextureData[dstPage * textureSize * textureSize * 3];
+		uint16_t* dst = &submesh->LMTextureData[dstPage * textureSize * textureSize * 3];
 
 		uint32_t srcIndex = 0;
 
@@ -3271,7 +3273,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		const int dstPage = realSurface.atlasPageIndex;
 
 		// Sanity checks
-		if (dstX < 0 || dstY < 0 || dstX + surface.width > textureSize || dstY + surface.height > textureSize || dstPage >= Level->levelMesh->LMTextureCount)
+		if (dstX < 0 || dstY < 0 || dstX + surface.width > textureSize || dstY + surface.height > textureSize || dstPage >= submesh->LMTextureCount)
 		{
 			errors = true;
 			if (developer >= 1)
@@ -3307,7 +3309,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		uint32_t srcIndex = 0;
 		uint16_t* src = &textureData[srcPixelOffset];
 
-		uint16_t* dst = &Level->levelMesh->LMTextureData[realSurface.atlasPageIndex * textureSize * textureSize * 3];
+		uint16_t* dst = &submesh->LMTextureData[realSurface.atlasPageIndex * textureSize * textureSize * 3];
 
 		int endY = realSurface.atlasY + realSurface.texHeight;
 		int endX = realSurface.atlasX + realSurface.texWidth;
@@ -3330,7 +3332,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 	{
 		auto& realSurface = *surface.targetSurface;
 
-		auto* UVs = &Level->levelMesh->LightmapUvs[realSurface.startUvIndex];
+		auto* UVs = &submesh->LightmapUvs[realSurface.startUvIndex];
 		auto* newUVs = &zdrayUvs[surface.uvOffset];
 
 		for (uint32_t i = 0; i < surface.uvCount; ++i)
@@ -3359,7 +3361,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 	if (developer >= 3)
 	{
 		int loadedSurfaces = 0;
-		for (auto& surface : Level->levelMesh->Surfaces)
+		for (auto& surface : submesh->Surfaces)
 		{
 			if (!surface.needsUpdate)
 			{
@@ -3367,7 +3369,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 			}
 		}
 
-		Printf(PRINT_HIGH, "%d/%d surfaces were successfully loaded from lightmap.\n", loadedSurfaces, Level->levelMesh->Surfaces.Size());
+		Printf(PRINT_HIGH, "%d/%d surfaces were successfully loaded from lightmap.\n", loadedSurfaces, submesh->Surfaces.Size());
 	}
 
 	if (errors && developer <= 0)
@@ -3708,7 +3710,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	if (!Level->IsReentering())
 		Level->FinalizePortals();	// finalize line portals after polyobjects have been initialized. This info is needed for properly flagging them.
 
-	Level->levelMesh->CreatePortals(); // [RaveYard]: needs portal data, but at the same time intializing the level mesh here breaks floor/ceiling planes!
+	static_cast<DoomLevelSubmesh*>(Level->levelMesh->StaticMesh.get())->CreatePortals(); // [RaveYard]: needs portal data, but at the same time intializing the level mesh here breaks floor/ceiling planes!
 
 	Level->aabbTree = new DoomLevelAABBTree(Level);
 }

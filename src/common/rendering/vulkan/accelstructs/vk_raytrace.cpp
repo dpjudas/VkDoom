@@ -32,26 +32,6 @@ VkRaytrace::VkRaytrace(VulkanRenderDevice* fb) : fb(fb)
 {
 	useRayQuery = fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 
-	NullMesh.MeshVertices.Push({ -1.0f, -1.0f, -1.0f });
-	NullMesh.MeshVertices.Push({ 1.0f, -1.0f, -1.0f });
-	NullMesh.MeshVertices.Push({ 1.0f,  1.0f, -1.0f });
-	NullMesh.MeshVertices.Push({ -1.0f, -1.0f, -1.0f });
-	NullMesh.MeshVertices.Push({ -1.0f,  1.0f, -1.0f });
-	NullMesh.MeshVertices.Push({ 1.0f,  1.0f, -1.0f });
-	NullMesh.MeshVertices.Push({ -1.0f, -1.0f,  1.0f });
-	NullMesh.MeshVertices.Push({ 1.0f, -1.0f,  1.0f });
-	NullMesh.MeshVertices.Push({ 1.0f,  1.0f,  1.0f });
-	NullMesh.MeshVertices.Push({ -1.0f, -1.0f,  1.0f });
-	NullMesh.MeshVertices.Push({ -1.0f,  1.0f,  1.0f });
-	NullMesh.MeshVertices.Push({ 1.0f,  1.0f,  1.0f });
-
-	NullMesh.MeshVertexUVs.Resize(NullMesh.MeshVertices.Size());
-
-	for (int i = 0; i < 3 * 4; i++)
-		NullMesh.MeshElements.Push(i);
-
-	NullMesh.Collision = std::make_unique<TriangleMeshShape>(NullMesh.MeshVertices.Data(), NullMesh.MeshVertices.Size(), NullMesh.MeshElements.Data(), NullMesh.MeshElements.Size());
-
 	SetLevelMesh(nullptr);
 }
 
@@ -99,17 +79,19 @@ void VkRaytrace::CreateBuffers()
 {
 	std::vector<CollisionNode> nodes = CreateCollisionNodes();
 
+	auto submesh = Mesh->StaticMesh.get();
+
 	// std430 alignment rules forces us to convert the vec3 to a vec4
 	std::vector<SurfaceVertex> vertices;
-	vertices.reserve(Mesh->MeshVertices.Size());
-	for (int i = 0, count = Mesh->MeshVertices.Size(); i < count; ++i)
-		vertices.push_back({ { Mesh->MeshVertices[i], 1.0f }, Mesh->MeshVertexUVs[i], float(i), i + 10000.0f});
+	vertices.reserve(submesh->MeshVertices.Size());
+	for (int i = 0, count = submesh->MeshVertices.Size(); i < count; ++i)
+		vertices.push_back({ { submesh->MeshVertices[i], 1.0f }, submesh->MeshVertexUVs[i], float(i), i + 10000.0f});
 
 	CollisionNodeBufferHeader nodesHeader;
-	nodesHeader.root = Mesh->Collision->get_root();
+	nodesHeader.root = submesh->Collision->get_root();
 
 	TArray<PortalInfo> portalInfo;
-	for (auto& portal : Mesh->Portals)
+	for (auto& portal : submesh->Portals)
 	{
 		PortalInfo info;
 		info.transformation = portal.transformation;
@@ -117,9 +99,9 @@ void VkRaytrace::CreateBuffers()
 	}
 
 	TArray<SurfaceInfo> surfaceInfo;
-	for (int i = 0, count = Mesh->GetSurfaceCount(); i < count; i++)
+	for (int i = 0, count = submesh->GetSurfaceCount(); i < count; i++)
 	{
-		LevelMeshSurface* surface = Mesh->GetSurface(i);
+		LevelMeshSurface* surface = submesh->GetSurface(i);
 
 		SurfaceInfo info;
 		info.Normal = surface->plane.XYZ();
@@ -162,7 +144,7 @@ void VkRaytrace::CreateBuffers()
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 				VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0) |
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-		.Size((size_t)Mesh->MeshElements.Size() * sizeof(uint32_t))
+		.Size((size_t)submesh->MeshElements.Size() * sizeof(uint32_t))
 		.DebugName("IndexBuffer")
 		.Create(fb->GetDevice());
 
@@ -174,7 +156,7 @@ void VkRaytrace::CreateBuffers()
 
 	SurfaceIndexBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->MeshSurfaceIndexes.Size() * sizeof(int))
+		.Size(submesh->MeshSurfaceIndexes.Size() * sizeof(int))
 		.DebugName("SurfaceBuffer")
 		.Create(fb->GetDevice());
 
@@ -192,9 +174,9 @@ void VkRaytrace::CreateBuffers()
 
 	auto transferBuffer = BufferTransfer()
 		.AddBuffer(VertexBuffer.get(), vertices.data(), vertices.size() * sizeof(SurfaceVertex))
-		.AddBuffer(IndexBuffer.get(), Mesh->MeshElements.Data(), (size_t)Mesh->MeshElements.Size() * sizeof(uint32_t))
+		.AddBuffer(IndexBuffer.get(), submesh->MeshElements.Data(), (size_t)submesh->MeshElements.Size() * sizeof(uint32_t))
 		.AddBuffer(NodeBuffer.get(), &nodesHeader, sizeof(CollisionNodeBufferHeader), nodes.data(), nodes.size() * sizeof(CollisionNode))
-		.AddBuffer(SurfaceIndexBuffer.get(), Mesh->MeshSurfaceIndexes.Data(), Mesh->MeshSurfaceIndexes.Size() * sizeof(int))
+		.AddBuffer(SurfaceIndexBuffer.get(), submesh->MeshSurfaceIndexes.Data(), submesh->MeshSurfaceIndexes.Size() * sizeof(int))
 		.AddBuffer(SurfaceBuffer.get(), surfaceInfo.Data(), surfaceInfo.Size() * sizeof(SurfaceInfo))
 		.AddBuffer(PortalBuffer.get(), portalInfo.Data(), portalInfo.Size() * sizeof(PortalInfo))
 		.Execute(fb->GetDevice(), fb->GetCommands()->GetTransferCommands());
@@ -208,6 +190,8 @@ void VkRaytrace::CreateBuffers()
 
 void VkRaytrace::CreateStaticBLAS()
 {
+	auto submesh = Mesh->StaticMesh.get();
+
 	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
 	VkAccelerationStructureGeometryKHR accelStructBLDesc = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
 	VkAccelerationStructureGeometryKHR* geometries[] = { &accelStructBLDesc };
@@ -222,7 +206,7 @@ void VkRaytrace::CreateStaticBLAS()
 	accelStructBLDesc.geometry.triangles.vertexStride = sizeof(SurfaceVertex);
 	accelStructBLDesc.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	accelStructBLDesc.geometry.triangles.indexData.deviceAddress = IndexBuffer->GetDeviceAddress();
-	accelStructBLDesc.geometry.triangles.maxVertex = Mesh->MeshVertices.Size() - 1;
+	accelStructBLDesc.geometry.triangles.maxVertex = submesh->MeshVertices.Size() - 1;
 
 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
@@ -230,7 +214,7 @@ void VkRaytrace::CreateStaticBLAS()
 	buildInfo.geometryCount = 1;
 	buildInfo.ppGeometries = geometries;
 
-	uint32_t maxPrimitiveCount = Mesh->MeshElements.Size() / 3;
+	uint32_t maxPrimitiveCount = submesh->MeshElements.Size() / 3;
 
 	VkAccelerationStructureBuildSizesInfoKHR sizeInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 	vkGetAccelerationStructureBuildSizesKHR(fb->GetDevice()->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxPrimitiveCount, &sizeInfo);
@@ -428,9 +412,11 @@ void VkRaytrace::CreateTopLevelAS()
 
 std::vector<CollisionNode> VkRaytrace::CreateCollisionNodes()
 {
+	auto submesh = Mesh->StaticMesh.get();
+
 	std::vector<CollisionNode> nodes;
-	nodes.reserve(Mesh->Collision->get_nodes().size());
-	for (const auto& node : Mesh->Collision->get_nodes())
+	nodes.reserve(submesh->Collision->get_nodes().size());
+	for (const auto& node : submesh->Collision->get_nodes())
 	{
 		CollisionNode info;
 		info.center = node.aabb.Center;
