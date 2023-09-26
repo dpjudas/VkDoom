@@ -495,6 +495,7 @@ void VulkanRenderDevice::BeginFrame()
 	for (auto& renderstate : mRenderState)
 		renderstate->BeginFrame();
 	mDescriptorSetManager->BeginFrame();
+	mRaytrace->BeginFrame();
 	mLightmap->BeginFrame();
 }
 

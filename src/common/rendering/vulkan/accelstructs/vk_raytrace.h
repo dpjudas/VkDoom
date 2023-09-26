@@ -55,6 +55,7 @@ public:
 	VkRaytrace(VulkanRenderDevice* fb);
 
 	void SetLevelMesh(LevelMesh* mesh);
+	void BeginFrame();
 
 	VulkanAccelerationStructure* GetAccelStruct() { return TopLevelAS.AccelStruct.get(); }
 	VulkanBuffer* GetVertexBuffer() { return VertexBuffer.get(); }
@@ -65,14 +66,34 @@ public:
 	VulkanBuffer* GetPortalBuffer() { return PortalBuffer.get(); }
 
 private:
+	struct BLAS
+	{
+		std::unique_ptr<VulkanBuffer> ScratchBuffer;
+		std::unique_ptr<VulkanBuffer> AccelStructBuffer;
+		std::unique_ptr<VulkanAccelerationStructure> AccelStruct;
+	};
+
 	void Reset();
 	void CreateVulkanObjects();
 	void CreateBuffers();
 	void CreateStaticBLAS();
 	void CreateDynamicBLAS();
 	void CreateTopLevelAS();
+	void UploadStatic();
+	void UploadDynamic();
+	void UpdateDynamicBLAS();
+	void UpdateTopLevelAS();
 
-	std::vector<CollisionNode> CreateCollisionNodes();
+	BLAS CreateBLAS(LevelSubmesh *submesh, bool preferFastBuild, int vertexOffset, int indexOffset);
+
+	int GetMaxVertexBufferSize();
+	int GetMaxIndexBufferSize();
+	int GetMaxNodeBufferSize();
+	int GetMaxSurfaceBufferSize();
+	int GetMaxSurfaceIndexBufferSize();
+
+	TArray<SurfaceInfo> CreateSurfaceInfo(LevelSubmesh* submesh);
+	TArray<CollisionNode> CreateCollisionNodes(LevelSubmesh* submesh);
 
 	VulkanRenderDevice* fb = nullptr;
 
@@ -89,19 +110,15 @@ private:
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
 
-	struct
-	{
-		std::unique_ptr<VulkanBuffer> ScratchBuffer;
-		std::unique_ptr<VulkanBuffer> AccelStructBuffer;
-		std::unique_ptr<VulkanAccelerationStructure> AccelStruct;
-	} StaticBLAS;
+	TArray<SurfaceVertex> Vertices;
+	static const int MaxDynamicVertices = 100'000;
+	static const int MaxDynamicIndexes = 100'000;
+	static const int MaxDynamicSurfaces = 100'000;
+	static const int MaxDynamicSurfaceIndexes = 25'000;
+	static const int MaxDynamicNodes = 10'000;
 
-	struct
-	{
-		std::unique_ptr<VulkanBuffer> ScratchBuffer;
-		std::unique_ptr<VulkanBuffer> AccelStructBuffer;
-		std::unique_ptr<VulkanAccelerationStructure> AccelStruct;
-	} DynamicBLAS;
+	BLAS StaticBLAS;
+	BLAS DynamicBLAS;
 
 	struct
 	{
@@ -116,6 +133,7 @@ private:
 class BufferTransfer
 {
 public:
+	BufferTransfer& AddBuffer(VulkanBuffer* buffer, size_t offset, const void* data, size_t size);
 	BufferTransfer& AddBuffer(VulkanBuffer* buffer, const void* data, size_t size);
 	BufferTransfer& AddBuffer(VulkanBuffer* buffer, const void* data0, size_t size0, const void* data1, size_t size1);
 	std::unique_ptr<VulkanBuffer> Execute(VulkanDevice* device, VulkanCommandBuffer* cmdbuffer);
@@ -124,6 +142,7 @@ private:
 	struct BufferCopy
 	{
 		VulkanBuffer* buffer;
+		size_t offset;
 		const void* data0;
 		size_t size0;
 		const void* data1;
