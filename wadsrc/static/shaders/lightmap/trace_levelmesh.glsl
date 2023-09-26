@@ -8,9 +8,10 @@ vec4 blend(vec4 a, vec4 b);
 int TraceFirstHitTriangleT(vec3 origin, float tmin, vec3 dir, float tmax, out float t)
 {
 	int primitiveID;
+	vec3 primitiveWeights;
 	while(true)
 	{
-		primitiveID = TraceFirstHitTriangleNoPortal(origin, tmin, dir, tmax, t);
+		primitiveID = TraceFirstHitTriangleNoPortal(origin, tmin, dir, tmax, t, primitiveWeights);
 
 		if(primitiveID < 0)
 		{
@@ -69,10 +70,11 @@ bool TracePoint(vec3 origin, vec3 target, float tmin, vec3 dir, float tmax)
 {
 	int primitiveID;
 	float t;
+	vec3 primitiveWeights;
 	while(true)
 	{
 		t = tmax;
-		primitiveID = TraceFirstHitTriangleNoPortal(origin, tmin, dir, tmax, t);
+		primitiveID = TraceFirstHitTriangleNoPortal(origin, tmin, dir, tmax, t, primitiveWeights);
 
 		origin += dir * t;
 		tmax -= t;

@@ -1,9 +1,7 @@
 
-vec3 primitiveWeights;
-
 #if defined(USE_RAYQUERY)
 
-int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax, out float t)
+int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax, out float t, out vec3 primitiveWeights)
 {
 	rayQueryEXT rayQuery;
 	rayQueryInitializeEXT(rayQuery, acc, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, origin, tmin, dir, tmax);
@@ -220,10 +218,6 @@ TraceHit find_first_hit(RayBBox ray)
 				float t = intersect_triangle_ray(ray, a, baryB, baryC);
 				if (t < hit.fraction)
 				{
-					primitiveWeights.x = baryB;
-					primitiveWeights.y = baryC;
-					primitiveWeights.z = 1.0 - baryB - baryC;
-
 					hit.fraction = t;
 					hit.triangle = nodes[a].element_index / 3;
 					hit.b = baryB;
@@ -240,7 +234,7 @@ TraceHit find_first_hit(RayBBox ray)
 	return hit;
 }
 
-int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax, out float tparam)
+int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax, out float tparam, out vec3 primitiveWeights)
 {
 	// Perform segmented tracing to keep the ray AABB box smaller
 	vec3 ray_start = origin;
@@ -258,6 +252,9 @@ int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax,
 		if (hit.fraction < 1.0)
 		{
 			tparam = hit.fraction = segstart * (1.0 - hit.fraction) + segend * hit.fraction;
+			primitiveWeights.x = hit.b;
+			primitiveWeights.y = hit.c;
+			primitiveWeights.z = 1.0 - hit.b - hit.c;
 			return hit.triangle;
 		}
 	}
