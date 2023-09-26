@@ -1,52 +1,12 @@
 
-#if defined(USE_DRAWINDIRECT)
-
-struct LightmapRaytracePC
-{
-	uint LightStart;
-	uint LightEnd;
-	int SurfaceIndex;
-	int PushPadding1;
-	vec3 WorldToLocal;
-	float TextureSize;
-	vec3 ProjLocalToU;
-	float PushPadding2;
-	vec3 ProjLocalToV;
-	float PushPadding3;
-	float TileX;
-	float TileY;
-	float TileWidth;
-	float TileHeight;
-};
-
-layout(std430, set = 0, binding = 5) buffer ConstantsBuffer { LightmapRaytracePC constants[]; };
-
-layout(location = 1) out flat int InstanceIndex;
-
-#else
-
-layout(push_constant) uniform PushConstants
-{
-	uint LightStart;
-	uint LightEnd;
-	int SurfaceIndex;
-	int PushPadding1;
-	vec3 WorldToLocal;
-	float TextureSize;
-	vec3 ProjLocalToU;
-	float PushPadding2;
-	vec3 ProjLocalToV;
-	float PushPadding3;
-	float TileX;
-	float TileY;
-	float TileWidth;
-	float TileHeight;
-};
-
-#endif
+#include <shaders/lightmap/binding_lightmapper.glsl>
 
 layout(location = 0) in vec3 aPosition;
 layout(location = 0) out vec3 worldpos;
+
+#if defined(USE_DRAWINDIRECT)
+layout(location = 1) out flat int InstanceIndex;
+#endif
 
 void main()
 {

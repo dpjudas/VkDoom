@@ -519,6 +519,8 @@ void VkLightmap::CreateShaders()
 {
 	std::string prefix = "#version 460\r\n";
 	std::string traceprefix = "#version 460\r\n";
+	prefix += "#extension GL_GOOGLE_include_directive : enable\n";
+	traceprefix += "#extension GL_GOOGLE_include_directive : enable\n";
 	traceprefix += "#extension GL_EXT_nonuniform_qualifier : enable\r\n";
 	if (useRayQuery)
 	{
@@ -530,10 +532,15 @@ void VkLightmap::CreateShaders()
 	traceprefix += "#define USE_DRAWINDIRECT\r\n";
 #endif
 
+	auto onIncludeLocal = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); };
+	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
+
 	shaders.vertRaytrace = ShaderBuilder()
 		.Type(ShaderType::Vertex)
 		.AddSource("VersionBlock", prefix)
 		.AddSource("vert_raytrace.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_raytrace.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.VertRaytrace")
 		.Create("VkLightmap.VertRaytrace", fb->GetDevice());
 
@@ -541,6 +548,8 @@ void VkLightmap::CreateShaders()
 		.Type(ShaderType::Vertex)
 		.AddSource("VersionBlock", prefix)
 		.AddSource("vert_screenquad.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_screenquad.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.VertScreenquad")
 		.Create("VkLightmap.VertScreenquad", fb->GetDevice());
 
@@ -548,6 +557,8 @@ void VkLightmap::CreateShaders()
 		.Type(ShaderType::Vertex)
 		.AddSource("VersionBlock", prefix)
 		.AddSource("vert_copy.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_copy.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.VertCopy")
 		.Create("VkLightmap.VertCopy", fb->GetDevice());
 
@@ -555,6 +566,8 @@ void VkLightmap::CreateShaders()
 		.Type(ShaderType::Fragment)
 		.AddSource("VersionBlock", traceprefix)
 		.AddSource("frag_raytrace.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_raytrace.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.FragRaytrace")
 		.Create("VkLightmap.FragRaytrace", fb->GetDevice());
 
@@ -562,6 +575,8 @@ void VkLightmap::CreateShaders()
 		.Type(ShaderType::Fragment)
 		.AddSource("VersionBlock", prefix)
 		.AddSource("frag_resolve.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_resolve.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.FragResolve")
 		.Create("VkLightmap.FragResolve", fb->GetDevice());
 
@@ -569,6 +584,8 @@ void VkLightmap::CreateShaders()
 		.Type(ShaderType::Fragment)
 		.AddSource("VersionBlock", prefix + "#define BLUR_HORIZONTAL\r\n")
 		.AddSource("frag_blur.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_blur.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.FragBlur")
 		.Create("VkLightmap.FragBlur", fb->GetDevice());
 
@@ -576,6 +593,8 @@ void VkLightmap::CreateShaders()
 		.Type(ShaderType::Fragment)
 		.AddSource("VersionBlock", prefix + "#define BLUR_VERTICAL\r\n")
 		.AddSource("frag_blur.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_blur.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.FragBlur")
 		.Create("VkLightmap.FragBlur", fb->GetDevice());
 
@@ -583,6 +602,8 @@ void VkLightmap::CreateShaders()
 		.Type(ShaderType::Fragment)
 		.AddSource("VersionBlock", prefix)
 		.AddSource("frag_copy.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_copy.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.FragCopy")
 		.Create("VkLightmap.FragCopy", fb->GetDevice());
 }
@@ -593,6 +614,39 @@ FString VkLightmap::LoadPrivateShaderLump(const char* lumpname)
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
 	FileData data = fileSystem.ReadFile(lump);
 	return data.GetString();
+}
+
+FString VkLightmap::LoadPublicShaderLump(const char* lumpname)
+{
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
+	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
+	FileData data = fileSystem.ReadFile(lump);
+	return data.GetString();
+}
+
+ShaderIncludeResult VkLightmap::OnInclude(FString headerName, FString includerName, size_t depth, bool system)
+{
+	if (depth > 8)
+		I_Error("Too much include recursion!");
+
+	FString includeguardname;
+	includeguardname << "_HEADERGUARD_" << headerName.GetChars();
+	includeguardname.ReplaceChars("/\\.", '_');
+
+	FString code;
+	code << "#ifndef " << includeguardname.GetChars() << "\n";
+	code << "#define " << includeguardname.GetChars() << "\n";
+	code << "#line 1\n";
+
+	if (system)
+		code << LoadPrivateShaderLump(headerName.GetChars()).GetChars() << "\n";
+	else
+		code << LoadPublicShaderLump(headerName.GetChars()).GetChars() << "\n";
+
+	code << "#endif\n";
+
+	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
 }
 
 void VkLightmap::CreateRaytracePipeline()

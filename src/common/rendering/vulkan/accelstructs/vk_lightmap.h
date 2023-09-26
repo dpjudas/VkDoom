@@ -8,6 +8,7 @@ typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 class VulkanRenderDevice;
 class FString;
+class ShaderIncludeResult;
 
 struct Uniforms
 {
@@ -150,6 +151,8 @@ private:
 	void CreateBakeImage();
 
 	static FString LoadPrivateShaderLump(const char* lumpname);
+	static FString LoadPublicShaderLump(const char* lumpname);
+	static ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
 
 	VulkanRenderDevice* fb = nullptr;
 	LevelMesh* mesh = nullptr;
