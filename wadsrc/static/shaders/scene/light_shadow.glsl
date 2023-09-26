@@ -202,9 +202,9 @@ float traceShadow(vec4 lightpos, int quality)
 
 		float sum = 0.0;
 		int step_count = quality * 4;
-		for (int i = 0; i <= step_count; i++)
+		for (int i = 0; i < step_count; i++)
 		{
-			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37);
+			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * 3;
 			vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
 			sum += traceHit(origin, normalize(pos - origin), dist) ? 0.0 : 1.0;
 		}
