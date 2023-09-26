@@ -167,37 +167,20 @@ bool traceHit(vec3 origin, vec3 direction, float dist)
 
 #endif
 
-vec2 softshadow[9 * 3] = vec2[](
-	vec2( 0.0, 0.0),
-	vec2(-2.0,-2.0),
-	vec2( 2.0, 2.0),
-	vec2( 2.0,-2.0),
-	vec2(-2.0, 2.0),
-	vec2(-1.0,-1.0),
-	vec2( 1.0, 1.0),
-	vec2( 1.0,-1.0),
-	vec2(-1.0, 1.0),
-
-	vec2( 0.0, 0.0),
-	vec2(-1.5,-1.5),
-	vec2( 1.5, 1.5),
-	vec2( 1.5,-1.5),
-	vec2(-1.5, 1.5),
-	vec2(-0.5,-0.5),
-	vec2( 0.5, 0.5),
-	vec2( 0.5,-0.5),
-	vec2(-0.5, 0.5),
-
-	vec2( 0.0, 0.0),
-	vec2(-1.25,-1.75),
-	vec2( 1.75, 1.25),
-	vec2( 1.25,-1.75),
-	vec2(-1.75, 1.75),
-	vec2(-0.75,-0.25),
-	vec2( 0.25, 0.75),
-	vec2( 0.75,-0.25),
-	vec2(-0.25, 0.75)
-);
+vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi) 
+{
+    const float goldenAngle = radians(180.0) * (3.0 - sqrt(5.0));
+    float sampleIndexF = float(sampleIndex);
+    float sampleCountF = float(sampleCount);
+    
+    float r = sqrt((sampleIndexF + 0.5) / sampleCountF);  // Assuming index and count are positive
+    float theta = sampleIndexF * goldenAngle + phi;
+    
+    float sine = sin(theta);
+    float cosine = cos(theta);
+    
+    return vec2(cosine, sine) * r;
+}
 
 float traceShadow(vec4 lightpos, int quality)
 {
@@ -218,10 +201,11 @@ float traceShadow(vec4 lightpos, int quality)
 		vec3 ydir = cross(direction, xdir);
 
 		float sum = 0.0;
-		int step_count = quality * 9;
+		int step_count = quality * 4;
 		for (int i = 0; i <= step_count; i++)
 		{
-			vec3 pos = target + xdir * softshadow[i].x + ydir * softshadow[i].y;
+			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37);
+			vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
 			sum += traceHit(origin, normalize(pos - origin), dist) ? 0.0 : 1.0;
 		}
 		return sum / step_count;
