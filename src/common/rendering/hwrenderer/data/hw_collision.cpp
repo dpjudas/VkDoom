@@ -55,34 +55,47 @@ TriangleMeshShape::TriangleMeshShape(const FVector3 *vertices, int num_vertices,
 
 float TriangleMeshShape::sweep(TriangleMeshShape *shape1, SphereShape *shape2, const FVector3 &target)
 {
+	if (shape1->root == -1)
+		return 1.0f;
 	return sweep(shape1, shape2, shape1->root, target);
 }
 
 bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape1, TriangleMeshShape *shape2)
 {
+	if (shape1->root == -1)
+		return false;
 	return find_any_hit(shape1, shape2, shape1->root, shape2->root);
 }
 
 bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape1, SphereShape *shape2)
 {
+	if (shape1->root == -1)
+		return false;
 	return find_any_hit(shape1, shape2, shape1->root);
 }
 
 std::vector<int> TriangleMeshShape::find_all_hits(TriangleMeshShape* shape1, SphereShape* shape2)
 {
 	std::vector<int> hits;
-	find_all_hits(shape1, shape2, shape1->root, hits);
+	if (shape1->root != -1)
+		find_all_hits(shape1, shape2, shape1->root, hits);
 	return hits;
 }
 
 bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape, const FVector3 &ray_start, const FVector3 &ray_end)
 {
+	if (shape->root == -1)
+		return false;
+
 	return find_any_hit(shape, RayBBox(ray_start, ray_end), shape->root);
 }
 
 TraceHit TriangleMeshShape::find_first_hit(TriangleMeshShape *shape, const FVector3 &ray_start, const FVector3 &ray_end)
 {
 	TraceHit hit;
+
+	if (shape->root == -1)
+		return hit;
 
 	// Perform segmented tracing to keep the ray AABB box smaller
 
