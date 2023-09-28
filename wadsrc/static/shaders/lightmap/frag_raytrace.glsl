@@ -1,4 +1,6 @@
 
+#define USE_SOFTSHADOWS
+
 #include <shaders/lightmap/binding_lightmapper.glsl>
 #include <shaders/lightmap/binding_raytrace.glsl>
 #include <shaders/lightmap/binding_textures.glsl>

@@ -149,3 +149,4 @@ vec4 blend(vec4 a, vec4 b)
 {
 	return BeerLambertSimple(vec4(1.0 - a.rgb, a.w), b);
 }
+
