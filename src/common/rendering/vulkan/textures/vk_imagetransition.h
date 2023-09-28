@@ -46,7 +46,7 @@ public:
 class VkImageTransition
 {
 public:
-	VkImageTransition& AddImage(VkTextureImage *image, VkImageLayout targetLayout, bool undefinedSrcLayout, int baseMipLevel = 0, int levelCount = 1);
+	VkImageTransition& AddImage(VkTextureImage *image, VkImageLayout targetLayout, bool undefinedSrcLayout, int baseMipLevel = 0, int levelCount = 1, int baseArrayLayer = 0, int layerCount = 1);
 	void Execute(VulkanCommandBuffer *cmdbuffer);
 
 private:

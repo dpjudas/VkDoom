@@ -22,7 +22,7 @@
 
 #include "vk_imagetransition.h"
 
-VkImageTransition& VkImageTransition::AddImage(VkTextureImage *image, VkImageLayout targetLayout, bool undefinedSrcLayout, int baseMipLevel, int levelCount)
+VkImageTransition& VkImageTransition::AddImage(VkTextureImage *image, VkImageLayout targetLayout, bool undefinedSrcLayout, int baseMipLevel, int levelCount, int baseArrayLayer, int layerCount)
 {
 	if (image->Layout == targetLayout)
 		return *this;
@@ -91,7 +91,7 @@ VkImageTransition& VkImageTransition::AddImage(VkTextureImage *image, VkImageLay
 		I_FatalError("Unimplemented dst image layout transition\n");
 	}
 
-	barrier.AddImage(image->Image.get(), undefinedSrcLayout ? VK_IMAGE_LAYOUT_UNDEFINED : image->Layout, targetLayout, srcAccess, dstAccess, aspectMask, baseMipLevel, levelCount);
+	barrier.AddImage(image->Image.get(), undefinedSrcLayout ? VK_IMAGE_LAYOUT_UNDEFINED : image->Layout, targetLayout, srcAccess, dstAccess, aspectMask, baseMipLevel, levelCount, baseArrayLayer, layerCount);
 	needbarrier = true;
 	image->Layout = targetLayout;
 	return *this;

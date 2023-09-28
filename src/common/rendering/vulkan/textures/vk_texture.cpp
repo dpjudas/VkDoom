@@ -243,7 +243,7 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 		stagingBuffer->Unmap();
 
 		VkImageTransition()
-			.AddImage(&Lightmap, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, count)
+			.AddImage(&Lightmap, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, 1, 0, count)
 			.Execute(cmdbuffer);
 
 		VkBufferImageCopy region = {};
@@ -260,6 +260,6 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 	}
 
 	VkImageTransition()
-		.AddImage(&Lightmap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, count)
+		.AddImage(&Lightmap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, 1, 0, count)
 		.Execute(cmdbuffer);
 }
