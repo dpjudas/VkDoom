@@ -49,6 +49,21 @@ struct PortalInfo
 	VSMatrix transformation;
 };
 
+struct SubmeshBufferLocation
+{
+	LevelSubmesh* Submesh = nullptr;
+	int VertexOffset = 0;
+	int VertexSize = 0;
+	int IndexOffset = 0;
+	int IndexSize = 0;
+	int NodeOffset = 0;
+	int NodeSize = 0;
+	int SurfaceIndexOffset = 0;
+	int SurfaceIndexSize = 0;
+	int SurfaceOffset = 0;
+	int SurfaceSize = 0;
+};
+
 class VkRaytrace
 {
 public:
@@ -79,8 +94,7 @@ private:
 	void CreateStaticBLAS();
 	void CreateDynamicBLAS();
 	void CreateTopLevelAS();
-	void UploadStatic();
-	void UploadDynamic();
+	void UploadMeshes(bool dynamicOnly);
 	void UpdateDynamicBLAS();
 	void UpdateTopLevelAS();
 
@@ -91,9 +105,6 @@ private:
 	int GetMaxNodeBufferSize();
 	int GetMaxSurfaceBufferSize();
 	int GetMaxSurfaceIndexBufferSize();
-
-	TArray<SurfaceInfo> CreateSurfaceInfo(LevelSubmesh* submesh);
-	TArray<CollisionNode> CreateCollisionNodes(LevelSubmesh* submesh);
 
 	VulkanRenderDevice* fb = nullptr;
 
@@ -128,25 +139,4 @@ private:
 		std::unique_ptr<VulkanBuffer> AccelStructBuffer;
 		std::unique_ptr<VulkanAccelerationStructure> AccelStruct;
 	} TopLevelAS;
-};
-
-class BufferTransfer
-{
-public:
-	BufferTransfer& AddBuffer(VulkanBuffer* buffer, size_t offset, const void* data, size_t size);
-	BufferTransfer& AddBuffer(VulkanBuffer* buffer, const void* data, size_t size);
-	BufferTransfer& AddBuffer(VulkanBuffer* buffer, const void* data0, size_t size0, const void* data1, size_t size1);
-	std::unique_ptr<VulkanBuffer> Execute(VulkanDevice* device, VulkanCommandBuffer* cmdbuffer);
-
-private:
-	struct BufferCopy
-	{
-		VulkanBuffer* buffer;
-		size_t offset;
-		const void* data0;
-		size_t size0;
-		const void* data1;
-		size_t size1;
-	};
-	std::vector<BufferCopy> bufferCopies;
 };

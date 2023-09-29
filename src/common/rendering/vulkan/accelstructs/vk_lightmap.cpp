@@ -29,7 +29,7 @@ CVAR(Float, lm_scale, 1.0, CVAR_NOSAVE);
 
 VkLightmap::VkLightmap(VulkanRenderDevice* fb) : fb(fb)
 {
-	useRayQuery = fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery;
+	useRayQuery = fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery;
 
 	templightlist.Resize(128);
 

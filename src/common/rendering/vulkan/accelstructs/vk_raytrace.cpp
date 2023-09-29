@@ -30,7 +30,7 @@
 
 VkRaytrace::VkRaytrace(VulkanRenderDevice* fb) : fb(fb)
 {
-	useRayQuery = fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+	useRayQuery = fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery;
 
 	SetLevelMesh(nullptr);
 }
@@ -70,10 +70,9 @@ void VkRaytrace::Reset()
 void VkRaytrace::CreateVulkanObjects()
 {
 	CreateBuffers();
+	UploadMeshes(false);
 	if (useRayQuery)
 	{
-		UploadStatic();
-		UploadDynamic();
 		CreateStaticBLAS();
 		CreateDynamicBLAS();
 		CreateTopLevelAS();
@@ -82,70 +81,234 @@ void VkRaytrace::CreateVulkanObjects()
 
 void VkRaytrace::BeginFrame()
 {
+	UploadMeshes(true);
 	if (useRayQuery)
 	{
-		UploadDynamic();
 		UpdateDynamicBLAS();
 		UpdateTopLevelAS();
 	}
 }
 
-void VkRaytrace::UploadStatic()
+void VkRaytrace::UploadMeshes(bool dynamicOnly)
 {
-	auto submesh = Mesh->StaticMesh.get();
+	TArray<SubmeshBufferLocation> locations(2);
 
-	Vertices = TArray<SurfaceVertex>(GetMaxVertexBufferSize());
-
-	for (int i = 0, count = submesh->MeshVertices.Size(); i < count; ++i)
-		Vertices.Push({ { submesh->MeshVertices[i], 1.0f }, submesh->MeshVertexUVs[i], float(i), i + 10000.0f });
-
-	CollisionNodeBufferHeader nodesHeader;
-	nodesHeader.root = submesh->Collision->get_root();
-	TArray<CollisionNode> nodes = CreateCollisionNodes(submesh);
-
-	TArray<SurfaceInfo> surfaceInfo = CreateSurfaceInfo(submesh);
-
-	TArray<PortalInfo> portalInfo;
-	for (auto& portal : submesh->Portals)
+	// Find submesh buffer sizes
+	for (LevelSubmesh* submesh : { Mesh->StaticMesh.get(), Mesh->DynamicMesh.get() })
 	{
-		PortalInfo info;
-		info.transformation = portal.transformation;
-		portalInfo.Push(info);
+		SubmeshBufferLocation location;
+		location.Submesh = submesh;
+		location.VertexSize = submesh->MeshVertices.Size();
+		location.IndexSize = submesh->MeshElements.Size();
+		location.NodeSize = (int)submesh->Collision->get_nodes().size();
+		location.SurfaceIndexSize = submesh->MeshSurfaceIndexes.Size();
+		location.SurfaceSize = submesh->GetSurfaceCount();
+		locations.Push(location);
 	}
 
-	auto transferBuffer = BufferTransfer()
-		.AddBuffer(VertexBuffer.get(), Vertices.Data(), Vertices.Size() * sizeof(SurfaceVertex))
-		.AddBuffer(IndexBuffer.get(), submesh->MeshElements.Data(), (size_t)submesh->MeshElements.Size() * sizeof(uint32_t))
-		.AddBuffer(NodeBuffer.get(), &nodesHeader, sizeof(CollisionNodeBufferHeader), nodes.Data(), nodes.Size() * sizeof(CollisionNode))
-		.AddBuffer(SurfaceIndexBuffer.get(), submesh->MeshSurfaceIndexes.Data(), submesh->MeshSurfaceIndexes.Size() * sizeof(int))
-		.AddBuffer(SurfaceBuffer.get(), surfaceInfo.Data(), surfaceInfo.Size() * sizeof(SurfaceInfo))
-		.AddBuffer(PortalBuffer.get(), portalInfo.Data(), portalInfo.Size() * sizeof(PortalInfo))
-		.Execute(fb->GetDevice(), fb->GetCommands()->GetTransferCommands());
+	// Find submesh locations in buffers
+	for (unsigned int i = 1, count = locations.Size(); i < count; i++)
+	{
+		const SubmeshBufferLocation& prev = locations[i - 1];
+		SubmeshBufferLocation& cur = locations[i];
+		cur.VertexOffset = prev.VertexOffset + prev.VertexSize;
+		cur.IndexOffset = prev.IndexOffset + prev.IndexSize;
+		cur.NodeOffset = prev.NodeOffset + prev.NodeSize;
+		cur.SurfaceIndexOffset = prev.SurfaceIndexOffset + prev.SurfaceIndexSize;
+		cur.SurfaceOffset = prev.SurfaceOffset + prev.SurfaceSize;
 
-	fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
+		if (
+			cur.VertexOffset + cur.VertexSize > GetMaxVertexBufferSize() ||
+			cur.IndexOffset + cur.IndexSize > GetMaxIndexBufferSize() ||
+			cur.NodeOffset + cur.NodeSize > GetMaxNodeBufferSize() ||
+			cur.SurfaceOffset + cur.SurfaceSize > GetMaxSurfaceBufferSize() ||
+			cur.SurfaceIndexOffset + cur.SurfaceIndexSize > GetMaxSurfaceIndexBufferSize())
+		{
+			I_FatalError("Dynamic accel struct buffers are too small!");
+		}
+	}
 
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, useRayQuery ? VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR : VK_ACCESS_SHADER_READ_BIT)
-		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, useRayQuery ? VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-}
+	unsigned int start = dynamicOnly;
+	unsigned int end = locations.Size();
 
-void VkRaytrace::UploadDynamic()
-{
-	auto submesh = Mesh->DynamicMesh.get();
+	// Figure out how much memory we need to transfer it to the GPU
+	size_t transferBufferSize = sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		transferBufferSize += cur.Submesh->MeshVertices.Size() * sizeof(SurfaceVertex);
+		transferBufferSize += cur.Submesh->MeshElements.Size() * sizeof(uint32_t);
+		transferBufferSize += cur.Submesh->Collision->get_nodes().size() * sizeof(CollisionNode);
+		transferBufferSize += cur.Submesh->MeshSurfaceIndexes.Size() * sizeof(int);
+		transferBufferSize += cur.Submesh->GetSurfaceCount() * sizeof(SurfaceInfo);
+	}
+	if (!dynamicOnly)
+		transferBufferSize += Mesh->StaticMesh->Portals.Size() * sizeof(PortalInfo);
 
-	Vertices.Resize(Mesh->StaticMesh->MeshVertices.Size());
+	// Begin the transfer
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+	auto transferBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.Size(transferBufferSize)
+		.DebugName("UploadMeshes")
+		.Create(fb->GetDevice());
 
-	for (int i = 0, count = submesh->MeshVertices.Size(); i < count; ++i)
-		Vertices.Push({ { submesh->MeshVertices[i], 1.0f }, submesh->MeshVertexUVs[i], float(i), i + 10000.0f });
+	uint8_t* data = (uint8_t*)transferBuffer->Map(0, transferBufferSize);
+	size_t datapos = 0;
 
-	TArray<SurfaceInfo> surfaceInfo = CreateSurfaceInfo(submesh);
+	// Copy node buffer header and create a root node that merges the static and dynamic AABB trees
+	{
+		int root0 = locations[0].Submesh->Collision->get_root();
+		int root1 = locations[1].Submesh->Collision->get_root();
+		const auto& node0 = locations[0].Submesh->Collision->get_nodes()[root0];
+		const auto& node1 = locations[1].Submesh->Collision->get_nodes()[root1];
 
-	auto transferBuffer = BufferTransfer()
-		.AddBuffer(VertexBuffer.get(), Mesh->StaticMesh->MeshVertices.Size() * sizeof(SurfaceVertex), Vertices.Data() + Mesh->StaticMesh->MeshVertices.Size(), Vertices.Size() * sizeof(SurfaceVertex))
-		.AddBuffer(IndexBuffer.get(), Mesh->StaticMesh->MeshElements.Size() * sizeof(uint32_t), submesh->MeshElements.Data(), (size_t)submesh->MeshElements.Size() * sizeof(uint32_t))
-		.AddBuffer(SurfaceIndexBuffer.get(), Mesh->StaticMesh->MeshSurfaceIndexes.Size() * sizeof(int), submesh->MeshSurfaceIndexes.Data(), submesh->MeshSurfaceIndexes.Size() * sizeof(int))
-		.AddBuffer(SurfaceBuffer.get(), Mesh->StaticMesh->GetSurfaceCount() * sizeof(SurfaceInfo), surfaceInfo.Data(), surfaceInfo.Size() * sizeof(SurfaceInfo))
-		.Execute(fb->GetDevice(), fb->GetCommands()->GetTransferCommands());
+		FVector3 aabbMin(std::min(node0.aabb.min.X, node1.aabb.min.X), std::min(node0.aabb.min.Y, node1.aabb.min.Y), std::min(node0.aabb.min.Z, node1.aabb.min.Z));
+		FVector3 aabbMax(std::max(node0.aabb.max.X, node1.aabb.max.X), std::max(node0.aabb.max.Y, node1.aabb.max.Y), std::max(node0.aabb.max.Z, node1.aabb.max.Z));
+		CollisionBBox bbox(aabbMin, aabbMax);
+
+		CollisionNodeBufferHeader nodesHeader;
+		nodesHeader.root = locations[1].NodeOffset + locations[1].NodeSize;
+
+		CollisionNode info;
+		info.center = bbox.Center;
+		info.extents = bbox.Extents;
+		info.left = locations[0].NodeOffset + root0;
+		info.right = locations[1].NodeOffset + root1;
+		info.element_index = -1;
+
+		*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
+		*((CollisionNode*)(data + datapos + sizeof(CollisionNodeBufferHeader))) = info;
+
+		cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
+		cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos + sizeof(CollisionNodeBufferHeader), sizeof(CollisionNodeBufferHeader) + nodesHeader.root * sizeof(CollisionNode), sizeof(CollisionNode));
+
+		datapos += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
+	}
+
+	// Copy vertices
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		auto submesh = cur.Submesh;
+
+		SurfaceVertex* vertices = (SurfaceVertex*)(data + datapos);
+		for (int j = 0, count = submesh->MeshVertices.Size(); j < count; ++j)
+			*(vertices++) = { { submesh->MeshVertices[j], 1.0f }, submesh->MeshVertexUVs[j], float(j), j + 10000.0f };
+
+		size_t copysize = submesh->MeshVertices.Size() * sizeof(SurfaceVertex);
+		cmdbuffer->copyBuffer(transferBuffer.get(), VertexBuffer.get(), datapos, cur.VertexOffset * sizeof(SurfaceVertex), copysize);
+		datapos += copysize;
+	}
+
+	// Copy indexes
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		auto submesh = cur.Submesh;
+
+		uint32_t* indexes = (uint32_t*)(data + datapos);
+		for (int j = 0, count = submesh->MeshElements.Size(); j < count; ++j)
+			*(indexes++) = cur.VertexOffset + submesh->MeshElements[j];
+
+		size_t copysize = submesh->MeshElements.Size() * sizeof(uint32_t);
+		cmdbuffer->copyBuffer(transferBuffer.get(), IndexBuffer.get(), datapos, cur.IndexOffset * sizeof(uint32_t), copysize);
+		datapos += copysize;
+	}
+
+	// Copy collision nodes
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		auto submesh = cur.Submesh;
+
+		CollisionNode* nodes = (CollisionNode*)(data + datapos);
+		for (auto& node : submesh->Collision->get_nodes())
+		{
+			CollisionNode info;
+			info.center = node.aabb.Center;
+			info.extents = node.aabb.Extents;
+			info.left = node.left != -1 ? node.left + cur.NodeOffset : -1;
+			info.right = node.right != -1 ? node.right + cur.NodeOffset : -1;
+			info.element_index = node.element_index != -1 ? node.element_index + cur.IndexOffset : -1;
+			*(nodes++) = info;
+		}
+
+		size_t copysize = submesh->Collision->get_nodes().size() * sizeof(CollisionNode);
+		cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos, +sizeof(CollisionNodeBufferHeader) + cur.NodeOffset * sizeof(CollisionNode), copysize);
+		datapos += copysize;
+	}
+
+	// Copy surface indexes
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		auto submesh = cur.Submesh;
+
+		int* indexes = (int*)(data + datapos);
+		for (int j = 0, count = submesh->MeshSurfaceIndexes.Size(); j < count; ++j)
+			*(indexes++) = cur.SurfaceIndexOffset + submesh->MeshSurfaceIndexes[j];
+
+		size_t copysize = submesh->MeshSurfaceIndexes.Size() * sizeof(int);
+		cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceIndexBuffer.get(), datapos, cur.SurfaceIndexOffset * sizeof(int), copysize);
+		datapos += copysize;
+	}
+
+	// Copy surfaces
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		auto submesh = cur.Submesh;
+
+		SurfaceInfo* surfaces = (SurfaceInfo*)(data + datapos);
+		for (int j = 0, count = submesh->GetSurfaceCount(); j < count; ++j)
+		{
+			LevelMeshSurface* surface = submesh->GetSurface(j);
+
+			SurfaceInfo info;
+			info.Normal = surface->plane.XYZ();
+			info.PortalIndex = surface->portalIndex;
+			info.SamplingDistance = (float)surface->sampleDimension;
+			info.Sky = surface->bSky;
+			if (surface->texture.isValid())
+			{
+				auto mat = FMaterial::ValidateTexture(TexMan.GetGameTexture(surface->texture), 0);
+				info.TextureIndex = fb->GetBindlessTextureIndex(mat, CLAMP_NONE, 0);
+			}
+			else
+			{
+				info.TextureIndex = -1;
+			}
+			info.Alpha = surface->alpha;
+
+			*(surfaces++) = info;
+		}
+
+		size_t copysize = submesh->GetSurfaceCount() * sizeof(SurfaceInfo);
+		cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceBuffer.get(), datapos, cur.SurfaceOffset * sizeof(SurfaceInfo), copysize);
+		datapos += copysize;
+	}
+
+	// Copy portals
+	if (!dynamicOnly)
+	{
+		PortalInfo* portals = (PortalInfo*)(data + datapos);
+		for (auto& portal : Mesh->StaticMesh->Portals)
+		{
+			PortalInfo info;
+			info.transformation = portal.transformation;
+			*(portals++) = info;
+		}
+
+		size_t copysize = Mesh->StaticMesh->Portals.Size() * sizeof(PortalInfo);
+		cmdbuffer->copyBuffer(transferBuffer.get(), PortalBuffer.get(), datapos, 0, copysize);
+		datapos += copysize;
+	}
+
+	assert(datapos == transferBufferSize);
+
+	// End the transfer
+	transferBuffer->Unmap();
 
 	fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
 
@@ -166,7 +329,7 @@ int VkRaytrace::GetMaxIndexBufferSize()
 
 int VkRaytrace::GetMaxNodeBufferSize()
 {
-	return (int)Mesh->StaticMesh->Collision->get_nodes().size() + MaxDynamicNodes;
+	return (int)Mesh->StaticMesh->Collision->get_nodes().size() + MaxDynamicNodes + 1; // + 1 for the merge root node
 }
 
 int VkRaytrace::GetMaxSurfaceBufferSize()
@@ -242,11 +405,11 @@ VkRaytrace::BLAS VkRaytrace::CreateBLAS(LevelSubmesh* submesh, bool preferFastBu
 	accelStructBLDesc.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 	accelStructBLDesc.geometry.triangles = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
 	accelStructBLDesc.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-	accelStructBLDesc.geometry.triangles.vertexData.deviceAddress = VertexBuffer->GetDeviceAddress() + vertexOffset * sizeof(SurfaceVertex);
+	accelStructBLDesc.geometry.triangles.vertexData.deviceAddress = VertexBuffer->GetDeviceAddress();
 	accelStructBLDesc.geometry.triangles.vertexStride = sizeof(SurfaceVertex);
 	accelStructBLDesc.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	accelStructBLDesc.geometry.triangles.indexData.deviceAddress = IndexBuffer->GetDeviceAddress() + indexOffset * sizeof(uint32_t);
-	accelStructBLDesc.geometry.triangles.maxVertex = submesh->MeshVertices.Size() - 1;
+	accelStructBLDesc.geometry.triangles.maxVertex = vertexOffset + submesh->MeshVertices.Size() - 1;
 
 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 	buildInfo.flags = preferFastBuild ? VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR : VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
@@ -474,111 +637,3 @@ void VkRaytrace::UpdateTopLevelAS()
 		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
-TArray<SurfaceInfo> VkRaytrace::CreateSurfaceInfo(LevelSubmesh* submesh)
-{
-	TArray<SurfaceInfo> surfaceInfo(submesh->GetSurfaceCount());
-	for (int i = 0, count = submesh->GetSurfaceCount(); i < count; i++)
-	{
-		LevelMeshSurface* surface = submesh->GetSurface(i);
-
-		SurfaceInfo info;
-		info.Normal = surface->plane.XYZ();
-		info.PortalIndex = surface->portalIndex;
-		info.SamplingDistance = (float)surface->sampleDimension;
-		info.Sky = surface->bSky;
-
-		if (surface->texture.isValid())
-		{
-			auto mat = FMaterial::ValidateTexture(TexMan.GetGameTexture(surface->texture), 0);
-			info.TextureIndex = fb->GetBindlessTextureIndex(mat, CLAMP_NONE, 0);
-		}
-		else
-		{
-			info.TextureIndex = -1;
-		}
-
-		info.Alpha = surface->alpha;
-
-		surfaceInfo.Push(info);
-	}
-	return surfaceInfo;
-}
-
-TArray<CollisionNode> VkRaytrace::CreateCollisionNodes(LevelSubmesh* submesh)
-{
-	TArray<CollisionNode> nodes(submesh->Collision->get_nodes().size());
-	for (const auto& node : submesh->Collision->get_nodes())
-	{
-		CollisionNode info;
-		info.center = node.aabb.Center;
-		info.extents = node.aabb.Extents;
-		info.left = node.left;
-		info.right = node.right;
-		info.element_index = node.element_index;
-		nodes.Push(info);
-	}
-	if (nodes.Size() == 0) // vulkan doesn't support zero byte buffers
-		nodes.Push(CollisionNode());
-	return nodes;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-BufferTransfer& BufferTransfer::AddBuffer(VulkanBuffer* buffer, size_t offset, const void* data, size_t size)
-{
-	bufferCopies.push_back({ buffer, offset, data, size, nullptr, 0 });
-	return *this;
-}
-
-BufferTransfer& BufferTransfer::AddBuffer(VulkanBuffer* buffer, const void* data, size_t size)
-{
-	bufferCopies.push_back({ buffer, 0, data, size, nullptr, 0 });
-	return *this;
-}
-
-BufferTransfer& BufferTransfer::AddBuffer(VulkanBuffer* buffer, const void* data0, size_t size0, const void* data1, size_t size1)
-{
-	bufferCopies.push_back({ buffer, 0, data0, size0, data1, size1 });
-	return *this;
-}
-
-std::unique_ptr<VulkanBuffer> BufferTransfer::Execute(VulkanDevice* device, VulkanCommandBuffer* cmdbuffer)
-{
-	size_t transferbuffersize = 0;
-	for (const auto& copy : bufferCopies)
-		transferbuffersize += copy.size0 + copy.size1;
-
-	if (transferbuffersize == 0)
-		return nullptr;
-
-	auto transferBuffer = BufferBuilder()
-		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
-		.Size(transferbuffersize)
-		.DebugName("BufferTransfer.transferBuffer")
-		.Create(device);
-
-	uint8_t* data = (uint8_t*)transferBuffer->Map(0, transferbuffersize);
-	size_t pos = 0;
-	for (const auto& copy : bufferCopies)
-	{
-		memcpy(data + pos, copy.data0, copy.size0);
-		pos += copy.size0;
-		memcpy(data + pos, copy.data1, copy.size1);
-		pos += copy.size1;
-	}
-	transferBuffer->Unmap();
-
-	pos = 0;
-	for (const auto& copy : bufferCopies)
-	{
-		if (copy.size0 > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), copy.buffer, pos, copy.offset, copy.size0);
-		pos += copy.size0;
-
-		if (copy.size1 > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), copy.buffer, pos, copy.offset + copy.size0, copy.size1);
-		pos += copy.size1;
-	}
-
-	return transferBuffer;
-}
