@@ -1940,3 +1940,64 @@ std::shared_ptr<VulkanSwapChain> VulkanSwapChainBuilder::Create(VulkanDevice* de
 {
 	return std::make_shared<VulkanSwapChain>(device);
 }
+
+/////////////////////////////////////////////////////////////////////////////
+
+BufferTransfer& BufferTransfer::AddBuffer(VulkanBuffer* buffer, size_t offset, const void* data, size_t size)
+{
+	bufferCopies.push_back({ buffer, offset, data, size, nullptr, 0 });
+	return *this;
+}
+
+BufferTransfer& BufferTransfer::AddBuffer(VulkanBuffer* buffer, const void* data, size_t size)
+{
+	bufferCopies.push_back({ buffer, 0, data, size, nullptr, 0 });
+	return *this;
+}
+
+BufferTransfer& BufferTransfer::AddBuffer(VulkanBuffer* buffer, const void* data0, size_t size0, const void* data1, size_t size1)
+{
+	bufferCopies.push_back({ buffer, 0, data0, size0, data1, size1 });
+	return *this;
+}
+
+std::unique_ptr<VulkanBuffer> BufferTransfer::Execute(VulkanDevice* device, VulkanCommandBuffer* cmdbuffer)
+{
+	size_t transferbuffersize = 0;
+	for (const auto& copy : bufferCopies)
+		transferbuffersize += copy.size0 + copy.size1;
+
+	if (transferbuffersize == 0)
+		return nullptr;
+
+	auto transferBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.Size(transferbuffersize)
+		.DebugName("BufferTransfer.transferBuffer")
+		.Create(device);
+
+	uint8_t* data = (uint8_t*)transferBuffer->Map(0, transferbuffersize);
+	size_t pos = 0;
+	for (const auto& copy : bufferCopies)
+	{
+		memcpy(data + pos, copy.data0, copy.size0);
+		pos += copy.size0;
+		memcpy(data + pos, copy.data1, copy.size1);
+		pos += copy.size1;
+	}
+	transferBuffer->Unmap();
+
+	pos = 0;
+	for (const auto& copy : bufferCopies)
+	{
+		if (copy.size0 > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), copy.buffer, pos, copy.offset, copy.size0);
+		pos += copy.size0;
+
+		if (copy.size1 > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), copy.buffer, pos, copy.offset + copy.size0, copy.size1);
+		pos += copy.size1;
+	}
+
+	return transferBuffer;
+}
