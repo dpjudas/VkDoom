@@ -157,6 +157,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 	size_t datapos = 0;
 
 	// Copy node buffer header and create a root node that merges the static and dynamic AABB trees
+	if (locations[1].Submesh->Collision->get_root() != -1)
 	{
 		int root0 = locations[0].Submesh->Collision->get_root();
 		int root1 = locations[1].Submesh->Collision->get_root();
@@ -182,9 +183,16 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 
 		cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
 		cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos + sizeof(CollisionNodeBufferHeader), sizeof(CollisionNodeBufferHeader) + nodesHeader.root * sizeof(CollisionNode), sizeof(CollisionNode));
-
-		datapos += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
 	}
+	else // second submesh is empty, just point the header at the first one
+	{
+		CollisionNodeBufferHeader nodesHeader;
+		nodesHeader.root = locations[0].Submesh->Collision->get_root();
+
+		*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
+		cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
+	}
+	datapos += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
 
 	// Copy vertices
 	for (unsigned int i = start; i < end; i++)
