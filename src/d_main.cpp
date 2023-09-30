@@ -3071,7 +3071,7 @@ static int FileSystemPrintf(FSMessageLevel level, const char* fmt, ...)
 		DPrintf(DMSG_NOTIFY, "%s", text.GetChars());
 		break;
 	}
-	return text.Len();
+	return (int)text.Len();
 }
 //==========================================================================
 //
