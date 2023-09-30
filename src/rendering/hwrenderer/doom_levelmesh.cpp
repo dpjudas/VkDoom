@@ -644,9 +644,6 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 	front = side->sector;
 	back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
 
-	if (IsControlSector(front))
-		return;
-
 	FVector2 v1 = ToFVector2(side->V1()->fPos());
 	FVector2 v2 = ToFVector2(side->V2()->fPos());
 
@@ -1112,7 +1109,7 @@ void DoomLevelSubmesh::CreateSubsectorSurfaces(FLevelLocals &doomMap)
 		}
 
 		sector_t *sector = sub->sector;
-		if (!sector || IsControlSector(sector))
+		if (!sector)
 			continue;
 
 		CreateFloorSurface(doomMap, sub, sector, nullptr, i);
@@ -1147,12 +1144,6 @@ bool DoomLevelSubmesh::IsSkySector(sector_t* sector, int plane)
 {
 	// plane is either sector_t::ceiling or sector_t::floor
 	return sector->GetTexture(plane) == skyflatnum;
-}
-
-bool DoomLevelSubmesh::IsControlSector(sector_t* sector)
-{
-	//return sector->controlsector;
-	return false;
 }
 
 bool DoomLevelSubmesh::IsDegenerate(const FVector3 &v0, const FVector3 &v1, const FVector3 &v2)
@@ -1388,14 +1379,7 @@ DoomLevelSubmesh::PlaneAxis DoomLevelSubmesh::BestAxis(const FVector4& p)
 
 void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface)
 {
-	BBox bounds;
-	FVector3 roundedSize;
-	int width;
-	int height;
-	float d;
-
-	const FVector4& plane = surface.plane;
-	bounds = GetBoundsFromSurface(surface);
+	BBox bounds = GetBoundsFromSurface(surface);
 	surface.bounds = bounds;
 
 	if (surface.sampleDimension <= 0)
@@ -1417,20 +1401,23 @@ void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMap
 	}
 
 	// round off dimensions
+	FVector3 roundedSize;
 	for (int i = 0; i < 3; i++)
 	{
 		bounds.min[i] = surface.sampleDimension * (floor(bounds.min[i] / surface.sampleDimension) - 1);
 		bounds.max[i] = surface.sampleDimension * (ceil(bounds.max[i] / surface.sampleDimension) + 1);
-
 		roundedSize[i] = (bounds.max[i] - bounds.min[i]) / surface.sampleDimension;
 	}
 
 	FVector3 tCoords[2] = { FVector3(0.0f, 0.0f, 0.0f), FVector3(0.0f, 0.0f, 0.0f) };
 
-	PlaneAxis axis = BestAxis(plane);
+	PlaneAxis axis = BestAxis(surface.plane);
 
+	int width;
+	int height;
 	switch (axis)
 	{
+	default:
 	case AXIS_YZ:
 		width = (int)roundedSize.Y;
 		height = (int)roundedSize.Z;
@@ -1481,10 +1468,9 @@ void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMap
 		LightmapUvs[surface.startUvIndex + i].Y = (tDelta | surface.projLocalToV);
 	}
 
-
 	// project tCoords so they lie on the plane
-	d = ((bounds.min | FVector3(plane.X, plane.Y, plane.Z)) - plane.W) / plane[axis]; //d = (plane->PointToDist(bounds.min)) / plane->Normal()[axis];
-
+	const FVector4& plane = surface.plane;
+	float d = ((bounds.min | FVector3(plane.X, plane.Y, plane.Z)) - plane.W) / plane[axis]; //d = (plane->PointToDist(bounds.min)) / plane->Normal()[axis];
 	for (int i = 0; i < 2; i++)
 	{
 		tCoords[i].MakeUnit();

@@ -78,7 +78,6 @@ private:
 	static bool IsTopSideVisible(side_t* side);
 	static bool IsBottomSideVisible(side_t* side);
 	static bool IsSkySector(sector_t* sector, int plane);
-	static bool IsControlSector(sector_t* sector);
 
 	static FVector4 ToPlane(const FVector3& pt1, const FVector3& pt2, const FVector3& pt3)
 	{
