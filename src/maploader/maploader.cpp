@@ -3093,13 +3093,13 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 		if (surface.Type > ST_UNKNOWN && surface.Type <= ST_FLOOR)
 		{
-			if (auto list = surfaceGroups[surface.Type - 1].CheckKey(surface.typeIndex))
+			if (auto list = surfaceGroups[surface.Type - 1].CheckKey(surface.TypeIndex))
 			{
 				list->Push(&surface);
 			}
 			else
 			{
-				surfaceGroups[surface.Type - 1].InsertNew(surface.typeIndex).Push(&surface);
+				surfaceGroups[surface.Type - 1].InsertNew(surface.TypeIndex).Push(&surface);
 			}
 		}
 	}
@@ -3143,7 +3143,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 		auto levelSurface = &submesh->Surfaces[i];
 
-		if (levelSurface->Type != surface.type || levelSurface->typeIndex != surface.typeIndex || levelSurface->ControlSector != controlSector)
+		if (levelSurface->Type != surface.type || levelSurface->TypeIndex != surface.typeIndex || levelSurface->ControlSector != controlSector)
 		{
 			auto internalIndex = findSurfaceIndex(surface.type, surface.typeIndex, controlSector);
 
@@ -3173,8 +3173,8 @@ bool MapLoader::LoadLightmap(MapData* map)
 		}
 		else
 		{
-			levelSurface->texWidth = surface.width;
-			levelSurface->texHeight = surface.height;
+			levelSurface->AtlasTile.Width = surface.width;
+			levelSurface->AtlasTile.Height = surface.height;
 
 			surface.targetSurface = levelSurface;
 			detectedSurfaces.Insert(levelSurface, 1);
@@ -3217,9 +3217,9 @@ bool MapLoader::LoadLightmap(MapData* map)
 #if 0 // debug surface mapping
 	for (auto& surface : submesh->Surfaces)
 	{
-		int dstX = surface.atlasX;
-		int dstY = surface.atlasY;
-		int dstPage = surface.atlasPageIndex;
+		int dstX = surface.AtlasTile.X;
+		int dstY = surface.AtlasTile.Y;
+		int dstPage = surface.AtlasTile.ArrayIndex;
 
 		// copy pixels
 		uint16_t* dst = &submesh->LMTextureData[dstPage * textureSize * textureSize * 3];
@@ -3228,9 +3228,9 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 		if (auto ptr = detectedSurfaces.CheckKey(&surface))
 		{
-			for (int y = 0; y < surface.texHeight; ++y)
+			for (int y = 0; y < surface.AtlasTile.Height; ++y)
 			{
-				for (int x = 0; x < surface.texWidth; ++x)
+				for (int x = 0; x < surface.AtlasTile.Width; ++x)
 				{
 					uint32_t dstIndex = uint32_t(dstX + x + (dstY + y) * textureSize) * 3;
 
@@ -3242,9 +3242,9 @@ bool MapLoader::LoadLightmap(MapData* map)
 		}
 		else
 		{
-			for (int y = 0; y < surface.texHeight; ++y)
+			for (int y = 0; y < surface.AtlasTile.Height; ++y)
 			{
-				for (int x = 0; x < surface.texWidth; ++x)
+				for (int x = 0; x < surface.AtlasTile.Width; ++x)
 				{
 					uint32_t dstIndex = uint32_t(dstX + x + (dstY + y) * textureSize) * 3;
 
@@ -3268,9 +3268,9 @@ bool MapLoader::LoadLightmap(MapData* map)
 		// calculate pixel positions
 		const uint32_t srcPixelOffset = surface.pixelsOffset;
 
-		const int dstX = realSurface.atlasX;
-		const int dstY = realSurface.atlasY;
-		const int dstPage = realSurface.atlasPageIndex;
+		const int dstX = realSurface.AtlasTile.X;
+		const int dstY = realSurface.AtlasTile.Y;
+		const int dstPage = realSurface.AtlasTile.ArrayIndex;
 
 		// Sanity checks
 		if (dstX < 0 || dstY < 0 || dstX + surface.width > textureSize || dstY + surface.height > textureSize || dstPage >= submesh->LMTextureCount)
@@ -3284,12 +3284,12 @@ bool MapLoader::LoadLightmap(MapData* map)
 			continue;
 		}
 
-		if (realSurface.texWidth != surface.width || realSurface.texHeight != surface.height)
+		if (realSurface.AtlasTile.Width != surface.width || realSurface.AtlasTile.Height != surface.height)
 		{
 			errors = true;
 			if (developer >= 1)
 			{
-				Printf("Surface size mismatch: Attempting to remap %dx%d to %dx%d pixel area.\n", surface.width, surface.height, realSurface.texWidth, realSurface.texHeight);
+				Printf("Surface size mismatch: Attempting to remap %dx%d to %dx%d pixel area.\n", surface.width, surface.height, realSurface.AtlasTile.Width, realSurface.AtlasTile.Height);
 			}
 			realSurface.needsUpdate = true;
 			continue;
@@ -3300,7 +3300,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 			Printf("Mapping lightmap surface pixels[%u] (count: %u) -> ((x:%d, y:%d), (x2:%d, y2:%d), page:%d) area: %u\n",
 				srcPixelOffset, surface.width * surface.height * 3,
 				dstX, dstY,
-				dstX + realSurface.texWidth, dstY + realSurface.texHeight,
+				dstX + realSurface.AtlasTile.Width, dstY + realSurface.AtlasTile.Height,
 				dstPage,
 				realSurface.Area() * 3);
 		}
@@ -3309,14 +3309,14 @@ bool MapLoader::LoadLightmap(MapData* map)
 		uint32_t srcIndex = 0;
 		uint16_t* src = &textureData[srcPixelOffset];
 
-		uint16_t* dst = &submesh->LMTextureData[realSurface.atlasPageIndex * textureSize * textureSize * 3];
+		uint16_t* dst = &submesh->LMTextureData[realSurface.AtlasTile.ArrayIndex * textureSize * textureSize * 3];
 
-		int endY = realSurface.atlasY + realSurface.texHeight;
-		int endX = realSurface.atlasX + realSurface.texWidth;
+		int endY = realSurface.AtlasTile.Y + realSurface.AtlasTile.Height;
+		int endX = realSurface.AtlasTile.X + realSurface.AtlasTile.Width;
 
-		for (int y = realSurface.atlasY; y < endY; ++y)
+		for (int y = realSurface.AtlasTile.Y; y < endY; ++y)
 		{
-			for (int x = realSurface.atlasX; x < endX; ++x)
+			for (int x = realSurface.AtlasTile.X; x < endX; ++x)
 			{
 				uint32_t dstIndex = uint32_t(x + (y * textureSize)) * 3;
 
@@ -3341,12 +3341,12 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 			if (developer >= 5)
 			{
-				Printf("Old UV: %.6f %.6f (w:%d, h:%d) (x:%d, y:%d), Lump UVs %.3f %.3f\n", UVs[i].X, UVs[i].Y, realSurface.texWidth, realSurface.texHeight, realSurface.atlasX, realSurface.atlasY, newUVs[i].X, newUVs[i].Y);
+				Printf("Old UV: %.6f %.6f (w:%d, h:%d) (x:%d, y:%d), Lump UVs %.3f %.3f\n", UVs[i].X, UVs[i].Y, realSurface.AtlasTile.Width, realSurface.AtlasTile.Height, realSurface.AtlasTile.X, realSurface.AtlasTile.Y, newUVs[i].X, newUVs[i].Y);
 			}
 
 			// Finish surface
-			UVs[i].X = (newUVs[i].X + realSurface.atlasX) / textureSize;
-			UVs[i].Y = (newUVs[i].Y + realSurface.atlasY) / textureSize;
+			UVs[i].X = (newUVs[i].X + realSurface.AtlasTile.X) / textureSize;
+			UVs[i].Y = (newUVs[i].Y + realSurface.AtlasTile.Y) / textureSize;
 
 			if (developer >= 5)
 			{

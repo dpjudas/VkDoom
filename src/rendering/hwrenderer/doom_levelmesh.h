@@ -14,8 +14,21 @@ typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct FLevelLocals;
 
+enum DoomLevelMeshSurfaceType
+{
+	ST_UNKNOWN,
+	ST_MIDDLESIDE,
+	ST_UPPERSIDE,
+	ST_LOWERSIDE,
+	ST_CEILING,
+	ST_FLOOR
+};
+
 struct DoomLevelMeshSurface : public LevelMeshSurface
 {
+	DoomLevelMeshSurfaceType Type = ST_UNKNOWN;
+	int TypeIndex;
+
 	subsector_t* Subsector = nullptr;
 	side_t* Side = nullptr;
 	sector_t* ControlSector = nullptr;

@@ -29,20 +29,8 @@ public:
 	int SectorGroup;
 };
 
-enum LevelMeshSurfaceType
-{
-	ST_UNKNOWN,
-	ST_MIDDLESIDE,
-	ST_UPPERSIDE,
-	ST_LOWERSIDE,
-	ST_CEILING,
-	ST_FLOOR
-};
-
 struct LevelMeshSurface
 {
-	LevelMeshSurfaceType Type = ST_UNKNOWN;
-	int typeIndex;
 	int numVerts;
 	unsigned int startVertIndex;
 	unsigned int startUvIndex;
@@ -51,12 +39,15 @@ struct LevelMeshSurface
 	FVector4 plane;
 	bool bSky;
 
-	// Lightmap UV information in pixel size
-	int atlasPageIndex = 0;
-	int atlasX = 0;
-	int atlasY = 0;
-	int texWidth = 0;
-	int texHeight = 0;
+	// Surface location in lightmap texture
+	struct
+	{
+		int X = 0;
+		int Y = 0;
+		int Width = 0;
+		int Height = 0;
+		int ArrayIndex = 0;
+	} AtlasTile;
 
 	// True if the surface needs to be rendered into the lightmap texture before it can be used
 	bool needsUpdate = true;
@@ -88,7 +79,7 @@ struct LevelMeshSurface
 	//
 	// Utility/Info
 	//
-	inline uint32_t Area() const { return texWidth * texHeight; }
+	inline uint32_t Area() const { return AtlasTile.Width * AtlasTile.Height; }
 
 	int LightListPos = -1;
 	int LightListCount = 0;
@@ -336,8 +327,8 @@ private:
 	FVector2 ToUV(const FVector3& vert, const LevelMeshSurface* targetSurface)
 	{
 		FVector3 localPos = vert - targetSurface->translateWorldToLocal;
-		float u = (1.0f + (localPos | targetSurface->projLocalToU)) / (targetSurface->texWidth + 2);
-		float v = (1.0f + (localPos | targetSurface->projLocalToV)) / (targetSurface->texHeight + 2);
+		float u = (1.0f + (localPos | targetSurface->projLocalToU)) / (targetSurface->AtlasTile.Width + 2);
+		float v = (1.0f + (localPos | targetSurface->projLocalToV)) / (targetSurface->AtlasTile.Height + 2);
 		return FVector2(u, v);
 	}
 };

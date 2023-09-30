@@ -118,7 +118,7 @@ void VkLightmap::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
 			continue;
 
 		// Only grab surfaces until our bake texture is full
-		auto result = packer.insert(surface->texWidth + 2, surface->texHeight + 2);
+		auto result = packer.insert(surface->AtlasTile.Width + 2, surface->AtlasTile.Height + 2);
 		if (result.pageIndex == 0)
 		{
 			SelectedSurface selected;
@@ -127,8 +127,8 @@ void VkLightmap::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
 			selected.Y = result.pos.y + 1;
 			selectedSurfaces.Push(selected);
 
-			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(selected.X + surface->texWidth + spacing));
-			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(selected.Y + surface->texHeight + spacing));
+			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(selected.X + surface->AtlasTile.Width + spacing));
+			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(selected.Y + surface->AtlasTile.Height + spacing));
 
 			surface->needsUpdate = false;
 		}
@@ -167,19 +167,13 @@ void VkLightmap::Render()
 		auto& selectedSurface = selectedSurfaces[i];
 		LevelMeshSurface* targetSurface = selectedSurface.Surface;
 
-		/*if (targetSurface->LightList.empty() && (targetSurface->plane.XYZ() | mesh->SunDirection) < 0.0f) // No lights, no sun
-		{
-			selectedSurface.Rendered = true;
-			continue;
-		}*/
-
 		LightmapRaytracePC pc;
 		pc.TileX = (float)selectedSurface.X;
 		pc.TileY = (float)selectedSurface.Y;
 		pc.SurfaceIndex = mesh->StaticMesh->GetSurfaceIndex(targetSurface);
 		pc.TextureSize = (float)bakeImageSize;
-		pc.TileWidth = (float)targetSurface->texWidth;
-		pc.TileHeight = (float)targetSurface->texHeight;
+		pc.TileWidth = (float)targetSurface->AtlasTile.Width;
+		pc.TileHeight = (float)targetSurface->AtlasTile.Height;
 		pc.WorldToLocal = targetSurface->translateWorldToLocal;
 		pc.ProjLocalToU = targetSurface->projLocalToU;
 		pc.ProjLocalToV = targetSurface->projLocalToV;
@@ -392,7 +386,7 @@ void VkLightmap::CopyResult()
 		auto& selected = selectedSurfaces[i];
 		if (selected.Rendered)
 		{
-			unsigned int pageIndex = (unsigned int)selected.Surface->atlasPageIndex;
+			unsigned int pageIndex = (unsigned int)selected.Surface->AtlasTile.ArrayIndex;
 			if (pageIndex >= copylists.Size())
 			{
 				copylists.Resize(pageIndex + 1);
@@ -471,10 +465,10 @@ void VkLightmap::CopyResult()
 			CopyTileInfo* copyinfo = &copytiles.Tiles[pos++];
 			copyinfo->SrcPosX = selected->X;
 			copyinfo->SrcPosY = selected->Y;
-			copyinfo->DestPosX = surface->atlasX;
-			copyinfo->DestPosY = surface->atlasY;
-			copyinfo->TileWidth = surface->texWidth;
-			copyinfo->TileHeight = surface->texHeight;
+			copyinfo->DestPosX = surface->AtlasTile.X;
+			copyinfo->DestPosY = surface->AtlasTile.Y;
+			copyinfo->TileWidth = surface->AtlasTile.Width;
+			copyinfo->TileHeight = surface->AtlasTile.Height;
 		}
 
 		// Draw the tiles. One instance per tile.

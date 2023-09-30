@@ -82,9 +82,9 @@ void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
 
 	auto gameTexture = TexMan.GameByIndex(surface->texture.GetIndex());
 
-	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", level.levelMesh->StaticMesh->GetSurfaceIndex(surface), surface, surface->Type, surface->typeIndex, surface->ControlSector ? surface->ControlSector->Index() : -1);
-	Printf("    Atlas page: %d, x:%d, y:%d\n", surface->atlasPageIndex, surface->atlasX, surface->atlasY);
-	Printf("    Pixels: %dx%d (area: %d)\n", surface->texWidth, surface->texHeight, surface->Area());
+	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", level.levelMesh->StaticMesh->GetSurfaceIndex(surface), surface, surface->Type, surface->TypeIndex, surface->ControlSector ? surface->ControlSector->Index() : -1);
+	Printf("    Atlas page: %d, x:%d, y:%d\n", surface->AtlasTile.ArrayIndex, surface->AtlasTile.X, surface->AtlasTile.Y);
+	Printf("    Pixels: %dx%d (area: %d)\n", surface->AtlasTile.Width, surface->AtlasTile.Height, surface->Area());
 	Printf("    Sample dimension: %d\n", surface->sampleDimension);
 	Printf("    Needs update?: %d\n", surface->needsUpdate);
 	Printf("    Sector group: %d\n", surface->sectorGroup);
@@ -485,7 +485,7 @@ void DoomLevelSubmesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
 	// You have no idea how long this took me to figure out...
 
 	// Reorder vertices into renderer format
-	for (LevelMeshSurface& surface : Surfaces)
+	for (DoomLevelMeshSurface& surface : Surfaces)
 	{
 		if (surface.Type == ST_FLOOR)
 		{
@@ -542,14 +542,14 @@ void DoomLevelSubmesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
 
 		if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
 		{
-			surface.Subsector = &doomMap.subsectors[surface.typeIndex];
+			surface.Subsector = &doomMap.subsectors[surface.TypeIndex];
 			if (surface.Subsector->firstline && surface.Subsector->firstline->sidedef)
 				surface.Subsector->firstline->sidedef->sector->HasLightmaps = true;
 			SetSubsectorLightmap(&surface);
 		}
 		else
 		{
-			surface.Side = &doomMap.sides[surface.typeIndex];
+			surface.Side = &doomMap.sides[surface.TypeIndex];
 			SetSideLightmap(&surface);
 		}
 	}
@@ -640,7 +640,7 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 
 		DoomLevelMeshSurface surf;
 		surf.Type = ST_MIDDLESIDE;
-		surf.typeIndex = typeIndex;
+		surf.TypeIndex = typeIndex;
 		surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
 		surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 
@@ -674,7 +674,7 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 	{
 		DoomLevelMeshSurface surf;
 		surf.Type = ST_MIDDLESIDE;
-		surf.typeIndex = typeIndex;
+		surf.TypeIndex = typeIndex;
 		surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
 		surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 
@@ -730,7 +730,7 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 
 		surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
 		surf.Type = ST_MIDDLESIDE;
-		surf.typeIndex = typeIndex;
+		surf.TypeIndex = typeIndex;
 		surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 		surf.ControlSector = nullptr;
 		surf.sectorGroup = sectorGroup[front->Index()];
@@ -806,7 +806,7 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 		MeshVertices.Push(verts[3] + offset);
 
 		surf.Type = ST_MIDDLESIDE;
-		surf.typeIndex = typeIndex;
+		surf.TypeIndex = typeIndex;
 		surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 		surf.ControlSector = nullptr;
 		surf.sectorGroup = sectorGroup[front->Index()];
@@ -837,7 +837,7 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 
 			DoomLevelMeshSurface surf;
 			surf.Type = ST_MIDDLESIDE;
-			surf.typeIndex = typeIndex;
+			surf.TypeIndex = typeIndex;
 			surf.ControlSector = xfloor->model;
 			surf.bSky = false;
 			surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
@@ -906,7 +906,7 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 
 				surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
 				surf.Type = ST_LOWERSIDE;
-				surf.typeIndex = typeIndex;
+				surf.TypeIndex = typeIndex;
 				surf.bSky = false;
 				surf.sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
 				surf.ControlSector = nullptr;
@@ -949,7 +949,7 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 
 				surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
 				surf.Type = ST_UPPERSIDE;
-				surf.typeIndex = typeIndex;
+				surf.TypeIndex = typeIndex;
 				surf.bSky = bSky;
 				surf.sampleDimension = side->textures[side_t::top].LightmapSampleDistance;
 				surf.ControlSector = nullptr;
@@ -1009,7 +1009,7 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 	}
 
 	surf.Type = ST_FLOOR;
-	surf.typeIndex = typeIndex;
+	surf.TypeIndex = typeIndex;
 	surf.sampleDimension = (controlSector ? controlSector : sector)->planes[sector_t::floor].LightmapSampleDistance;
 	surf.ControlSector = controlSector;
 	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
@@ -1062,7 +1062,7 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 	}
 
 	surf.Type = ST_CEILING;
-	surf.typeIndex = typeIndex;
+	surf.TypeIndex = typeIndex;
 	surf.sampleDimension = (controlSector ? controlSector : sector)->planes[sector_t::ceiling].LightmapSampleDistance;
 	surf.ControlSector = controlSector;
 	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
@@ -1164,7 +1164,7 @@ void DoomLevelSubmesh::DumpMesh(const FString& objFilename, const FString& mtlFi
 		}
 	}
 
-	auto name = [](LevelMeshSurfaceType type) -> const char* {
+	auto name = [](DoomLevelMeshSurfaceType type) -> const char* {
 		switch (type)
 		{
 		case ST_CEILING:
@@ -1210,12 +1210,12 @@ void DoomLevelSubmesh::DumpMesh(const FString& objFilename, const FString& mtlFi
 			else
 			{
 				const auto& surface = Surfaces[index];
-				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.typeIndex, surface.bSky ? " sky" : "");
-				fprintf(f, "usemtl lightmap%d\n", surface.atlasPageIndex);
+				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.TypeIndex, surface.bSky ? " sky" : "");
+				fprintf(f, "usemtl lightmap%d\n", surface.AtlasTile.ArrayIndex);
 
-				if (surface.atlasPageIndex > highestUsedAtlasPage)
+				if (surface.AtlasTile.ArrayIndex > highestUsedAtlasPage)
 				{
-					highestUsedAtlasPage = surface.atlasPageIndex;
+					highestUsedAtlasPage = surface.AtlasTile.ArrayIndex;
 				}
 			}
 		}
@@ -1277,7 +1277,7 @@ void DoomLevelSubmesh::PackLightmapAtlas()
 		sortedSurfaces.push_back(&surface);
 	}
 
-	std::sort(sortedSurfaces.begin(), sortedSurfaces.end(), [](LevelMeshSurface* a, LevelMeshSurface* b) { return a->texHeight != b->texHeight ? a->texHeight > b->texHeight : a->texWidth > b->texWidth; });
+	std::sort(sortedSurfaces.begin(), sortedSurfaces.end(), [](LevelMeshSurface* a, LevelMeshSurface* b) { return a->AtlasTile.Height != b->AtlasTile.Height ? a->AtlasTile.Height > b->AtlasTile.Height : a->AtlasTile.Width > b->AtlasTile.Width; });
 
 	RectPacker packer(LMTextureSize, LMTextureSize, RectPacker::Spacing(0));
 
@@ -1291,12 +1291,12 @@ void DoomLevelSubmesh::PackLightmapAtlas()
 
 void DoomLevelSubmesh::FinishSurface(int lightmapTextureWidth, int lightmapTextureHeight, RectPacker& packer, LevelMeshSurface& surface)
 {
-	int sampleWidth = surface.texWidth;
-	int sampleHeight = surface.texHeight;
+	int sampleWidth = surface.AtlasTile.Width;
+	int sampleHeight = surface.AtlasTile.Height;
 
 	auto result = packer.insert(sampleWidth, sampleHeight);
 	int x = result.pos.x, y = result.pos.y;
-	surface.atlasPageIndex = (int)result.pageIndex;
+	surface.AtlasTile.ArrayIndex = (int)result.pageIndex;
 
 	// calculate final texture coordinates
 	for (int i = 0; i < (int)surface.numVerts; i++)
@@ -1307,8 +1307,8 @@ void DoomLevelSubmesh::FinishSurface(int lightmapTextureWidth, int lightmapTextu
 		v = (v + y) / (float)lightmapTextureHeight;
 	}
 	
-	surface.atlasX = x;
-	surface.atlasY = y;
+	surface.AtlasTile.X = x;
+	surface.AtlasTile.Y = y;
 }
 
 BBox DoomLevelSubmesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const
@@ -1465,8 +1465,8 @@ void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMap
 		tCoords[i][axis] -= d;
 	}
 
-	surface.texWidth = width;
-	surface.texHeight = height;
+	surface.AtlasTile.Width = width;
+	surface.AtlasTile.Height = height;
 }
 
 // hw_flats.cpp
@@ -1480,13 +1480,13 @@ void DoomLevelSubmesh::CreateSurfaceTextureUVs(FLevelLocals& doomMap)
 	auto toUv = [](const DoomLevelMeshSurface* targetSurface, FVector3 vert) {
 		FVector3 localPos = vert - targetSurface->translateWorldToLocal;
 		
-		float u = (1.0f + (localPos | targetSurface->projLocalToU)) / (targetSurface->texWidth + 2);
-		float v = (1.0f + (localPos | targetSurface->projLocalToV)) / (targetSurface->texHeight + 2);
+		float u = (1.0f + (localPos | targetSurface->projLocalToU)) / (targetSurface->AtlasTile.Width + 2);
+		float v = (1.0f + (localPos | targetSurface->projLocalToV)) / (targetSurface->AtlasTile.Height + 2);
 		
 		return FVector2(u, 1.0f - v);
 	};
 
-	auto texPosition = [](LevelMeshSurfaceType surfaceType) {
+	auto texPosition = [](DoomLevelMeshSurfaceType surfaceType) {
 		switch (surfaceType)
 		{
 		case ST_UPPERSIDE:
@@ -1513,7 +1513,7 @@ void DoomLevelSubmesh::CreateSurfaceTextureUVs(FLevelLocals& doomMap)
 			if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
 			{
 				auto ceiling = surface.Type == ST_FLOOR ? sector_t::floor : sector_t::ceiling;
-				auto mat = GetPlaneTextureRotationMatrix(gtxt, doomMap.subsectors[surface.typeIndex].sector, ceiling);
+				auto mat = GetPlaneTextureRotationMatrix(gtxt, doomMap.subsectors[surface.TypeIndex].sector, ceiling);
 
 				for (int i = 0; i < surface.numVerts; ++i)
 				{
@@ -1535,7 +1535,7 @@ void DoomLevelSubmesh::CreateSurfaceTextureUVs(FLevelLocals& doomMap)
 				}
 
 				// shift the uv based on the surface type and anchor
-				/*const*/ auto* side = &doomMap.sides[surface.typeIndex];
+				/*const*/ auto* side = &doomMap.sides[surface.TypeIndex];
 				const auto* line = side->linedef;
 				const auto* sector = side->sector;
 				const auto* otherSector = line->frontsector == sector ? line->backsector : line->frontsector;

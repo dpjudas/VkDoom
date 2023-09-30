@@ -1019,7 +1019,7 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 	if (lightmap && lightmap->Type != ST_UNKNOWN)
 	{
 		srclightuv = (texcoord*)lightmap->TexCoords;
-		lindex = (float)lightmap->atlasPageIndex;
+		lindex = (float)lightmap->AtlasTile.ArrayIndex;
 	}
 	else
 	{
@@ -1734,7 +1734,7 @@ void HWWall::BuildFFBlock(HWDrawInfo *di, FRenderState& state, seg_t * seg, F3DF
 		if (lightmap && lightmap->Type != ST_UNKNOWN)
 		{
 			srclightuv = (texcoord*)lightmap->TexCoords;
-			lindex = (float)lightmap->atlasPageIndex;
+			lindex = (float)lightmap->AtlasTile.ArrayIndex;
 		}
 		else
 		{
