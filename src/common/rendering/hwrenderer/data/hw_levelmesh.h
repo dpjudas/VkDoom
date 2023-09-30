@@ -79,11 +79,15 @@ struct LevelMeshSurface
 	//
 	// Utility/Info
 	//
-	inline uint32_t Area() const { return AtlasTile.Width * AtlasTile.Height; }
+	uint32_t Area() const { return AtlasTile.Width * AtlasTile.Height; }
 
-	int LightListPos = -1;
-	int LightListCount = 0;
-	int LightListResetCounter = -1;
+	// Light list location in the lightmapper GPU buffers
+	struct
+	{
+		int Pos = -1;
+		int Count = 0;
+		int ResetCounter = -1;
+	} LightList;
 };
 
 inline float IsInFrontOfPlane(const FVector4& plane, const FVector3& point)

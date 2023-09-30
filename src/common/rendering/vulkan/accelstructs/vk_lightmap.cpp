@@ -183,7 +183,7 @@ void VkLightmap::Render()
 		// Paint all surfaces visible in the tile
 		for (LevelMeshSurface* surface : targetSurface->tileSurfaces)
 		{
-			if (surface->LightListResetCounter != lights.ResetCounter)
+			if (surface->LightList.ResetCounter != lights.ResetCounter)
 			{
 				int lightCount = mesh->AddSurfaceLights(surface, templightlist.Data(), (int)templightlist.Size());
 
@@ -194,9 +194,9 @@ void VkLightmap::Render()
 					break;
 				}
 
-				surface->LightListPos = lights.Pos;
-				surface->LightListCount = lightCount;
-				surface->LightListResetCounter = lights.ResetCounter;
+				surface->LightList.Pos = lights.Pos;
+				surface->LightList.Count = lightCount;
+				surface->LightList.ResetCounter = lights.ResetCounter;
 
 				LightInfo* lightinfo = &lights.Lights[lights.Pos];
 				for (int i = 0; i < lightCount; i++)
@@ -216,8 +216,8 @@ void VkLightmap::Render()
 				lights.Pos += lightCount;
 			}
 
-			pc.LightStart = surface->LightListPos;
-			pc.LightEnd = pc.LightStart + surface->LightListCount;
+			pc.LightStart = surface->LightList.Pos;
+			pc.LightEnd = pc.LightStart + surface->LightList.Count;
 
 #ifdef USE_DRAWINDIRECT
 			VkDrawIndexedIndirectCommand cmd;
