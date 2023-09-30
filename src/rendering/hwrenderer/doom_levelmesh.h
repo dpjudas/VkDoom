@@ -7,7 +7,6 @@
 #include "r_defs.h"
 #include "bounds.h"
 #include <dp_rect_pack.h>
-
 #include <set>
 
 typedef dp::rect_pack::RectPacker<int> RectPacker;
@@ -27,12 +26,12 @@ enum DoomLevelMeshSurfaceType
 struct DoomLevelMeshSurface : public LevelMeshSurface
 {
 	DoomLevelMeshSurfaceType Type = ST_UNKNOWN;
-	int TypeIndex;
+	int TypeIndex = 0;
 
 	subsector_t* Subsector = nullptr;
 	side_t* Side = nullptr;
 	sector_t* ControlSector = nullptr;
-	float* TexCoords;
+	float* TexCoords = nullptr;
 };
 
 class DoomLevelSubmesh : public LevelSubmesh
@@ -133,52 +132,14 @@ class DoomLevelMesh : public LevelMesh
 public:
 	DoomLevelMesh(FLevelLocals &doomMap);
 
-	void BeginFrame(FLevelLocals& doomMap);
-	
-	bool TraceSky(const FVector3& start, FVector3 direction, float dist)
-	{
-		FVector3 end = start + direction * dist;
-		auto surface = Trace(start, direction, dist);
-		return surface && surface->bSky;
-	}
-
 	int AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize) override;
 
-	void PackLightmapAtlas()
-	{
-		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->PackLightmapAtlas();
-	}
-
-	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
-	{
-		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->BindLightmapSurfacesToGeometry(doomMap);
-
-		// Runtime helper
-		for (auto& surface : static_cast<DoomLevelSubmesh*>(StaticMesh.get())->Surfaces)
-		{
-			if (surface.ControlSector)
-			{
-				if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
-				{
-					XFloorToSurface[surface.Subsector->sector].Push(&surface);
-				}
-				else if (surface.Type == ST_MIDDLESIDE)
-				{
-					XFloorToSurfaceSides[surface.ControlSector].Push(&surface);
-				}
-			}
-		}
-	}
-
-	void DisableLightmaps()
-	{
-		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DisableLightmaps();
-	}
-
-	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const
-	{
-		static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DumpMesh(objFilename, mtlFilename);
-	}
+	void BeginFrame(FLevelLocals& doomMap);
+	bool TraceSky(const FVector3& start, FVector3 direction, float dist);
+	void PackLightmapAtlas();
+	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
+	void DisableLightmaps();
+	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const;
 
 	// To do: remove these. Use ffloors on flats and sides to find the 3d surfaces as that is both faster and culls better
 	TMap<const sector_t*, TArray<DoomLevelMeshSurface*>> XFloorToSurface;

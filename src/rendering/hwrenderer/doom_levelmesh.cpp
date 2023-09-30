@@ -10,6 +10,9 @@
 #include "common/rendering/vulkan/accelstructs/vk_lightmap.h"
 #include <vulkan/accelstructs/halffloat.h>
 
+VSMatrix GetPlaneTextureRotationMatrix(FGameTexture* gltexture, const sector_t* sector, int plane);
+void GetTexCoordInfo(FGameTexture* tex, FTexCoordInfo* tci, side_t* side, int texpos);
+
 static bool RequireLevelMesh()
 {
 	if (level.levelMesh)
@@ -88,7 +91,6 @@ void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
 	Printf("    Sample dimension: %d\n", surface->sampleDimension);
 	Printf("    Needs update?: %d\n", surface->needsUpdate);
 	Printf("    Sector group: %d\n", surface->sectorGroup);
-	Printf("    Smoothing group: %d\n", surface->smoothingGroupIndex);
 	Printf("    Texture: '%s' (id=%d)\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>", surface->texture.GetIndex());
 	Printf("    Alpha: %f\n", surface->alpha);
 }
@@ -134,6 +136,135 @@ CCMD(surfaceinfo)
 
 EXTERN_CVAR(Float, lm_scale);
 
+/////////////////////////////////////////////////////////////////////////////
+
+DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
+{
+	SunColor = doomMap.SunColor; // TODO keep only one copy?
+	SunDirection = doomMap.SunDirection;
+
+	StaticMesh = std::make_unique<DoomLevelSubmesh>();
+	DynamicMesh = std::make_unique<DoomLevelSubmesh>();
+
+	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->CreateStatic(doomMap);
+	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->CreateDynamic(doomMap);
+}
+
+void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
+{
+	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->UpdateDynamic(doomMap);
+}
+
+bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float dist)
+{
+	FVector3 end = start + direction * dist;
+	auto surface = Trace(start, direction, dist);
+	return surface && surface->bSky;
+}
+
+void DoomLevelMesh::PackLightmapAtlas()
+{
+	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->PackLightmapAtlas();
+}
+
+void DoomLevelMesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
+{
+	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->BindLightmapSurfacesToGeometry(doomMap);
+
+	// Runtime helper
+	for (auto& surface : static_cast<DoomLevelSubmesh*>(StaticMesh.get())->Surfaces)
+	{
+		if (surface.ControlSector)
+		{
+			if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
+			{
+				XFloorToSurface[surface.Subsector->sector].Push(&surface);
+			}
+			else if (surface.Type == ST_MIDDLESIDE)
+			{
+				XFloorToSurfaceSides[surface.ControlSector].Push(&surface);
+			}
+		}
+	}
+}
+
+void DoomLevelMesh::DisableLightmaps()
+{
+	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DisableLightmaps();
+}
+
+void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const
+{
+	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DumpMesh(objFilename, mtlFilename);
+}
+
+int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize)
+{
+	const DoomLevelMeshSurface* doomsurf = static_cast<const DoomLevelMeshSurface*>(surface);
+
+	FLightNode* node = nullptr;
+	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
+	{
+		node = doomsurf->Subsector->section->lighthead;
+	}
+	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
+	{
+		node = doomsurf->Side->lighthead;
+	}
+	if (!node)
+		return 0;
+
+	int listpos = 0;
+	while (node && listpos < listMaxSize)
+	{
+		FDynamicLight* light = node->lightsource;
+		if (light && light->Trace())
+		{
+			DVector3 pos = light->Pos; //light->PosRelative(portalgroup);
+
+			LevelMeshLight& meshlight = list[listpos++];
+			meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
+			meshlight.RelativeOrigin = meshlight.Origin;
+			meshlight.Radius = (float)light->GetRadius();
+			meshlight.Intensity = (float)light->target->Alpha;
+			if (light->IsSpot())
+			{
+				meshlight.InnerAngleCos = (float)light->pSpotInnerAngle->Cos();
+				meshlight.OuterAngleCos = (float)light->pSpotOuterAngle->Cos();
+
+				DAngle negPitch = -*light->pPitch;
+				DAngle Angle = light->target->Angles.Yaw;
+				double xzLen = negPitch.Cos();
+				meshlight.SpotDir.X = float(-Angle.Cos() * xzLen);
+				meshlight.SpotDir.Y = float(-Angle.Sin() * xzLen);
+				meshlight.SpotDir.Z = float(-negPitch.Sin());
+			}
+			else
+			{
+				meshlight.InnerAngleCos = -1.0f;
+				meshlight.OuterAngleCos = -1.0f;
+				meshlight.SpotDir.X = 0.0f;
+				meshlight.SpotDir.Y = 0.0f;
+				meshlight.SpotDir.Z = 0.0f;
+			}
+			meshlight.Color.X = light->GetRed() * (1.0f / 255.0f);
+			meshlight.Color.Y = light->GetGreen() * (1.0f / 255.0f);
+			meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
+
+			if (light->Sector)
+				meshlight.SectorGroup = static_cast<DoomLevelSubmesh*>(StaticMesh.get())->sectorGroup[light->Sector->Index()];
+			else
+				meshlight.SectorGroup = 0;
+		}
+
+		node = node->nextLight;
+	}
+
+	return listpos;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 {
 	MeshVertices.Clear();
@@ -155,6 +286,7 @@ void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 
 	CreateIndexes();
 	SetupLightmapUvs(doomMap);
+	BuildTileSurfaceLists();
 	UpdateCollision();
 }
 
@@ -236,24 +368,8 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap)
 
 	CreateIndexes();
 	SetupLightmapUvs(doomMap);
+	BuildTileSurfaceLists();
 	UpdateCollision();
-}
-
-DoomLevelMesh::DoomLevelMesh(FLevelLocals &doomMap)
-{
-	SunColor = doomMap.SunColor; // TODO keep only one copy?
-	SunDirection = doomMap.SunDirection;
-
-	StaticMesh = std::make_unique<DoomLevelSubmesh>();
-	DynamicMesh = std::make_unique<DoomLevelSubmesh>();
-
-	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->CreateStatic(doomMap);
-	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->CreateDynamic(doomMap);
-}
-
-void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
-{
-	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->UpdateDynamic(doomMap);
 }
 
 void DoomLevelSubmesh::BuildSectorGroups(const FLevelLocals& doomMap)
@@ -413,71 +529,6 @@ void DoomLevelSubmesh::CreatePortals()
 			surface.portalIndex = 0;
 		}
 	}
-}
-
-int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize)
-{
-	const DoomLevelMeshSurface* doomsurf = static_cast<const DoomLevelMeshSurface*>(surface);
-
-	FLightNode* node = nullptr;
-	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
-	{
-		node = doomsurf->Subsector->section->lighthead;
-	}
-	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
-	{
-		node = doomsurf->Side->lighthead;
-	}
-	if (!node)
-		return 0;
-
-	int listpos = 0;
-	while (node && listpos < listMaxSize)
-	{
-		FDynamicLight* light = node->lightsource;
-		if (light && light->Trace())
-		{
-			DVector3 pos = light->Pos; //light->PosRelative(portalgroup);
-
-			LevelMeshLight& meshlight = list[listpos++];
-			meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
-			meshlight.RelativeOrigin = meshlight.Origin;
-			meshlight.Radius = (float)light->GetRadius();
-			meshlight.Intensity = (float)light->target->Alpha;
-			if (light->IsSpot())
-			{
-				meshlight.InnerAngleCos = (float)light->pSpotInnerAngle->Cos();
-				meshlight.OuterAngleCos = (float)light->pSpotOuterAngle->Cos();
-
-				DAngle negPitch = -*light->pPitch;
-				DAngle Angle = light->target->Angles.Yaw;
-				double xzLen = negPitch.Cos();
-				meshlight.SpotDir.X = float(-Angle.Cos() * xzLen);
-				meshlight.SpotDir.Y = float(-Angle.Sin() * xzLen);
-				meshlight.SpotDir.Z = float(-negPitch.Sin());
-			}
-			else
-			{
-				meshlight.InnerAngleCos = -1.0f;
-				meshlight.OuterAngleCos = -1.0f;
-				meshlight.SpotDir.X = 0.0f;
-				meshlight.SpotDir.Y = 0.0f;
-				meshlight.SpotDir.Z = 0.0f;
-			}
-			meshlight.Color.X = light->GetRed() * (1.0f / 255.0f);
-			meshlight.Color.Y = light->GetGreen() * (1.0f / 255.0f);
-			meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
-
-			if (light->Sector)
-				meshlight.SectorGroup = static_cast<DoomLevelSubmesh*>(StaticMesh.get())->sectorGroup[light->Sector->Index()];
-			else
-				meshlight.SectorGroup = 0;
-		}
-
-		node = node->nextLight;
-	}
-
-	return listpos;
 }
 
 void DoomLevelSubmesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
@@ -1262,8 +1313,6 @@ void DoomLevelSubmesh::SetupLightmapUvs(FLevelLocals& doomMap)
 		BuildSurfaceParams(LMTextureSize, LMTextureSize, surface);
 	}
 
-	BuildSmoothingGroups();
-
 	CreateSurfaceTextureUVs(doomMap);
 }
 
@@ -1468,12 +1517,6 @@ void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMap
 	surface.AtlasTile.Width = width;
 	surface.AtlasTile.Height = height;
 }
-
-// hw_flats.cpp
-VSMatrix GetPlaneTextureRotationMatrix(FGameTexture* gltexture, const sector_t* sector, int plane);
-
-// hw_walls.cpp
-void GetTexCoordInfo(FGameTexture* tex, FTexCoordInfo* tci, side_t* side, int texpos);
 
 void DoomLevelSubmesh::CreateSurfaceTextureUVs(FLevelLocals& doomMap)
 {
