@@ -283,11 +283,6 @@ void DoomLevelSubmesh::CreateIndexes()
 		unsigned int pos = s.startVertIndex;
 		FVector3* verts = &MeshVertices[pos];
 
-		for (int j = 0; j < numVerts; j++)
-		{
-			MeshUVIndex.Push(j);
-		}
-
 		s.startElementIndex = MeshElements.Size();
 		s.numElements = 0;
 
@@ -339,7 +334,6 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap)
 	MeshVertices.Clear();
 	MeshVertexUVs.Clear();
 	MeshElements.Clear();
-	MeshUVIndex.Clear();
 	MeshSurfaceIndexes.Clear();
 	LightmapUvs.Clear();
 

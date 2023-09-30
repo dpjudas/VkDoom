@@ -181,7 +181,6 @@ public:
 
 	TArray<FVector3> MeshVertices;
 	TArray<FVector2> MeshVertexUVs;
-	TArray<int> MeshUVIndex;
 	TArray<uint32_t> MeshElements;
 	TArray<int> MeshSurfaceIndexes;
 
