@@ -193,7 +193,15 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 	}
 	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
 	{
-		node = doomsurf->Side->lighthead;
+		if (!doomsurf->ControlSector)
+		{
+			node = doomsurf->Side->lighthead;
+		}
+		else // 3d floor needs light from the sidedef on the other side
+		{
+			int otherside = doomsurf->Side->linedef->sidedef[0] == doomsurf->Side ? 1 : 0;
+			node = doomsurf->Side->linedef->sidedef[otherside]->lighthead;
+		}
 	}
 	if (!node)
 		return 0;
