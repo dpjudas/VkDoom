@@ -1671,6 +1671,11 @@ void HWWall::BuildFFBlock(HWDrawInfo *di, FRenderState& state, seg_t * seg, F3DF
 	else
 		lightmap = seg->linedef->sidedef[0]->lightmap ? seg->linedef->sidedef[0]->lightmap[4 + roverIndex] : nullptr;
 
+	if (lightmap)
+	{
+		di->PushVisibleSurface(lightmap);
+	}
+
 	if (rover->flags&FF_FOG)
 	{
 		if (!di->isFullbrightScene())

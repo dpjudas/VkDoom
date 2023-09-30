@@ -140,8 +140,4 @@ public:
 	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
 	void DisableLightmaps();
 	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const;
-
-	// To do: remove these. Use ffloors on flats and sides to find the 3d surfaces as that is both faster and culls better
-	TMap<const sector_t*, TArray<DoomLevelMeshSurface*>> XFloorToSurface;
-	TMap<const sector_t*, TArray<DoomLevelMeshSurface*>> XFloorToSurfaceSides;
 };

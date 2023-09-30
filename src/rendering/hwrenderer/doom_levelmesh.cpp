@@ -170,22 +170,6 @@ void DoomLevelMesh::PackLightmapAtlas()
 void DoomLevelMesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
 {
 	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->BindLightmapSurfacesToGeometry(doomMap);
-
-	// Runtime helper
-	for (auto& surface : static_cast<DoomLevelSubmesh*>(StaticMesh.get())->Surfaces)
-	{
-		if (surface.ControlSector)
-		{
-			if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
-			{
-				XFloorToSurface[surface.Subsector->sector].Push(&surface);
-			}
-			else if (surface.Type == ST_MIDDLESIDE)
-			{
-				XFloorToSurfaceSides[surface.ControlSector].Push(&surface);
-			}
-		}
-	}
 }
 
 void DoomLevelMesh::DisableLightmaps()
