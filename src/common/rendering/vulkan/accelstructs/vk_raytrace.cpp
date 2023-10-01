@@ -490,14 +490,14 @@ void VkRaytrace::CreateTopLevelAS()
 	instances[0].transform.matrix[1][1] = 1.0f;
 	instances[0].transform.matrix[2][2] = 1.0f;
 	instances[0].mask = 0xff;
-	instances[0].flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+	instances[0].flags = 0;
 	instances[0].accelerationStructureReference = StaticBLAS.AccelStruct->GetDeviceAddress();
 
 	instances[1].transform.matrix[0][0] = 1.0f;
 	instances[1].transform.matrix[1][1] = 1.0f;
 	instances[1].transform.matrix[2][2] = 1.0f;
 	instances[1].mask = 0xff;
-	instances[1].flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+	instances[1].flags = 0;
 	instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
 
 	TopLevelAS.TransferBuffer = BufferBuilder()
@@ -595,14 +595,14 @@ void VkRaytrace::UpdateTopLevelAS()
 	instances[0].transform.matrix[1][1] = 1.0f;
 	instances[0].transform.matrix[2][2] = 1.0f;
 	instances[0].mask = 0xff;
-	instances[0].flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+	instances[0].flags = 0;
 	instances[0].accelerationStructureReference = StaticBLAS.AccelStruct->GetDeviceAddress();
 
 	instances[1].transform.matrix[0][0] = 1.0f;
 	instances[1].transform.matrix[1][1] = 1.0f;
 	instances[1].transform.matrix[2][2] = 1.0f;
 	instances[1].mask = 0xff;
-	instances[1].flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+	instances[1].flags = 0;
 	instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
 
 	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * 2);
