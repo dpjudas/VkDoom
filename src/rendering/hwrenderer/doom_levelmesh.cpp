@@ -708,35 +708,32 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals& doomMap, side_t* side)
 	{
 		CreateLineHorizonSurface(doomMap, side);
 	}
+	else if (!back)
+	{
+		CreateFrontWallSurface(doomMap, side);
+	}
 	else
 	{
-		if (back == nullptr)
-		{
-			CreateFrontWallSurface(doomMap, side);
-		}
-		else if (side->textures[side_t::mid].texture.isValid())
+		if (side->textures[side_t::mid].texture.isValid())
 		{
 			CreateMidWallSurface(doomMap, side);
 		}
 
-		if (back)
+		Create3DFloorWallSurfaces(doomMap, side);
+
+		float v1TopBack = (float)back->ceilingplane.ZatPoint(v1);
+		float v1BottomBack = (float)back->floorplane.ZatPoint(v1);
+		float v2TopBack = (float)back->ceilingplane.ZatPoint(v2);
+		float v2BottomBack = (float)back->floorplane.ZatPoint(v2);
+
+		if (v1Bottom < v1BottomBack || v2Bottom < v2BottomBack)
 		{
-			Create3DFloorWallSurfaces(doomMap, side);
+			CreateBottomWallSurface(doomMap, side);
+		}
 
-			float v1TopBack = (float)back->ceilingplane.ZatPoint(v1);
-			float v1BottomBack = (float)back->floorplane.ZatPoint(v1);
-			float v2TopBack = (float)back->ceilingplane.ZatPoint(v2);
-			float v2BottomBack = (float)back->floorplane.ZatPoint(v2);
-
-			if (v1Bottom < v1BottomBack || v2Bottom < v2BottomBack)
-			{
-				CreateBottomWallSurface(doomMap, side);
-			}
-
-			if (v1Top > v1TopBack || v2Top > v2TopBack)
-			{
-				CreateTopWallSurface(doomMap, side);
-			}
+		if (v1Top > v1TopBack || v2Top > v2TopBack)
+		{
+			CreateTopWallSurface(doomMap, side);
 		}
 	}
 }
