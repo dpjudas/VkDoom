@@ -64,6 +64,13 @@ private:
 	void CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* sub, sector_t* sector, sector_t* controlSector, int typeIndex);
 	void CreateFloorSurface(FLevelLocals& doomMap, subsector_t* sub, sector_t* sector, sector_t* controlSector, int typeIndex);
 	void CreateSideSurfaces(FLevelLocals& doomMap, side_t* side);
+	void CreateLinePortalSurface(FLevelLocals& doomMap, side_t* side);
+	void CreateLineHorizonSurface(FLevelLocals& doomMap, side_t* side);
+	void CreateFrontWallSurface(FLevelLocals& doomMap, side_t* side);
+	void CreateTopWallSurface(FLevelLocals& doomMap, side_t* side);
+	void CreateMidWallSurface(FLevelLocals& doomMap, side_t* side);
+	void CreateBottomWallSurface(FLevelLocals& doomMap, side_t* side);
+	void Create3DFloorWallSurfaces(FLevelLocals& doomMap, side_t* side);
 	void SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* side, side_t::ETexpart texpart, float v1TopZ, float v1BottomZ, float v2TopZ, float v2BottomZ);
 
 	void SetSubsectorLightmap(DoomLevelMeshSurface* surface);
