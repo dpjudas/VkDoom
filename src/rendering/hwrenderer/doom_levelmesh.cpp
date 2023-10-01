@@ -1496,19 +1496,6 @@ void DoomLevelSubmesh::CreateSurfaceTextureUVs(FLevelLocals& doomMap)
 		return FVector2(u, 1.0f - v);
 	};
 
-	auto texPosition = [](DoomLevelMeshSurfaceType surfaceType) {
-		switch (surfaceType)
-		{
-		case ST_UPPERSIDE:
-			return side_t::top;
-		case ST_LOWERSIDE:
-			return side_t::bottom;
-		default:
-			break;
-		}
-		return side_t::mid;
-	};
-
 	FTexCoordInfo tci;
 
 	for (auto& surface : Surfaces)
@@ -1550,23 +1537,25 @@ void DoomLevelSubmesh::CreateSurfaceTextureUVs(FLevelLocals& doomMap)
 				const auto* sector = side->sector;
 				const auto* otherSector = line->frontsector == sector ? line->backsector : line->frontsector;
 
-				float anchorZ = 0.f;
-				float anchorU = 0.f;
+				side_t::ETexpart texpart = (surface.Type == ST_UPPERSIDE) ? side_t::top : (surface.Type == ST_LOWERSIDE) ? side_t::bottom : side_t::mid;
 
-				GetTexCoordInfo(gtxt, &tci, side, texPosition(surface.Type));
+				GetTexCoordInfo(gtxt, &tci, side, texpart);
 
 				// Lastly, offsets are applied
 
 				const float sideHeight = max(relativeVerts[1].Z, max(relativeVerts[1].Z, relativeVerts[2].Z)) - min(relativeVerts[1].Z, min(relativeVerts[1].Z, relativeVerts[2].Z));
 
-				auto a = line->v2->fPos() - line->v1->fPos();
+				float startU = tci.FloatToTexU(tci.TextureOffset((float)side->GetTextureXOffset(texpart)) + tci.TextureOffset((float)side->GetTextureXOffset(texpart)));
+				float endU = startU + tci.FloatToTexU(side->TexelLength);
+
+				uvs[0].X = startU;
+				uvs[1].X = endU;
+				uvs[2].X = startU;
+				uvs[3].X = endU;
+
 				for (int i = 0; i < 4; ++i)
 				{
-					uvs[i].X = tci.FloatToTexU((float)(uvs[i].X * a.Length() + side->textures[side_t::mid].xOffset));
 					uvs[i].Y = tci.FloatToTexV((float)(uvs[i].Y * sideHeight + side->textures[side_t::mid].yOffset));
-					//uvs[i].Y = tci.FloatToTexU(0);
-					//uvs[i].X = uvs[i].X * repeatsU + anchorU / w;
-					//uvs[i].Y = uvs[i].Y * repeatsV + anchorZ / h;
 				}
 			}
 		}
