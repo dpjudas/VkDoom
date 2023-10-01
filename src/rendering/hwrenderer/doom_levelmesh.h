@@ -115,7 +115,6 @@ private:
 	inline int AllocUvs(int amount) { return LightmapUvs.Reserve(amount); }
 
 	void BuildSurfaceParams(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface);
-	void FinishSurface(int lightmapTextureWidth, int lightmapTextureHeight, RectPacker& packer, LevelMeshSurface& surface);
 
 	static bool IsDegenerate(const FVector3& v0, const FVector3& v1, const FVector3& v2);
 

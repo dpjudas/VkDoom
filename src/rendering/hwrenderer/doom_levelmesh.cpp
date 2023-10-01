@@ -1309,32 +1309,27 @@ void DoomLevelSubmesh::PackLightmapAtlas()
 
 	for (LevelMeshSurface* surf : sortedSurfaces)
 	{
-		FinishSurface(LMTextureSize, LMTextureSize, packer, *surf);
+		int sampleWidth = surf->AtlasTile.Width;
+		int sampleHeight = surf->AtlasTile.Height;
+
+		auto result = packer.insert(sampleWidth, sampleHeight);
+		int x = result.pos.x, y = result.pos.y;
+
+		surf->AtlasTile.X = x;
+		surf->AtlasTile.Y = y;
+		surf->AtlasTile.ArrayIndex = (int)result.pageIndex;
+
+		// calculate final texture coordinates
+		for (int i = 0; i < (int)surf->numVerts; i++)
+		{
+			auto& u = LightmapUvs[surf->startUvIndex + i].X;
+			auto& v = LightmapUvs[surf->startUvIndex + i].Y;
+			u = (u + x) / (float)LMTextureSize;
+			v = (v + y) / (float)LMTextureSize;
+		}
 	}
 
 	LMTextureCount = (int)packer.getNumPages();
-}
-
-void DoomLevelSubmesh::FinishSurface(int lightmapTextureWidth, int lightmapTextureHeight, RectPacker& packer, LevelMeshSurface& surface)
-{
-	int sampleWidth = surface.AtlasTile.Width;
-	int sampleHeight = surface.AtlasTile.Height;
-
-	auto result = packer.insert(sampleWidth, sampleHeight);
-	int x = result.pos.x, y = result.pos.y;
-	surface.AtlasTile.ArrayIndex = (int)result.pageIndex;
-
-	// calculate final texture coordinates
-	for (int i = 0; i < (int)surface.numVerts; i++)
-	{
-		auto& u = LightmapUvs[surface.startUvIndex + i].X;
-		auto& v = LightmapUvs[surface.startUvIndex + i].Y;
-		u = (u + x) / (float)lightmapTextureWidth;
-		v = (v + y) / (float)lightmapTextureHeight;
-	}
-	
-	surface.AtlasTile.X = x;
-	surface.AtlasTile.Y = y;
 }
 
 BBox DoomLevelSubmesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const
