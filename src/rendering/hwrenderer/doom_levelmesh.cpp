@@ -1010,15 +1010,13 @@ void DoomLevelSubmesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
 	}
 }
 
-void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* side, side_t::ETexpart texpart, float tlZ, float blZ, float trZ, float brZ)
+void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* side, side_t::ETexpart texpart, float v1TopZ, float v1BottomZ, float v2TopZ, float v2BottomZ)
 {
 	MeshVertexUVs.Reserve(4);
 	FVector2* uvs = &MeshVertexUVs[surface.startVertIndex];
 
 	if (surface.texture.isValid())
 	{
-		const float sideHeight = std::max(tlZ - blZ, trZ - brZ);
-
 		const auto gtxt = TexMan.GetGameTexture(surface.texture);
 
 		FTexCoordInfo tci;
@@ -1032,10 +1030,14 @@ void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* 
 		uvs[2].X = startU;
 		uvs[3].X = endU;
 
-		uvs[0].Y = tci.FloatToTexV((float)(side->textures[texpart].yOffset));
-		uvs[1].Y = tci.FloatToTexV((float)(side->textures[texpart].yOffset));
-		uvs[2].Y = tci.FloatToTexV((float)(sideHeight + side->textures[texpart].yOffset));
-		uvs[3].Y = tci.FloatToTexV((float)(sideHeight + side->textures[texpart].yOffset));
+		// To do: the ceiling version is apparently used in some situation related to 3d floors (rover->top.isceiling)
+		//float offset = tci.RowOffset((float)side->GetTextureYOffset(texpart)) + tci.RowOffset((float)side->GetTextureYOffset(texpart)) + (float)side->sector->GetPlaneTexZ(sector_t::ceiling);
+		float offset = tci.RowOffset((float)side->GetTextureYOffset(texpart)) + tci.RowOffset((float)side->GetTextureYOffset(texpart)) + (float)side->sector->GetPlaneTexZ(sector_t::floor);
+
+		uvs[0].Y = tci.FloatToTexV(offset - v1BottomZ);
+		uvs[1].Y = tci.FloatToTexV(offset - v2BottomZ);
+		uvs[2].Y = tci.FloatToTexV(offset - v1TopZ);
+		uvs[3].Y = tci.FloatToTexV(offset - v2TopZ);
 	}
 	else
 	{
