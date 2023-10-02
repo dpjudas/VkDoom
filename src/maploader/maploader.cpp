@@ -2994,6 +2994,35 @@ void MapLoader::InitLevelMesh(MapData* map)
 			Level->levelMesh->PackLightmapAtlas();
 		}
 
+		// Allocate room for lightmap arrays on sectors, sides and their 3D floors
+
+		unsigned int allSurfaces = 0;
+
+		for (unsigned int i = 0; i < Level->sides.Size(); i++)
+			allSurfaces += 4 + Level->sides[i].sector->e->XFloor.ffloors.Size();
+
+		for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
+			allSurfaces += 2 + Level->subsectors[i].sector->e->XFloor.ffloors.Size() * 2;
+
+		Level->LMSurfaces.Resize(allSurfaces);
+		memset(Level->LMSurfaces.Data(), 0, sizeof(DoomLevelMeshSurface*) * allSurfaces);
+
+		unsigned int offset = 0;
+		for (unsigned int i = 0; i < Level->sides.Size(); i++)
+		{
+			auto& side = Level->sides[i];
+			side.lightmap = &Level->LMSurfaces[offset];
+			offset += 4 + side.sector->e->XFloor.ffloors.Size();
+		}
+		for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
+		{
+			auto& subsector = Level->subsectors[i];
+			unsigned int count = 1 + subsector.sector->e->XFloor.ffloors.Size();
+			subsector.lightmap[0] = &Level->LMSurfaces[offset];
+			subsector.lightmap[1] = &Level->LMSurfaces[offset + count];
+			offset += count * 2;
+		}
+
 		Level->levelMesh->BindLightmapSurfacesToGeometry(*Level);
 	}
 	else

@@ -12,8 +12,9 @@
 
 #include <dp_rect_pack.h>
 
-
 typedef dp::rect_pack::RectPacker<int> RectPacker;
+
+class LevelSubmesh;
 
 class LevelMeshLight
 {
@@ -31,6 +32,8 @@ public:
 
 struct LevelMeshSurface
 {
+	LevelSubmesh* Submesh = nullptr;
+
 	int numVerts = 0;
 	unsigned int startVertIndex = 0;
 	unsigned int startUvIndex = 0;

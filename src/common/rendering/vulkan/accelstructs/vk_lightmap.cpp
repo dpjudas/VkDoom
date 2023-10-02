@@ -167,10 +167,18 @@ void VkLightmap::Render()
 		auto& selectedSurface = selectedSurfaces[i];
 		LevelMeshSurface* targetSurface = selectedSurface.Surface;
 
+		int surfaceIndexOffset = 0;
+		int firstIndexOffset = 0;
+		if (targetSurface->Submesh != mesh->StaticMesh.get())
+		{
+			surfaceIndexOffset = mesh->StaticMesh->GetSurfaceCount();
+			firstIndexOffset = mesh->StaticMesh->MeshElements.Size();
+		}
+
 		LightmapRaytracePC pc;
 		pc.TileX = (float)selectedSurface.X;
 		pc.TileY = (float)selectedSurface.Y;
-		pc.SurfaceIndex = mesh->StaticMesh->GetSurfaceIndex(targetSurface);
+		pc.SurfaceIndex = surfaceIndexOffset + targetSurface->Submesh->GetSurfaceIndex(targetSurface);
 		pc.TextureSize = (float)bakeImageSize;
 		pc.TileWidth = (float)targetSurface->AtlasTile.Width;
 		pc.TileHeight = (float)targetSurface->AtlasTile.Height;
@@ -223,7 +231,7 @@ void VkLightmap::Render()
 			VkDrawIndexedIndirectCommand cmd;
 			cmd.indexCount = surface->numElements;
 			cmd.instanceCount = 1;
-			cmd.firstIndex = surface->startElementIndex;
+			cmd.firstIndex = firstIndexOffset + surface->startElementIndex;
 			cmd.vertexOffset = 0;
 			cmd.firstInstance = drawindexed.Pos;
 			drawindexed.Constants[drawindexed.Pos] = pc;

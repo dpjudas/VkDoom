@@ -205,7 +205,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			*(vertices++) = { { submesh->MeshVertices[j], 1.0f }, submesh->MeshVertexUVs[j], float(j), j + 10000.0f };
 
 		size_t copysize = submesh->MeshVertices.Size() * sizeof(SurfaceVertex);
-		cmdbuffer->copyBuffer(transferBuffer.get(), VertexBuffer.get(), datapos, cur.VertexOffset * sizeof(SurfaceVertex), copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), VertexBuffer.get(), datapos, cur.VertexOffset * sizeof(SurfaceVertex), copysize);
 		datapos += copysize;
 	}
 
@@ -220,7 +221,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			*(indexes++) = cur.VertexOffset + submesh->MeshElements[j];
 
 		size_t copysize = submesh->MeshElements.Size() * sizeof(uint32_t);
-		cmdbuffer->copyBuffer(transferBuffer.get(), IndexBuffer.get(), datapos, cur.IndexOffset * sizeof(uint32_t), copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), IndexBuffer.get(), datapos, cur.IndexOffset * sizeof(uint32_t), copysize);
 		datapos += copysize;
 	}
 
@@ -243,7 +245,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		}
 
 		size_t copysize = submesh->Collision->get_nodes().size() * sizeof(CollisionNode);
-		cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos, +sizeof(CollisionNodeBufferHeader) + cur.NodeOffset * sizeof(CollisionNode), copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), NodeBuffer.get(), datapos, +sizeof(CollisionNodeBufferHeader) + cur.NodeOffset * sizeof(CollisionNode), copysize);
 		datapos += copysize;
 	}
 
@@ -258,7 +261,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			*(indexes++) = cur.SurfaceIndexOffset + submesh->MeshSurfaceIndexes[j];
 
 		size_t copysize = submesh->MeshSurfaceIndexes.Size() * sizeof(int);
-		cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceIndexBuffer.get(), datapos, cur.SurfaceIndexOffset * sizeof(int), copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceIndexBuffer.get(), datapos, cur.SurfaceIndexOffset * sizeof(int), copysize);
 		datapos += copysize;
 	}
 
@@ -293,7 +297,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		}
 
 		size_t copysize = submesh->GetSurfaceCount() * sizeof(SurfaceInfo);
-		cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceBuffer.get(), datapos, cur.SurfaceOffset * sizeof(SurfaceInfo), copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceBuffer.get(), datapos, cur.SurfaceOffset * sizeof(SurfaceInfo), copysize);
 		datapos += copysize;
 	}
 
@@ -309,7 +314,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		}
 
 		size_t copysize = Mesh->StaticMesh->Portals.Size() * sizeof(PortalInfo);
-		cmdbuffer->copyBuffer(transferBuffer.get(), PortalBuffer.get(), datapos, 0, copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), PortalBuffer.get(), datapos, 0, copysize);
 		datapos += copysize;
 	}
 

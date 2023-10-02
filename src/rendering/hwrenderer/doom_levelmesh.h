@@ -12,6 +12,7 @@
 typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct FLevelLocals;
+struct FPolyObj;
 
 enum DoomLevelMeshSurfaceType
 {
@@ -31,6 +32,7 @@ struct DoomLevelMeshSurface : public LevelMeshSurface
 	subsector_t* Subsector = nullptr;
 	side_t* Side = nullptr;
 	sector_t* ControlSector = nullptr;
+
 	float* TexCoords = nullptr;
 };
 
@@ -39,7 +41,7 @@ class DoomLevelSubmesh : public LevelSubmesh
 public:
 	void CreateStatic(FLevelLocals& doomMap);
 	void CreateDynamic(FLevelLocals& doomMap);
-	void UpdateDynamic(FLevelLocals& doomMap);
+	void UpdateDynamic(FLevelLocals& doomMap, int lightmapStartIndex);
 
 	LevelMeshSurface* GetSurface(int index) override { return &Surfaces[index]; }
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
@@ -49,13 +51,15 @@ public:
 
 	// Used by Maploader
 	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
-	void PackLightmapAtlas();
+	void PackLightmapAtlas(int lightmapStartIndex);
 	void CreatePortals();
 	void DisableLightmaps() { Surfaces.Clear(); } // Temp hack that disables lightmapping
 
 	TArray<DoomLevelMeshSurface> Surfaces;
 	TArray<FVector2> LightmapUvs;
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
+
+	TArray<std::unique_ptr<DoomLevelMeshSurface*[]>> PolyLMSurfaces;
 
 private:
 	void BuildSectorGroups(const FLevelLocals& doomMap);

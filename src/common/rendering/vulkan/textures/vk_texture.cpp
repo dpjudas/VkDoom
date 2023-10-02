@@ -190,11 +190,11 @@ void VkTextureManager::CreateLightmap()
 
 void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCount, TArray<uint16_t>&& newPixelData)
 {
-	if (LMTextureSize == newLMTextureSize && LMTextureCount == newLMTextureCount && newPixelData.Size() == 0)
+	if (LMTextureSize == newLMTextureSize && LMTextureCount == newLMTextureCount + 1 && newPixelData.Size() == 0)
 		return;
 
 	LMTextureSize = newLMTextureSize;
-	LMTextureCount = newLMTextureCount;
+	LMTextureCount = newLMTextureCount + 1; // the extra texture is for the dynamic lightmap
 	
 	int w = newLMTextureSize;
 	int h = newLMTextureSize;
@@ -204,7 +204,7 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 	Lightmap.Reset(fb);
 
 	Lightmap.Image = ImageBuilder()
-		.Size(w, h, 1, count)
+		.Size(w, h, 1, LMTextureCount)
 		.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
 		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 		.DebugName("VkRenderBuffers.Lightmap")
@@ -243,7 +243,7 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 		stagingBuffer->Unmap();
 
 		VkImageTransition()
-			.AddImage(&Lightmap, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, 1, 0, count)
+			.AddImage(&Lightmap, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, 1, 0, LMTextureCount)
 			.Execute(cmdbuffer);
 
 		VkBufferImageCopy region = {};
@@ -260,6 +260,6 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 	}
 
 	VkImageTransition()
-		.AddImage(&Lightmap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, 1, 0, count)
+		.AddImage(&Lightmap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, 1, 0, LMTextureCount)
 		.Execute(cmdbuffer);
 }
