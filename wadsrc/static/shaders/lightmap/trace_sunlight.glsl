@@ -1,8 +1,16 @@
 
 vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi);
 
-vec3 TraceSunLight(vec3 origin)
+vec3 TraceSunLight(vec3 origin, vec3 normal, int surfaceIndex)
 {
+	float angleAttenuation = 1.0f;
+	if (surfaceIndex >= 0)
+	{
+		angleAttenuation = max(dot(normal, SunDir), 0.0);
+		if (angleAttenuation == 0.0)
+			return vec3(0.0);
+	}
+
 	const float minDistance = 0.01;
 	vec3 incoming = vec3(0.0);
 	const float dist = 32768.0;
@@ -45,5 +53,5 @@ vec3 TraceSunLight(vec3 origin)
 
 #endif
 
-	return incoming;
+	return incoming * angleAttenuation;
 }

@@ -29,7 +29,7 @@ void main()
 	vec3 origin = worldpos + normal * 0.1;
 
 #if defined(USE_SUNLIGHT)
-	vec3 incoming = TraceSunLight(origin);
+	vec3 incoming = TraceSunLight(origin, normal, SurfaceIndex);
 #else
 	vec3 incoming = vec3(0.0);
 #endif
