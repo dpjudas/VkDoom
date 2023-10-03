@@ -130,6 +130,8 @@ public:
 	void SetLevelMesh(LevelMesh* level);
 
 private:
+	void ReleaseResources();
+
 	void SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces);
 	void UploadUniforms();
 	void Render();

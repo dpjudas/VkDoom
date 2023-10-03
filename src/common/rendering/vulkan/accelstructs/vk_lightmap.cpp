@@ -36,20 +36,33 @@ VkLightmap::VkLightmap(VulkanRenderDevice* fb) : fb(fb)
 
 	templightlist.Resize(128);
 
-	CreateUniformBuffer();
-	CreateLightBuffer();
-	CreateTileBuffer();
-	CreateDrawIndexedBuffer();
+	try
+	{
+		CreateUniformBuffer();
+		CreateLightBuffer();
+		CreateTileBuffer();
+		CreateDrawIndexedBuffer();
 
-	CreateShaders();
-	CreateRaytracePipeline();
-	CreateResolvePipeline();
-	CreateBlurPipeline();
-	CreateCopyPipeline();
-	CreateBakeImage();
+		CreateShaders();
+		CreateRaytracePipeline();
+		CreateResolvePipeline();
+		CreateBlurPipeline();
+		CreateCopyPipeline();
+		CreateBakeImage();
+	}
+	catch (...)
+	{
+		ReleaseResources();
+		throw;
+	}
 }
 
 VkLightmap::~VkLightmap()
+{
+	ReleaseResources();
+}
+
+void VkLightmap::ReleaseResources()
 {
 	if (lights.Buffer)
 		lights.Buffer->Unmap();
@@ -110,7 +123,7 @@ void VkLightmap::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
 	bakeImage.maxY = 0;
 	selectedSurfaces.Clear();
 
-	const int spacing = 3; // Note: the spacing is here to avoid that the resolve sampler finds data from other surface tiles
+	const int spacing = 5; // Note: the spacing is here to avoid that the resolve sampler finds data from other surface tiles
 	RectPacker packer(bakeImageSize - 2, bakeImageSize - 2, RectPacker::Spacing(spacing));
 
 	for (int i = 0, count = surfaces.Size(); i < count; i++)
