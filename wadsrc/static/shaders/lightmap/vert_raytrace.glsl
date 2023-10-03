@@ -33,8 +33,9 @@ void main()
 	gl_Position = vec4(vec2(TileX + x, TileY + y) / TextureSize * 2.0 - 1.0, 0.0, 1.0);
 
 	// Clip all surfaces to the edge of the tile (effectly we are applying a viewport/scissor to the tile)
-	gl_ClipDistance[0] = x;
-	gl_ClipDistance[1] = y;
-	gl_ClipDistance[2] = TileWidth + 2.0 - x;
-	gl_ClipDistance[3] = TileHeight + 2.0 - y;
+	// Note: the tile has a 1px border around it that we also draw into
+	gl_ClipDistance[0] = x + 1.0;
+	gl_ClipDistance[1] = y + 1.0;
+	gl_ClipDistance[2] = TileWidth + 1.0 - x;
+	gl_ClipDistance[3] = TileHeight + 1.0 - y;
 }
