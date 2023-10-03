@@ -95,7 +95,7 @@ enum
 
 CVAR (Bool, genblockmap, false, CVAR_SERVERINFO|CVAR_GLOBALCONFIG);
 CVAR (Bool, gennodes, false, CVAR_SERVERINFO|CVAR_GLOBALCONFIG);
-CVAR (Bool, genlightmaps, true, CVAR_GLOBALCONFIG);
+CVAR (Bool, genlightmaps, false, CVAR_GLOBALCONFIG);
 
 inline bool P_LoadBuildMap(uint8_t *mapdata, size_t len, FMapThing **things, int *numthings)
 {
