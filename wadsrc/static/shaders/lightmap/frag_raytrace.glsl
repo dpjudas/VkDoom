@@ -1,6 +1,4 @@
 
-#define USE_SOFTSHADOWS
-
 #include <shaders/lightmap/binding_lightmapper.glsl>
 #include <shaders/lightmap/binding_raytrace.glsl>
 #include <shaders/lightmap/binding_textures.glsl>
@@ -30,15 +28,19 @@ void main()
 	vec3 normal = surfaces[SurfaceIndex].Normal;
 	vec3 origin = worldpos + normal * 0.1;
 
+#if defined(USE_SUNLIGHT)
 	vec3 incoming = TraceSunLight(origin);
+#else
+	vec3 incoming = vec3(0.0);
+#endif
 
 	for (uint j = LightStart; j < LightEnd; j++)
 	{
 		incoming += TraceLight(origin, normal, lights[j], SurfaceIndex);
 	}
 
-#if defined(USE_RAYQUERY) // The non-rtx version of TraceFirstHitTriangle is too slow to do AO without the shader getting killed ;(
-	//incoming.rgb *= TraceAmbientOcclusion(origin, normal);
+#if defined(USE_AO)
+	incoming.rgb *= TraceAmbientOcclusion(origin, normal);
 #endif
 
 	fragcolor = vec4(incoming, 1.0);

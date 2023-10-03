@@ -16,7 +16,7 @@ vec3 TraceSunLight(vec3 origin)
 	vec3 ydir = cross(dir, xdir);
 
 	float lightsize = 100;
-	int step_count = 16;
+	int step_count = 10;
 	for (int i = 0; i < step_count; i++)
 	{
 		vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * lightsize;

@@ -26,6 +26,9 @@ ADD_STAT(lightmapper)
 CVAR(Int, lm_background_updates, 8, CVAR_NOSAVE);
 CVAR(Int, lm_max_updates, 128, CVAR_NOSAVE);
 CVAR(Float, lm_scale, 1.0, CVAR_NOSAVE);
+CVAR(Bool, lm_ao, true, 0);
+CVAR(Bool, lm_softshadows, true, 0);
+CVAR(Bool, lm_sunlight, true, 0);
 
 VkLightmap::VkLightmap(VulkanRenderDevice* fb) : fb(fb)
 {
@@ -151,7 +154,7 @@ void VkLightmap::Render()
 	VkDeviceSize offset = 0;
 	cmdbuffer->bindVertexBuffers(0, 1, &fb->GetRaytrace()->GetVertexBuffer()->buffer, &offset);
 	cmdbuffer->bindIndexBuffer(fb->GetRaytrace()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
-	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipeline.get());
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipeline[GetRaytracePipelineIndex()].get());
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 0, raytrace.descriptorSet0.get());
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 1, raytrace.descriptorSet1.get());
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 2, fb->GetDescriptorSetManager()->GetBindlessDescriptorSet());
@@ -522,6 +525,7 @@ void VkLightmap::CreateShaders()
 	std::string prefix = "#version 460\r\n";
 	std::string traceprefix = "#version 460\r\n";
 	prefix += "#extension GL_GOOGLE_include_directive : enable\n";
+
 	traceprefix += "#extension GL_GOOGLE_include_directive : enable\n";
 	traceprefix += "#extension GL_EXT_nonuniform_qualifier : enable\r\n";
 	if (useRayQuery)
@@ -564,14 +568,25 @@ void VkLightmap::CreateShaders()
 		.DebugName("VkLightmap.VertCopy")
 		.Create("VkLightmap.VertCopy", fb->GetDevice());
 
-	shaders.fragRaytrace = ShaderBuilder()
-		.Type(ShaderType::Fragment)
-		.AddSource("VersionBlock", traceprefix)
-		.AddSource("frag_raytrace.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_raytrace.glsl").GetChars())
-		.OnIncludeLocal(onIncludeLocal)
-		.OnIncludeSystem(onIncludeSystem)
-		.DebugName("VkLightmap.FragRaytrace")
-		.Create("VkLightmap.FragRaytrace", fb->GetDevice());
+	for (int i = 0; i < 8; i++)
+	{
+		std::string defines = traceprefix;
+		if (i & 1)
+			defines += "#define USE_SOFTSHADOWS\n";
+		if (i & 2)
+			defines += "#define USE_AO\n";
+		if (i & 4)
+			defines += "#define USE_SUNLIGHT\n";
+
+		shaders.fragRaytrace[i] = ShaderBuilder()
+			.Type(ShaderType::Fragment)
+			.AddSource("VersionBlock", defines)
+			.AddSource("frag_raytrace.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_raytrace.glsl").GetChars())
+			.OnIncludeLocal(onIncludeLocal)
+			.OnIncludeSystem(onIncludeSystem)
+			.DebugName("VkLightmap.FragRaytrace")
+			.Create("VkLightmap.FragRaytrace", fb->GetDevice());
+	}
 
 	shaders.fragResolve = ShaderBuilder()
 		.Type(ShaderType::Fragment)
@@ -608,6 +623,18 @@ void VkLightmap::CreateShaders()
 		.OnIncludeSystem(onIncludeSystem)
 		.DebugName("VkLightmap.FragCopy")
 		.Create("VkLightmap.FragCopy", fb->GetDevice());
+}
+
+int VkLightmap::GetRaytracePipelineIndex()
+{
+	int index = 0;
+	if (lm_softshadows && useRayQuery)
+		index |= 1;
+	if (lm_ao && useRayQuery)
+		index |= 2;
+	if (lm_sunlight && mesh->SunColor != FVector3(0.0f, 0.0f, 0.0f))
+		index |= 4;
+	return index;
 }
 
 FString VkLightmap::LoadPrivateShaderLump(const char* lumpname)
@@ -712,20 +739,23 @@ void VkLightmap::CreateRaytracePipeline()
 		.DebugName("raytrace.renderPass")
 		.Create(fb->GetDevice());
 
-	raytrace.pipeline = GraphicsPipelineBuilder()
-		.Layout(raytrace.pipelineLayout.get())
-		.RenderPass(raytrace.renderPass.get())
-		.AddVertexShader(shaders.vertRaytrace.get())
-		.AddFragmentShader(shaders.fragRaytrace.get())
-		.AddVertexBufferBinding(0, sizeof(SurfaceVertex))
-		.AddVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0)
-		.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-		.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
-		.RasterizationSamples(VK_SAMPLE_COUNT_4_BIT)
-		.Viewport(0.0f, 0.0f, 0.0f, 0.0f)
-		.Scissor(0, 0, 4096, 4096)
-		.DebugName("raytrace.pipeline")
-		.Create(fb->GetDevice());
+	for (int i = 0; i < 8; i++)
+	{
+		raytrace.pipeline[i] = GraphicsPipelineBuilder()
+			.Layout(raytrace.pipelineLayout.get())
+			.RenderPass(raytrace.renderPass.get())
+			.AddVertexShader(shaders.vertRaytrace.get())
+			.AddFragmentShader(shaders.fragRaytrace[i].get())
+			.AddVertexBufferBinding(0, sizeof(SurfaceVertex))
+			.AddVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0)
+			.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+			.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+			.RasterizationSamples(VK_SAMPLE_COUNT_4_BIT)
+			.Viewport(0.0f, 0.0f, 0.0f, 0.0f)
+			.Scissor(0, 0, 4096, 4096)
+			.DebugName("raytrace.pipeline")
+			.Create(fb->GetDevice());
+	}
 
 	raytrace.descriptorPool0 = DescriptorPoolBuilder()
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1)
