@@ -765,7 +765,7 @@ public:
 					Level->SunColor = FVector3(float((n >> 16) & 0xFF) / 0xFF, float((n >> 8) & 0xFF) / 0xFF, float(n & 0xFF) / 0xFF);
 				}
 				break;
-			case NAME_lm_sampledistance:
+			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
 				if (CheckInt(key) >= 0 && CheckInt(key) <= 0xFFFF)
 				{
@@ -773,7 +773,7 @@ public:
 				}
 				else
 				{
-					DPrintf(DMSG_WARNING, "Can't set the global lm_sampledistance to %s\n", key.GetChars());
+					DPrintf(DMSG_WARNING, "Can't set the global lm_sampledist to %s\n", key.GetChars());
 				}
 				break;
 
@@ -1157,7 +1157,7 @@ public:
 				ld->healthgroup = CheckInt(key);
 				break;
 
-			case NAME_lm_sampledist_line:
+			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
 				for (int i = 0; i < 3; ++i)
 					if (!ld->LightmapSampleDistance[i])
@@ -1521,7 +1521,7 @@ public:
 				CHECK_N(Zd | Zdt)
 				break;
 
-			case NAME_lm_sampledist_line:
+			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
 				for (int i = 0; i < 3; ++i)
 					if (!sd->textures[i].LightmapSampleDistance)
