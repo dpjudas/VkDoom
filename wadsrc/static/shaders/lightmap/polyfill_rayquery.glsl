@@ -4,7 +4,7 @@
 int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax, out float t, out vec3 primitiveWeights)
 {
 	rayQueryEXT rayQuery;
-	rayQueryInitializeEXT(rayQuery, acc, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsCullBackFacingTrianglesEXT, 0xFF, origin, tmin, dir, tmax);
+	rayQueryInitializeEXT(rayQuery, acc, gl_RayFlagsCullBackFacingTrianglesEXT, 0xFF, origin, tmin, dir, tmax);
 
 	while(rayQueryProceedEXT(rayQuery))
 	{
