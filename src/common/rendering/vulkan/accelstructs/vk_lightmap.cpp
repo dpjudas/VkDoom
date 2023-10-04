@@ -29,6 +29,7 @@ CVAR(Float, lm_scale, 1.0, CVAR_NOSAVE);
 CVAR(Bool, lm_ao, true, 0);
 CVAR(Bool, lm_softshadows, true, 0);
 CVAR(Bool, lm_sunlight, true, 0);
+CVAR(Bool, lm_blur, true, 0);
 
 VkLightmap::VkLightmap(VulkanRenderDevice* fb) : fb(fb)
 {
@@ -107,7 +108,8 @@ void VkLightmap::Raytrace(const TArray<LevelMeshSurface*>& surfaces)
 			UploadUniforms();
 			Render();
 			Resolve();
-			Blur();
+			if (lm_blur)
+				Blur();
 			CopyResult();
 
 			fb->GetCommands()->PopGroup(fb->GetCommands()->GetTransferCommands());
