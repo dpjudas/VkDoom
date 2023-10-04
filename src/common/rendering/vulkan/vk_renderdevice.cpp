@@ -84,6 +84,11 @@ CUSTOM_CVAR(Int, vk_device, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCAL
 	Printf("This won't take effect until " GAMENAME " is restarted.\n");
 }
 
+CUSTOM_CVAR(Bool, vk_rayquery, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
+{
+	Printf("This won't take effect until " GAMENAME " is restarted.\n");
+}
+
 CCMD(vk_listdevices)
 {
 	for (size_t i = 0; i < SupportedDevices.size(); i++)
@@ -118,7 +123,8 @@ void VulkanPrintLog(const char* typestr, const std::string& msg)
 VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::shared_ptr<VulkanSurface> surface) : SystemBaseFrameBuffer(hMonitor, fullscreen)
 {
 	VulkanDeviceBuilder builder;
-	builder.OptionalRayQuery();
+	if (vk_rayquery)
+		builder.OptionalRayQuery();
 	builder.RequireExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 	builder.Surface(surface);
 	builder.SelectDevice(vk_device);

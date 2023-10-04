@@ -7,9 +7,9 @@ vec4 blend(vec4 a, vec4 b);
 
 int TraceFirstHitTriangleT(vec3 origin, float tmin, vec3 dir, float tmax, out float t)
 {
-	int primitiveID;
+	int primitiveID = -1;
 	vec3 primitiveWeights;
-	while(true)
+	for (int i = 0; i < 4; i++)
 	{
 		primitiveID = TraceFirstHitTriangleNoPortal(origin, tmin, dir, tmax, t, primitiveWeights);
 
@@ -22,7 +22,6 @@ int TraceFirstHitTriangleT(vec3 origin, float tmin, vec3 dir, float tmax, out fl
 
 		if(surface.PortalIndex == 0)
 		{
-#if defined(USE_RAYQUERY)
 			int index = primitiveID * 3;
 			vec2 uv = vertices[elements[index + 1]].uv * primitiveWeights.x + vertices[elements[index + 2]].uv * primitiveWeights.y + vertices[elements[index + 0]].uv * primitiveWeights.z;
 
@@ -40,9 +39,6 @@ int TraceFirstHitTriangleT(vec3 origin, float tmin, vec3 dir, float tmax, out fl
 			}
 
 			rayColor = blend(color, rayColor);
-#else
-			break;
-#endif
 		}
 
 		// Portal was hit: Apply transformation onto the ray
@@ -71,7 +67,7 @@ bool TracePoint(vec3 origin, vec3 target, float tmin, vec3 dir, float tmax)
 	int primitiveID;
 	float t;
 	vec3 primitiveWeights;
-	while(true)
+	for (int i = 0; i < 4; i++)
 	{
 		t = tmax;
 		primitiveID = TraceFirstHitTriangleNoPortal(origin, tmin, dir, tmax, t, primitiveWeights);
@@ -89,7 +85,6 @@ bool TracePoint(vec3 origin, vec3 target, float tmin, vec3 dir, float tmax)
 
 		if (surface.PortalIndex == 0)
 		{
-#if defined(USE_RAYQUERY)
 			int index = primitiveID * 3;
 			vec2 uv = vertices[elements[index + 1]].uv * primitiveWeights.x + vertices[elements[index + 2]].uv * primitiveWeights.y + vertices[elements[index + 0]].uv * primitiveWeights.z;
 
@@ -107,10 +102,6 @@ bool TracePoint(vec3 origin, vec3 target, float tmin, vec3 dir, float tmax)
 			}
 
 			rayColor = blend(color, rayColor);
-#else
-			rayColor.w = 0; // I suspect some rays are escaping out of bounds
-			break;
-#endif
 		}
 
 		if(dot(surface.Normal, dir) >= 0.0)
@@ -121,12 +112,6 @@ bool TracePoint(vec3 origin, vec3 target, float tmin, vec3 dir, float tmax)
 		mat4 transformationMatrix = portals[surface.PortalIndex].Transformation;
 		origin = (transformationMatrix * vec4(origin, 1.0)).xyz;
 		dir = (transformationMatrix * vec4(dir, 0.0)).xyz;
-
-#if defined(USE_RAYQUERY)
-#else
-		origin += dir * tmin;
-		tmax -= tmin;
-#endif
 	}
 
 	return distance(origin, target) <= 1.0;
