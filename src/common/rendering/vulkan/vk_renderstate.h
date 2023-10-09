@@ -12,13 +12,12 @@
 #include "hw_material.h"
 
 class VulkanRenderDevice;
-class VkThreadRenderPassSetup;
 class VkTextureImage;
 
 class VkRenderState : public FRenderState
 {
 public:
-	VkRenderState(VulkanRenderDevice* fb, int threadIndex);
+	VkRenderState(VulkanRenderDevice* fb);
 	virtual ~VkRenderState() = default;
 
 	// Draw commands
@@ -64,8 +63,6 @@ public:
 	void EndRenderPass();
 	void EndFrame();
 
-	void ResetCache();
-
 protected:
 	void Apply(int dt);
 	void ApplyRenderPass(int dt);
@@ -83,18 +80,14 @@ protected:
 	void BeginRenderPass(VulkanCommandBuffer *cmdbuffer);
 	void WaitForStreamBuffers();
 
-	VkThreadRenderPassSetup* GetRenderPass(const VkRenderPassKey& key);
-	VulkanPipelineLayout* GetPipelineLayout(int numLayers);
-
 	VulkanRenderDevice* fb = nullptr;
-	int threadIndex = 0;
 
 	VkRSBuffers* mRSBuffers = nullptr;
 
 	bool mDepthClamp = true;
 	VulkanCommandBuffer *mCommandBuffer = nullptr;
 	VkPipelineKey mPipelineKey = {};
-	VkThreadRenderPassSetup* mPassSetup = nullptr;
+	VkRenderPassSetup* mPassSetup = nullptr;
 	int mClearTargets = 0;
 	bool mNeedApply = true;
 
@@ -146,25 +139,6 @@ protected:
 		VkSampleCountFlagBits Samples = VK_SAMPLE_COUNT_1_BIT;
 		int DrawBuffers = 1;
 	} mRenderTarget;
-
-	std::map<VkRenderPassKey, std::unique_ptr<VkThreadRenderPassSetup>> mRenderPassSetups;
-	std::vector<VulkanPipelineLayout*> mPipelineLayouts;
-	std::unique_ptr<VulkanCommandBuffer> mThreadCommandBuffer;
-};
-
-class VkThreadRenderPassSetup
-{
-public:
-	VkThreadRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassKey& key);
-
-	VulkanRenderPass* GetRenderPass(int clearTargets);
-	VulkanPipeline* GetPipeline(const VkPipelineKey& key);
-
-private:
-	VkRenderPassKey PassKey;
-	VulkanRenderDevice* fb;
-	VulkanRenderPass* RenderPasses[8] = {};
-	std::map<VkPipelineKey, VulkanPipeline*> Pipelines;
 };
 
 class VkRenderStateMolten : public VkRenderState

@@ -40,7 +40,7 @@
 CVAR(Int, vk_submit_size, 1000, 0);
 EXTERN_CVAR(Bool, r_skipmats)
 
-VkRenderState::VkRenderState(VulkanRenderDevice* fb, int threadIndex) : fb(fb), threadIndex(threadIndex), mRSBuffers(fb->GetBufferManager()->GetRSBuffers(threadIndex)), mStreamBufferWriter(mRSBuffers), mMatrixBufferWriter(mRSBuffers)
+VkRenderState::VkRenderState(VulkanRenderDevice* fb) : fb(fb), mRSBuffers(fb->GetBufferManager()->GetRSBuffers()), mStreamBufferWriter(mRSBuffers), mMatrixBufferWriter(mRSBuffers)
 {
 	mMatrices.ModelMatrix.loadIdentity();
 	mMatrices.NormalModelMatrix.loadIdentity();
@@ -188,7 +188,7 @@ void VkRenderState::Apply(int dt)
 	drawcalls.Clock();
 
 	mApplyCount++;
-	if (threadIndex == 0 && mApplyCount >= vk_submit_size)
+	if (mApplyCount >= vk_submit_size)
 	{
 		fb->GetCommands()->FlushCommands(false);
 		mApplyCount = 0;
@@ -310,15 +310,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 
 	if (!inRenderPass)
 	{
-		if (threadIndex == 0)
-		{
-			mCommandBuffer = fb->GetCommands()->GetDrawCommands();
-		}
-		else
-		{
-			mThreadCommandBuffer = fb->GetCommands()->BeginThreadCommands();
-			mCommandBuffer = mThreadCommandBuffer.get();
-		}
+		mCommandBuffer = fb->GetCommands()->GetDrawCommands();
 
 		mScissorChanged = true;
 		mViewportChanged = true;
@@ -429,7 +421,7 @@ void VkRenderState::ApplyPushConstants()
 	mPushConstants.uLightIndex = mLightIndex >= 0 ? (mLightIndex % MAX_LIGHT_DATA) : -1;
 	mPushConstants.uBoneIndexBase = mBoneIndexBase;
 
-	mCommandBuffer->pushConstants(GetPipelineLayout(mPipelineKey.NumTextureLayers), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
+	mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.NumTextureLayers), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
 }
 
 void VkRenderState::ApplyMatrices()
@@ -490,12 +482,12 @@ void VkRenderState::ApplyMaterial()
 	if (mMaterial.mChanged)
 	{
 		auto descriptors = fb->GetDescriptorSetManager();
-		VulkanPipelineLayout* layout = GetPipelineLayout(mPipelineKey.NumTextureLayers);
+		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.NumTextureLayers);
 
 		if (mMaterial.mMaterial && mMaterial.mMaterial->Source()->isHardwareCanvas())
 			static_cast<FCanvasTexture*>(mMaterial.mMaterial->Source()->GetTexture())->NeedUpdate();
 
-		VulkanDescriptorSet* descriptorset = mMaterial.mMaterial ? static_cast<VkMaterial*>(mMaterial.mMaterial)->GetDescriptorSet(threadIndex, mMaterial) : descriptors->GetNullTextureDescriptorSet();
+		VulkanDescriptorSet* descriptorset = mMaterial.mMaterial ? static_cast<VkMaterial*>(mMaterial.mMaterial)->GetDescriptorSet(mMaterial) : descriptors->GetNullTextureDescriptorSet();
 
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedDescriptorSet());
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptorset);
@@ -511,11 +503,11 @@ void VkRenderState::ApplyBufferSets()
 	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || streamDataOffset != mLastStreamDataOffset || lightsOffset != mLastLightsOffset)
 	{
 		auto descriptors = fb->GetDescriptorSetManager();
-		VulkanPipelineLayout* layout = GetPipelineLayout(mPipelineKey.NumTextureLayers);
+		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.NumTextureLayers);
 
 		uint32_t offsets[4] = { mViewpointOffset, matrixOffset, streamDataOffset, lightsOffset };
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedDescriptorSet());
-		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(threadIndex), 4, offsets);
+		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(), 4, offsets);
 
 		mLastViewpointOffset = mViewpointOffset;
 		mLastMatricesOffset = matrixOffset;
@@ -722,11 +714,6 @@ void VkRenderState::EndRenderPass()
 		mCommandBuffer = nullptr;
 	}
 
-	if (mThreadCommandBuffer)
-	{
-		fb->GetCommands()->EndThreadCommands(std::move(mThreadCommandBuffer));
-	}
-
 	// Force rebind of everything on next draw
 	mPipelineKey = {};
 	mLastViewpointOffset = 0xffffffff;
@@ -738,12 +725,6 @@ void VkRenderState::EndFrame()
 {
 	mMatrixBufferWriter.Reset();
 	mStreamBufferWriter.Reset();
-}
-
-void VkRenderState::ResetCache()
-{
-	mRenderPassSetups.clear();
-	mPipelineLayouts.clear();
 }
 
 void VkRenderState::EnableDrawBuffers(int count, bool apply)
@@ -775,7 +756,7 @@ void VkRenderState::BeginRenderPass(VulkanCommandBuffer *cmdbuffer)
 	key.DrawBuffers = mRenderTarget.DrawBuffers;
 	key.DepthStencil = !!mRenderTarget.DepthStencil;
 
-	mPassSetup = GetRenderPass(key);
+	mPassSetup = fb->GetRenderPassManager()->GetRenderPass(key);
 
 	auto &framebuffer = mRenderTarget.Image->RSFramebuffers[key];
 	if (!framebuffer)
@@ -813,55 +794,6 @@ void VkRenderState::BeginRenderPass(VulkanCommandBuffer *cmdbuffer)
 
 	mMaterial.mChanged = true;
 	mClearTargets = 0;
-}
-
-VkThreadRenderPassSetup* VkRenderState::GetRenderPass(const VkRenderPassKey& key)
-{
-	auto& item = mRenderPassSetups[key];
-	if (!item)
-		item.reset(new VkThreadRenderPassSetup(fb, key));
-	return item.get();
-}
-
-VulkanPipelineLayout* VkRenderState::GetPipelineLayout(int numLayers)
-{
-	if (mPipelineLayouts.size() <= (size_t)numLayers)
-		mPipelineLayouts.resize(numLayers + 1);
-
-	auto& layout = mPipelineLayouts[numLayers];
-	if (layout)
-		return layout;
-
-	std::unique_lock<std::mutex> lock(fb->ThreadMutex);
-	layout = fb->GetRenderPassManager()->GetPipelineLayout(numLayers);
-	return layout;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-VkThreadRenderPassSetup::VkThreadRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassKey& key) : PassKey(key), fb(fb)
-{
-}
-
-VulkanRenderPass* VkThreadRenderPassSetup::GetRenderPass(int clearTargets)
-{
-	if (RenderPasses[clearTargets])
-		return RenderPasses[clearTargets];
-
-	std::unique_lock<std::mutex> lock(fb->ThreadMutex);
-	RenderPasses[clearTargets] = fb->GetRenderPassManager()->GetRenderPass(PassKey)->GetRenderPass(clearTargets);
-	return RenderPasses[clearTargets];
-}
-
-VulkanPipeline* VkThreadRenderPassSetup::GetPipeline(const VkPipelineKey& key)
-{
-	auto& item = Pipelines[key];
-	if (item)
-		return item;
-
-	std::unique_lock<std::mutex> lock(fb->ThreadMutex);
-	item = fb->GetRenderPassManager()->GetRenderPass(PassKey)->GetPipeline(key);
-	return item;
 }
 
 /////////////////////////////////////////////////////////////////////////////

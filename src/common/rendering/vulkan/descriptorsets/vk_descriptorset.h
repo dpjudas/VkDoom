@@ -27,7 +27,7 @@ public:
 	VulkanDescriptorSetLayout* GetTextureSetLayout(int numLayers);
 	VulkanDescriptorSetLayout* GetBindlessSetLayout() { return BindlessDescriptorSetLayout.get(); }
 
-	VulkanDescriptorSet* GetRSBufferDescriptorSet(int threadIndex) { return RSBufferSets[threadIndex].get(); }
+	VulkanDescriptorSet* GetRSBufferDescriptorSet() { return RSBufferSet.get(); }
 	VulkanDescriptorSet* GetFixedDescriptorSet() { return FixedSet.get(); }
 	VulkanDescriptorSet* GetNullTextureDescriptorSet();
 	VulkanDescriptorSet* GetBindlessDescriptorSet() { return BindlessDescriptorSet.get(); }
@@ -67,7 +67,7 @@ private:
 	int TextureDescriptorsLeft = 0;
 	std::vector<std::unique_ptr<VulkanDescriptorPool>> TextureDescriptorPools;
 
-	std::vector<std::unique_ptr<VulkanDescriptorSet>> RSBufferSets;
+	std::unique_ptr<VulkanDescriptorSet> RSBufferSet;
 	std::unique_ptr<VulkanDescriptorSet> FixedSet;
 	std::unique_ptr<VulkanDescriptorSet> NullTextureDescriptorSet;
 

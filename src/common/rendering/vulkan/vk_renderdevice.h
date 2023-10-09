@@ -40,10 +40,10 @@ public:
 	VkRenderPassManager *GetRenderPassManager() { return mRenderPassManager.get(); }
 	VkRaytrace* GetRaytrace() { return mRaytrace.get(); }
 	VkLightmap* GetLightmap() { return mLightmap.get(); }
-	VkRenderState *GetRenderState(int threadIndex) { return mRenderState[threadIndex].get(); }
+	VkRenderState *GetRenderState() { return mRenderState.get(); }
 	VkPostprocess *GetPostprocess() { return mPostprocess.get(); }
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
-	FRenderState* RenderState(int threadIndex) override;
+	FRenderState* RenderState() override;
 
 	bool IsVulkan() override { return true; }
 
@@ -89,10 +89,6 @@ public:
 
 	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
 
-	void ResetRenderStateCache();
-
-	std::mutex ThreadMutex;
-
 private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
 	void PrintStartupLog();
@@ -112,7 +108,7 @@ private:
 	std::unique_ptr<VkRenderPassManager> mRenderPassManager;
 	std::unique_ptr<VkRaytrace> mRaytrace;
 	std::unique_ptr<VkLightmap> mLightmap;
-	std::vector<std::unique_ptr<VkRenderState>> mRenderState;
+	std::unique_ptr<VkRenderState> mRenderState;
 
 	VkRenderBuffers *mActiveRenderBuffers = nullptr;
 

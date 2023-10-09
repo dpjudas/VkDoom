@@ -304,7 +304,6 @@ void VkHardwareTexture::CreateWipeTexture(int w, int h, const char *name)
 
 VkMaterial::VkMaterial(VulkanRenderDevice* fb, FGameTexture* tex, int scaleflags) : FMaterial(tex, scaleflags), fb(fb)
 {
-	mThreadDescriptorSets.resize(fb->MaxThreads);
 	fb->GetDescriptorSetManager()->AddMaterial(this);
 }
 
@@ -324,9 +323,6 @@ void VkMaterial::DeleteDescriptors()
 			deleteList->Add(std::move(it.descriptor));
 		}
 		mDescriptorSets.clear();
-
-		for (auto& list : mThreadDescriptorSets)
-			list.clear();
 	}
 }
 
@@ -404,21 +400,4 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 	update.Execute(fb->GetDevice());
 	mDescriptorSets.emplace_back(clampmode, translationp, std::move(descriptor), bindlessIndex);
 	return mDescriptorSets.back();
-}
-
-VulkanDescriptorSet* VkMaterial::GetDescriptorSet(int threadIndex, const FMaterialState& state)
-{
-	int clampmode = Source()->GetClampMode(state.mClampMode);
-	int translation = state.mTranslation;
-	auto translationp = IsLuminosityTranslation(translation) ? translation : intptr_t(GPalette.GetTranslation(GetTranslationType(translation), GetTranslationIndex(translation)));
-	for (auto& set : mThreadDescriptorSets[threadIndex])
-	{
-		if (set.descriptor && set.clampmode == clampmode && set.remap == translationp)
-			return set.descriptor;
-	}
-
-	std::unique_lock<std::mutex> lock(fb->ThreadMutex);
-	VulkanDescriptorSet* descriptorset = GetDescriptorSet(state);
-	mThreadDescriptorSets[threadIndex].push_back(ThreadDescriptorEntry(clampmode, translationp, descriptorset));
-	return descriptorset;
 }

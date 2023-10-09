@@ -154,7 +154,7 @@ void VkCommandBufferManager::FlushCommands(bool finish, bool lastsubmit, bool up
 	fb->GetDescriptorSetManager()->UpdateBindlessDescriptorSet();
 
 	if (!uploadOnly)
-		fb->GetRenderState(0)->EndRenderPass();
+		fb->GetRenderState()->EndRenderPass();
 
 	std::unique_lock<std::mutex> lock(mMutex);
 

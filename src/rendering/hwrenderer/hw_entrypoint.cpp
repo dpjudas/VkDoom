@@ -104,7 +104,7 @@ void CollectLights(FLevelLocals* Level)
 
 sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bounds, float fov, float ratio, float fovratio, bool mainview, bool toscreen)
 {
-	auto& RenderState = *screen->RenderState(0);
+	auto& RenderState = *screen->RenderState();
 
 	R_SetupFrame(mainvp, r_viewwindow, camera);
 
@@ -170,7 +170,7 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
 		di->SetupView(RenderState, vp.Pos.X, vp.Pos.Y, vp.Pos.Z, false, false);
 
-		di->ProcessScene(toscreen, *screen->RenderState(0));
+		di->ProcessScene(toscreen, *screen->RenderState());
 
 		if (mainview)
 		{
@@ -266,7 +266,7 @@ void WriteSavePic(player_t* player, FileWriter* file, int width, int height)
 		bounds.top = 0;
 		bounds.width = width;
 		bounds.height = height;
-		auto& RenderState = *screen->RenderState(0);
+		auto& RenderState = *screen->RenderState();
 
 		// we must be sure the GPU finished reading from the buffer before we fill it with new data.
 		screen->WaitForCommands(false);
@@ -313,7 +313,7 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 
 sector_t* RenderView(player_t* player)
 {
-	auto RenderState = screen->RenderState(0);
+	auto RenderState = screen->RenderState();
 	RenderState->SetFlatVertexBuffer();
 	RenderState->ResetVertices();
 	hw_postprocess.SetTonemapMode(level.info ? level.info->tonemap : ETonemapMode::None);
@@ -355,7 +355,7 @@ sector_t* RenderView(player_t* player)
 				screen->RenderTextureView(canvas->Tex, [=](IntRect& bounds)
 					{
 						screen->SetViewportRects(&bounds);
-						Draw2D(&canvas->Drawer, *screen->RenderState(0), 0, 0, canvas->Tex->GetWidth(), canvas->Tex->GetHeight());
+						Draw2D(&canvas->Drawer, *screen->RenderState(), 0, 0, canvas->Tex->GetWidth(), canvas->Tex->GetHeight());
 						canvas->Drawer.Clear();
 					});
 				canvas->Tex->SetUpdated(true);

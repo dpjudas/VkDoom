@@ -53,7 +53,7 @@ void VkPPRenderState::PopGroup()
 
 void VkPPRenderState::Draw()
 {
-	fb->GetRenderState(0)->EndRenderPass();
+	fb->GetRenderState()->EndRenderPass();
 
 	VkPPRenderPassKey key;
 	key.BlendMode = BlendMode;

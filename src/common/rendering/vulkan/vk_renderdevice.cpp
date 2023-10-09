@@ -208,14 +208,11 @@ void VulkanRenderDevice::InitializeState()
 	mShaderManager.reset(new VkShaderManager(this));
 	mDescriptorSetManager->Init();
 
-	for (int threadIndex = 0; threadIndex < MaxThreads; threadIndex++)
-	{
 #ifdef __APPLE__
-		mRenderState.push_back(std::make_unique<VkRenderStateMolten>(this, 0));
+	mRenderState = std::make_unique<VkRenderStateMolten>(this);
 #else
-		mRenderState.push_back(std::make_unique<VkRenderState>(this, 0));
+	mRenderState = std::make_unique<VkRenderState>(this);
 #endif
-	}
 }
 
 void VulkanRenderDevice::Update()
@@ -230,11 +227,8 @@ void VulkanRenderDevice::Update()
 	Draw2D();
 	twod->Clear();
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->EndRenderPass();
-		renderstate->EndFrame();
-	}
+	mRenderState->EndRenderPass();
+	mRenderState->EndFrame();
 
 	Flush3D.Unclock();
 
@@ -256,19 +250,13 @@ void VulkanRenderDevice::RenderTextureView(FCanvasTexture* tex, std::function<vo
 	VkTextureImage *image = BaseLayer->GetImage(tex, 0, 0);
 	VkTextureImage *depthStencil = BaseLayer->GetDepthStencil(tex);
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->EndRenderPass();
-	}
+	mRenderState->EndRenderPass();
 
 	VkImageTransition()
 		.AddImage(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false)
 		.Execute(mCommands->GetDrawCommands());
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->SetRenderTarget(image, depthStencil->View.get(), image->Image->width, image->Image->height, VK_FORMAT_R8G8B8A8_UNORM, VK_SAMPLE_COUNT_1_BIT);
-	}
+	mRenderState->SetRenderTarget(image, depthStencil->View.get(), image->Image->width, image->Image->height, VK_FORMAT_R8G8B8A8_UNORM, VK_SAMPLE_COUNT_1_BIT);
 
 	IntRect bounds;
 	bounds.left = bounds.top = 0;
@@ -277,19 +265,13 @@ void VulkanRenderDevice::RenderTextureView(FCanvasTexture* tex, std::function<vo
 
 	renderFunc(bounds);
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->EndRenderPass();
-	}
+	mRenderState->EndRenderPass();
 
 	VkImageTransition()
 		.AddImage(image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
 		.Execute(mCommands->GetDrawCommands());
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
-	}
+	mRenderState->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
 
 	tex->SetUpdated(true);
 }
@@ -498,8 +480,7 @@ void VulkanRenderDevice::BeginFrame()
 	mTextureManager->BeginFrame();
 	mScreenBuffers->BeginFrame(screen->mScreenViewport.width, screen->mScreenViewport.height, screen->mSceneViewport.width, screen->mSceneViewport.height);
 	mSaveBuffers->BeginFrame(SAVEPICWIDTH, SAVEPICHEIGHT, SAVEPICWIDTH, SAVEPICHEIGHT);
-	for (auto& renderstate : mRenderState)
-		renderstate->BeginFrame();
+	mRenderState->BeginFrame();
 	mDescriptorSetManager->BeginFrame();
 	mRaytrace->BeginFrame();
 	mLightmap->BeginFrame();
@@ -507,20 +488,12 @@ void VulkanRenderDevice::BeginFrame()
 
 void VulkanRenderDevice::Draw2D()
 {
-	::Draw2D(twod, *RenderState(0));
+	::Draw2D(twod, *RenderState());
 }
 
 void VulkanRenderDevice::WaitForCommands(bool finish)
 {
 	mCommands->WaitForCommands(finish);
-}
-
-void VulkanRenderDevice::ResetRenderStateCache()
-{
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->ResetCache();
-	}
 }
 
 void VulkanRenderDevice::PrintStartupLog()
@@ -604,9 +577,9 @@ void VulkanRenderDevice::ImageTransitionScene(bool unknown)
 	mPostprocess->ImageTransitionScene(unknown);
 }
 
-FRenderState* VulkanRenderDevice::RenderState(int threadIndex)
+FRenderState* VulkanRenderDevice::RenderState()
 {
-	return mRenderState[threadIndex].get();
+	return mRenderState.get();
 }
 
 void VulkanRenderDevice::AmbientOccludeScene(float m5)
@@ -616,10 +589,7 @@ void VulkanRenderDevice::AmbientOccludeScene(float m5)
 
 void VulkanRenderDevice::SetSceneRenderTarget(bool useSSAO)
 {
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
-	}
+	mRenderState->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
 }
 
 int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation)
