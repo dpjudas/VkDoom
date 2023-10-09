@@ -94,7 +94,7 @@ void VkLightmap::BeginFrame()
 
 void VkLightmap::Raytrace(const TArray<LevelMeshSurface*>& surfaces)
 {
-	if (surfaces.Size())
+	if (mesh && surfaces.Size() > 0)
 	{
 		lightmapRaytraceLast.active = true;
 
