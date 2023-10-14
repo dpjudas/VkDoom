@@ -74,7 +74,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		};
 
 		const auto& desc = effectshaders[key.SpecialEffect];
-		program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.defines);
+		program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.defines, key.UseLevelMesh);
 		program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.defines, key);
 	}
 	else
@@ -112,7 +112,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		if (key.EffectState < FIRST_USER_SHADER)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
-			program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.Defines);
+			program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.Defines, key.UseLevelMesh);
 			program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump, desc.Defines, key);
 		}
 		else
@@ -121,14 +121,14 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, defines.GetChars());
+			program.vert = LoadVertShader(name, mainvp, defines.GetChars(), key.UseLevelMesh);
 			program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key);
 		}
 	}
 	return &program;
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *defines)
+std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *defines, bool levelmesh)
 {
 	FString definesBlock;
 	definesBlock << defines;
@@ -141,6 +141,9 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 	{
 		definesBlock << "#define NO_CLIPDISTANCE_SUPPORT\n";
 	}
+
+	if (levelmesh)
+		definesBlock << "#define USE_LEVELMESH\n";
 
 	FString layoutBlock;
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";

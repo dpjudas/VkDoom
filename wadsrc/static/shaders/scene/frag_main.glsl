@@ -2,7 +2,7 @@
 void main()
 {
 #ifdef USE_LEVELMESH
-	FragColor = vec4(fract(gl_FragCoord.x / 500), fract(gl_FragCoord.x / 500), 1.0, 1.0);
+	FragColor = vec4(vec3(pixelpos.w / 1000), 1.0);
 #else
 
 #ifdef NO_CLIPDISTANCE_SUPPORT

@@ -146,6 +146,8 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 
 		vp.SetViewAngle(r_viewwindow);
 
+		vp.FieldOfView = DAngle::fromDeg(fov);	// Set the real FOV for the current scene (it's not necessarily the same as the global setting in r_viewpoint)
+
 		auto lightmode = camera->Level->info->lightmode;
 		if (lightmode == ELightMode::NotSet)
 			lightmode = ELightMode::ZDoomSoftware;
@@ -162,7 +164,6 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		VPUniforms.mViewMatrix.rotate(vp.HWAngles.Yaw.Degrees(), 0.0f, mult, 0.0f);
 		VPUniforms.mViewMatrix.translate(vp.Pos.X * mult, -vp.Pos.Z * planemult, -vp.Pos.Y);
 		VPUniforms.mViewMatrix.scale(-mult, planemult, 1);
-		VPUniforms.mNormalViewMatrix.loadIdentity();
 		VPUniforms.mViewHeight = viewheight;
 		VPUniforms.mGlobVis = (float)R_GetGlobVis(r_viewwindow, r_visibility) / 32.f;
 		VPUniforms.mPalLightLevels = static_cast<int>(gl_bandedswlight) | (static_cast<int>(gl_fogmode) << 8) | ((int)lightmode << 16);
@@ -170,17 +171,18 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		VPUniforms.mShadowmapFilter = static_cast<int>(gl_shadowmap_filter);
 		VPUniforms.mLightBlendMode = (level.info ? (int)level.info->lightblendmode : 0);
 		VPUniforms.mCameraPos = FVector4(vp.Pos.X, vp.Pos.Z, vp.Pos.Y, 0.0f);
+		VPUniforms.CalcDependencies();
 
 		screen->DrawLevelMesh(VPUniforms);
 
 		PostProcess.Clock();
 		//if (toscreen) di->EndDrawScene(mainvp.sector, RenderState); // do not call this for camera textures.
 
-		if (RenderState.GetPassType() == GBUFFER_PASS) // Turn off ssao draw buffers
+		/*if (RenderState.GetPassType() == GBUFFER_PASS) // Turn off ssao draw buffers
 		{
 			RenderState.SetPassType(NORMAL_PASS);
 			RenderState.EnableDrawBuffers(1);
-		}
+		}*/
 
 		auto cm = CM_DEFAULT; // di->SetFullbrightFlags(mainview ? vp.camera->player : nullptr);
 		float flash = 1.f;

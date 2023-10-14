@@ -13,6 +13,10 @@ void main()
 	parmTexCoord = aTexCoord;
 	parmPosition = bones.Position;
 	
+	#ifdef USE_LEVELMESH
+	parmPosition.xyz = parmPosition.xzy; // The level mesh is in world coordinates
+	#endif
+
 	#ifndef SIMPLE
 		vec4 worldcoord = ModelMatrix * mix(parmPosition, aVertex2, uInterpolationFactor);
 	#else

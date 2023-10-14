@@ -622,7 +622,7 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	auto passSetup = GetRenderPassManager()->GetRenderPass(key);
 
 	RenderPassBegin beginInfo;
-	beginInfo.RenderPass(passSetup->GetRenderPass(CT_Depth | CT_Stencil));
+	beginInfo.RenderPass(passSetup->GetRenderPass(CT_Color | CT_Depth | CT_Stencil));
 	beginInfo.RenderArea(0, 0, buffers->GetWidth(), buffers->GetHeight());
 	beginInfo.Framebuffer(buffers->GetFramebuffer(key));
 	beginInfo.AddClearColor(screen->mSceneClearColor[0], screen->mSceneClearColor[1], screen->mSceneClearColor[2], screen->mSceneClearColor[3]);
@@ -668,9 +668,9 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	pipelineKey.DrawType = DT_Triangles;
 	pipelineKey.VertexFormat = vertexFormatIndex;
 	pipelineKey.RenderStyle = DefaultRenderStyle();
-	pipelineKey.DepthTest = false;
-	pipelineKey.DepthWrite = false;
-	pipelineKey.DepthFunc = 0;
+	pipelineKey.DepthTest = true;
+	pipelineKey.DepthWrite = true;
+	pipelineKey.DepthFunc = DF_Less;
 	pipelineKey.DepthClamp = false;
 	pipelineKey.DepthBias = false;
 	pipelineKey.StencilTest = false;
@@ -726,6 +726,8 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 #ifdef NPOT_EMULATION
 	streamdata.uNpotEmulation = { 0,0,0,0 };
 #endif
+	streamdata.uClipSplit.X = -1000000.f;
+	streamdata.uClipSplit.Y = 1000000.f;
 
 	rsbuffers->StreamBuffer->Write(streamdata);
 
