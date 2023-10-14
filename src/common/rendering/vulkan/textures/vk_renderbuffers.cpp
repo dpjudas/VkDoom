@@ -85,6 +85,27 @@ void VkRenderBuffers::BeginFrame(int width, int height, int sceneWidth, int scen
 	mSceneHeight = sceneHeight;
 }
 
+VulkanFramebuffer* VkRenderBuffers::GetFramebuffer(const VkRenderPassKey& key)
+{
+	auto& framebuffer = SceneColor.RSFramebuffers[key];
+	if (framebuffer)
+		return framebuffer.get();
+
+	FramebufferBuilder builder;
+	builder.RenderPass(fb->GetRenderPassManager()->GetRenderPass(key)->GetRenderPass(0));
+	builder.Size(GetWidth(), GetHeight());
+	builder.AddAttachment(SceneColor.View.get());
+	if (key.DrawBuffers > 1)
+		builder.AddAttachment(SceneFog.View.get());
+	if (key.DrawBuffers > 2)
+		builder.AddAttachment(SceneNormal.View.get());
+	if (key.DepthStencil)
+		builder.AddAttachment(SceneDepthStencil.View.get());
+	builder.DebugName("VkRenderPassSetup.Framebuffer");
+	framebuffer = builder.Create(fb->GetDevice());
+	return framebuffer.get();
+}
+
 void VkRenderBuffers::CreatePipelineDepthStencil(int width, int height)
 {
 	ImageBuilder builder;

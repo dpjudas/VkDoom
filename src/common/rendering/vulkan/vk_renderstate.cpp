@@ -40,7 +40,7 @@
 CVAR(Int, vk_submit_size, 1000, 0);
 EXTERN_CVAR(Bool, r_skipmats)
 
-VkRenderState::VkRenderState(VulkanRenderDevice* fb) : fb(fb), mRSBuffers(fb->GetBufferManager()->GetRSBuffers()), mStreamBufferWriter(mRSBuffers), mMatrixBufferWriter(mRSBuffers)
+VkRenderState::VkRenderState(VulkanRenderDevice* fb) : fb(fb), mRSBuffers(fb->GetBufferManager()->GetRSBuffers())
 {
 	mMatrices.ModelMatrix.loadIdentity();
 	mMatrices.NormalModelMatrix.loadIdentity();
@@ -408,16 +408,16 @@ void VkRenderState::ApplyStreamData()
 		mStreamData.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
 	}
 
-	if (!mStreamBufferWriter.Write(mStreamData))
+	if (!mRSBuffers->StreamBuffer->Write(mStreamData))
 	{
 		WaitForStreamBuffers();
-		mStreamBufferWriter.Write(mStreamData);
+		mRSBuffers->StreamBuffer->Write(mStreamData);
 	}
 }
 
 void VkRenderState::ApplyPushConstants()
 {
-	mPushConstants.uDataIndex = mStreamBufferWriter.DataIndex();
+	mPushConstants.uDataIndex = mRSBuffers->StreamBuffer->DataIndex();
 	mPushConstants.uLightIndex = mLightIndex >= 0 ? (mLightIndex % MAX_LIGHT_DATA) : -1;
 	mPushConstants.uBoneIndexBase = mBoneIndexBase;
 
@@ -428,10 +428,10 @@ void VkRenderState::ApplyMatrices()
 {
 	if (mMatricesChanged)
 	{
-		if (!mMatrixBufferWriter.Write(mMatrices))
+		if (!mRSBuffers->MatrixBuffer->Write(mMatrices))
 		{
 			WaitForStreamBuffers();
-			mMatrixBufferWriter.Write(mMatrices);
+			mRSBuffers->MatrixBuffer->Write(mMatrices);
 		}
 		mMatricesChanged = false;
 	}
@@ -497,8 +497,8 @@ void VkRenderState::ApplyMaterial()
 
 void VkRenderState::ApplyBufferSets()
 {
-	uint32_t matrixOffset = mMatrixBufferWriter.Offset();
-	uint32_t streamDataOffset = mStreamBufferWriter.StreamDataOffset();
+	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
+	uint32_t streamDataOffset = mRSBuffers->StreamBuffer->Offset();
 	uint32_t lightsOffset = mLightIndex >= 0 ? (uint32_t)(mLightIndex / MAX_LIGHT_DATA) * sizeof(LightBufferUBO) : mLastLightsOffset;
 	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || streamDataOffset != mLastStreamDataOffset || lightsOffset != mLastLightsOffset)
 	{
@@ -520,8 +520,8 @@ void VkRenderState::WaitForStreamBuffers()
 {
 	fb->WaitForCommands(false);
 	mApplyCount = 0;
-	mStreamBufferWriter.Reset();
-	mMatrixBufferWriter.Reset();
+	mRSBuffers->StreamBuffer->Reset();
+	mRSBuffers->MatrixBuffer->Reset();
 }
 
 int VkRenderState::SetViewpoint(const HWViewpointUniforms& vp)
@@ -723,8 +723,8 @@ void VkRenderState::EndRenderPass()
 
 void VkRenderState::EndFrame()
 {
-	mMatrixBufferWriter.Reset();
-	mStreamBufferWriter.Reset();
+	mRSBuffers->MatrixBuffer->Reset();
+	mRSBuffers->StreamBuffer->Reset();
 }
 
 void VkRenderState::EnableDrawBuffers(int count, bool apply)

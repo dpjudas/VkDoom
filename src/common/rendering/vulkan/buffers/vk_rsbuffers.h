@@ -4,7 +4,8 @@
 #include "vulkan/buffers/vk_hwbuffer.h"
 #include "vulkan/shaders/vk_shader.h"
 
-class VkStreamBuffer;
+class VkMatrixBufferWriter;
+class VkStreamBufferWriter;
 struct FFlatVertex;
 
 class VkRSBuffers
@@ -50,8 +51,8 @@ public:
 		void* Data = nullptr;
 	} Bonebuffer;
 
-	std::unique_ptr<VkStreamBuffer> MatrixBuffer;
-	std::unique_ptr<VkStreamBuffer> StreamBuffer;
+	std::unique_ptr<VkMatrixBufferWriter> MatrixBuffer;
+	std::unique_ptr<VkStreamBufferWriter> StreamBuffer;
 };
 
 class VkStreamBuffer
@@ -74,16 +75,18 @@ private:
 class VkStreamBufferWriter
 {
 public:
-	VkStreamBufferWriter(VkRSBuffers* rsbuffers);
+	VkStreamBufferWriter(VulkanRenderDevice* fb);
 
 	bool Write(const StreamData& data);
 	void Reset();
 
 	uint32_t DataIndex() const { return mDataIndex; }
-	uint32_t StreamDataOffset() const { return mStreamDataOffset; }
+	uint32_t Offset() const { return mStreamDataOffset; }
+
+	VulkanBuffer* UBO() const { return mBuffer->UBO.get(); }
 
 private:
-	VkStreamBuffer* mBuffer;
+	std::unique_ptr<VkStreamBuffer> mBuffer;
 	uint32_t mDataIndex = MAX_STREAM_DATA - 1;
 	uint32_t mStreamDataOffset = 0;
 };
@@ -91,14 +94,16 @@ private:
 class VkMatrixBufferWriter
 {
 public:
-	VkMatrixBufferWriter(VkRSBuffers* rsbuffers);
+	VkMatrixBufferWriter(VulkanRenderDevice* fb);
 
 	bool Write(const MatricesUBO& matrices);
 	void Reset();
 
 	uint32_t Offset() const { return mOffset; }
 
+	VulkanBuffer* UBO() const { return mBuffer->UBO.get(); }
+
 private:
-	VkStreamBuffer* mBuffer;
+	std::unique_ptr<VkStreamBuffer> mBuffer;
 	uint32_t mOffset = 0;
 };

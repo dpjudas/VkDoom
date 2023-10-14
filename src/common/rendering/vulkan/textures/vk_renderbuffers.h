@@ -28,6 +28,8 @@ public:
 	int GetSceneHeight() const { return mSceneHeight; }
 	VkSampleCountFlagBits GetSceneSamples() const { return mSamples; }
 
+	VulkanFramebuffer* GetFramebuffer(const VkRenderPassKey& key);
+
 	VkTextureImage SceneColor;
 	VkTextureImage SceneDepthStencil;
 	VkTextureImage SceneNormal;

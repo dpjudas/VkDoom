@@ -73,6 +73,7 @@ enum FTextureFormat : uint32_t;
 class FModelRenderer;
 struct SamplerUniform;
 struct FVertexBufferAttribute;
+struct HWViewpointUniforms;
 
 //
 // VIDEO
@@ -225,7 +226,7 @@ public:
 
 	virtual void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) { if (afterBloomDrawEndScene2D) afterBloomDrawEndScene2D(); }
 
-	virtual void DrawLevelMesh(const FVector3& pos, const VSMatrix& proj) { }
+	virtual void DrawLevelMesh(const HWViewpointUniforms& viewpoint) { }
 
 	void ScaleCoordsFromWindow(int16_t &x, int16_t &y);
 

@@ -183,6 +183,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 
 	if (key.UseRaytrace) definesBlock << "#define USE_RAYTRACE\n";
 	if (key.UseShadowmap) definesBlock << "#define USE_SHADOWMAP\n";
+	if (key.UseLevelMesh) definesBlock << "#define USE_LEVELMESH\n";
 
 	switch (key.TextureMode)
 	{

@@ -52,6 +52,9 @@
 #include "hw_vrmodes.h"
 
 EXTERN_CVAR(Bool, cl_capfps)
+EXTERN_CVAR(Float, r_visibility)
+EXTERN_CVAR(Bool, gl_bandedswlight)
+
 extern bool NoInterpolateView;
 
 CVAR(Bool, gl_levelmesh, true, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
@@ -141,7 +144,34 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		const auto& eye = vrmode->mEyes[0];
 		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
 
-		screen->DrawLevelMesh(FVector3((float)vp.Pos.X, (float)vp.Pos.Y, (float)vp.Pos.Z), eye.GetProjection(fov, ratio, fovratio));
+		vp.SetViewAngle(r_viewwindow);
+
+		auto lightmode = camera->Level->info->lightmode;
+		if (lightmode == ELightMode::NotSet)
+			lightmode = ELightMode::ZDoomSoftware;
+
+		bool mirror = false;
+		bool planemirror = false;
+		float mult = mirror ? -1.f : 1.f;
+		float planemult = planemirror ? -camera->Level->info->pixelstretch : camera->Level->info->pixelstretch;
+		HWViewpointUniforms VPUniforms = {};
+		VPUniforms.mProjectionMatrix = eye.GetProjection(fov, ratio, fovratio);
+		VPUniforms.mViewMatrix.loadIdentity();
+		VPUniforms.mViewMatrix.rotate(vp.HWAngles.Roll.Degrees(), 0.0f, 0.0f, 1.0f);
+		VPUniforms.mViewMatrix.rotate(vp.HWAngles.Pitch.Degrees(), 1.0f, 0.0f, 0.0f);
+		VPUniforms.mViewMatrix.rotate(vp.HWAngles.Yaw.Degrees(), 0.0f, mult, 0.0f);
+		VPUniforms.mViewMatrix.translate(vp.Pos.X * mult, -vp.Pos.Z * planemult, -vp.Pos.Y);
+		VPUniforms.mViewMatrix.scale(-mult, planemult, 1);
+		VPUniforms.mNormalViewMatrix.loadIdentity();
+		VPUniforms.mViewHeight = viewheight;
+		VPUniforms.mGlobVis = (float)R_GetGlobVis(r_viewwindow, r_visibility) / 32.f;
+		VPUniforms.mPalLightLevels = static_cast<int>(gl_bandedswlight) | (static_cast<int>(gl_fogmode) << 8) | ((int)lightmode << 16);
+		VPUniforms.mClipLine.X = -10000000.0f;
+		VPUniforms.mShadowmapFilter = static_cast<int>(gl_shadowmap_filter);
+		VPUniforms.mLightBlendMode = (level.info ? (int)level.info->lightblendmode : 0);
+		VPUniforms.mCameraPos = FVector4(vp.Pos.X, vp.Pos.Z, vp.Pos.Y, 0.0f);
+
+		screen->DrawLevelMesh(VPUniforms);
 
 		PostProcess.Clock();
 		//if (toscreen) di->EndDrawScene(mainvp.sector, RenderState); // do not call this for camera textures.

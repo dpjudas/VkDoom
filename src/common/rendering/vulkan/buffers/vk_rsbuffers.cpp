@@ -56,8 +56,8 @@ VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 		.DebugName("Flatbuffer.IndexBuffer")
 		.Create(fb->GetDevice());
 
-	MatrixBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(MatricesUBO), 50000);
-	StreamBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(StreamUBO), 300);
+	MatrixBuffer = std::make_unique<VkMatrixBufferWriter>(fb);
+	StreamBuffer = std::make_unique<VkStreamBufferWriter>(fb);
 
 	Viewpoint.BlockAlign = (sizeof(HWViewpointUniforms) + fb->uniformblockalignment - 1) / fb->uniformblockalignment * fb->uniformblockalignment;
 
@@ -149,9 +149,11 @@ uint32_t VkStreamBuffer::NextStreamDataBlock()
 	return mStreamDataOffset;
 }
 
-VkStreamBufferWriter::VkStreamBufferWriter(VkRSBuffers* rsbuffers)
+/////////////////////////////////////////////////////////////////////////////
+
+VkStreamBufferWriter::VkStreamBufferWriter(VulkanRenderDevice* fb)
 {
-	mBuffer = rsbuffers->StreamBuffer.get();
+	mBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(StreamUBO), 300);
 }
 
 bool VkStreamBufferWriter::Write(const StreamData& data)
@@ -178,9 +180,9 @@ void VkStreamBufferWriter::Reset()
 
 /////////////////////////////////////////////////////////////////////////////
 
-VkMatrixBufferWriter::VkMatrixBufferWriter(VkRSBuffers* rsbuffers)
+VkMatrixBufferWriter::VkMatrixBufferWriter(VulkanRenderDevice* fb)
 {
-	mBuffer = rsbuffers->MatrixBuffer.get();
+	mBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(MatricesUBO), 50000);
 }
 
 bool VkMatrixBufferWriter::Write(const MatricesUBO& matrices)

@@ -116,9 +116,6 @@ protected:
 	uint32_t mLastLightsOffset = 0;
 	uint32_t mViewpointOffset = 0;
 
-	VkStreamBufferWriter mStreamBufferWriter;
-	VkMatrixBufferWriter mMatrixBufferWriter;
-
 	int mLastVertexOffsets[2] = { 0, 0 };
 	IBuffer* mLastVertexBuffer = nullptr;
 	IBuffer* mLastIndexBuffer = nullptr;

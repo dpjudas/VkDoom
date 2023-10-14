@@ -607,6 +607,150 @@ int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmo
 	return static_cast<VkMaterial*>(material)->GetBindlessIndex(materialState);
 }
 
-void VulkanRenderDevice::DrawLevelMesh(const FVector3& pos, const VSMatrix& proj)
+void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 {
+	auto cmdbuffer = GetCommands()->GetDrawCommands();
+	auto buffers = GetBuffers();
+	auto descriptors = GetDescriptorSetManager();
+
+	VkRenderPassKey key = {};
+	key.DrawBufferFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+	key.Samples = buffers->GetSceneSamples();
+	key.DrawBuffers = 1; // 3 if ssao is enabled
+	key.DepthStencil = true;
+
+	auto passSetup = GetRenderPassManager()->GetRenderPass(key);
+
+	RenderPassBegin beginInfo;
+	beginInfo.RenderPass(passSetup->GetRenderPass(CT_Depth | CT_Stencil));
+	beginInfo.RenderArea(0, 0, buffers->GetWidth(), buffers->GetHeight());
+	beginInfo.Framebuffer(buffers->GetFramebuffer(key));
+	beginInfo.AddClearColor(screen->mSceneClearColor[0], screen->mSceneClearColor[1], screen->mSceneClearColor[2], screen->mSceneClearColor[3]);
+	if (key.DrawBuffers > 1)
+		beginInfo.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	if (key.DrawBuffers > 2)
+		beginInfo.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	beginInfo.AddClearDepthStencil(1.0f, 0);
+	beginInfo.Execute(cmdbuffer);
+
+	VkViewport viewport = {};
+	viewport.x = (float)mSceneViewport.left;
+	viewport.y = (float)mSceneViewport.top;
+	viewport.width = (float)mSceneViewport.width;
+	viewport.height = (float)mSceneViewport.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	cmdbuffer->setViewport(0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = mSceneViewport.width;
+	scissor.extent.height = mSceneViewport.height;
+	cmdbuffer->setScissor(0, 1, &scissor);
+
+	cmdbuffer->setStencilReference(VK_STENCIL_FRONT_AND_BACK, 0);
+	cmdbuffer->setDepthBias(0.0f, 0.0f, 0.0f);
+
+	static const FVertexBufferAttribute format[] =
+	{
+		{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(SurfaceVertex, pos.X) },
+		{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(SurfaceVertex, uv.X) },
+		{ 0, VATTR_LIGHTMAP, VFmt_Float3, (int)myoffsetof(SurfaceVertex, lightmap.X) },
+	};
+	int vertexFormatIndex = GetRenderPassManager()->GetVertexFormat(1, 3, sizeof(SurfaceVertex), format);
+	VkBuffer vertexBuffers[2] = { GetRaytrace()->GetVertexBuffer()->buffer, GetRaytrace()->GetVertexBuffer()->buffer };
+	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
+	cmdbuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);
+	cmdbuffer->bindIndexBuffer(GetRaytrace()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+
+	VkPipelineKey pipelineKey;
+	pipelineKey.DrawType = DT_Triangles;
+	pipelineKey.VertexFormat = vertexFormatIndex;
+	pipelineKey.RenderStyle = DefaultRenderStyle();
+	pipelineKey.DepthTest = false;
+	pipelineKey.DepthWrite = false;
+	pipelineKey.DepthFunc = 0;
+	pipelineKey.DepthClamp = false;
+	pipelineKey.DepthBias = false;
+	pipelineKey.StencilTest = false;
+	pipelineKey.StencilPassOp = 0;
+	pipelineKey.ColorMask = 15;
+	pipelineKey.CullMode = 0;
+	pipelineKey.NumTextureLayers = 0;
+	pipelineKey.NumTextureLayers = max(pipelineKey.NumTextureLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS);// Always force minimum 8 textures as the shader requires it
+	pipelineKey.ShaderKey.SpecialEffect = EFF_NONE;
+	pipelineKey.ShaderKey.EffectState = SHADER_NoTexture;
+	pipelineKey.ShaderKey.AlphaTest = false;
+	pipelineKey.ShaderKey.SWLightRadial = true;
+	pipelineKey.ShaderKey.LightMode = 1; // Software
+	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadowmap;
+	pipelineKey.ShaderKey.UseRaytrace = gl_light_raytrace;
+	pipelineKey.ShaderKey.GBufferPass = key.DrawBuffers > 1;
+	pipelineKey.ShaderKey.UseLevelMesh = true;
+
+	VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers);
+
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, passSetup->GetPipeline(pipelineKey));
+
+	auto rsbuffers = GetBufferManager()->GetRSBuffers();
+	memcpy(((char*)rsbuffers->Viewpoint.Data) + rsbuffers->Viewpoint.UploadIndex * rsbuffers->Viewpoint.BlockAlign, &viewpoint, sizeof(HWViewpointUniforms));
+	int viewpointIndex = rsbuffers->Viewpoint.UploadIndex++;
+
+	StreamData streamdata = {};
+	streamdata.uFogColor = 0xffffffff;
+	streamdata.uDesaturationFactor = 0.0f;
+	streamdata.uAlphaThreshold = 0.5f;
+	streamdata.uAddColor = 0;
+	streamdata.uObjectColor = 0xffffffff;
+	streamdata.uObjectColor2 = 0;
+	streamdata.uTextureBlendColor = 0;
+	streamdata.uTextureAddColor = 0;
+	streamdata.uTextureModulateColor = 0;
+	streamdata.uLightDist = 0.0f;
+	streamdata.uLightFactor = 0.0f;
+	streamdata.uFogDensity = 0.0f;
+	streamdata.uLightLevel = 255.0f;// -1.0f;
+	streamdata.uInterpolationFactor = 0;
+	streamdata.uVertexColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	streamdata.uGlowTopColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uGlowBottomColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uGlowTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uGlowBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uGradientTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uGradientBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uSplitTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uSplitBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	streamdata.uDynLightColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	streamdata.uDetailParms = { 0.0f, 0.0f, 0.0f, 0.0f };
+#ifdef NPOT_EMULATION
+	streamdata.uNpotEmulation = { 0,0,0,0 };
+#endif
+
+	rsbuffers->StreamBuffer->Write(streamdata);
+
+	MatricesUBO matrices = {};
+	matrices.ModelMatrix.loadIdentity();
+	matrices.NormalModelMatrix.loadIdentity();
+	matrices.TextureMatrix.loadIdentity();
+	rsbuffers->MatrixBuffer->Write(matrices);
+
+	uint32_t viewpointOffset = viewpointIndex * rsbuffers->Viewpoint.BlockAlign;
+	uint32_t matrixOffset = rsbuffers->MatrixBuffer->Offset();
+	uint32_t streamDataOffset = rsbuffers->StreamBuffer->Offset();
+	uint32_t lightsOffset = 0;
+	uint32_t offsets[4] = { viewpointOffset, matrixOffset, streamDataOffset, lightsOffset };
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedDescriptorSet());
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(), 4, offsets);
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetNullTextureDescriptorSet());
+
+	PushConstants pushConstants = {};
+	pushConstants.uDataIndex = rsbuffers->StreamBuffer->DataIndex();
+	pushConstants.uLightIndex = -1;
+	pushConstants.uBoneIndexBase = -1;
+	cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);
+
+	cmdbuffer->drawIndexed(GetRaytrace()->GetIndexCount(), 1, 0, 0, 0);
+
+	cmdbuffer->endRenderPass();
 }

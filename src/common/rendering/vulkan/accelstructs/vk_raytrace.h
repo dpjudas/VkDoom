@@ -42,6 +42,8 @@ struct SurfaceVertex
 	FVector4 pos;
 	FVector2 uv;
 	float Padding1, Padding2;
+	FVector3 lightmap;
+	float Padding3;
 };
 
 struct PortalInfo
@@ -79,6 +81,8 @@ public:
 	VulkanBuffer* GetSurfaceIndexBuffer() { return SurfaceIndexBuffer.get(); }
 	VulkanBuffer* GetSurfaceBuffer() { return SurfaceBuffer.get(); }
 	VulkanBuffer* GetPortalBuffer() { return PortalBuffer.get(); }
+
+	int GetIndexCount();
 
 private:
 	struct BLAS

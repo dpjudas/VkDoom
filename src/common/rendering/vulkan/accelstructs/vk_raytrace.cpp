@@ -89,6 +89,11 @@ void VkRaytrace::BeginFrame()
 	}
 }
 
+int VkRaytrace::GetIndexCount()
+{
+	return Mesh->StaticMesh->MeshElements.Size();
+}
+
 void VkRaytrace::UploadMeshes(bool dynamicOnly)
 {
 	TArray<SubmeshBufferLocation> locations(2);
@@ -202,7 +207,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 
 		SurfaceVertex* vertices = (SurfaceVertex*)(data + datapos);
 		for (int j = 0, count = submesh->MeshVertices.Size(); j < count; ++j)
-			*(vertices++) = { { submesh->MeshVertices[j], 1.0f }, submesh->MeshVertexUVs[j], float(j), j + 10000.0f };
+			*(vertices++) = { { submesh->MeshVertices[j], 1.0f }, submesh->MeshVertexUVs[j], float(j), j + 10000.0f, FVector3(0.0f, 0.0f, -1.0f), 0.0f};
 
 		size_t copysize = submesh->MeshVertices.Size() * sizeof(SurfaceVertex);
 		if (copysize > 0)

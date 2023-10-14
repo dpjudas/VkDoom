@@ -1,6 +1,10 @@
 
 void main()
 {
+#ifdef USE_LEVELMESH
+	FragColor = vec4(fract(gl_FragCoord.x / 500), fract(gl_FragCoord.x / 500), 1.0, 1.0);
+#else
+
 #ifdef NO_CLIPDISTANCE_SUPPORT
 	if (ClipDistanceA.x < 0 || ClipDistanceA.y < 0 || ClipDistanceA.z < 0 || ClipDistanceA.w < 0 || ClipDistanceB.x < 0) discard;
 #endif
@@ -16,5 +20,7 @@ void main()
 #ifdef GBUFFER_PASS
 	FragFog = vec4(AmbientOcclusionColor(), 1.0);
 	FragNormal = vec4(vEyeNormal.xyz * 0.5 + 0.5, 1.0);
+#endif
+
 #endif
 }
