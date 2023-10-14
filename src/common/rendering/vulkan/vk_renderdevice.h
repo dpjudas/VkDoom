@@ -89,6 +89,8 @@ public:
 
 	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
 
+	void DrawLevelMesh(const FVector3& pos, const VSMatrix& proj) override;
+
 private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
 	void PrintStartupLog();

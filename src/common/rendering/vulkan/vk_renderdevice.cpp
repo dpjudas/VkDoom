@@ -606,3 +606,7 @@ int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmo
 	materialState.mTranslation = translation;
 	return static_cast<VkMaterial*>(material)->GetBindlessIndex(materialState);
 }
+
+void VulkanRenderDevice::DrawLevelMesh(const FVector3& pos, const VSMatrix& proj)
+{
+}

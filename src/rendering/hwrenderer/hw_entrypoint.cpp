@@ -54,6 +54,8 @@
 EXTERN_CVAR(Bool, cl_capfps)
 extern bool NoInterpolateView;
 
+CVAR(Bool, gl_levelmesh, true, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+
 static SWSceneDrawer *swdrawer;
 
 void CleanSWDrawer()
@@ -123,15 +125,47 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		screen->mShadowMap->SetCollectLights(nullptr);
 	}
 
+	// Update the attenuation flag of all light defaults for each viewpoint.
+	// This function will only do something if the setting differs.
+	FLightDefaults::SetAttenuationForLevel(!!(camera->Level->flags3 & LEVEL3_ATTENUATE));
+
+	if (gl_levelmesh)
+	{
+		screen->SetViewportRects(bounds);
+
+		auto vrmode = VRMode::GetVRMode(mainview && toscreen);
+		const int eyeCount = vrmode->mEyeCount;
+		screen->FirstEye();
+
+		FRenderViewpoint vp = mainvp;
+		const auto& eye = vrmode->mEyes[0];
+		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
+
+		screen->DrawLevelMesh(FVector3((float)vp.Pos.X, (float)vp.Pos.Y, (float)vp.Pos.Z), eye.GetProjection(fov, ratio, fovratio));
+
+		PostProcess.Clock();
+		//if (toscreen) di->EndDrawScene(mainvp.sector, RenderState); // do not call this for camera textures.
+
+		if (RenderState.GetPassType() == GBUFFER_PASS) // Turn off ssao draw buffers
+		{
+			RenderState.SetPassType(NORMAL_PASS);
+			RenderState.EnableDrawBuffers(1);
+		}
+
+		auto cm = CM_DEFAULT; // di->SetFullbrightFlags(mainview ? vp.camera->player : nullptr);
+		float flash = 1.f;
+
+		screen->PostProcessScene(false, cm, flash, [&]() { /* di->DrawEndScene2D(mainvp.sector, RenderState); */ });
+		PostProcess.Unclock();
+
+		return mainvp.sector;
+	}
+
 	static HWDrawContext mainthread_drawctx;
 
 	hw_ClearFakeFlat(&mainthread_drawctx);
 
 	meshcache.Update(&mainthread_drawctx, mainvp);
-
-	// Update the attenuation flag of all light defaults for each viewpoint.
-	// This function will only do something if the setting differs.
-	FLightDefaults::SetAttenuationForLevel(!!(camera->Level->flags3 & LEVEL3_ATTENUATE));
 
 	// Render (potentially) multiple views for stereo 3d
 	// Fixme. The view offsetting should be done with a static table and not require setup of the entire render state for the mode.

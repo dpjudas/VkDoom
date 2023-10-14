@@ -225,6 +225,8 @@ public:
 
 	virtual void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) { if (afterBloomDrawEndScene2D) afterBloomDrawEndScene2D(); }
 
+	virtual void DrawLevelMesh(const FVector3& pos, const VSMatrix& proj) { }
+
 	void ScaleCoordsFromWindow(int16_t &x, int16_t &y);
 
 	virtual void Draw2D() {}
