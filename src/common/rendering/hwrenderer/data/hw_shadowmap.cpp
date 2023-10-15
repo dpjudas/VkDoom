@@ -59,9 +59,6 @@ cycle_t ShadowMap::UpdateCycles;
 int ShadowMap::LightsProcessed;
 int ShadowMap::LightsShadowmapped;
 
-CVAR(Bool, gl_light_shadowmap, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Bool, gl_light_raytrace, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-
 ADD_STAT(shadowmap)
 {
 	FString out;
@@ -69,24 +66,9 @@ ADD_STAT(shadowmap)
 	return out;
 }
 
-CUSTOM_CVAR(Int, gl_shadowmap_quality, 512, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-{
-	switch (self)
-	{
-	case 128:
-	case 256:
-	case 512:
-	case 1024:
-		break;
-	default:
-		self = 128;
-		break;
-	}
-}
-
 bool ShadowMap::ShadowTest(const DVector3 &lpos, const DVector3 &pos)
 {
-	if (mAABBTree && gl_light_shadowmap)
+	if (mAABBTree && gl_light_shadows > 0)
 		return mAABBTree->RayTest(lpos, pos) >= 1.0f;
 	else
 		return true;

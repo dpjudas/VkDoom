@@ -128,8 +128,28 @@ CUSTOM_CVARD(Int, gl_texture_filter, 6, CVAR_ARCHIVE|CVAR_GLOBALCONFIG|CVAR_NOIN
 
 CVAR(Bool, gl_precache, true, CVAR_ARCHIVE)
 
+CUSTOM_CVAR(Int, gl_light_shadows, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+{
+	if (self < 0 || self > 3)
+		self = 1;
+}
 
-CUSTOM_CVAR(Int, gl_shadowmap_filter, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CUSTOM_CVAR(Int, gl_light_shadow_filter, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 {
 	if (self < 0 || self > 8) self = 1;
+}
+
+CUSTOM_CVAR(Int, gl_shadowmap_quality, 512, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+{
+	switch (self)
+	{
+	case 128:
+	case 256:
+	case 512:
+	case 1024:
+		break;
+	default:
+		self = 128;
+		break;
+	}
 }

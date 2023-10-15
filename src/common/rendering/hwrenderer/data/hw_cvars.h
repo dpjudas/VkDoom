@@ -14,8 +14,8 @@ EXTERN_CVAR(Int, gl_weaponlight)
 
 EXTERN_CVAR (Bool, gl_light_sprites);
 EXTERN_CVAR (Bool, gl_light_particles);
-EXTERN_CVAR (Bool, gl_light_shadowmap);
-EXTERN_CVAR (Bool, gl_light_raytrace);
+EXTERN_CVAR (Int, gl_light_shadows);
+EXTERN_CVAR (Int, gl_light_shadow_filter);
 EXTERN_CVAR (Int, gl_shadowmap_quality);
 
 EXTERN_CVAR(Int, gl_fogmode)
@@ -49,8 +49,6 @@ EXTERN_CVAR(Float, gl_ssao_blur_amount)
 
 EXTERN_CVAR(Int, gl_debug_level)
 EXTERN_CVAR(Bool, gl_debug_breakpoint)
-
-EXTERN_CVAR(Int, gl_shadowmap_filter)
 
 EXTERN_CVAR(Bool, gl_brightfog)
 EXTERN_CVAR(Bool, gl_lightadditivesurfaces)

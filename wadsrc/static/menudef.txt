@@ -1069,9 +1069,9 @@ OptionMenu "LightOptions" protected
 	Option "$GLLIGHTMNU_LIGHTSPRITES",			gl_light_sprites,		"YesNo"
 	Option "$GLLIGHTMNU_LIGHTPARTICLES",		gl_light_particles,		"YesNo"
 	StaticText " "
-	Option "$GLLIGHTMNU_LIGHTSHADOWMAP",		gl_light_shadowmap,		"YesNo"
+	Option "$GLLIGHTMNU_LIGHTSHADOWS",			gl_light_shadows,		"ShadowMode"
+	Option "$GLLIGHTMNU_LIGHTSHADOWFILTER", 	gl_light_shadow_filter,	"ShadowFilter"
 	Option "$GLLIGHTMNU_LIGHTSHADOWMAPQUALITY", gl_shadowmap_quality,	"ShadowMapQuality"
-	Option "$GLLIGHTMNU_LIGHTSHADOWMAPFILTER", 	gl_shadowmap_filter,	"ShadowMapFilter"
 	StaticText " "
 	Option "$GLPREFMNU_SWLMBANDED",				gl_bandedswlight,				"OnOff"
 	Option "$GLPREFMNU_FOGFORCEFULLBRIGHT",		gl_brightfog,					"YesNo"
@@ -2686,7 +2686,14 @@ OptionValue ShadowMapQuality
 	1024, "1024"
 }
 
-OptionValue ShadowMapFilter
+OptionValue ShadowMode
+{
+	0, "$OPTVAL_NONE"
+	1, "$OPTVAL_SHADOWMAP"
+	2, "$OPTVAL_RAYTRACE"
+}
+
+OptionValue ShadowFilter
 {
 	0, "$OPTVAL_NEAREST"
 	1, "$OPTVAL_PCF_LOW"
