@@ -66,7 +66,7 @@ PClass *DefaultOptionMenuClass;
 
 void I_BuildALDeviceList(FOptionValues *opt);
 void I_BuildALResamplersList(FOptionValues *opt);
-
+void I_BuildVKDeviceList(FOptionValues *opt);
 
 
 DEFINE_GLOBAL_NAMED(OptionSettings, OptionMenuSettings)
@@ -1681,6 +1681,11 @@ void M_CreateMenus()
 	if (opt != nullptr)
 	{
 		I_BuildALResamplersList(*opt);
+	}
+	opt = OptionValues.CheckKey(NAME_Vkdevices);
+	if (opt != nullptr)
+	{
+		I_BuildVKDeviceList(*opt);
 	}
 }
 

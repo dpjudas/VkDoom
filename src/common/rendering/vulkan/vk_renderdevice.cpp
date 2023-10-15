@@ -62,6 +62,7 @@
 #include <zvulkan/vulkancompatibledevice.h>
 #include "engineerrors.h"
 #include "c_dispatch.h"
+#include "menu.h"
 
 FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames, int maxFrames = -1);
 
@@ -94,6 +95,16 @@ CCMD(vk_listdevices)
 	for (size_t i = 0; i < SupportedDevices.size(); i++)
 	{
 		Printf("#%d - %s\n", (int)i, SupportedDevices[i].Device->Properties.Properties.deviceName);
+	}
+}
+
+void I_BuildVKDeviceList(FOptionValues* opt)
+{
+	for (size_t i = 0; i < SupportedDevices.size(); i++)
+	{
+		unsigned int idx = opt->mValues.Reserve(1);
+		opt->mValues[idx].Value = (double)i;
+		opt->mValues[idx].Text = SupportedDevices[i].Device->Properties.Properties.deviceName;
 	}
 }
 

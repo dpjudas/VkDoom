@@ -2388,6 +2388,10 @@ OptionValue MaxFps
 	200, "$OPTVAL_200FPS"
 }
 
+OptionString VKDevices
+{
+	// filled in by the display code
+}
 
 OptionMenu VideoModeMenu protected
 {
@@ -2405,10 +2409,8 @@ OptionMenu VideoModeMenu protected
 
 	StaticText " "
 	Option "$DSPLYMNU_CAPFPS",					"cl_capfps", "OffOn"
-
-
-	StaticText " "
-//	Option "$VKMNU_HDR",				"vk_hdr", "OnOff"
+	Option "$VKMNU_HDR",				"vk_hdr", "OnOff"
+	Option "$VKMNU_DEVICE",		"vk_device",		"VKDevices"
 	
 	StaticText ""
 	StaticText "$VIDMNU_CUSTOMRES"
@@ -2421,10 +2423,6 @@ OptionMenu VideoModeMenu protected
 	StaticText ""
 
 	SubMenu "$VIDMNU_RESPRESET", CustomResolutionMenu
-
-	StaticText ""
-	Option "$VIDMNU_PREFERBACKEND",		"vid_preferbackend", "PreferBackend"
-	TextField "$VKMNU_DEVICE",			vk_device
 }
 
 OptionMenu CustomResolutionMenu protected

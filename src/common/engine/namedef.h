@@ -260,6 +260,8 @@ xx(Mididevices)
 xx(Aldevices)
 xx(Alresamplers)
 
+xx(Vkdevices)
+
 // Decorate compatibility functions
 xx(BuiltinRandom)
 xx(BuiltinRandom2)
