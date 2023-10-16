@@ -989,8 +989,9 @@ void VkLightmap::CreateCopyPipeline()
 		.Create(fb->GetDevice());
 
 	copy.descriptorPool = DescriptorPoolBuilder()
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256)
-		.MaxSets(256)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1)
+		.MaxSets(1)
 		.DebugName("copy.descriptorPool")
 		.Create(fb->GetDevice());
 
