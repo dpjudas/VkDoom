@@ -132,7 +132,7 @@ void VkLightmap::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
 	{
 		LevelMeshSurface* surface = surfaces[i];
 
-		if (!surface->needsUpdate)
+		if (!surface->NeedsUpdate)
 			continue;
 
 		// Only grab surfaces until our bake texture is full
@@ -148,7 +148,7 @@ void VkLightmap::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
 			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(selected.X + surface->AtlasTile.Width + spacing));
 			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(selected.Y + surface->AtlasTile.Height + spacing));
 
-			surface->needsUpdate = false;
+			surface->NeedsUpdate = false;
 		}
 	}
 }
@@ -272,7 +272,7 @@ void VkLightmap::Render()
 		{
 			while (i < count)
 			{
-				selectedSurfaces[i].Surface->needsUpdate = true;
+				selectedSurfaces[i].Surface->NeedsUpdate = true;
 				i++;
 			}
 			break;

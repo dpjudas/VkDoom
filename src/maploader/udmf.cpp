@@ -2061,6 +2061,10 @@ public:
 					sec->planes[sector_t::ceiling].LightmapSampleDistance = CheckInt(key);
 					break;
 
+				case NAME_lm_dynamic:
+					Flag(sec->Flags, SECF_LM_DYNAMIC, key);
+					continue;
+
 				default:
 					if (strnicmp("user_", key.GetChars(), 5))
 						DPrintf(DMSG_WARNING, "Unknown UDMF sector key %s\n", key.GetChars());

@@ -421,7 +421,7 @@ void HWDrawInfo::UpdateLightmaps()
 	{
 		for (auto& e : static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->Surfaces)
 		{
-			if (e.needsUpdate && !e.bSky && !e.portalIndex)
+			if (e.NeedsUpdate && !e.bSky && !e.portalIndex)
 			{
 				VisibleSurfaces.Push(&e);
 

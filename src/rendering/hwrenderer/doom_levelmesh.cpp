@@ -72,9 +72,9 @@ CCMD(invalidatelightmap)
 	int count = 0;
 	for (auto& surface : static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->Surfaces)
 	{
-		if (!surface.needsUpdate)
+		if (!surface.NeedsUpdate)
 			++count;
-		surface.needsUpdate = true;
+		surface.NeedsUpdate = true;
 	}
 	Printf("Marked %d out of %d surfaces for update.\n", count, level.levelMesh->StaticMesh->GetSurfaceCount());
 }
@@ -89,7 +89,8 @@ void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
 	Printf("    Atlas page: %d, x:%d, y:%d\n", surface->AtlasTile.ArrayIndex, surface->AtlasTile.X, surface->AtlasTile.Y);
 	Printf("    Pixels: %dx%d (area: %d)\n", surface->AtlasTile.Width, surface->AtlasTile.Height, surface->Area());
 	Printf("    Sample dimension: %d\n", surface->sampleDimension);
-	Printf("    Needs update?: %d\n", surface->needsUpdate);
+	Printf("    Needs update?: %d\n", surface->NeedsUpdate);
+	Printf("    Always update?: %d\n", surface->AlwaysUpdate);
 	Printf("    Sector group: %d\n", surface->sectorGroup);
 	Printf("    Texture: '%s' (id=%d)\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>", surface->texture.GetIndex());
 	Printf("    Alpha: %f\n", surface->alpha);
@@ -673,6 +674,7 @@ void DoomLevelSubmesh::CreateLinePortalSurface(FLevelLocals& doomMap, side_t* si
 
 	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
 	surf.sectorGroup = sectorGroup[front->Index()];
+	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1Bottom, v2Top, v2Bottom);
 
@@ -768,6 +770,7 @@ void DoomLevelSubmesh::CreateLineHorizonSurface(FLevelLocals& doomMap, side_t* s
 
 	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
 	surf.sectorGroup = sectorGroup[front->Index()];
+	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1Bottom, v2Top, v2Bottom);
 
@@ -821,6 +824,7 @@ void DoomLevelSubmesh::CreateFrontWallSurface(FLevelLocals& doomMap, side_t* sid
 	surf.ControlSector = nullptr;
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.texture = side->textures[side_t::mid].texture;
+	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1Bottom, v2Top, v2Bottom);
 
@@ -911,6 +915,7 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.texture = texture;
 	surf.alpha = float(side->linedef->alpha);
+	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 	SetSideTextureUVs(surf, side, side_t::top, verts[2].Z, verts[0].Z, verts[3].Z, verts[1].Z);
 
@@ -980,6 +985,7 @@ void DoomLevelSubmesh::Create3DFloorWallSurfaces(FLevelLocals& doomMap, side_t* 
 		surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
 		surf.sectorGroup = sectorGroup[front->Index()];
 		surf.texture = side->textures[side_t::mid].texture;
+		surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 		SetSideTextureUVs(surf, side, side_t::top, tlZ, blZ, trZ, brZ);
 
@@ -1031,6 +1037,7 @@ void DoomLevelSubmesh::CreateTopWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.ControlSector = nullptr;
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.texture = side->textures[side_t::top].texture;
+	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1TopBack, v2Top, v2TopBack);
 
@@ -1080,6 +1087,7 @@ void DoomLevelSubmesh::CreateBottomWallSurface(FLevelLocals& doomMap, side_t* si
 	surf.ControlSector = nullptr;
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.texture = side->textures[side_t::bottom].texture;
+	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 	SetSideTextureUVs(surf, side, side_t::bottom, v1BottomBack, v1Bottom, v2BottomBack, v2Bottom);
 
@@ -1175,6 +1183,7 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 	surf.ControlSector = controlSector;
 	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
 	surf.sectorGroup = sectorGroup[sector->Index()];
+	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
 
 	Surfaces.Push(surf);
 }
@@ -1230,6 +1239,7 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 	surf.ControlSector = controlSector;
 	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
 	surf.sectorGroup = sectorGroup[sector->Index()];
+	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
 
 	Surfaces.Push(surf);
 }

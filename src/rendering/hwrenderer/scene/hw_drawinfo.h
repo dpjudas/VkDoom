@@ -210,16 +210,16 @@ struct HWDrawInfo
 			return;
 		}
 
-		if (lm_always_update)
+		if (lm_always_update || surface->AlwaysUpdate)
 		{
-			surface->needsUpdate = true;
+			surface->NeedsUpdate = true;
 		}
 		else if (VisibleSurfaces.Size() >= unsigned(lm_max_updates))
 		{
 			return;
 		}
 
-		if (surface->needsUpdate && !surface->portalIndex && !surface->bSky)
+		if (surface->NeedsUpdate && !surface->portalIndex && !surface->bSky)
 		{
 			VisibleSurfaces.Push(surface);
 		}

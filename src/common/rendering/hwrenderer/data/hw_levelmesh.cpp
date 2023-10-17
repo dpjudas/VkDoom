@@ -103,7 +103,7 @@ void LevelSubmesh::GatherSurfacePixelStats(LevelMeshSurfaceStats& stats)
 
 		stats.pixels.total += area;
 
-		if (surface->needsUpdate)
+		if (surface->NeedsUpdate)
 		{
 			stats.surfaces.dirty++;
 			stats.pixels.dirty += area;

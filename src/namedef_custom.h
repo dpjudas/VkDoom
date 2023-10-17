@@ -856,5 +856,6 @@ xx(lm_sampledist_bot)
 xx(lm_sampledist_floor)
 xx(lm_sampledist_ceiling)
 xx(lm_suncolor)
+xx(lm_dynamic)
 
 xx(Corona)

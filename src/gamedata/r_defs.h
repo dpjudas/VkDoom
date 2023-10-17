@@ -511,6 +511,7 @@ enum
 	SECF_EXIT1			= 4096,
 	SECF_EXIT2			= 8192,
 	SECF_KILLMONSTERS	= 16384,
+	SECF_LM_DYNAMIC		= 32768, // Lightmap needs to be dynamically updated in this sector
 
 	SECF_WASSECRET		= 1 << 30,	// a secret that was discovered
 	SECF_SECRET			= 1 << 31,	// a secret sector

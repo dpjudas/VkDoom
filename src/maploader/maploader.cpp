@@ -3118,7 +3118,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 	for (auto& surface : submesh->Surfaces)
 	{
-		surface.needsUpdate = false; // let's consider everything valid until we make a mistake trying to change this surface
+		surface.NeedsUpdate = false; // let's consider everything valid until we make a mistake trying to change this surface
 
 		if (surface.Type > ST_UNKNOWN && surface.Type <= ST_FLOOR)
 		{
@@ -3309,7 +3309,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 			{
 				Printf("Can't map lightmap surface %d pixels[%u] -> ((x:%d, y:%d), (x2:%d, y2:%d), page:%d)\n", index, srcPixelOffset, dstX, dstY, dstX + surface.width, dstY + surface.height, dstPage);
 			}
-			realSurface.needsUpdate = true;
+			realSurface.NeedsUpdate = true;
 			continue;
 		}
 
@@ -3320,7 +3320,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 			{
 				Printf("Surface size mismatch: Attempting to remap %dx%d to %dx%d pixel area.\n", surface.width, surface.height, realSurface.AtlasTile.Width, realSurface.AtlasTile.Height);
 			}
-			realSurface.needsUpdate = true;
+			realSurface.NeedsUpdate = true;
 			continue;
 		}
 
@@ -3392,7 +3392,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		int loadedSurfaces = 0;
 		for (auto& surface : submesh->Surfaces)
 		{
-			if (!surface.needsUpdate)
+			if (!surface.NeedsUpdate)
 			{
 				loadedSurfaces++;
 			}

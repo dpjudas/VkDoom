@@ -53,7 +53,8 @@ struct LevelMeshSurface
 	} AtlasTile;
 
 	// True if the surface needs to be rendered into the lightmap texture before it can be used
-	bool needsUpdate = true;
+	bool NeedsUpdate = true;
+	bool AlwaysUpdate = false;
 
 	FTextureID texture = FNullTextureID();
 	float alpha = 1.0;
