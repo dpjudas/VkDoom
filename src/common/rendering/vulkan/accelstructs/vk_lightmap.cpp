@@ -126,7 +126,7 @@ void VkLightmap::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
 	selectedSurfaces.Clear();
 
 	const int spacing = 5; // Note: the spacing is here to avoid that the resolve sampler finds data from other surface tiles
-	RectPacker packer(bakeImageSize - 2, bakeImageSize - 2, RectPacker::Spacing(spacing));
+	RectPacker packer(bakeImageSize - spacing, bakeImageSize - spacing, RectPacker::Spacing(spacing));
 
 	for (int i = 0, count = surfaces.Size(); i < count; i++)
 	{
