@@ -783,7 +783,7 @@ void VkLightmap::CreateRaytracePipeline()
 	{
 		raytrace.descriptorPool1 = DescriptorPoolBuilder()
 			.AddPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1)
-			.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1)
+			.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2)
 			.MaxSets(1)
 			.DebugName("raytrace.descriptorPool1")
 			.Create(fb->GetDevice());
