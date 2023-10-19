@@ -88,10 +88,6 @@ FString VkPPShader::CreateUniformBlockDecl(const char* name, const std::vector<U
 	{
 		layout = "push_constant";
 	}
-	else if (screen->glslversion < 4.20)
-	{
-		layout = "std140";
-	}
 	else
 	{
 		layout.Format("std140, binding = %d", bindingpoint);

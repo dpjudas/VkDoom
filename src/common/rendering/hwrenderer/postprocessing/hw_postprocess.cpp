@@ -389,7 +389,7 @@ void PPFXAA::Render(PPRenderState *renderstate)
 
 int PPFXAA::GetMaxVersion()
 {
-	return screen->glslversion >= 4.f ? 400 : 330;
+	return 460;
 }
 
 void PPFXAA::CreateShaders()

@@ -336,7 +336,7 @@ public:
 	void CreateSkyboxVertices(FFlatVertex *buffer);
 	void SetupLights(HWDrawInfo *di, FRenderState& state, FLightNode *head, FDynLightData &lightdata, int portalgroup);
 
-	void PutFlat(HWDrawInfo *di, FRenderState& state, bool fog = false);
+	void PutFlat(HWDrawInfo *di, bool fog = false);
 	void Process(HWDrawInfo *di, FRenderState& state, sector_t * model, int whichplane, bool notexture);
 	void SetFrom3DFloor(F3DFloor *rover, bool top, bool underside);
 	void ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * frontsector, int which = 7 /*SSRF_RENDERALL*/);	// cannot use constant due to circular dependencies.

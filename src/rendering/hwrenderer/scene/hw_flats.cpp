@@ -201,7 +201,7 @@ void HWFlat::SetupLights(HWDrawInfo *di, FRenderState& state, FLightNode * node,
 
 void HWFlat::DrawSubsectors(HWDrawInfo *di, FRenderState &state)
 {
-	if (di->Level->HasDynamicLights && screen->BuffersArePersistent() && !di->isFullbrightScene())
+	if (di->Level->HasDynamicLights && !di->isFullbrightScene())
 	{
 		SetupLights(di, state, section->lighthead, lightdata, sector->PortalGroup);
 	}
@@ -390,18 +390,11 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 //
 //==========================================================================
 
-inline void HWFlat::PutFlat(HWDrawInfo *di, FRenderState& state, bool fog)
+inline void HWFlat::PutFlat(HWDrawInfo *di, bool fog)
 {
 	if (di->isFullbrightScene())
 	{
 		Colormap.Clear();
-	}
-	else if (!screen->BuffersArePersistent())
-	{
-		if (di->Level->HasDynamicLights && texture != nullptr && !di->isFullbrightScene() && !(hacktype & (SSRF_PLANEHACK|SSRF_FLOODHACK)) )
-		{
-			SetupLights(di, state, section->lighthead, lightdata, sector->PortalGroup);
-		}
 	}
 	di->AddFlat(this, fog);
 }
@@ -447,7 +440,7 @@ void HWFlat::Process(HWDrawInfo *di, FRenderState& state, sector_t * model, int 
 	}
 
 	// For hacks this won't go into a render list.
-	PutFlat(di, state, fog);
+	PutFlat(di, fog);
 	rendered_flats++;
 }
 

@@ -274,11 +274,8 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 		{
 			state.SetNormal(0, 0, 0);
 
+			CreateVertices(di, state);
 
-			if (screen->BuffersArePersistent())
-			{
-				CreateVertices(di, state);
-			}
 			if (polyoffset)
 			{
 				state.SetDepthBias(-1, -128);
@@ -557,10 +554,6 @@ inline void HWSprite::PutSprite(HWDrawInfo *di, FRenderState& state, bool transl
 		dynlightindex = -1;
 
 	vertexindex = -1;
-	if (!screen->BuffersArePersistent())
-	{
-		CreateVertices(di, state);
-	}
 	di->AddSprite(this, translucent);
 }
 
@@ -1266,18 +1259,7 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 	if (thing->Sector->e->XFloor.lightlist.Size() != 0 && !di->isFullbrightScene() && !fullbright &&
 		RenderStyle.BlendOp != STYLEOP_Shadow && RenderStyle.BlendOp != STYLEOP_RevSub)
 	{
-		if (screen->hwcaps & RFL_NO_CLIP_PLANES)	// on old hardware we are rather limited...
-		{
-			lightlist = nullptr;
-			if (!drawWithXYBillboard && !modelframe)
-			{
-				SplitSprite(di, state, thing->Sector, hw_styleflags != STYLEHW_Solid);
-			}
-		}
-		else
-		{
-			lightlist = &thing->Sector->e->XFloor.lightlist;
-		}
+		lightlist = &thing->Sector->e->XFloor.lightlist;
 	}
 	else
 	{

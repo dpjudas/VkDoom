@@ -56,22 +56,6 @@ class FMaterial;
 class FGameTexture;
 class FRenderState;
 
-enum EHWCaps
-{
-	// [BB] Added texture compression flags.
-	RFL_TEXTURE_COMPRESSION = 1,
-	RFL_TEXTURE_COMPRESSION_S3TC = 2,
-
-	RFL_SHADER_STORAGE_BUFFER = 4,
-	RFL_BUFFER_STORAGE = 8,
-
-	RFL_NO_CLIP_PLANES = 32,
-
-	RFL_INVALIDATE_BUFFER = 64,
-	RFL_DEBUG = 128,
-};
-
-
 extern int DisplayWidth, DisplayHeight;
 
 void V_UpdateModeSize (int width, int height);
@@ -128,8 +112,6 @@ private:
 
 public:
 	// Hardware render state that needs to be exposed to the API independent part of the renderer. For ease of access this is stored in the base class.
-	int hwcaps = 0;								// Capability flags
-	float glslversion = 0;						// This is here so that the differences between old OpenGL and new OpenGL/Vulkan can be handled by platform independent code.
 	int instack[2] = { 0,0 };					// this is globally maintained state for portal recursion avoidance.
 	int stencilValue = 0;						// Global stencil test value
 	unsigned int uniformblockalignment = 256;	// Hardware dependent uniform buffer alignment.
@@ -157,20 +139,6 @@ public:
 	virtual bool CompileNextShader() { return true; }
 	virtual void SetLevelMesh(LevelMesh *mesh) { }
 	virtual void UpdateLightmaps(const TArray<LevelMeshSurface*>& surfaces) {}
-	bool allowSSBO() const
-	{
-#ifndef HW_BLOCK_SSBO
-		return true;
-#else
-		return mPipelineType == 0;
-#endif
-	}
-
-	// SSBOs have quite worse performance for read only data, so keep this around only as long as Vulkan has not been adapted yet.
-	bool useSSBO() 
-	{
-		return IsVulkan();
-	}
 
 	virtual DCanvas* GetCanvas() { return nullptr; }
 
@@ -224,7 +192,6 @@ public:
     // Interface to hardware rendering resources
 	virtual IBuffer* CreateVertexBuffer(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute* attrs) { return nullptr; }
 	virtual IBuffer* CreateIndexBuffer() { return nullptr; }
-	bool BuffersArePersistent() { return !!(hwcaps & RFL_BUFFER_STORAGE); }
 
 	// This is overridable in case Vulkan does it differently.
 	virtual bool RenderTextureIsFlipped() const

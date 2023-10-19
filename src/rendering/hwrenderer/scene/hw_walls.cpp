@@ -339,14 +339,11 @@ void HWWall::RenderTranslucentWall(HWDrawInfo*di, FRenderState &state)
 //==========================================================================
 void HWWall::DrawWall(HWDrawInfo*di, FRenderState &state, bool translucent)
 {
-	if (screen->BuffersArePersistent())
+	if (di->Level->HasDynamicLights && !di->isFullbrightScene() && texture != nullptr)
 	{
-		if (di->Level->HasDynamicLights && !di->isFullbrightScene() && texture != nullptr)
-		{
-			SetupLights(di, state, lightdata);
-		}
-		MakeVertices(di, state, !!(flags & HWWall::HWF_TRANSLUCENT));
+		SetupLights(di, state, lightdata);
 	}
+	MakeVertices(di, state, !!(flags & HWWall::HWF_TRANSLUCENT));
 
 	state.SetNormal(glseg.Normal());
 	if (!translucent)
@@ -527,17 +524,6 @@ void HWWall::PutWall(HWWallDispatcher *di, FRenderState& state, bool translucent
 			flags &= ~HWF_GLOW;
 		}
 
-		if (!screen->BuffersArePersistent())
-		{
-			if (ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
-			{
-				SetupLights(ddi, state, lightdata);
-			}
-			MakeVertices(ddi, state, translucent);
-		}
-
-
-
 		bool solid;
 		if (passflag[type] == 1) solid = true;
 		else if (type == RENDERWALL_FFBLOCK) solid = texture && !texture->isMasked();
@@ -547,12 +533,9 @@ void HWWall::PutWall(HWWallDispatcher *di, FRenderState& state, bool translucent
 		if (hasDecals)
 		{
 			// If we want to use the light infos for the decal we cannot delay the creation until the render pass.
-			if (screen->BuffersArePersistent())
+			if (ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
 			{
-				if (ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
-				{
-					SetupLights(ddi, state, lightdata);
-				}
+				SetupLights(ddi, state, lightdata);
 			}
 			ProcessDecals(ddi, state);
 		}
@@ -867,19 +850,10 @@ void HWWall::SplitWall(HWWallDispatcher *di, FRenderState& state, sector_t * fro
 				(maplightbottomleft<zbottom[0] && maplightbottomright>zbottom[1]) ||
 				(maplightbottomleft > zbottom[0] && maplightbottomright < zbottom[1]))
 			{
-				if (!(screen->hwcaps & RFL_NO_CLIP_PLANES))
-				{
-					// Use hardware clipping if this cannot be done cleanly.
-					this->lightlist = &lightlist;
-					PutWall(di, state, translucent);
-
-					goto out;
-				}
-				// crappy fallback if no clip planes available
-				else if (SplitWallComplex(di, state, frontsector, translucent, maplightbottomleft, maplightbottomright))
-				{
-					goto out;
-				}
+				// Use hardware clipping if this cannot be done cleanly.
+				this->lightlist = &lightlist;
+				PutWall(di, state, translucent);
+				goto out;
 			}
 
 			// 3D floor is completely within this light
