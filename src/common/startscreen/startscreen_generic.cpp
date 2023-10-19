@@ -107,11 +107,11 @@ bool FGenericStartScreen::DoProgress(int advance)
 	if (CurPos < MaxPos)
 	{
 		RgbQuad bcolor = { 2, 25, 87, 255 }; // todo: make configurable
-		int numnotches = 100 * 2;
+		int numnotches = 200 * 2;
 		notch_pos = ((CurPos + 1) * numnotches) / MaxPos;
 		if (notch_pos != NotchPos)
 		{ // Time to draw another notch.
-			ClearBlock(StartupBitmap, bcolor, (320 - 50) * 2, 250 * 2, notch_pos, 4 * 2);
+			ClearBlock(StartupBitmap, bcolor, (320 - 100) * 2, 480 * 2 - 30, notch_pos, 4 * 2);
 			NotchPos = notch_pos;
 			StartupTexture->CleanHardwareData(true);
 		}

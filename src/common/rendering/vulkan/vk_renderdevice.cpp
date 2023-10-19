@@ -73,6 +73,7 @@ EXTERN_CVAR(Bool, cl_capfps)
 
 // Physical device info
 static std::vector<VulkanCompatibleDevice> SupportedDevices;
+int vkversion;
 
 CUSTOM_CVAR(Bool, vk_debug, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
 {
@@ -524,6 +525,7 @@ void VulkanRenderDevice::PrintStartupLog()
 	FString apiVersion, driverVersion;
 	apiVersion.Format("%d.%d.%d", VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion), VK_VERSION_PATCH(props.apiVersion));
 	driverVersion.Format("%d.%d.%d", VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion), VK_VERSION_PATCH(props.driverVersion));
+	vkversion = VK_API_VERSION_MAJOR(props.apiVersion) * 100 + VK_API_VERSION_MINOR(props.apiVersion);
 
 	Printf("Vulkan device: " TEXTCOLOR_ORANGE "%s\n", props.deviceName);
 	Printf("Vulkan device type: %s\n", deviceType.GetChars());
