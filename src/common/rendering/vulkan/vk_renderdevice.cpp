@@ -63,6 +63,7 @@
 #include "engineerrors.h"
 #include "c_dispatch.h"
 #include "menu.h"
+#include "cmdlib.h"
 
 FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames, int maxFrames = -1);
 
@@ -684,8 +685,8 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	pipelineKey.ShaderKey.AlphaTest = false;
 	pipelineKey.ShaderKey.SWLightRadial = true;
 	pipelineKey.ShaderKey.LightMode = 1; // Software
-	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadowmap;
-	pipelineKey.ShaderKey.UseRaytrace = gl_light_raytrace;
+	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
+	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
 	pipelineKey.ShaderKey.GBufferPass = key.DrawBuffers > 1;
 	pipelineKey.ShaderKey.UseLevelMesh = true;
 
