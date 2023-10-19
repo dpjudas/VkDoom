@@ -57,7 +57,7 @@ EXTERN_CVAR(Bool, gl_bandedswlight)
 
 extern bool NoInterpolateView;
 
-CVAR(Bool, gl_levelmesh, true, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+CVAR(Bool, gl_levelmesh, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
 static SWSceneDrawer *swdrawer;
 
