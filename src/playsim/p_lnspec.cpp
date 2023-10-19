@@ -175,7 +175,7 @@ FUNC(LS_Polyobj_MoveToSpot)
 	auto iterator = Level->GetActorIterator(arg2);
 	AActor *spot = iterator.Next();
 	if (spot == NULL) return false;
-	return EV_MovePolyTo (Level, ln, arg0, SPEED(arg1), spot->Pos(), false);
+	return EV_MovePolyTo (Level, ln, arg0, SPEED(arg1), spot->Pos().XY(), false);
 }
 
 FUNC(LS_Polyobj_DoorSwing)
@@ -226,7 +226,7 @@ FUNC(LS_Polyobj_OR_MoveToSpot)
 	auto iterator = Level->GetActorIterator(arg2);
 	AActor *spot = iterator.Next();
 	if (spot == NULL) return false;
-	return EV_MovePolyTo (Level, ln, arg0, SPEED(arg1), spot->Pos(), true);
+	return EV_MovePolyTo (Level, ln, arg0, SPEED(arg1), spot->Pos().XY(), true);
 }
 
 FUNC(LS_Polyobj_Stop)
@@ -941,6 +941,13 @@ FUNC(LS_Generic_Crusher2)
 						 SPEED(arg2), 0, arg4, arg3 ? 2 : 0, 0, DCeiling::ECrushMode::crushHexen);
 }
 
+FUNC(LS_Generic_CrusherDist)
+// Generic_CrusherDist (tag, dnspeed, upspeed, silent, damage)
+{
+	return Level->EV_DoCeiling(DCeiling::ceilCrushAndRaise, ln, arg0, SPEED(arg1),
+		SPEED(arg2), 8, arg4, arg3 ? 2 : 0, 0, (arg1 <= 24 && arg2 <= 24) ? DCeiling::ECrushMode::crushSlowdown : DCeiling::ECrushMode::crushDoom);
+}
+
 FUNC(LS_Plat_PerpetualRaise)
 // Plat_PerpetualRaise (tag, speed, delay)
 {
@@ -1075,7 +1082,7 @@ FUNC(LS_Generic_Lift)
 FUNC(LS_Exit_Normal)
 // Exit_Normal (position)
 {
-	if (Level->CheckIfExitIsGood (it, FindLevelInfo(Level->NextMap)))
+	if (Level->CheckIfExitIsGood (it, FindLevelInfo(Level->NextMap.GetChars())))
 	{
 		Level->ExitLevel (arg0, false);
 		return true;
@@ -1103,7 +1110,7 @@ FUNC(LS_Teleport_NewMap)
 
 		if (info && Level->CheckIfExitIsGood (it, info))
 		{
-			Level->ChangeLevel(info->MapName, arg1, arg2 ? CHANGELEVEL_KEEPFACING : 0);
+			Level->ChangeLevel(info->MapName.GetChars(), arg1, arg2 ? CHANGELEVEL_KEEPFACING : 0);
 			return true;
 		}
 	}
@@ -1921,11 +1928,11 @@ FUNC(LS_ACS_Execute)
 
 	if (arg1 == 0)
 	{
-		mapname = Level->MapName;
+		mapname = Level->MapName.GetChars();
 	}
 	else if ((info = FindLevelByNum(arg1)) != NULL)
 	{
-		mapname = info->MapName;
+		mapname = info->MapName.GetChars();
 	}
 	else
 	{
@@ -1944,11 +1951,11 @@ FUNC(LS_ACS_ExecuteAlways)
 
 	if (arg1 == 0)
 	{
-		mapname = Level->MapName;
+		mapname = Level->MapName.GetChars();
 	}
 	else if ((info = FindLevelByNum(arg1)) != NULL)
 	{
-		mapname = info->MapName;
+		mapname = info->MapName.GetChars();
 	}
 	else
 	{
@@ -1984,7 +1991,7 @@ FUNC(LS_ACS_ExecuteWithResult)
 	int args[4] = { arg1, arg2, arg3, arg4 };
 	int flags = (backSide ? ACS_BACKSIDE : 0) | ACS_ALWAYS | ACS_WANTRESULT;
 
-	return P_StartScript (Level, it, ln, arg0, Level->MapName, args, 4, flags);
+	return P_StartScript (Level, it, ln, arg0, Level->MapName.GetChars(), args, 4, flags);
 }
 
 FUNC(LS_ACS_Suspend)
@@ -1993,9 +2000,9 @@ FUNC(LS_ACS_Suspend)
 	level_info_t *info;
 
 	if (arg1 == 0)
-		P_SuspendScript (Level, arg0, Level->MapName);
+		P_SuspendScript (Level, arg0, Level->MapName.GetChars());
 	else if ((info = FindLevelByNum (arg1)) )
-		P_SuspendScript (Level, arg0, info->MapName);
+		P_SuspendScript (Level, arg0, info->MapName.GetChars());
 
 	return true;
 }
@@ -2006,9 +2013,9 @@ FUNC(LS_ACS_Terminate)
 	level_info_t *info;
 
 	if (arg1 == 0)
-		P_TerminateScript (Level, arg0, Level->MapName);
+		P_TerminateScript (Level, arg0, Level->MapName.GetChars());
 	else if ((info = FindLevelByNum (arg1)) )
-		P_TerminateScript (Level, arg0, info->MapName);
+		P_TerminateScript (Level, arg0, info->MapName.GetChars());
 
 	return true;
 }
@@ -3251,7 +3258,7 @@ FUNC(LS_SendToCommunicator)
 			// Get the message from the LANGUAGE lump.
 			FString msg;
 			msg.Format("TXT_COMM%d", arg2);
-			const char *str = GStrings[msg];
+			const char *str = GStrings[msg.GetChars()];
 			if (str != NULL)
 			{
 				Printf (PRINT_CHAT, "%s\n", str);
@@ -3863,6 +3870,7 @@ static lnSpecFunc LineSpecials[] =
 	/* 281 */ LS_Line_SetAutomapFlags,
 	/* 282 */ LS_Line_SetAutomapStyle,
 	/* 283 */ LS_Polyobj_StopSound,
+	/* 284 */ LS_Generic_CrusherDist
 };
 
 #define DEFINE_SPECIAL(name, num, min, max, mmax) {#name, num, min, max, mmax},

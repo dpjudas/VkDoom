@@ -51,15 +51,15 @@ class FQOITexture : public FImageSource
 {
 public:
 	FQOITexture(int lumpnum, QOIHeader& header);
-	PalettedPixels CreatePalettedPixels(int conversion) override;
-	int CopyPixels(FBitmap *bmp, int conversion) override;
+	PalettedPixels CreatePalettedPixels(int conversion, int frame = 0) override;
+	int CopyPixels(FBitmap *bmp, int conversion, int frame = 0) override;
 };
 
 FImageSource *QOIImage_TryCreate(FileReader &file, int lumpnum)
 {
 	QOIHeader header;
 
-	if (file.GetLength() < (sizeof(header) + 8))
+	if ((size_t)file.GetLength() < (sizeof(header) + 8))
 	{
 		return nullptr;
 	}
@@ -86,10 +86,10 @@ FQOITexture::FQOITexture(int lumpnum, QOIHeader& header)
 	LeftOffset = TopOffset = 0;
 	Width = header.width;
 	Height = header.height;
-	if (header.channels == 3) bMasked = bTranslucent = false;
+	if (header.channels == 3) bMasked = (bTranslucent = false);
 }
 
-PalettedPixels FQOITexture::CreatePalettedPixels(int conversion)
+PalettedPixels FQOITexture::CreatePalettedPixels(int conversion, int frame)
 {
 	FBitmap bitmap;
 	bitmap.Create(Width, Height);
@@ -124,7 +124,7 @@ PalettedPixels FQOITexture::CreatePalettedPixels(int conversion)
 	return Pixels;
 }
 
-int FQOITexture::CopyPixels(FBitmap *bmp, int conversion)
+int FQOITexture::CopyPixels(FBitmap *bmp, int conversion, int frame)
 {
 	enum
 	{
@@ -140,15 +140,15 @@ int FQOITexture::CopyPixels(FBitmap *bmp, int conversion)
 
 	constexpr auto QOI_COLOR_HASH = [](PalEntry C) { return (C.r * 3 + C.g * 5 + C.b * 7 + C.a * 11); };
 
-	auto lump = fileSystem.OpenFileReader(SourceLump);
-	auto bytes = lump.Read();
-	if (bytes.Size() < 22) return 0;	// error
+	auto lump = fileSystem.ReadFile(SourceLump);
+	if (lump.GetSize() < 22) return 0;	// error
 	PalEntry index[64] = {};
 	PalEntry pe = 0xff000000;
 
 	size_t p = 14, run = 0;
 
-	size_t chunks_len = bytes.Size() - 8;
+	size_t chunks_len = lump.GetSize() - 8;
+	auto bytes = lump.GetBytes();
 
 	for (int h = 0; h < Height; h++)
 	{

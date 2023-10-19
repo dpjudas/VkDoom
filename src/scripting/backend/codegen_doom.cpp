@@ -92,7 +92,7 @@ static FxExpression *CustomTypeCast(FxTypeCast *func, FCompileContext &ctx)
 				delete func;
 				return nullptr;
 			}
-			FxExpression *x = new FxMultiNameState(s, basex->ScriptPosition);
+			FxExpression *x = new FxMultiNameState(s.GetChars(), basex->ScriptPosition);
 			x = x->Resolve(ctx);
 			basex = nullptr;
 			delete func;
@@ -309,7 +309,8 @@ static bool UnravelVarArgAJump(FxVMFunctionCall *func, FCompileContext &ctx)
 static bool AJumpProcessing(FxVMFunctionCall *func, FCompileContext &ctx)
 {
 	// Unfortunately the PrintableName is the only safe thing to catch this special case here.
-	if (stricmp(func->Function->Variants[0].Implementation->QualifiedName, "Actor.A_Jump") == 0)
+    // [RL0] It's not valid to access Variant::Implementation on function pointer calls, so skip this
+	if (!func->FnPtrCall && stricmp(func->Function->Variants[0].Implementation->QualifiedName, "Actor.A_Jump") == 0)
 	{
 		// Unravel the varargs part of this function here so that the VM->native interface does not have to deal with it anymore.
 		if (func->ArgList.Size() > 2)
@@ -811,10 +812,10 @@ FxMultiNameState::FxMultiNameState(const char *_statestring, const FScriptPositi
 
 	if (scopeindex >= 0)
 	{
-		scopename = FName(statestring, scopeindex, false);
+		scopename = FName(statestring.GetChars(), scopeindex, false);
 		statestring = statestring.Right((ptrdiff_t)statestring.Len() - scopeindex - 2);
 	}
-	names = MakeStateNameList(statestring);
+	names = MakeStateNameList(statestring.GetChars());
 	names.Insert(0, scopename);
 	scope = checkclass;
 }

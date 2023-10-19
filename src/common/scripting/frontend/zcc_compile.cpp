@@ -57,6 +57,13 @@ double GetFloatConst(FxExpression *ex, FCompileContext &ctx)
 	return ex ? static_cast<FxConstant*>(ex)->GetValue().GetFloat() : 0;
 }
 
+VMFunction* GetFuncConst(FxExpression* ex, FCompileContext& ctx)
+{
+	ex = new FxTypeCast(ex, TypeVMFunction, false);
+	ex = ex->Resolve(ctx);
+	return static_cast<VMFunction*>(ex ? static_cast<FxConstant*>(ex)->GetValue().GetPointer() : nullptr);
+}
+
 const char * ZCCCompiler::GetStringConst(FxExpression *ex, FCompileContext &ctx)
 {
 	ex = new FxStringCast(ex);
@@ -452,6 +459,11 @@ void ZCCCompiler::ProcessStruct(ZCC_Struct *cnode, PSymbolTreeNode *treenode, ZC
 			}
 			break;
 
+		case AST_FlagDef:
+			cls->FlagDefs.Push(static_cast<ZCC_FlagDef*>(node));
+			break;
+
+
 		default:
 			assert(0 && "Unhandled AST node type");
 			break;
@@ -662,7 +674,7 @@ void ZCCCompiler::MessageV(ZCC_TreeNode *node, const char *txtcolor, const char 
 	composed.Format("%s%s, line %d: ", txtcolor, node->SourceName->GetChars(), node->SourceLoc);
 	composed.VAppendFormat(msg, argptr);
 	composed += '\n';
-	PrintString(PRINT_HIGH, composed);
+	PrintString(PRINT_HIGH, composed.GetChars());
 }
 
 //==========================================================================
@@ -792,8 +804,14 @@ void ZCCCompiler::CreateClassTypes()
 			PClass *parent;
 			auto ParentName = c->cls->ParentName;
 
-			if (ParentName != nullptr && ParentName->SiblingNext == ParentName) parent = PClass::FindClass(ParentName->Id);
-			else if (ParentName == nullptr) parent = RUNTIME_CLASS(DObject);
+			if (ParentName != nullptr && ParentName->SiblingNext == ParentName)
+			{
+				parent = PClass::FindClass(ParentName->Id);
+			}
+			else if (ParentName == nullptr)
+			{
+				parent = RUNTIME_CLASS(DObject);
+			}
 			else
 			{
 				// The parent is a dotted name which the type system currently does not handle.
@@ -813,6 +831,15 @@ void ZCCCompiler::CreateClassTypes()
 
 			if (parent != nullptr && (parent->VMType != nullptr || c->NodeName() == NAME_Object))
 			{
+				if(parent->bFinal)
+				{
+					Error(c->cls, "Class '%s' cannot extend final class '%s'", FName(c->NodeName()).GetChars(), parent->TypeName.GetChars());
+				}
+				else if(parent->bSealed && !parent->SealedRestriction.Contains(c->NodeName()))
+				{
+					Error(c->cls, "Class '%s' cannot extend sealed class '%s'", FName(c->NodeName()).GetChars(), parent->TypeName.GetChars());
+				}
+
 				// The parent exists, we may create a type for this class
 				if (c->cls->Flags & ZCC_Native)
 				{
@@ -873,6 +900,25 @@ void ZCCCompiler::CreateClassTypes()
 				if (c->cls->Flags & ZCC_Version)
 				{
 					c->Type()->mVersion = c->cls->Version;
+				}
+				
+
+				if (c->cls->Flags & ZCC_Final)
+				{
+					c->ClassType()->bFinal = true;
+				}
+
+				if (c->cls->Flags & ZCC_Sealed)
+				{
+					PClass * ccls = c->ClassType();
+					ccls->bSealed = true;
+					ZCC_Identifier * it = c->cls->Sealed;
+					if(it) do
+					{
+						ccls->SealedRestriction.Push(FName(it->Id));
+						it = (ZCC_Identifier*) it->SiblingNext;
+					}
+					while(it != c->cls->Sealed);
 				}
 				// 
 				if (mVersion >= MakeVersion(2, 4, 0))
@@ -1866,18 +1912,16 @@ PType *ZCCCompiler::DetermineType(PType *outertype, ZCC_TreeNode *field, FName n
 		auto keytype = DetermineType(outertype, field, name, mtype->KeyType, false, false);
 		auto valuetype = DetermineType(outertype, field, name, mtype->ValueType, false, false);
 
-		if (keytype->GetRegType() == REGT_INT)
+		if (keytype->GetRegType() != REGT_STRING && !(keytype->GetRegType() == REGT_INT && keytype->Size == 4))
 		{
-			if (keytype->Size != 4)
+			if(name != NAME_None)
+			{
+				Error(field, "%s : Map<%s , ...> not implemented yet", name.GetChars(), keytype->DescriptiveName());
+			}
+			else
 			{
 				Error(field, "Map<%s , ...> not implemented yet", keytype->DescriptiveName());
-				break;
 			}
-		}
-		else if (keytype->GetRegType() != REGT_STRING)
-		{
-			Error(field, "Map<%s , ...> not implemented yet", keytype->DescriptiveName());
-			break;
 		}
 
 		switch(valuetype->GetRegType())
@@ -1888,14 +1932,20 @@ PType *ZCCCompiler::DetermineType(PType *outertype, ZCC_TreeNode *field, FName n
 		case REGT_POINTER:
 			if (valuetype->GetRegCount() > 1)
 			{
-				Error(field, "%s : Base type for map value types must be integral, but got %s", name.GetChars(), valuetype->DescriptiveName());
+			default:
+				if(name != NAME_None)
+				{
+					Error(field, "%s : Base type for map value types must be integral, but got %s", name.GetChars(), valuetype->DescriptiveName());
+				}
+				else
+				{
+					Error(field, "Base type for map value types must be integral, but got %s", valuetype->DescriptiveName());
+				}
 				break;
 			}
 
 			retval = NewMap(keytype, valuetype);
 			break;
-		default:
-			Error(field, "%s: Base type for map value types must be integral, but got %s", name.GetChars(), valuetype->DescriptiveName());
 		}
 
 		break;
@@ -1913,16 +1963,16 @@ PType *ZCCCompiler::DetermineType(PType *outertype, ZCC_TreeNode *field, FName n
 		auto keytype = DetermineType(outertype, field, name, mtype->KeyType, false, false);
 		auto valuetype = DetermineType(outertype, field, name, mtype->ValueType, false, false);
 
-		if (keytype->GetRegType() == REGT_INT)
+		if (keytype->GetRegType() != REGT_STRING && !(keytype->GetRegType() == REGT_INT && keytype->Size == 4))
 		{
-			if (keytype->Size != 4)
+			if(name != NAME_None)
+			{
+				Error(field, "%s : MapIterator<%s , ...> not implemented yet", name.GetChars(), keytype->DescriptiveName());
+			}
+			else
 			{
 				Error(field, "MapIterator<%s , ...> not implemented yet", keytype->DescriptiveName());
 			}
-		}
-		else if (keytype->GetRegType() != REGT_STRING)
-		{
-			Error(field, "MapIterator<%s , ...> not implemented yet", keytype->DescriptiveName());
 		}
 
 		switch(valuetype->GetRegType())
@@ -1933,13 +1983,19 @@ PType *ZCCCompiler::DetermineType(PType *outertype, ZCC_TreeNode *field, FName n
 		case REGT_POINTER:
 			if (valuetype->GetRegCount() > 1)
 			{
-				Error(field, "%s : Base type for map value types must be integral, but got %s", name.GetChars(), valuetype->DescriptiveName());
+			default:
+				if(name != NAME_None)
+				{
+					Error(field, "%s : Base type for map value types must be integral, but got %s", name.GetChars(), valuetype->DescriptiveName());
+				}
+				else
+				{
+					Error(field, "Base type for map value types must be integral, but got %s", valuetype->DescriptiveName());
+				}
 				break;
 			}
 			retval = NewMapIterator(keytype, valuetype);
 			break;
-		default:
-			Error(field, "%s: Base type for map value types must be integral, but got %s", name.GetChars(), valuetype->DescriptiveName());
 		}
 		break;
 	}
@@ -1965,6 +2021,52 @@ PType *ZCCCompiler::DetermineType(PType *outertype, ZCC_TreeNode *field, FName n
 		else
 		{
 			retval = NewDynArray(ftype);
+		}
+		break;
+	}
+	case AST_FuncPtrType:
+	{
+		auto fn = static_cast<ZCC_FuncPtrType*>(ztype);
+
+		if(fn->Scope == -1)
+		{	// Function<void>
+			retval = NewFunctionPointer(nullptr, {}, -1);
+		}
+		else
+		{
+			TArray<PType*> returns;
+			TArray<PType*> args;
+			TArray<uint32_t> argflags;
+
+			if(auto *t = fn->RetType; t != nullptr) do {
+				returns.Push(DetermineType(outertype, field, name, t, false, false));
+			} while( (t = (ZCC_Type *)t->SiblingNext) != fn->RetType);
+			
+			if(auto *t = fn->Params; t != nullptr) do {
+				args.Push(DetermineType(outertype, field, name, t->Type, false, false));
+				argflags.Push(t->Flags == ZCC_Out ? VARF_Out : 0);
+			} while( (t = (ZCC_FuncPtrParamDecl *) t->SiblingNext) != fn->Params);
+			
+			auto proto = NewPrototype(returns,args);
+			switch(fn->Scope)
+			{ // only play/ui/clearscope functions are allowed, no data or virtual scope functions
+			case ZCC_Play:
+				fn->Scope = FScopeBarrier::Side_Play;
+				break;
+			case ZCC_UIFlag:
+				fn->Scope = FScopeBarrier::Side_UI;
+				break;
+			case ZCC_ClearScope:
+				fn->Scope = FScopeBarrier::Side_PlainData;
+				break;
+			case 0:
+				fn->Scope = -1;
+				break;
+			default:
+				Error(field, "Invalid Scope for Function Pointer");
+				break;
+			}
+			retval = NewFunctionPointer(proto, std::move(argflags), fn->Scope);
 		}
 		break;
 	}
@@ -2242,6 +2344,11 @@ void ZCCCompiler::CompileFunction(ZCC_StructWork *c, ZCC_FuncDeclarator *f, bool
 				else if (type->isDynArray())
 				{
 					Error(f, "The return type of a function cannot be a dynamic array");
+					break;
+				}
+				else if (type->isMap())
+				{
+					Error(f, "The return type of a function cannot be a map");
 					break;
 				}
 				else if (type == TypeFVector2)
@@ -2929,6 +3036,17 @@ FxExpression *ZCCCompiler::ConvertNode(ZCC_TreeNode *ast, bool substitute)
 			return new FxNop(*ast);	// return something so that the compiler can continue.
 		}
 		return new FxClassPtrCast(cls, ConvertNode(cc->Parameters));
+	}
+
+	case AST_FunctionPtrCast:
+	{
+		auto cast = static_cast<ZCC_FunctionPtrCast *>(ast);
+
+		auto type = DetermineType(ConvertClass, cast, NAME_None, cast->PtrType, false, false);
+		assert(type->isFunctionPointer());
+		auto ptrType = static_cast<PFunctionPointer*>(type);
+
+		return new FxFunctionPtrCast(ptrType, ConvertNode(cast->Expr));
 	}
 
 	case AST_StaticArrayStatement:

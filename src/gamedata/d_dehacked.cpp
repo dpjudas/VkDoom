@@ -97,6 +97,7 @@ static TArray<int> OrgHeights;
 // disappear, but that doesn't explain why frame patches specify an exact
 // state rather than a code pointer.)
 static TArray<int> CodePConv;
+static bool dsdhacked = false;
 
 // Sprite names in the order Doom originally had them.
 struct DEHSprName
@@ -104,6 +105,8 @@ struct DEHSprName
 	char c[5];
 };
 static TArray<DEHSprName> OrgSprNames;
+size_t OrgSprOrgSize;
+static TMap<FState*, int> stateSprites;
 
 struct StateMapper
 {
@@ -121,6 +124,91 @@ static TArray<FSoundID> SoundMap;
 
 // Names of different actor types, in original Doom 2 order
 static TArray<PClassActor *> InfoNames;
+
+static PClassActor* FindInfoName(int index, bool mustexist = false)
+{
+	if (index < 0) return nullptr;
+	if (index < (int)InfoNames.Size()) return InfoNames[index];
+
+	if (dsdhacked)
+	{
+		FStringf name("~Dsdhacked~%d", index);
+		auto cls = PClass::FindActor(name);
+		if (!mustexist)
+		{
+			cls = static_cast<PClassActor*>(RUNTIME_CLASS(AActor)->CreateDerivedClass(name.GetChars(), (unsigned)sizeof(AActor)));
+			NewClassType(cls, -1);	// This needs a VM type to work as intended.
+			cls->InitializeDefaults();
+		}
+		if (cls)
+		{
+			GetDefaultByType(cls)->flags8 |= MF8_RETARGETAFTERSLAM; // This flag is not a ZDoom default, but it must be a Dehacked default.
+			return cls;
+		}
+	}
+	return nullptr;
+}
+
+static FSoundID DehFindSound(int index,bool mustexist = false)
+{
+	if (index < 0) return NO_SOUND;
+	if (index < (int) SoundMap.Size()) return SoundMap[index];
+	FStringf name("~dsdhacked/#%d", index);
+	if (dsdhacked && !mustexist) return soundEngine->FindSoundTentative(name.GetChars());
+	return NO_SOUND;
+}
+
+static void ReplaceSoundName(int index, const char* newname)
+{
+	// This must physically replace the sound's lump name in the sound record.
+	auto snd = DehFindSound(index-1);
+	if (snd == NO_SOUND) return;
+	auto sfx = soundEngine->GetWritableSfx(snd);
+	FStringf dsname("ds%s", newname);
+	sfx->lumpnum = fileSystem.CheckNumForName(dsname.GetChars(), FileSys::ns_sounds);
+	sfx->bTentative = false;
+	sfx->bRandomHeader = false;
+	sfx->bLoadRAW = false;
+	sfx->b16bit = false;
+	sfx->bUsed = false;
+	sfx->UserData[0] = 0;
+}
+
+void RemapAllSprites()
+{
+	TMap<FState*, int>::Iterator it(stateSprites);
+	TMap<FState*, int>::Pair *pair;
+	
+	while (it.NextPair(pair))
+	{
+		int frameNum = 0; // Hmmm...
+		auto info = pair->Key;
+		int val = pair->Value;
+		unsigned int i;
+		
+		if (val >= 0 && val < (int)OrgSprNames.Size())
+		{
+			for (i = 0; i < sprites.Size(); i++)
+			{
+				if (memcmp (OrgSprNames[val].c, sprites[i].name, 4) == 0)
+				{
+					info->sprite = (int)i;
+					break;
+				}
+			}
+			if (i == sprites.Size ())
+			{
+				Printf ("Frame %d: Sprite %d (%s) is undefined\n",
+						frameNum, val, OrgSprNames[val].c);
+			}
+		}
+		else
+		{
+			Printf ("Frame %d: Sprite %d out of range\n", frameNum, val);
+		}
+	}
+	stateSprites.Clear();
+}
 
 // bit flags for PatchThing (a .bex extension):
 struct BitName
@@ -150,7 +238,7 @@ struct MBFArgs
 	int argsused;
 };
 static TMap<FState*, MBFArgs> stateargs;
-static FState* FindState(int statenum);
+static FState* FindState(int statenum, bool mustexist = false);
 
 // DeHackEd trickery to support MBF-style parameters
 // List of states that are hacked to use a codepointer
@@ -163,10 +251,8 @@ struct MBFParamState
 
 	PClassActor* GetTypeArg(int i)
 	{
-		PClassActor* type = nullptr;
 		int num = (int)args[i];
-		if (num > 0 && num < int(InfoNames.Size())) type = InfoNames[num-1];	// Dehacked is 1-based.
-		return type;
+		return FindInfoName(num-1, true);
 	}
 
 	FState* GetStateArg(int i)
@@ -181,11 +267,10 @@ struct MBFParamState
 		return argsused & (1 << i)? (int)args[i] : def;
 	}
 
-	int GetSoundArg(int i, int def = 0)
+	FSoundID GetSoundArg(int i, int def = 0)
 	{
 		int num = argsused & (1 << i) ? (int)args[i] : def;
-		if (num > 0 && num <= int(SoundMap.Size())) return SoundMap[num-1].index();
-		return 0;
+		return DehFindSound(num-1);
 	}
 
 	double GetFloatArg(int i, double def = 0)
@@ -373,6 +458,8 @@ static int PatchPars (int);
 static int PatchCodePtrs (int);
 static int PatchMusic (int);
 static int DoInclude (int);
+static int PatchSpriteNames(int);
+static int PatchSoundNames(int);
 static bool DoDehPatch();
 
 static const struct {
@@ -396,6 +483,8 @@ static const struct {
 	{ "[PARS]",		PatchPars },
 	{ "[CODEPTR]",	PatchCodePtrs },
 	{ "[MUSIC]",	PatchMusic },
+	{ "[SPRITES]",	PatchSpriteNames },
+	{ "[SOUNDS]",	PatchSoundNames },
 	{ NULL, NULL },
 };
 
@@ -456,19 +545,19 @@ static int FindSprite (const char *sprname)
 	return f == UnchangedSpriteNames.Size() ? -1 : f;
 }
 
-static FState *FindState (int statenum)
+static FState *FindState (int statenum, bool mustexist)
 {
 	int stateacc;
 	unsigned i;
 
-	if (statenum == 0)
+	if (statenum <= 0)
 		return NULL;
 
 	for (i = 0, stateacc = 1; i < StateMap.Size(); i++)
 	{
 		if (stateacc <= statenum && stateacc + StateMap[i].StateSpan > statenum)
 		{
-			if (StateMap[i].State != NULL)
+			if (StateMap[i].State != nullptr)
 			{
 				if (StateMap[i].OwnerIsPickup)
 				{
@@ -476,11 +565,28 @@ static FState *FindState (int statenum)
 				}
 				return StateMap[i].State + statenum - stateacc;
 			}
-			else return NULL;
+			else break;
 		}
 		stateacc += StateMap[i].StateSpan;
 	}
-	return NULL;
+	if (dsdhacked)
+	{
+		auto p = dehExtStates.CheckKey(statenum);
+		if (p) return *p;
+		if (!mustexist)
+		{
+			auto state = (FState*)ClassDataAllocator.Alloc(sizeof(FState));
+			dehExtStates.Insert(statenum, state);
+			memset(state, 0, sizeof(*state));
+			state->Tics = -1;
+			state->NextState = state;
+			state->DehIndex = statenum;
+			state->UseFlags = SUF_ACTOR | SUF_OVERLAY | SUF_WEAPON | SUF_ITEM; 
+			return state;
+		}
+
+	}
+	return nullptr;
 }
 
 int FindStyle (const char *namestr)
@@ -694,11 +800,12 @@ static void CreateMushroomFunc(FunctionCallEmitter &emitters, int value1, int va
 // misc1 = type (arg +0), misc2 = Z-pos (arg +2)
 static void CreateSpawnFunc(FunctionCallEmitter &emitters, int value1, int value2, MBFParamState* state)
 { // A_SpawnItem
-	if (InfoNames[value1-1] == nullptr)
+	auto p = FindInfoName(value1 - 1, true);
+	if (p == nullptr)
 	{
 		I_Error("No class found for dehackednum %d!\n", value1+1);
 	}
-	emitters.AddParameterPointerConst(InfoNames[value1-1]);	// itemtype
+	emitters.AddParameterPointerConst(p);	// itemtype
 	emitters.AddParameterFloatConst(0);						// distance
 	emitters.AddParameterFloatConst(value2);				// height
 	emitters.AddParameterIntConst(0);						// useammo
@@ -724,7 +831,7 @@ static void CreateFaceFunc(FunctionCallEmitter &emitters, int value1, int value2
 static void CreateScratchFunc(FunctionCallEmitter &emitters, int value1, int value2, MBFParamState* state)
 { // A_CustomMeleeAttack
 	emitters.AddParameterIntConst(value1);								// damage
-	emitters.AddParameterIntConst(value2 ? (int)SoundMap[value2 - 1].index() : 0);	// hit sound
+	emitters.AddParameterIntConst(DehFindSound(value2 - 1, true).index());		// hit sound
 	emitters.AddParameterIntConst(0);									// miss sound
 	emitters.AddParameterIntConst(NAME_None);							// damage type
 	emitters.AddParameterIntConst(true);								// bleed
@@ -733,7 +840,7 @@ static void CreateScratchFunc(FunctionCallEmitter &emitters, int value1, int val
 // misc1 = sound, misc2 = attenuation none (true) or normal (false)
 static void CreatePlaySoundFunc(FunctionCallEmitter &emitters, int value1, int value2, MBFParamState* state)
 { // A_PlaySound
-	emitters.AddParameterIntConst(value1 ? (int)SoundMap[value1 - 1].index() : 0);	// soundid
+	emitters.AddParameterIntConst(DehFindSound(value1 - 1, true).index());		// soundid
 	emitters.AddParameterIntConst(CHAN_BODY);							// channel
 	emitters.AddParameterFloatConst(1);									// volume
 	emitters.AddParameterIntConst(false);								// looping
@@ -745,7 +852,7 @@ static void CreatePlaySoundFunc(FunctionCallEmitter &emitters, int value1, int v
 // misc1 = state, misc2 = probability
 static void CreateRandomJumpFunc(FunctionCallEmitter &emitters, int value1, int value2, MBFParamState* state)
 { // A_Jump
-	auto symlabel = StateLabels.AddPointer(FindState(value1));
+	auto symlabel = StateLabels.AddPointer(FindState(value1, true));
 
 	emitters.AddParameterIntConst(value2);					// maxchance
 	emitters.AddParameterIntConst(symlabel);				// jumpto
@@ -802,7 +909,7 @@ static void CreateMonsterMeleeAttackFunc(FunctionCallEmitter &emitters, int valu
 	state->ValidateArgCount(4, "A_MonsterMeleeAttack");
 	emitters.AddParameterIntConst(state->GetIntArg(0, 3));
 	emitters.AddParameterIntConst(state->GetIntArg(1, 8));
-	emitters.AddParameterIntConst(state->GetSoundArg(2, 0));
+	emitters.AddParameterIntConst(state->GetSoundArg(2, 0).index());
 	emitters.AddParameterFloatConst(state->GetFloatArg(3));
 
 }
@@ -818,7 +925,7 @@ static void CreateHealChaseFunc(FunctionCallEmitter &emitters, int value1, int v
 {
 	state->ValidateArgCount(2, "A_HealChase");
 	emitters.AddParameterPointerConst(state->GetStateArg(0));
-	emitters.AddParameterIntConst(state->GetSoundArg(1));
+	emitters.AddParameterIntConst(state->GetSoundArg(1).index());
 }
 
 static void CreateSeekTracerFunc(FunctionCallEmitter &emitters, int value1, int value2, MBFParamState* state)
@@ -890,14 +997,14 @@ static void CreateWeaponMeleeAttackFunc(FunctionCallEmitter &emitters, int value
 	emitters.AddParameterIntConst(state->GetIntArg(0, 2));
 	emitters.AddParameterIntConst(state->GetIntArg(1, 10));
 	emitters.AddParameterFloatConst(state->GetFloatArg(2, 1));
-	emitters.AddParameterIntConst(state->GetSoundArg(3));
+	emitters.AddParameterIntConst(state->GetSoundArg(3).index());
 	emitters.AddParameterFloatConst(state->GetFloatArg(4));
 }
 
 static void CreateWeaponSoundFunc(FunctionCallEmitter &emitters, int value1, int value2, MBFParamState* state)
 {
 	state->ValidateArgCount(2, "A_WeaponSound");
-	emitters.AddParameterIntConst(state->GetSoundArg(0));
+	emitters.AddParameterIntConst(state->GetSoundArg(0).index());
 	emitters.AddParameterIntConst(state->GetIntArg(1));
 }
 
@@ -965,11 +1072,6 @@ static void SetDehParams(FState *state, int codepointer, VMDisassemblyDumper &di
 	
 	bool returnsState = codepointer == 6;
 	
-	// Fakey fake script position thingamajig. Because NULL cannot be used instead.
-	// Even if the lump was parsed by an FScanner, there would hardly be a way to
-	// identify which line is troublesome.
-	FScriptPosition *pos = new FScriptPosition(FString("DEHACKED"), 0);
-	
 	// Let's identify the codepointer we're dealing with.
 	PFunction *sym;
 	sym = dyn_cast<PFunction>(PClass::FindActor(NAME_Weapon)->FindSymbol(FName(MBFCodePointers[codepointer].name), true));
@@ -1016,7 +1118,7 @@ static void SetDehParams(FState *state, int codepointer, VMDisassemblyDumper &di
 		sfunc->NumArgs = numargs;
 		sfunc->ImplicitArgs = numargs;
 		state->SetAction(sfunc);
-		sfunc->PrintableName = ClassDataAllocator.Strdup(FStringf("Dehacked.%s.%d.%d", MBFCodePointers[codepointer].name.GetChars(), value1, value2));
+		sfunc->PrintableName = ClassDataAllocator.Strdup(FStringf("Dehacked.%s.%d.%d", MBFCodePointers[codepointer].name.GetChars(), value1, value2).GetChars());
 
 		disasmdump.Write(sfunc, sfunc->PrintableName);
 
@@ -1051,7 +1153,7 @@ static const struct DehFlags2 deh_mobjflags_mbf21[] = {
   {"RANGEHALF",      [](AActor* defaults) { defaults->flags4 |= MF4_MISSILEMORE; }}, // use half distance for missile attack probability
   {"NOTHRESHOLD",    [](AActor* defaults) { defaults->flags4 |= MF4_QUICKTORETALIATE; }}, // no targeting threshold
   {"LONGMELEE",      [](AActor* defaults) { defaults->meleethreshold = 196; }}, // long melee range
-  {"BOSS",           [](AActor* defaults) { defaults->flags2 |= MF2_BOSS; }}, // full volume see / death sound + splash immunity
+  {"BOSS",           [](AActor* defaults) { defaults->flags2 |= MF2_BOSS; defaults->flags3 |= MF3_NORADIUSDMG; }}, // full volume see / death sound + splash immunity
   {"MAP07BOSS1",     [](AActor* defaults) { defaults->flags8 |= MF8_MAP07BOSS1; }}, // Tag 666 "boss" on doom 2 map 7
   {"MAP07BOSS2",     [](AActor* defaults) { defaults->flags8 |= MF8_MAP07BOSS2; }}, // Tag 667 "boss" on doom 2 map 7
   {"E1M8BOSS",       [](AActor* defaults) { defaults->flags8 |= MF8_E1M8BOSS; }}, // E1M8 boss
@@ -1108,29 +1210,17 @@ static int PatchThing (int thingy)
 	type = NULL;
 	info = (AActor *)&dummy;
 	ednum = &dummyed;
-	if (thingy > (int)InfoNames.Size() || thingy <= 0)
+	auto thingytype = FindInfoName(thingy-1);
+	if (thingytype == nullptr)
 	{
-		Printf ("Thing %d out of range.\n", thingy);
+		Printf ("Thing %d out of range or invalid.\n", thingy);
 	}
 	else
 	{
 		DPrintf (DMSG_SPAMMY, "Thing %d\n", thingy);
-		if (thingy > 0)
-		{
-			type = InfoNames[thingy - 1];
-			if (type == NULL)
-			{
-				info = (AActor *)&dummy;
-				ednum = &dummyed;
-				// An error for the name has already been printed while loading DEHSUPP.
-				Printf ("Could not find thing %d\n", thingy);
-			}
-			else
-			{
-				info = GetDefaultByType (type);
-				ednum = &type->ActorInfo()->DoomEdNum;
-			}
-		}
+		type = thingytype;
+		info = GetDefaultByType (type);
+		ednum = &type->ActorInfo()->DoomEdNum;
 	}
 
 	oldflags = info->flags;
@@ -1264,13 +1354,13 @@ static int PatchThing (int thingy)
 		}
 		else if (linelen == 12 && stricmp(Line1, "dropped item") == 0)
 		{
-			val--;	// This is 1-based and 0 means 'no drop'.
-			if ((unsigned)val < InfoNames.Size())
+			auto drop = FindInfoName(val - 1);
+			if (drop)
 			{
 				FDropItem* di = (FDropItem*)ClassDataAllocator.Alloc(sizeof(FDropItem));
 
 				di->Next = nullptr;
-				di->Name = InfoNames[val]->TypeName.GetChars();
+				di->Name = drop->TypeName;
 				di->Probability = 255;
 				di->Amount = -1;
 				info->GetInfo()->DropItems = di;
@@ -1310,7 +1400,7 @@ static int PatchThing (int thingy)
 			{
 				if (IsNum(strval))
 				{
-					value |= (unsigned long)strtoll(strval, NULL, 10);
+					value |= (uint32_t)strtoll(strval, NULL, 10);
 					vchanged = true;
 				}
 				else
@@ -1386,9 +1476,9 @@ static int PatchThing (int thingy)
 			}
 			else if (stricmp (Line1 + linelen - 6, " sound") == 0)
 			{
-				FSoundID snd = NO_SOUND;
+				FSoundID snd = DehFindSound(val - 1);
 				
-				if (val == 0 || val >= SoundMap.Size())
+				if (snd == NO_SOUND) // This won't trigger for dsdhacked patches!
 				{
 					if (endptr == Line2)
 					{ // Sound was not a (valid) number,
@@ -1396,10 +1486,6 @@ static int PatchThing (int thingy)
 						stripwhite (Line2);
 						snd = S_FindSound(Line2);
 					}
-				}
-				else
-				{
-					snd = SoundMap[val-1];
 				}
 
 				if (!strnicmp (Line1, "Alert", 5))
@@ -1440,7 +1526,7 @@ static int PatchThing (int thingy)
 				{
 					if (IsNum (strval))
 					{
-						value[0] |= (unsigned long)strtoll(strval, NULL, 10);
+						value[0] |= (uint32_t)strtoll(strval, NULL, 10);
 						vchanged[0] = true;
 					}
 					else
@@ -1540,6 +1626,11 @@ static int PatchThing (int thingy)
 						// TRANSLUCENT (which occupies in Boom the MF_ICECORPSE slot)
 						value[0] &= ~MF_TRANSLUCENT; // clean the slot
 						vchanged[2] = true; value[2] |= 2; // let the TRANSLUCxx code below handle it
+					}
+					if (value[0] & MF_MISSILE)
+					{
+						// all missiles in Doom are NOTELEPORT, the other flags are for consistency.
+						info->flags2 |= MF2_IMPACT | MF2_PCROSS | MF2_NOTELEPORT;
 					}
 					if ((info->flags & MF_MISSILE) && (info->flags2 & MF2_NOTELEPORT)
 						&& !(value[0] & MF_MISSILE))
@@ -1746,7 +1837,7 @@ static int PatchFrame (int frameNum)
 	int tics, misc1, frame;
 	FState *info, dummy;
 
-	info = FindState (frameNum);
+	info = FindState (frameNum, false);
 	if (info)
 	{
 		DPrintf (DMSG_SPAMMY, "Frame %d\n", frameNum);
@@ -1792,28 +1883,7 @@ static int PatchFrame (int frameNum)
 		}
 		else if (keylen == 13 && stricmp (Line1, "Sprite number") == 0)
 		{
-			unsigned int i;
-
-			if (val < (int)OrgSprNames.Size())
-			{
-				for (i = 0; i < sprites.Size(); i++)
-				{
-					if (memcmp (OrgSprNames[val].c, sprites[i].name, 4) == 0)
-					{
-						info->sprite = (int)i;
-						break;
-					}
-				}
-				if (i == sprites.Size ())
-				{
-					Printf ("Frame %d: Sprite %d (%s) is undefined\n",
-						frameNum, val, OrgSprNames[val].c);
-				}
-			}
-			else
-			{
-				Printf ("Frame %d: Sprite %d out of range\n", frameNum, val);
-			}
+			stateSprites.Insert(info, val);
 		}
 		else if (keylen == 10 && stricmp (Line1, "Next frame") == 0)
 		{
@@ -1848,7 +1918,7 @@ static int PatchFrame (int frameNum)
 			{
 				if (IsNum(strval))
 				{
-					value |= (unsigned long)strtoll(strval, NULL, 10);
+					value |= (uint32_t)strtoll(strval, NULL, 10);
 					vchanged = true;
 				}
 				else
@@ -1915,7 +1985,7 @@ static int PatchSprite (int sprNum)
 	int result;
 	int offset = 0;
 
-	if ((unsigned)sprNum < OrgSprNames.Size())
+	if ((unsigned)sprNum < OrgSprOrgSize)
 	{
 		DPrintf (DMSG_SPAMMY, "Sprite %d\n", sprNum);
 	}
@@ -1932,12 +2002,12 @@ static int PatchSprite (int sprNum)
 		else Printf (unknown_str, Line1, "Sprite", sprNum);
 	}
 
-	if (offset > 0 && sprNum != -1)
+	if (offset > 0 && sprNum != -1 && !dsdhacked)
 	{
 		// Calculate offset from beginning of sprite names.
 		offset = (offset - toff[dversion] - 22044) / 8;
 	
-		if ((unsigned)offset < OrgSprNames.Size())
+		if ((unsigned)offset < OrgSprOrgSize)
 		{
 			sprNum = FindSprite (OrgSprNames[sprNum].c);
 			if (sprNum != -1)
@@ -2153,7 +2223,7 @@ static int PatchWeapon (int weapNum)
 			{
 				if (IsNum(strval))
 				{
-					value |= (unsigned long)strtoll(strval, NULL, 10);
+					value |= (uint32_t)strtoll(strval, NULL, 10);
 					vchanged = true;
 				}
 				else
@@ -2288,7 +2358,7 @@ static int PatchPointer (int ptrNum)
 	{
 		if ((unsigned)ptrNum < CodePConv.Size() && (!stricmp (Line1, "Codep Frame")))
 		{
-			FState *state = FindState (CodePConv[ptrNum]);
+			FState *state = FindState (CodePConv[ptrNum], true);
 			if (state)
 			{
 				int index = atoi(Line2);
@@ -2584,6 +2654,7 @@ static int PatchPars (int dummy)
 	return result;
 }
 
+								
 static int PatchCodePtrs (int dummy)
 {
 	int result;
@@ -2635,6 +2706,8 @@ static int PatchCodePtrs (int dummy)
 
 				// This skips the action table and goes directly to the internal symbol table
 				// DEH compatible functions are easy to recognize.
+				// Note that A_CPosAttack needs to be remapped because it differs from the original and cannot be renamed anymore.
+				if (!symname.CompareNoCase("A_CPosAttack")) symname = "A_CPosAttackDehacked";
 				PFunction *sym = dyn_cast<PFunction>(PClass::FindActor(NAME_Weapon)->FindSymbol(symname, true));
 				if (sym == NULL)
 				{
@@ -2677,6 +2750,40 @@ static int PatchMusic (int dummy)
 
 	return result;
 }
+			
+// This repplaces a sprite name in the current working data
+static void ReplaceSpriteInData(const char* oldStr, const char* newStr)
+	{
+		if (strncmp ("PLAY", oldStr, 4) == 0)
+		{
+			strncpy (deh.PlayerSprite, newStr, 4);
+		}
+		// If this sprite is used by a pickup, then the DehackedPickup sprite map
+		// needs to be updated too.
+		for (size_t i = 0; i < countof(DehSpriteMappings); ++i)
+		{
+			if (strncmp (DehSpriteMappings[i].Sprite, oldStr, 4) == 0)
+			{
+				// Found a match, so change it.
+				strncpy (DehSpriteMappings[i].Sprite, newStr, 4);
+				
+				// Now shift the map's entries around so that it stays sorted.
+				// This must be done because the map is scanned using a binary search.
+				while (i > 0 && strncmp (DehSpriteMappings[i-1].Sprite, newStr, 4) > 0)
+				{
+					std::swap (DehSpriteMappings[i-1], DehSpriteMappings[i]);
+					--i;
+				}
+				while ((size_t)i < countof(DehSpriteMappings)-1 &&
+					   strncmp (DehSpriteMappings[i+1].Sprite, newStr, 4) < 0)
+				{
+					std::swap (DehSpriteMappings[i+1], DehSpriteMappings[i]);
+					++i;
+				}
+				break;
+			}
+		}
+	}
 
 static int PatchText (int oldSize)
 {
@@ -2734,42 +2841,14 @@ static int PatchText (int oldSize)
 		if (i != -1)
 		{
 			strncpy (sprites[i].name, newStr, 4);
-			if (strncmp ("PLAY", oldStr, 4) == 0)
-			{
-				strncpy (deh.PlayerSprite, newStr, 4);
-			}
-			for (unsigned ii = 0; ii < OrgSprNames.Size(); ii++)
+			for (unsigned ii = 0; ii < OrgSprOrgSize; ii++)
 			{
 				if (!stricmp(OrgSprNames[ii].c, oldStr))
 				{
 					strcpy(OrgSprNames[ii].c, newStr);
 				}
 			}
-			// If this sprite is used by a pickup, then the DehackedPickup sprite map
-			// needs to be updated too.
-			for (i = 0; (size_t)i < countof(DehSpriteMappings); ++i)
-			{
-				if (strncmp (DehSpriteMappings[i].Sprite, oldStr, 4) == 0)
-				{
-					// Found a match, so change it.
-					strncpy (DehSpriteMappings[i].Sprite, newStr, 4);
-
-					// Now shift the map's entries around so that it stays sorted.
-					// This must be done because the map is scanned using a binary search.
-					while (i > 0 && strncmp (DehSpriteMappings[i-1].Sprite, newStr, 4) > 0)
-					{
-						std::swap (DehSpriteMappings[i-1], DehSpriteMappings[i]);
-						--i;
-					}
-					while ((size_t)i < countof(DehSpriteMappings)-1 &&
-						strncmp (DehSpriteMappings[i+1].Sprite, newStr, 4) < 0)
-					{
-						std::swap (DehSpriteMappings[i+1], DehSpriteMappings[i]);
-						++i;
-					}
-					break;
-				}
-			}
+			ReplaceSpriteInData(oldStr, newStr);
 			goto donewithtext;
 		}
 	}
@@ -2850,6 +2929,59 @@ static int PatchStrings (int dummy)
 	return result;
 }
 
+static int PatchSoundNames (int dummy)
+{
+	int result;
+
+	DPrintf (DMSG_SPAMMY, "[Sounds]\n");
+
+	while ((result = GetLine()) == 1)
+	{
+		stripwhite(Line2);
+		FString newname = skipwhite (Line2);
+		ReplaceSoundName((int)strtoll(Line1, nullptr, 10), newname.GetChars());
+		DPrintf (DMSG_SPAMMY, "Sound %d set to:\n%s\n", Line1, newname.GetChars());
+	}
+
+	return result;
+}
+
+static int PatchSpriteNames (int dummy)
+{
+		int result;
+		
+		DPrintf (DMSG_SPAMMY, "[Sprites]\n");
+		
+		while ((result = GetLine()) == 1)
+		{
+			stripwhite(Line2);
+			FString newname = skipwhite (Line2);
+			if (newname.Len() != 4)
+			{
+				Printf("Sprite name must be 4 characters long, got '%s'\n", newname.GetChars());
+				continue;
+			}
+			int64_t line1val = strtoll(Line1, nullptr, 10);
+			if (line1val >= OrgSprNames.Size())
+			{
+				unsigned osize = OrgSprNames.Size();
+				OrgSprNames.Resize(line1val + 1);
+				DEHSprName nulname{};
+				for (unsigned o = osize; o < OrgSprNames.Size(); o++)
+				{
+					OrgSprNames[o] = nulname;
+				}
+			}
+			int v = GetSpriteIndex(newname.GetChars());
+			memcpy(OrgSprNames[line1val].c, sprites[v].name, 5);
+
+			DPrintf (DMSG_SPAMMY, "Sprite %d set to:\n%s\n", Line1, newname.GetChars());
+		}
+		
+		return result;
+	}
+								  
+
 static int DoInclude (int dummy)
 {
 	char *data;
@@ -2896,15 +3028,15 @@ static int DoInclude (int dummy)
 
 		// Try looking for the included file in the same directory
 		// as the patch before looking in the current file.
-		const char *lastSlash = strrchr(savepatchname, '/');
+		const char *lastSlash = strrchr(savepatchname.GetChars(), '/');
 		char *path = data;
 
 		if (lastSlash != NULL)
 		{
-			size_t pathlen = lastSlash - savepatchname + strlen (data) + 2;
+			size_t pathlen = lastSlash - savepatchname.GetChars() + strlen (data) + 2;
 			path = new char[pathlen];
-			strncpy (path, savepatchname, (lastSlash - savepatchname) + 1);
-			strcpy (path + (lastSlash - savepatchname) + 1, data);
+			strncpy (path, savepatchname.GetChars(), (lastSlash - savepatchname.GetChars()) + 1);
+			strcpy (path + (lastSlash - savepatchname.GetChars()) + 1, data);
 			if (!FileExists (path))
 			{
 				delete[] path;
@@ -3004,7 +3136,7 @@ bool D_LoadDehLump(int lumpnum)
 
 	PatchSize = fileSystem.FileLength(lumpnum);
 
-	PatchName = fileSystem.GetFileFullPath(lumpnum);
+	PatchName = fileSystem.GetFileFullPath(lumpnum).c_str();
 	PatchFile = new char[PatchSize + 1];
 	fileSystem.ReadFile(lumpnum, PatchFile);
 	PatchFile[PatchSize] = '\0';		// terminate with a '\0' character
@@ -3039,7 +3171,7 @@ bool D_LoadDehFile(const char *patchfile)
 			// some WAD may need it. Should be deleted if it can
 			// be confirmed that nothing uses this case.
 			FString filebase(ExtractFileBase(patchfile));
-			lumpnum = fileSystem.CheckNumForName(filebase);
+			lumpnum = fileSystem.CheckNumForName(filebase.GetChars());
 		}
 		if (lumpnum >= 0)
 		{
@@ -3112,6 +3244,11 @@ static bool DoDehPatch()
 		dversion = 1;
 	else if (dversion == 21)
 		dversion = 4;
+	else if (dversion == 2021)
+	{
+		dversion = 4;
+		dsdhacked = true;
+	}
 	else
 	{
 		Printf ("Patch created with unknown DOOM version.\nAssuming version 1.9.\n");
@@ -3170,16 +3307,15 @@ static void UnloadDehSupp ()
 		MBFParamStates.ShrinkToFit();
 		MBFCodePointers.Clear();
 		MBFCodePointers.ShrinkToFit();
-		// StateMap is not freed here, because if you load a second
+		// OrgSprNames and StateMap are not freed here, because if you load a second
 		// dehacked patch through some means other than including it
-		// in the first patch, it won't see the state information
+		// in the first patch, it won't see the state/sprite information
 		// that was altered by the first. So we need to keep the
 		// StateMap around until all patches have been applied.
 		DehUseCount = 0;
 		Actions.Reset();
 		OrgHeights.Reset();
 		CodePConv.Reset();
-		OrgSprNames.Reset();
 		SoundMap.Reset();
 		InfoNames.Reset();
 		BitNames.Reset();
@@ -3247,7 +3383,8 @@ static bool LoadDehSupp ()
 						// all relevant code pointers are either defined in Weapon
 						// or Actor so this will find all of them.
 						FString name = "A_";
-						name << sc.String;
+						if (sc.Compare("CPosAttack")) name << "CPosAttackDehacked";
+						else name << sc.String;
 						PFunction *sym = dyn_cast<PFunction>(wcls->FindSymbol(name, true));
 						if (sym == NULL)
 						{
@@ -3292,6 +3429,7 @@ static bool LoadDehSupp ()
 			}
 			else if (sc.Compare("OrgSprNames"))
 			{
+				bool addit = OrgSprNames.Size() == 0;
 				sc.MustGetStringName("{");
 				while (!sc.CheckString("}"))
 				{
@@ -3311,14 +3449,16 @@ static bool LoadDehSupp ()
 					{
 						sc.ScriptError("Invalid sprite name '%s' (must be 4 characters)", sc.String);
 					}
-					OrgSprNames.Push(s);
+					if (addit) OrgSprNames.Push(s);
 					if (sc.CheckString("}")) break;
 					sc.MustGetStringName(",");
 				}
+				OrgSprOrgSize = OrgSprNames.Size();
 			}
 			else if (sc.Compare("StateMap"))
 			{
 				bool addit = StateMap.Size() == 0;
+				int dehcount = 0;
 
 				sc.MustGetStringName("{");
 				while (!sc.CheckString("}"))
@@ -3360,6 +3500,13 @@ static bool LoadDehSupp ()
 
 					if (sc.CheckString("}")) break;
 					sc.MustGetStringName(",");
+					// This mapping is mainly for P_SetSafeFlash.
+					for (int i = 0; i < s.StateSpan; i++)
+					{
+						dehExtStates.Insert(dehcount, s.State + i);
+						s.State[i].DehIndex = dehcount;
+						dehcount++;
+					}
 				}
 			}
 			else if (sc.Compare("SoundMap"))
@@ -3519,7 +3666,8 @@ void FinishDehPatch ()
 	{
 		GetDefaultByType(cls)->flags8 |= MF8_RETARGETAFTERSLAM;
 	}
-
+	RemapAllSprites();
+	
 	for (touchedIndex = 0; touchedIndex < TouchedActors.Size(); ++touchedIndex)
 	{
 		PClassActor *subclass;
@@ -3565,8 +3713,10 @@ void FinishDehPatch ()
 
 		type->ActorInfo()->Replacement = subclass;
 		subclass->ActorInfo()->Replacee = type;
+		subclass->ActorInfo()->LightAssociations = type->ActorInfo()->LightAssociations;
 		// If this actor was already replaced by another actor, copy that
 		// replacement over to this item.
+
 		if (old_replacement != NULL)
 		{
 			subclass->ActorInfo()->Replacement = old_replacement;
@@ -3588,9 +3738,11 @@ void FinishDehPatch ()
 	}
 	// Now that all Dehacked patches have been processed, it's okay to free StateMap.
 	StateMap.Reset();
+	OrgSprNames.Reset();
 	TouchedActors.Reset();
 	EnglishStrings.Clear();
-	GStrings.SetOverrideStrings(std::move(DehStrings));
+	GStrings.SetOverrideStrings(DehStrings);
+	DehStrings.Clear();
 
 	// Now it gets nasty: We have to fiddle around with the weapons' ammo use info to make Doom's original
 	// ammo consumption work as intended.
@@ -3751,6 +3903,18 @@ void ClearCountkill(AActor* a)
 	if (a->CountsAsKill() && a->health > 0) a->Level->total_monsters++;
 }
 
+void SetBoss(AActor* a)
+{
+	a->flags2 |= MF2_BOSS;
+	a->flags3 |= MF3_NORADIUSDMG;
+}
+
+void ClearBoss(AActor* a)
+{
+	a->flags2 &= ~MF2_BOSS;
+	a->flags3 &= ~MF3_NORADIUSDMG;
+}
+
 void SetCountitem(AActor* a)
 {
 	if (!(a->flags & MF_COUNTITEM))
@@ -3880,12 +4044,14 @@ void ClearBounces(AActor* info)
 void SetMissile(AActor* info)
 {
 	info->flags |= MF_MISSILE;
+	info->flags2 |= MF2_NOTELEPORT | MF2_PCROSS | MF2_IMPACT;
 	if (info->BounceFlags & BOUNCE_DEH) info->BounceFlags = BOUNCE_Classic | BOUNCE_DEH;
 }
 
 void ClearMissile(AActor* info)
 {
 	info->flags &= ~MF_MISSILE;
+	info->flags2 &= ~(MF2_NOTELEPORT | MF2_PCROSS | MF2_IMPACT);
 	if (info->BounceFlags & BOUNCE_DEH) info->BounceFlags = BOUNCE_Grenade | BOUNCE_DEH;
 }
 
@@ -3948,7 +4114,7 @@ static FlagHandler flag2handlers[32] = {
 	F4(MF4_MISSILEMORE),
 	F4(MF4_QUICKTORETALIATE),
 	DEPF(DEPF_LONGMELEERANGE),
-	F2(MF2_BOSS),
+	{ SetBoss, ClearBoss, [](AActor* a)->bool { return a->flags2 & MF2_BOSS; } },
 	F8(MF8_MAP07BOSS1),
 	F8(MF8_MAP07BOSS2),
 	F8(MF8_E1M8BOSS),

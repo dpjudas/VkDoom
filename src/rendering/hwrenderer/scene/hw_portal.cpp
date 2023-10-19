@@ -106,7 +106,7 @@ void FPortalSceneState::EndFrame(HWDrawInfo *di, FRenderState &state)
 
 	if (gl_portalinfo)
 	{
-		indent.Truncate(long(indent.Len()-2));
+		indent.Truncate(indent.Len()-2);
 		Printf("%s}\n", indent.GetChars());
 		if (indent.Len() == 0) gl_portalinfo = false;
 	}
@@ -444,7 +444,7 @@ int HWLinePortal::ClipSeg(seg_t *seg, const DVector3 &viewpos)
 	{
 		return PClip_Inside;	// should be handled properly.
 	}
-	return P_ClipLineToPortal(linedef, this, viewpos) ? PClip_InFront : PClip_Inside;
+	return P_ClipLineToPortal(linedef, this, viewpos.XY()) ? PClip_InFront : PClip_Inside;
 }
 
 int HWLinePortal::ClipSubsector(subsector_t *sub)

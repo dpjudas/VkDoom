@@ -39,6 +39,7 @@
 #include "bitmap.h"
 #include "imagehelpers.h"
 #include "image.h"
+#include "m_swap.h"
 
 //==========================================================================
 //
@@ -83,7 +84,7 @@ class FPCXTexture : public FImageSource
 public:
 	FPCXTexture (int lumpnum, PCXHeader &);
 
-	int CopyPixels(FBitmap *bmp, int conversion) override;
+	int CopyPixels(FBitmap *bmp, int conversion, int frame = 0) override;
 
 protected:
 	void ReadPCX1bit (uint8_t *dst, FileReader & lump, PCXHeader *hdr);
@@ -91,7 +92,7 @@ protected:
 	void ReadPCX8bits (uint8_t *dst, FileReader & lump, PCXHeader *hdr);
 	void ReadPCX24bits (uint8_t *dst, FileReader & lump, PCXHeader *hdr, int planes);
 
-	PalettedPixels CreatePalettedPixels(int conversion) override;
+	PalettedPixels CreatePalettedPixels(int conversion, int frame = 0) override;
 };
 
 
@@ -159,8 +160,8 @@ void FPCXTexture::ReadPCX1bit (uint8_t *dst, FileReader & lump, PCXHeader *hdr)
 	int rle_count = 0;
 	uint8_t rle_value = 0;
 
-	TArray<uint8_t> srcp = lump.Read(lump.GetLength() - sizeof(PCXHeader));
-	uint8_t * src = srcp.Data();
+	auto srcp = lump.Read(lump.GetLength() - sizeof(PCXHeader));
+	uint8_t * src = srcp.data();
 
 	for (y = 0; y < Height; ++y)
 	{
@@ -209,8 +210,8 @@ void FPCXTexture::ReadPCX4bits (uint8_t *dst, FileReader & lump, PCXHeader *hdr)
 	TArray<uint8_t> line(hdr->bytesPerScanLine, true);
 	TArray<uint8_t> colorIndex(Width, true);
 
-	TArray<uint8_t> srcp = lump.Read(lump.GetLength() - sizeof(PCXHeader));
-	uint8_t * src = srcp.Data();
+	auto srcp = lump.Read(lump.GetLength() - sizeof(PCXHeader));
+	uint8_t * src = srcp.data();
 
 	for (y = 0; y < Height; ++y)
 	{
@@ -264,7 +265,7 @@ void FPCXTexture::ReadPCX8bits (uint8_t *dst, FileReader & lump, PCXHeader *hdr)
 	int y, bytes;
 
 	auto srcp = lump.Read(lump.GetLength() - sizeof(PCXHeader));
-	uint8_t * src = srcp.Data();
+	uint8_t * src = srcp.data();
 
 	for (y = 0; y < Height; ++y)
 	{
@@ -305,7 +306,7 @@ void FPCXTexture::ReadPCX24bits (uint8_t *dst, FileReader & lump, PCXHeader *hdr
 	int bytes;
 
 	auto srcp = lump.Read(lump.GetLength() - sizeof(PCXHeader));
-	uint8_t * src = srcp.Data();
+	uint8_t * src = srcp.data();
 
 	for (y = 0; y < Height; ++y)
 	{
@@ -344,7 +345,7 @@ void FPCXTexture::ReadPCX24bits (uint8_t *dst, FileReader & lump, PCXHeader *hdr
 //
 //==========================================================================
 
-PalettedPixels FPCXTexture::CreatePalettedPixels(int conversion)
+PalettedPixels FPCXTexture::CreatePalettedPixels(int conversion, int frame)
 {
 	uint8_t PaletteMap[256];
 	PCXHeader header;
@@ -432,7 +433,7 @@ PalettedPixels FPCXTexture::CreatePalettedPixels(int conversion)
 //
 //===========================================================================
 
-int FPCXTexture::CopyPixels(FBitmap *bmp, int conversion)
+int FPCXTexture::CopyPixels(FBitmap *bmp, int conversion, int frame)
 {
 	PalEntry pe[256];
 	PCXHeader header;

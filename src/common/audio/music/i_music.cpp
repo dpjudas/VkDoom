@@ -37,7 +37,7 @@
 #include <sys/wait.h>
 #endif
 
-#include <zlib.h>
+#include <miniz.h>
 
 #include <zmusic.h>
 #include "filesystem.h"
@@ -53,6 +53,7 @@
 #include "s_music.h"
 #include "filereadermusicinterface.h"
 
+using namespace FileSys;
 
 
 void I_InitSoundFonts();
@@ -179,11 +180,10 @@ static void SetupGenMidi()
 		Printf("No GENMIDI lump found. OPL playback not available.\n");
 		return;
 	}
-	auto data = fileSystem.OpenFileReader(lump);
+	auto genmidi = fileSystem.ReadFile(lump);
 
-	auto genmidi = data.Read();
-	if (genmidi.Size() < 8 + 175 * 36 || memcmp(genmidi.Data(), "#OPL_II#", 8)) return;
-	ZMusic_SetGenMidi(genmidi.Data()+8);
+	if (genmidi.GetSize() < 8 + 175 * 36 || memcmp(genmidi.GetMem(), "#OPL_II#", 8)) return;
+	ZMusic_SetGenMidi(genmidi.GetBytes() + 8);
 }
 
 static void SetupWgOpn()
@@ -193,7 +193,7 @@ static void SetupWgOpn()
 	{
 		return;
 	}
-	FileData data = fileSystem.ReadFile(lump);
+	auto data = fileSystem.ReadFile(lump);
 	ZMusic_SetWgOpn(data.GetMem(), (uint32_t)data.GetSize());
 }
 
@@ -205,7 +205,7 @@ static void SetupDMXGUS()
 	{
 		return;
 	}
-	FileData data = fileSystem.ReadFile(lump);
+	auto data = fileSystem.ReadFile(lump);
 	ZMusic_SetDmxGus(data.GetMem(), (uint32_t)data.GetSize());
 }
 
@@ -312,8 +312,8 @@ static ZMusic_MidiSource GetMIDISource(const char *fn)
 	FString src = fn;
 	if (src.Compare("*") == 0) src = mus_playing.name;
 
-	auto lump = fileSystem.CheckNumForName(src, ns_music);
-	if (lump < 0) lump = fileSystem.CheckNumForFullName(src);
+	auto lump = fileSystem.CheckNumForName(src.GetChars(), ns_music);
+	if (lump < 0) lump = fileSystem.CheckNumForFullName(src.GetChars());
 	if (lump < 0)
 	{
 		Printf("Cannot find MIDI lump %s.\n", src.GetChars());
@@ -337,7 +337,7 @@ static ZMusic_MidiSource GetMIDISource(const char *fn)
 	}
 
 	auto data = wlump.Read();
-	auto source = ZMusic_CreateMIDISource(data.Data(), data.Size(), type);
+	auto source = ZMusic_CreateMIDISource(data.data(), data.size(), type);
 
 	if (source == nullptr)
 	{
@@ -391,7 +391,7 @@ UNSAFE_CCMD (writewave)
 			Printf("MIDI dump of %s failed: %s\n",argv[1], ZMusic_GetLastError());
 		}
 
-		S_ChangeMusic(savedsong.name, savedsong.baseorder, savedsong.loop, true);
+		S_ChangeMusic(savedsong.name.GetChars(), savedsong.baseorder, savedsong.loop, true);
 	}
 	else
 	{

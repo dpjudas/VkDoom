@@ -42,7 +42,7 @@
 
 #endif
 
-#include <zlib.h>
+#include <miniz.h>
 
 #include "m_argv.h"
 #include "c_dispatch.h"
@@ -60,6 +60,7 @@
 #include "g_levellocals.h"
 #include "i_time.h"
 #include "maploader.h"
+#include "fs_findfile.h"
 
 EXTERN_CVAR(Bool, gl_cachenodes)
 EXTERN_CVAR(Float, gl_cachetime)
@@ -208,7 +209,7 @@ bool MapLoader::LoadGLVertexes(FileReader &lump)
 	auto gllen=lump.GetLength();
 	if (gllen < 4)
 		return false;
-	auto gldata = glbuf.Data();
+	auto gldata = glbuf.data();
 
 	if (*(int *)gldata == gNd5) 
 	{
@@ -287,13 +288,13 @@ bool MapLoader::LoadGLSegs(FileReader &lump)
 	const unsigned numverts = Level->vertexes.Size();
 	const unsigned numlines = Level->lines.Size(); 
 
-	if (!format5 && memcmp(data.Data(), "gNd3", 4))
+	if (!format5 && memcmp(data.data(), "gNd3", 4))
 	{
 		numsegs/=sizeof(glseg_t);
 		segs.Alloc(numsegs);
 		memset(&segs[0],0,sizeof(seg_t)*numsegs);
 			
-		glseg_t * ml = (glseg_t*)data.Data();
+		glseg_t * ml = (glseg_t*)data.data();
 		for(i = 0; i < numsegs; i++)
 		{		
 			// check for gl-vertices
@@ -364,7 +365,7 @@ bool MapLoader::LoadGLSegs(FileReader &lump)
 		segs.Alloc(numsegs);
 		memset(&segs[0],0,sizeof(seg_t)*numsegs);
 			
-		glseg3_t * ml = (glseg3_t*)(data.Data() + (format5? 0:4));
+		glseg3_t * ml = (glseg3_t*)(data.data() + (format5? 0:4));
 		for(i = 0; i < numsegs; i++)
 		{							// check for gl-vertices
 			const unsigned v1idx = checkGLVertex3(LittleLong(ml->v1));
@@ -453,9 +454,9 @@ bool MapLoader::LoadGLSubsectors(FileReader &lump)
 		return false;
 	}
 	
-	if (!format5 && memcmp(datab.Data(), "gNd3", 4))
+	if (!format5 && memcmp(datab.data(), "gNd3", 4))
 	{
-		mapsubsector_t * data = (mapsubsector_t*) datab.Data();
+		mapsubsector_t * data = (mapsubsector_t*) datab.data();
 		numsubsectors /= sizeof(mapsubsector_t);
 		Level->subsectors.Alloc(numsubsectors);
 		auto &subsectors = Level->subsectors;
@@ -477,7 +478,7 @@ bool MapLoader::LoadGLSubsectors(FileReader &lump)
 	}
 	else
 	{
-		gl3_mapsubsector_t * data = (gl3_mapsubsector_t*) (datab.Data()+(format5? 0:4));
+		gl3_mapsubsector_t * data = (gl3_mapsubsector_t*) (datab.data()+(format5? 0:4));
 		numsubsectors /= sizeof(gl3_mapsubsector_t);
 		Level->subsectors.Alloc(numsubsectors);
 		auto &subsectors = Level->subsectors;
@@ -544,7 +545,7 @@ bool MapLoader::LoadNodes (FileReader &lump)
 		lump.Seek(0, FileReader::SeekSet);
 
 		auto buf = lump.Read();
-		basemn = mn = (mapnode_t*)buf.Data();
+		basemn = mn = (mapnode_t*)buf.data();
 
 		used.Resize(numnodes);
 		memset (used.Data(), 0, sizeof(uint16_t)*numnodes);
@@ -600,7 +601,7 @@ bool MapLoader::LoadNodes (FileReader &lump)
 		lump.Seek(0, FileReader::SeekSet);
 
 		auto buf = lump.Read();
-		basemn = mn = (gl5_mapnode_t*)buf.Data();
+		basemn = mn = (gl5_mapnode_t*)buf.data();
 
 		used.Resize(numnodes);
 		memset(used.Data(), 0, sizeof(uint16_t)*numnodes);
@@ -735,14 +736,14 @@ static int FindGLNodesInWAD(int labellump)
 	glheader.Format("GL_%s", fileSystem.GetFileFullName(labellump));
 	if (glheader.Len()<=8)
 	{
-		int gllabel = fileSystem.CheckNumForName(glheader, ns_global, wadfile);
+		int gllabel = fileSystem.CheckNumForName(glheader.GetChars(), FileSys::ns_global, wadfile);
 		if (gllabel >= 0) return gllabel;
 	}
 	else
 	{
 		// Before scanning the entire WAD directory let's check first whether
 		// it is necessary.
-		int gllabel = fileSystem.CheckNumForName("GL_LEVEL", ns_global, wadfile);
+		int gllabel = fileSystem.CheckNumForName("GL_LEVEL", FileSys::ns_global, wadfile);
 
 		if (gllabel >= 0)
 		{
@@ -752,8 +753,8 @@ static int FindGLNodesInWAD(int labellump)
 			{
 				if (fileSystem.GetFileContainer(lump)==wadfile)
 				{
-					FileData mem = fileSystem.ReadFile(lump);
-					if (MatchHeader(fileSystem.GetFileFullName(labellump), (const char *)mem.GetMem())) return lump;
+					auto mem = fileSystem.ReadFile(lump);
+					if (MatchHeader(fileSystem.GetFileFullName(labellump), GetStringFromLump(lump).GetChars())) return lump;
 				}
 			}
 		}
@@ -792,7 +793,7 @@ static int FindGLNodesInFile(FResourceFile * f, const char * label)
 	{
 		for(uint32_t i=0;i<numentries-4;i++)
 		{
-			if (!strnicmp(f->GetLump(i)->getName(), glheader, 8))
+			if (!strnicmp(f->GetLump(i)->getName(), glheader.GetChars(), 8))
 			{
 				if (mustcheck)
 				{
@@ -1000,10 +1001,10 @@ typedef TArray<uint8_t> MemFile;
 static FString CreateCacheName(MapData *map, bool create)
 {
 	FString path = M_GetCachePath(create);
-	FString lumpname = fileSystem.GetFileFullPath(map->lumpnum);
+	FString lumpname = fileSystem.GetFileFullPath(map->lumpnum).c_str();
 	auto separator = lumpname.IndexOf(':');
 	path << '/' << lumpname.Left(separator);
-	if (create) CreatePath(path);
+	if (create) CreatePath(path.GetChars());
 
 	lumpname.ReplaceChars('/', '%');
 	lumpname.ReplaceChars(':', '$');
@@ -1124,7 +1125,7 @@ void MapLoader::CreateCachedNodes(MapData *map)
 	memcpy(&compressed[offset - 4], "ZGL3", 4);
 
 	FString path = CreateCacheName(map, true);
-	FileWriter *fw = FileWriter::Open(path);
+	FileWriter *fw = FileWriter::Open(path.GetChars());
 
 	if (fw != nullptr)
 	{
@@ -1153,7 +1154,7 @@ bool MapLoader::CheckCachedNodes(MapData *map)
 	FString path = CreateCacheName(map, false);
 	FileReader fr;
 
-	if (!fr.OpenFile(path)) return false;
+	if (!fr.OpenFile(path.GetChars())) return false;
 
 	if (fr.Read(magic, 4) != 4) return false;
 	if (memcmp(magic, "CACH", 4))  return false;
@@ -1198,11 +1199,11 @@ bool MapLoader::CheckCachedNodes(MapData *map)
 
 UNSAFE_CCMD(clearnodecache)
 {
-	TArray<FFileList> list;
+	FileSys::FileList list;
 	FString path = M_GetCachePath(false);
 	path += "/";
 
-	if (!ScanDirectory(list, path))
+	if (!FileSys::ScanDirectory(list, path.GetChars(), "*", false))
 	{
 		Printf("Unable to scan node cache directory %s\n", path.GetChars());
 		return;
@@ -1210,15 +1211,15 @@ UNSAFE_CCMD(clearnodecache)
 
 	// Scan list backwards so that when we reach a directory
 	// all files within are already deleted.
-	for(int i = list.Size()-1; i >= 0; i--)
+	for(int i = (int)list.size()-1; i >= 0; i--)
 	{
 		if (list[i].isDirectory)
 		{
-			rmdir(list[i].Filename);
+			rmdir(list[i].FilePath.c_str());
 		}
 		else
 		{
-			remove(list[i].Filename);
+			remove(list[i].FilePath.c_str());
 		}
 	}
 

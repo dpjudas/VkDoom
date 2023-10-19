@@ -430,8 +430,8 @@ static void R_CreatePlayerTranslation (float h, float s, float v, const FPlayerC
 		}
 		else
 		{
-			FileData translump = fileSystem.ReadFile(colorset->Lump);
-			const uint8_t *trans = (const uint8_t *)translump.GetMem();
+			auto translump = fileSystem.ReadFile(colorset->Lump);
+			auto trans = translump.GetBytes();
 			for (i = start; i <= end; ++i)
 			{
 				table->Remap[i] = GPalette.Remap[trans[i]];
@@ -614,7 +614,7 @@ DEFINE_ACTION_FUNCTION(_Translation, SetPlayerTranslation)
 
 	if (cls != nullptr)
 	{
-		PlayerSkin = R_FindSkin(Skins[PlayerSkin].Name, int(cls - &PlayerClasses[0]));
+		PlayerSkin = R_FindSkin(Skins[PlayerSkin].Name.GetChars(), int(cls - &PlayerClasses[0]));
 		FRemapTable remap;
 		R_GetPlayerTranslation(PlayerColor, GetColorSet(cls->Type, PlayerColorset),
 			&Skins[PlayerSkin], &remap);
@@ -727,7 +727,7 @@ void R_ParseTrnslate()
 			do
 			{
 				sc.MustGetToken(TK_StringConst);
-				int pallump = fileSystem.CheckNumForFullName(sc.String, true, ns_global);
+				int pallump = fileSystem.CheckNumForFullName(sc.String, true, FileSys::ns_global);
 				if (pallump >= 0)	// 
 				{
 					int start = 0;

@@ -122,11 +122,13 @@ extend class Object
 	native static double G_SkillPropertyFloat(int p);
 	deprecated("3.8", "Use Level.PickDeathMatchStart() instead") static vector3, int G_PickDeathmatchStart()
 	{
-		return level.PickDeathmatchStart();
+		let [a,b] = level.PickDeathmatchStart();
+		return a, b;
 	}
 	deprecated("3.8", "Use Level.PickPlayerStart() instead") static vector3, int G_PickPlayerStart(int pnum, int flags = 0)
 	{
-		return level.PickPlayerStart(pnum, flags);
+		let [a,b] = level.PickPlayerStart(pnum, flags);
+		return a, b;
 	}
 	deprecated("4.3", "Use S_StartSound() instead") native static void S_Sound (Sound sound_id, int channel, float volume = 1, float attenuation = ATTN_NORM, float pitch = 0.0, float startTime = 0.0);
 	native static void S_StartSound (Sound sound_id, int channel, int flags = 0, float volume = 1, float attenuation = ATTN_NORM, float pitch = 0.0, float startTime = 0.0);
@@ -292,7 +294,7 @@ struct TraceResults native
 
 	native Sector CrossedWater;		// For Boom-style, Transfer_Heights-based deep water
 	native vector3 CrossedWaterPos;	// remember the position so that we can use it for spawning the splash
-	native Sector Crossed3DWater;		// For 3D floor-based deep water
+	native F3DFloor Crossed3DWater;	// For 3D floor-based deep water
 	native vector3 Crossed3DWaterPos;
 }
 

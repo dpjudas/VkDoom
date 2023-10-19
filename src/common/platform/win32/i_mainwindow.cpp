@@ -335,7 +335,7 @@ void MainWindow::SetNetStartProgress(int pos)
 	if (NetStartPane != 0 && NetStartMaxPos > 1)
 	{
 		char buf[16];
-		mysnprintf(buf, countof(buf), "%d/%d", pos, NetStartMaxPos);
+		mysnprintf(buf, sizeof(buf), "%d/%d", pos, NetStartMaxPos);
 		SetDlgItemTextA(NetStartPane, IDC_NETSTARTCOUNT, buf);
 		SendDlgItemMessage(NetStartPane, IDC_NETSTARTPROGRESS, PBM_SETPOS, min(pos, NetStartMaxPos), 0);
 	}
@@ -738,7 +738,7 @@ void MainWindow::FlushBufferedConsoleStuff()
 {
 	for (unsigned i = 0; i < bufferedConsoleStuff.Size(); i++)
 	{
-		DoPrintStr(bufferedConsoleStuff[i]);
+		DoPrintStr(bufferedConsoleStuff[i].GetChars());
 	}
 	bufferedConsoleStuff.Clear();
 }

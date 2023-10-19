@@ -43,6 +43,7 @@
 #include "flatvertices.h"
 #include "hw_vertexbuilder.h"
 #include "hw_meshportal.h"
+#include "hw_walldispatcher.h"
 
 #ifdef ARCH_IA32
 #include <immintrin.h>
@@ -107,6 +108,7 @@ static RenderJobQueue jobQueue;	// One static queue is sufficient here. This cod
 void HWDrawInfo::WorkerThread()
 {
 	sector_t *front, *back;
+	HWWallDispatcher disp(this);
 
 	FRenderState& state = *screen->RenderState();
 
@@ -173,7 +175,7 @@ void HWDrawInfo::WorkerThread()
 			{
 				SetupWall.Clock();
 				HWPortalWall portalwall;
-				portalwall.Process(this, state, job->seg, front, back);
+				portalwall.Process(&disp, state, job->seg, front, back);
 				rendered_lines++;
 				SetupWall.Unclock();
 			}
@@ -182,7 +184,7 @@ void HWDrawInfo::WorkerThread()
 				HWWall wall;
 				SetupWall.Clock();
 				wall.sub = job->sub;
-				wall.Process(this, state, job->seg, front, back);
+				wall.Process(&disp, state, job->seg, front, back);
 				rendered_lines++;
 				SetupWall.Unclock();
 			}
@@ -363,16 +365,18 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 			{
 				SetupWall.Clock();
 				HWPortalWall portalwall;
-				portalwall.Process(this, state, seg, currentsector, backsector);
+				HWWallDispatcher disp(this);
+				portalwall.Process(&disp, state, seg, currentsector, backsector);
 				rendered_lines++;
 				SetupWall.Unclock();
 			}
 			else
 			{
 				HWWall wall;
+				HWWallDispatcher disp(this);
 				SetupWall.Clock();
 				wall.sub = seg->Subsector;
-				wall.Process(this, state, seg, currentsector, backsector);
+				wall.Process(&disp, state, seg, currentsector, backsector);
 				rendered_lines++;
 				SetupWall.Unclock();
 			}
@@ -620,7 +624,7 @@ void HWDrawInfo::RenderParticles(subsector_t *sub, sector_t *front, FRenderState
 	{
 		if (mClipPortal)
 		{
-			int clipres = mClipPortal->ClipPoint(Level->Particles[i].Pos);
+			int clipres = mClipPortal->ClipPoint(Level->Particles[i].Pos.XY());
 			if (clipres == PClip_InFront) continue;
 		}
 

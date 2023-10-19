@@ -36,9 +36,8 @@
 #define STB_IMAGE_IMPLEMENTATION    
 #define STBI_NO_STDIO
 // Undefine formats we do not want to support here.
-#define STBI_NO_JPEG
 //#define STBI_NO_PNG we need PNG for 16 bit channel images. Regular ones still use our own, more flexible decoder.
-#define STBI_NO_TGA
+#define STBI_NO_TGA // we could use that but our own loader has better palette support.
 #define STBI_NO_PSD
 #define STBI_NO_HDR
 #define STBI_NO_PNM
@@ -67,8 +66,8 @@ class FStbTexture : public FImageSource
 
 public:
 	FStbTexture (int lumpnum, int w, int h);
-	PalettedPixels CreatePalettedPixels(int conversion) override;
-	int CopyPixels(FBitmap *bmp, int conversion) override;
+	PalettedPixels CreatePalettedPixels(int conversion, int frame = 0) override;
+	int CopyPixels(FBitmap *bmp, int conversion, int frame = 0) override;
 };
 
 
@@ -117,7 +116,7 @@ FStbTexture::FStbTexture (int lumpnum, int w, int h)
 //
 //==========================================================================
 
-PalettedPixels FStbTexture::CreatePalettedPixels(int conversion)
+PalettedPixels FStbTexture::CreatePalettedPixels(int conversion, int frame)
 {
 	FBitmap bitmap;
 	bitmap.Create(Width, Height);
@@ -156,7 +155,7 @@ PalettedPixels FStbTexture::CreatePalettedPixels(int conversion)
 //
 //==========================================================================
 
-int FStbTexture::CopyPixels(FBitmap *bmp, int conversion)
+int FStbTexture::CopyPixels(FBitmap *bmp, int conversion, int frame)
 {
 	auto lump = fileSystem.OpenFileReader (SourceLump); 
 	int x, y, chan;

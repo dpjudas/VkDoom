@@ -462,6 +462,7 @@ enum DrawTextureTags
 	DTA_Indexed,			// Use an indexed texture combined with the given translation.
 	DTA_CleanTop,			// Like DTA_Clean but aligns to the top of the screen instead of the center.
 	DTA_NoOffset,			// Ignore 2D drawer's offset.
+	DTA_Localize,		// localize drawn string, for DrawText only
 
 };
 
@@ -641,9 +642,9 @@ struct Font native
 	// native Font(const Name name);
 
 	native int GetCharWidth(int code);
-	native int StringWidth(String code);
-	native int GetMaxAscender(String code);
-	native bool CanPrint(String code);
+	native int StringWidth(String code, bool localize = true);
+	native int GetMaxAscender(String code, bool localize = true);
+	native bool CanPrint(String code, bool localize = true);
 	native int GetHeight();
 	native int GetDisplacement();
 	native String GetCursor();
@@ -747,10 +748,13 @@ class Object native
 	private native static void BuiltinRandomSeed(voidptr rng, int seed);
 	private native static Class<Object> BuiltinNameToClass(Name nm, Class<Object> filter);
 	private native static Object BuiltinClassCast(Object inptr, Class<Object> test);
+	private native static Function<void> BuiltinFunctionPtrCast(Function<void> inptr, voidptr newtype);
 	
 	native static uint MSTime();
 	native static double MSTimeF();
 	native vararg static void ThrowAbortException(String fmt, ...);
+
+	native static Function<void> FindFunction(Class<Object> cls, Name fn);
 
 	native virtualscope void Destroy();
 
@@ -932,4 +936,9 @@ struct QuatStruct native
 	// native double Length();
 	// native double LengthSquared();
 	// native Quat Unit();
+}
+
+// this struct does not exist. It is just a type for being referenced by an opaque pointer.
+struct VMFunction native version("4.10")
+{
 }

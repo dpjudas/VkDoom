@@ -8,6 +8,7 @@
 #include "zvulkan/vulkanbuilders.h"
 #include "halffloat.h"
 #include "filesystem.h"
+#include "cmdlib.h"
 
 #define USE_DRAWINDIRECT
 
@@ -656,8 +657,7 @@ FString VkLightmap::LoadPrivateShaderLump(const char* lumpname)
 {
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	FileData data = fileSystem.ReadFile(lump);
-	return data.GetString();
+	return GetStringFromLump(lump);
 }
 
 FString VkLightmap::LoadPublicShaderLump(const char* lumpname)
@@ -665,8 +665,7 @@ FString VkLightmap::LoadPublicShaderLump(const char* lumpname)
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	FileData data = fileSystem.ReadFile(lump);
-	return data.GetString();
+	return GetStringFromLump(lump);
 }
 
 ShaderIncludeResult VkLightmap::OnInclude(FString headerName, FString includerName, size_t depth, bool system)

@@ -45,7 +45,6 @@
 #include "floatrect.h"
 #include "refcounted.h"
 
-typedef TMap<int, bool> SpriteHits;
 class FImageSource;
 class FGameTexture;
 class IHardwareTexture;
@@ -379,10 +378,11 @@ class FImageTexture : public FTexture
 {
 	FImageSource* mImage;
 	bool bNoRemap0 = false;
+	int TexFrame = 0;
 protected:
 	void SetFromImage();
 public:
-	FImageTexture(FImageSource* image) noexcept;
+	FImageTexture(FImageSource* image, int frame = 0) noexcept;
 	~FImageTexture();
 	TArray<uint8_t> Get8BitPixels(bool alphatex) override;
 

@@ -44,6 +44,7 @@
 
 
 #include <stdlib.h>
+#include <vector>
 #include "basics.h"
 #include "zstring.h"
 #include "tarray.h"
@@ -86,7 +87,7 @@ public:
 	void LoadStrings(const char *language);
 	void UpdateLanguage(const char* language);
 	StringMap GetDefaultStrings() { return allStrings[default_table]; }	// Dehacked needs these for comparison
-	void SetOverrideStrings(StringMap && map)
+	void SetOverrideStrings(StringMap & map)
 	{
 		allStrings.Insert(override_table, map);
 		UpdateLanguage(nullptr);
@@ -96,6 +97,7 @@ public:
 	bool MatchDefaultString(const char *name, const char *content) const;
 	const char *GetString(const char *name, uint32_t *langtable, int gender = -1) const;
 	const char *operator() (const char *name) const;	// Never returns NULL
+	const char* operator() (const FString& name) const { return operator()(name.GetChars()); }
 	const char *operator[] (const char *name) const
 	{
 		return GetString(name, nullptr);
@@ -111,11 +113,10 @@ private:
 	LangMap allStrings;
 	TArray<std::pair<uint32_t, StringMap*>> currentLanguageSet;
 
-	void LoadLanguage (int lumpnum, const TArray<uint8_t> &buffer);
-	TArray<TArray<FString>> parseCSV(const TArray<uint8_t> &buffer);
-	bool ParseLanguageCSV(int lumpnum, const TArray<uint8_t> &buffer);
+	void LoadLanguage (int lumpnum, const char* buffer, size_t size);
+	TArray<TArray<FString>> parseCSV(const char* buffer, size_t size);
+	bool ParseLanguageCSV(int lumpnum, const char* buffer, size_t size);
 
-	bool LoadLanguageFromSpreadsheet(int lumpnum, const TArray<uint8_t> &buffer);
 	bool readMacros(int lumpnum);
 	void DeleteString(int langid, FName label);
 	void DeleteForLabel(int lumpnum, FName label);

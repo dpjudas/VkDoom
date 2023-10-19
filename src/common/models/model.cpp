@@ -25,6 +25,7 @@
 ** General model handling code
 **
 **/
+#include <stddef.h> // offsetof() macro.
 
 #include "filesystem.h"
 #include "cmdlib.h"
@@ -88,7 +89,7 @@ void FModel::DestroyVertexBuffer()
 
 static int FindGFXFile(FString & fn)
 {
-	int lump = fileSystem.CheckNumForFullName(fn);	// if we find something that matches the name plus the extension, return it and do not enter the substitution logic below.
+	int lump = fileSystem.CheckNumForFullName(fn.GetChars());	// if we find something that matches the name plus the extension, return it and do not enter the substitution logic below.
 	if (lump != -1) return lump;
 
 	int best = -1;
@@ -100,7 +101,7 @@ static int FindGFXFile(FString & fn)
 
 	for (const char ** extp=extensions; *extp; extp++)
 	{
-		lump = fileSystem.CheckNumForFullName(fn + *extp);
+		lump = fileSystem.CheckNumForFullName((fn + *extp).GetChars());
 		if (lump >= best)  best = lump;
 	}
 	return best;
@@ -132,17 +133,7 @@ FTextureID LoadSkin(const char * path, const char * fn)
 
 int ModelFrameHash(FSpriteModelFrame * smf)
 {
-	const uint32_t *table = GetCRCTable ();
-	uint32_t hash = 0xffffffff;
-
-	const char * s = (const char *)(&smf->type);	// this uses type, sprite and frame for hashing
-	const char * se= (const char *)(&smf->hashnext);
-
-	for (; s<se; s++)
-	{
-		hash = CRC1 (hash, *s, table);
-	}
-	return hash ^ 0xffffffff;
+	return crc32(0, (const unsigned char *)(&smf->type), offsetof(FSpriteModelFrame, hashnext) - offsetof(FSpriteModelFrame, type));
 }
 
 //===========================================================================
@@ -158,7 +149,7 @@ unsigned FindModel(const char * path, const char * modelfile, bool silent)
 
 	if (path) fullname.Format("%s%s", path, modelfile);
 	else fullname = modelfile;
-	int lump = fileSystem.CheckNumForFullName(fullname);
+	int lump = fileSystem.CheckNumForFullName(fullname.GetChars());
 
 	if (lump<0)
 	{
@@ -172,14 +163,14 @@ unsigned FindModel(const char * path, const char * modelfile, bool silent)
 	}
 
 	int len = fileSystem.FileLength(lump);
-	FileData lumpd = fileSystem.ReadFile(lump);
-	char * buffer = (char*)lumpd.GetMem();
+	auto lumpd = fileSystem.ReadFile(lump);
+	const char * buffer = lumpd.GetString();
 
 	if ( (size_t)fullname.LastIndexOf("_d.3d") == fullname.Len()-5 )
 	{
 		FString anivfile = fullname.GetChars();
 		anivfile.Substitute("_d.3d","_a.3d");
-		if ( fileSystem.CheckNumForFullName(anivfile) > 0 )
+		if ( fileSystem.CheckNumForFullName(anivfile.GetChars()) > 0 )
 		{
 			model = new FUE1Model;
 		}
@@ -188,7 +179,7 @@ unsigned FindModel(const char * path, const char * modelfile, bool silent)
 	{
 		FString datafile = fullname.GetChars();
 		datafile.Substitute("_a.3d","_d.3d");
-		if ( fileSystem.CheckNumForFullName(datafile) > 0 )
+		if ( fileSystem.CheckNumForFullName(datafile.GetChars()) > 0 )
 		{
 			model = new FUE1Model;
 		}

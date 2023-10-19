@@ -37,7 +37,6 @@
 #include "zstring.h"
 #include "files.h"
 #include "palentry.h"
-#include "basics.h"
 
 // Screenshot buffer image data types
 enum ESSType
@@ -47,7 +46,6 @@ enum ESSType
 	SS_BGRA
 };
 
-class FileWriter;
 // PNG Writing --------------------------------------------------------------
 
 // Start writing an 8-bit palettized PNG file.
@@ -82,13 +80,13 @@ struct PNGHandle
 		uint32_t		Size;
 	};
 
-	FileReader			File;
+	FileSys::FileReader			File;
 	bool			bDeleteFilePtr;
 	TArray<Chunk>	Chunks;
 	TArray<char *>	TextChunks;
 	unsigned int	ChunkPt;
 
-	PNGHandle(FileReader &file);
+	PNGHandle(FileSys::FileReader &file);
 	~PNGHandle();
 };
 
@@ -96,7 +94,7 @@ struct PNGHandle
 // the signature, but also checking for the IEND chunk. CRC checking of
 // each chunk is not done. If it is valid, you get a PNGHandle to pass to
 // the following functions.
-PNGHandle *M_VerifyPNG (FileReader &file);
+PNGHandle *M_VerifyPNG (FileSys::FileReader &file);
 
 // Finds a chunk in a PNG file. The file pointer will be positioned at the
 // beginning of the chunk data, and its length will be returned. A return
@@ -115,7 +113,7 @@ bool M_GetPNGText (PNGHandle *png, const char *keyword, char *buffer, size_t buf
 
 // The file must be positioned at the start of the first IDAT. It reads
 // image data into the provided buffer. Returns true on success.
-bool M_ReadIDAT (FileReader &file, uint8_t *buffer, int width, int height, int pitch,
+bool M_ReadIDAT (FileSys::FileReader &file, uint8_t *buffer, int width, int height, int pitch,
 				 uint8_t bitdepth, uint8_t colortype, uint8_t interlace, unsigned int idatlen);
 
 

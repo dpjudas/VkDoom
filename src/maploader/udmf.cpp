@@ -279,7 +279,7 @@ const char *UDMFParserBase::CheckString(FName key)
 	{
 		sc.ScriptMessage("String value expected for key '%s'", key.GetChars());
 	}
-	return parsedString;
+	return parsedString.GetChars();
 }
 
 //===========================================================================
@@ -1518,9 +1518,6 @@ public:
 					sd->Flags |= WALLF_EXTCOLOR;
 				break;
 
-				CHECK_N(Zd | Zdt)
-				break;
-
 			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
 				for (int i = 0; i < 3; ++i)
@@ -2048,9 +2045,6 @@ public:
 					sec->health3dgroup = CheckInt(key);
 					break;
 
-					CHECK_N(Zd | Zdt)
-					break;
-
 				case NAME_lm_sampledist_floor:
 					CHECK_N(Zd | Zdt)
 					sec->planes[sector_t::floor].LightmapSampleDistance = CheckInt(key);
@@ -2128,6 +2122,7 @@ public:
 			DVector3 n = DVector3(cp[0], cp[1], cp[2]).Unit();
 			sec->ceilingplane.set(n.X, n.Y, n.Z, cp[3]);
 		}
+		sec->CheckOverlap();
 
 		if (lightcolor == ~0u && fadecolor == ~0u && desaturation == -1 && fogdensity == -1)
 		{

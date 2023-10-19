@@ -25,9 +25,9 @@ Modifications for JonoF's port by Jonathon Fowler (jf@jonof.id.au)
 */
 //-------------------------------------------------------------------------
 
+#include <string.h>
 #include "animlib.h"
 #include "m_swap.h"
-#include "m_alloc.h"
 
 //****************************************************************************
 //
@@ -217,12 +217,12 @@ static inline void drawframe(anim_t *anim, uint16_t framenumber)
 }
 
 // <length> is the file size, for consistency checking.
-int32_t ANIM_LoadAnim(anim_t *anim, uint8_t *buffer, int32_t length)
+int32_t ANIM_LoadAnim(anim_t *anim, const uint8_t *buffer, size_t length)
 {
 	if (memcmp(buffer, "LPF ", 4)) return -1;
 
 	length -= sizeof(lpfileheader)+128+768;
-	if (length < 0)
+	if ((signed)length < 0)
 		return -1;
 
 	anim->curlpnum = 0xffff;
@@ -244,7 +244,7 @@ int32_t ANIM_LoadAnim(anim_t *anim, uint8_t *buffer, int32_t length)
 	lpheader.framesPerSecond = LittleShort(lpheader.framesPerSecond);
 
 	length -= lpheader.nLps * sizeof(lp_descriptor);
-	if (length < 0)
+	if ((signed)length < 0)
 		return -2;
 
 	buffer += sizeof(lpfileheader)+128;

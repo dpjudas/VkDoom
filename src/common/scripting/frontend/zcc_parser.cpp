@@ -52,7 +52,7 @@ static FString ResolveIncludePath(const FString &path,const FString &lumpname){
 
 		auto end = lumpname.LastIndexOf("/"); // find last '/'
 
-		// it's a top-level file, if it's a folder being loaded ( /xxx/yyy/:whatever.zs ) end is before than start, or if it's a zip ( xxx.zip/whatever.zs ) end would be -1
+		// it's a top-level file, if it's a folder being loaded ( /xxx/yyy/:whatever.zs ) end is before than start, or if it's a zip ( xxx.zip:whatever.zs ) end would be -1
 		bool topLevelFile = start > end ;
 
 		FString fullPath = topLevelFile ? FString {} : lumpname.Mid(start + 1, end - start - 1); // get path from lumpname (format 'wad:filepath/filename')
@@ -222,6 +222,7 @@ static void InitTokenMap()
 	TOKENDEF2(TK_Map,			ZCC_MAP,		NAME_Map);
 	TOKENDEF2(TK_MapIterator,	ZCC_MAPITERATOR,NAME_MapIterator);
 	TOKENDEF2(TK_Array,			ZCC_ARRAY,		NAME_Array);
+	TOKENDEF2(TK_FunctionType,	ZCC_FNTYPE,		NAME_Function);
 	TOKENDEF2(TK_Include,		ZCC_INCLUDE,	NAME_Include);
 	TOKENDEF (TK_Void,			ZCC_VOID);
 	TOKENDEF (TK_True,			ZCC_TRUE);
@@ -232,6 +233,7 @@ static void InitTokenMap()
 	TOKENDEF (TK_Out,			ZCC_OUT);
 	TOKENDEF (TK_Super,			ZCC_SUPER);
 	TOKENDEF (TK_Null,			ZCC_NULLPTR);
+	TOKENDEF (TK_Sealed,		ZCC_SEALED);
 	TOKENDEF ('~',				ZCC_TILDE);
 	TOKENDEF ('!',				ZCC_BANG);
 	TOKENDEF (TK_SizeOf,		ZCC_SIZEOF);
@@ -407,8 +409,6 @@ PNamespace *ParseOneScript(const int baselump, ZCCParseState &state)
 	int lumpnum = baselump;
 	auto fileno = fileSystem.GetFileContainer(lumpnum);
 
-	FString file  = fileSystem.GetFileFullPath(lumpnum);
-
 	state.FileNo = fileno;
 
 	if (TokenMap.CountUsed() == 0)
@@ -473,7 +473,7 @@ PNamespace *ParseOneScript(const int baselump, ZCCParseState &state)
 	ParseSingleFile(&sc, nullptr, lumpnum, parser, state);
 	for (unsigned i = 0; i < Includes.Size(); i++)
 	{
-		lumpnum = fileSystem.CheckNumForFullName(Includes[i], true);
+		lumpnum = fileSystem.CheckNumForFullName(Includes[i].GetChars(), true);
 		if (lumpnum == -1)
 		{
 			IncludeLocs[i].Message(MSG_ERROR, "Include script lump %s not found", Includes[i].GetChars());
@@ -503,7 +503,7 @@ PNamespace *ParseOneScript(const int baselump, ZCCParseState &state)
 	// If the parser fails, there is no point starting the compiler, because it'd only flood the output with endless errors.
 	if (FScriptPosition::ErrorCounter > 0)
 	{
-		I_Error("%d errors while parsing %s", FScriptPosition::ErrorCounter, fileSystem.GetFileFullPath(baselump).GetChars());
+		I_Error("%d errors while parsing %s", FScriptPosition::ErrorCounter, fileSystem.GetFileFullPath(baselump).c_str());
 	}
 
 #ifndef NDEBUG
@@ -517,10 +517,10 @@ PNamespace *ParseOneScript(const int baselump, ZCCParseState &state)
 	if (Args->CheckParm("-dumpast"))
 	{
 		FString ast = ZCC_PrintAST(state.TopNode);
-		FString filename = fileSystem.GetFileFullPath(baselump);
+		FString filename = fileSystem.GetFileFullPath(baselump).c_str();
 		filename.ReplaceChars(":\\/?|", '.');
 		filename << ".ast";
-		FileWriter *ff = FileWriter::Open(filename);
+		FileWriter *ff = FileWriter::Open(filename.GetChars());
 		if (ff != NULL)
 		{
 			ff->Write(ast.GetChars(), ast.Len());
@@ -922,6 +922,29 @@ ZCC_TreeNode *TreeNodeDeepCopy_Internal(ZCC_AST *ast, ZCC_TreeNode *orig, bool c
 		copy->ArraySize = static_cast<ZCC_Expression *>(TreeNodeDeepCopy_Internal(ast, origCasted->ArraySize, true, copiedNodesList));
 		// ZCC_DynArrayType
 		copy->ElementType = static_cast<ZCC_Type *>(TreeNodeDeepCopy_Internal(ast, origCasted->ElementType, true, copiedNodesList));
+
+		break;
+	}
+
+	case AST_FuncPtrParamDecl:
+	{
+		TreeNodeDeepCopy_Start(FuncPtrParamDecl);
+
+		// ZCC_FuncPtrParamDecl
+		copy->Type = static_cast<ZCC_Type *>(TreeNodeDeepCopy_Internal(ast, origCasted->Type, true, copiedNodesList));
+		copy->Flags = origCasted->Flags;
+
+		break;
+	}
+
+	case AST_FuncPtrType:
+	{
+		TreeNodeDeepCopy_Start(FuncPtrType);
+
+		// ZCC_FuncPtrType
+		copy->RetType = static_cast<ZCC_Type *>(TreeNodeDeepCopy_Internal(ast, origCasted->RetType, true, copiedNodesList));
+		copy->Params = static_cast<ZCC_FuncPtrParamDecl *>(TreeNodeDeepCopy_Internal(ast, origCasted->Params, true, copiedNodesList));
+		copy->Scope = origCasted->Scope;
 
 		break;
 	}
@@ -1372,7 +1395,21 @@ ZCC_TreeNode *TreeNodeDeepCopy_Internal(ZCC_AST *ast, ZCC_TreeNode *orig, bool c
 
 		break;
 	}
+	
+	case AST_FunctionPtrCast:
+	{
+		TreeNodeDeepCopy_Start(FunctionPtrCast);
 
+		// ZCC_Expression
+		copy->Operation = origCasted->Operation;
+		copy->Type = origCasted->Type;
+		// ZCC_FunctionPtrCast
+		copy->PtrType = static_cast<ZCC_FuncPtrType *>(TreeNodeDeepCopy_Internal(ast, origCasted->PtrType, true, copiedNodesList));
+		copy->Expr = static_cast<ZCC_Expression *>(TreeNodeDeepCopy_Internal(ast, origCasted->Expr, true, copiedNodesList));
+
+		break;
+	}
+	
 	case AST_StaticArrayStatement:
 	{
 		TreeNodeDeepCopy_Start(StaticArrayStatement);

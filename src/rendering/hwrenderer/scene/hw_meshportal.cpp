@@ -21,7 +21,7 @@
 #include "hw_drawinfo.h"
 #include "hw_renderstate.h"
 
-void HWPortalWall::Process(HWDrawInfo* di, FRenderState& state, seg_t* seg, sector_t* frontsector, sector_t* backsector)
+void HWPortalWall::Process(HWWallDispatcher* di, FRenderState& state, seg_t* seg, sector_t* frontsector, sector_t* backsector)
 {
 	// The portal code wants a HWWall struct.
 
@@ -33,7 +33,7 @@ void HWPortalWall::Process(HWDrawInfo* di, FRenderState& state, seg_t* seg, sect
 	}
 }
 
-bool HWPortalWall::IsPortal(HWDrawInfo* di, FRenderState& state, seg_t* seg, sector_t* frontsector, sector_t* backsector)
+bool HWPortalWall::IsPortal(HWWallDispatcher* di, FRenderState& state, seg_t* seg, sector_t* frontsector, sector_t* backsector)
 {
 	// Note: This is incomplete. It assumes a completely valid map. Good luck adding the full range of checks!
 

@@ -24,7 +24,7 @@ public:
 		Palette = palette;
 	}
 
-	PalettedPixels CreatePalettedPixels(int conversion) override
+	PalettedPixels CreatePalettedPixels(int conversion, int frame = 0) override
 	{
 		PalettedPixels OutPixels(Pixels.Size());
 		memcpy(OutPixels.Data(), Pixels.Data(), Pixels.Size());
@@ -51,13 +51,13 @@ class FTTFFont : public FFont
 public:
 	FTTFFont(const char* fontname, int height, int lump) : FFont(lump)
 	{
-		auto lumpdata = fileSystem.GetFileData(lump);
+		auto lumpdata = fileSystem.ReadFile(lump);
 
 		SFT sft = {};
 		sft.xScale = height;
 		sft.yScale = height;
 		sft.flags = SFT_DOWNWARD_Y;
-		sft.font = sft_loadmem(lumpdata.Data(), lumpdata.Size());
+		sft.font = sft_loadmem(lumpdata.GetBytes(), lumpdata.GetSize());
 		if (!sft.font)
 			I_FatalError("Could not load truetype font file");
 

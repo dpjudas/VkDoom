@@ -5,6 +5,7 @@
 #include "hw_mesh.h"
 #include "hw_fakeflat.h"
 #include "hw_vertexbuilder.h"
+#include "hw_walldispatcher.h"
 #include "g_levellocals.h"
 #include <unordered_set>
 
@@ -108,8 +109,9 @@ void HWMeshCache::Update(HWDrawContext* drawctx, FRenderViewpoint& vp)
 				side_t* side = (line->sidedef[0]->sector == sector) ? line->sidedef[0] : line->sidedef[1];
 
 				HWWall wall;
+				HWWallDispatcher disp(di);
 				wall.sub = sector->subsectors[0];
-				wall.Process(di, state, side->segs[0], sector, (line->sidedef[0]->sector == sector) ? line->backsector : line->frontsector);
+				wall.Process(&disp, state, side->segs[0], sector, (line->sidedef[0]->sector == sector) ? line->backsector : line->frontsector);
 			}
 		}
 

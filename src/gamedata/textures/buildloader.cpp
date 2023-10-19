@@ -41,12 +41,13 @@
 #include "colormatcher.h"
 #include "bitmap.h"
 #include "textures.h"
-#include "resourcefile.h"
+#include "fs_filesystem.h"
 #include "image.h"
 #include "animations.h"
 #include "texturemanager.h"
 #include "r_translate.h"
 #include "r_data/sprites.h"
+#include "m_swap.h"
 
 //===========================================================================
 //
@@ -83,8 +84,8 @@ static int BuildPaletteTranslation(int lump)
 		return false;
 	}
 
-	FileData data = fileSystem.ReadFile(lump);
-	const uint8_t *ipal = (const uint8_t *)data.GetMem();
+	auto data = fileSystem.ReadFile(lump);
+	auto ipal = data.GetBytes();
 	FRemapTable opal;
 
 	bool blood = false;
@@ -157,7 +158,7 @@ void AddTiles(const FString& pathprefix, const void* tiles, FRemapTable *remap)
 		if (width <= 0 || height <= 0) continue;
 
 		FStringf name("%sBTIL%04d", pathprefix.GetChars(), i);
-		auto tex = MakeGameTexture(new FImageTexture(new FBuildTexture(pathprefix, i, tiledata, remap, width, height, xoffs, yoffs)), name, ETextureType::Override);
+		auto tex = MakeGameTexture(new FImageTexture(new FBuildTexture(pathprefix, i, tiledata, remap, width, height, xoffs, yoffs)), name.GetChars(), ETextureType::Override);
 		texnum = TexMan.AddGameTexture(tex);
 		tiledata += size;
 
@@ -275,7 +276,7 @@ void InitBuildTiles()
 				// only read from the same source as the palette.
 				// The entire format here is just too volatile to allow liberal mixing.
 				// An .ART set must be treated as one unit.
-				lumpnum = fileSystem.CheckNumForFullName(artpath, fileSystem.GetFileContainer(i));
+				lumpnum = fileSystem.CheckNumForFullName(artpath.GetChars(), fileSystem.GetFileContainer(i));
 				if (lumpnum < 0)
 				{
 					break;

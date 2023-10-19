@@ -16,7 +16,32 @@ if( COMMAND cmake_policy )
 	endif()
 endif()
 
+if (LIBVPX_VCPKG)
+	list(APPEND VCPKG_MANIFEST_FEATURES "vcpkg-libvpx")
+endif()
+
+if (OPENAL_SOFT_VCPKG)
+	list(APPEND VCPKG_MANIFEST_FEATURES "vcpkg-openal-soft")
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR (NOT CMAKE_SYSTEM_NAME AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows"))
+	# Force static triplet on Windows
+	set(VCPKG_TARGET_TRIPLET "x64-windows-static")
+endif()
+
 project(VkDoom)
+
+if (WIN32 AND VCPKG_TOOLCHAIN)
+	option(LIBVPX_VCPKG "Use libvpx from vcpkg" OFF)
+endif()
+
+if (VCPKG_TOOLCHAIN)
+	option(OPENAL_SOFT_VCPKG "Use OpenAL from vcpkg" OFF)
+endif()
+
+if (NOT VCPKG_TOOLCHAIN)
+	set(VCPKG_MANIFEST_FEATURES)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -189,9 +214,21 @@ endmacro()
 option( NO_OPENAL "Disable OpenAL sound support" OFF )
 
 find_package( BZip2 )
-find_package( JPEG )
 find_package( VPX )
-find_package( ZLIB )
+find_package( WebP )
+if (NOT WebP_FOUND)
+	include(FindPkgConfig)
+	pkg_check_modules(libwebp IMPORTED_TARGET libwebp)
+	if (NOT TARGET PkgConfig::libwebp)
+		message(SEND_ERROR "libwebp not found")
+	endif()
+	pkg_check_modules(libwebpmux REQUIRED IMPORTED_TARGET libwebpmux)
+	pkg_check_modules(libwebpdemux REQUIRED IMPORTED_TARGET libwebpdemux)
+
+	add_library(WebP::webp ALIAS PkgConfig::libwebp)
+	add_library(WebP::webpdemux ALIAS PkgConfig::libwebpdemux)
+	add_library(WebP::libwebpmux ALIAS PkgConfig::libwebpmux)
+endif()
 
 include( TargetArch )
 
@@ -309,8 +346,6 @@ set( CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} ${REL_C_FLAGS}" )
 set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${REL_C_FLAGS}" )
 set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEB_C_FLAGS} -D_DEBUG" )
 
-option(FORCE_INTERNAL_ZLIB "Use internal zlib")
-option(FORCE_INTERNAL_JPEG "Use internal jpeg")
 option(FORCE_INTERNAL_BZIP2 "Use internal bzip2")
 option(FORCE_INTERNAL_ASMJIT "Use internal asmjit" ON)
 mark_as_advanced( FORCE_INTERNAL_ASMJIT )
@@ -323,17 +358,6 @@ add_subdirectory( libraries/discordrpc EXCLUDE_FROM_ALL )
 set( DRPC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libraries/discordrpc/include" )
 set( DRPC_LIBRARIES discord-rpc )
 set( DRPC_LIBRARY discord-rpc )
-
-if( ZLIB_FOUND AND NOT FORCE_INTERNAL_ZLIB )
-	message( STATUS "Using system zlib, includes found at ${ZLIB_INCLUDE_DIR}" )
-else()
-	message( STATUS "Using internal zlib" )
-	set( SKIP_INSTALL_ALL TRUE ) # Avoid installing zlib
-	add_subdirectory( libraries/zlib )
-	set( ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/zlib )
-	set( ZLIB_LIBRARIES z )
-	set( ZLIB_LIBRARY z )
-endif()
 
 if( HAVE_VM_JIT AND UNIX )
 	check_symbol_exists( "backtrace" "execinfo.h" HAVE_BACKTRACE )
@@ -360,16 +384,6 @@ if( ${HAVE_VM_JIT} )
 		set( ASMJIT_LIBRARIES asmjit )
 		set( ASMJIT_LIBRARY asmjit )
 	endif()
-endif()
-
-if( JPEG_FOUND AND NOT FORCE_INTERNAL_JPEG )
-	message( STATUS "Using system jpeg library, includes found at ${JPEG_INCLUDE_DIR}" )
-else()
-	message( STATUS "Using internal jpeg library" )
-	add_subdirectory( libraries/jpeg )
-	set( JPEG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/jpeg )
-	set( JPEG_LIBRARIES jpeg )
-	set( JPEG_LIBRARY jpeg )
 endif()
 
 if( BZIP2_FOUND AND NOT FORCE_INTERNAL_BZIP2 )
@@ -403,6 +417,7 @@ install(DIRECTORY docs/
 option( DYN_OPENAL "Dynamically load OpenAL" ON )
 
 add_subdirectory( libraries/lzma )
+add_subdirectory( libraries/miniz )
 add_subdirectory( tools )
 add_subdirectory( wadsrc )
 add_subdirectory( wadsrc_bm )

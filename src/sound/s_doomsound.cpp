@@ -81,7 +81,7 @@ class DoomSoundEngine : public SoundEngine
 
 	void CalcPosVel(int type, const void* source, const float pt[3], int channum, int chanflags, FSoundID soundid, FVector3* pos, FVector3* vel, FSoundChan *) override;
 	bool ValidatePosVel(int sourcetype, const void* source, const FVector3& pos, const FVector3& vel);
-	TArray<uint8_t> ReadSound(int lumpnum);
+	std::vector<uint8_t> ReadSound(int lumpnum);
 	FSoundID PickReplacement(FSoundID refid);
 	FSoundID ResolveSound(const void *ent, int type, FSoundID soundid, float &attenuation) override;
 	void CacheSound(sfxinfo_t* sfx) override;
@@ -158,7 +158,7 @@ static FString LookupMusic(const char* musicname, int& order)
 		if (mus_string != nullptr)
 		{
 			DEH_Music << "D_" << mus_string;
-			musicname = DEH_Music;
+			musicname = DEH_Music.GetChars();
 		}
 	}
 
@@ -191,7 +191,7 @@ static FileReader OpenMusic(const char* musicname)
 	{
 		int lumpnum;
 		lumpnum = fileSystem.CheckNumForFullName(musicname);
-		if (lumpnum == -1) lumpnum = fileSystem.CheckNumForName(musicname, ns_music);
+		if (lumpnum == -1) lumpnum = fileSystem.CheckNumForName(musicname, FileSys::ns_music);
 		if (lumpnum == -1)
 		{
 			Printf("Music \"%s\" not found\n", musicname);
@@ -237,7 +237,8 @@ void S_Init()
 	TArray<uint8_t> curve;
 	if (curvelump >= 0)
 	{
-		curve = fileSystem.GetFileData(curvelump);
+		curve.Resize(fileSystem.FileLength(curvelump));
+		fileSystem.ReadFile(curvelump, curve.Data());
 	}
 	soundEngine->Init(curve);
 }
@@ -313,7 +314,7 @@ void S_Start()
 			if (LocalSndInfo.IsNotEmpty())
 			{
 				// Now parse the local SNDINFO
-				int j = fileSystem.CheckNumForFullName(LocalSndInfo, true);
+				int j = fileSystem.CheckNumForFullName(LocalSndInfo.GetChars(), true);
 				if (j >= 0) S_AddLocalSndInfo(j);
 			}
 
@@ -327,7 +328,7 @@ void S_Start()
 
 		if (parse_ss)
 		{
-			S_ParseSndSeq(LocalSndSeq.IsNotEmpty() ? fileSystem.CheckNumForFullName(LocalSndSeq, true) : -1);
+			S_ParseSndSeq(LocalSndSeq.IsNotEmpty() ? fileSystem.CheckNumForFullName(LocalSndSeq.GetChars(), true) : -1);
 		}
 
 		LastLocalSndInfo = LocalSndInfo;
@@ -945,7 +946,7 @@ static void CalcSectorSoundOrg(const DVector3& listenpos, const sector_t* sec, i
 			// Find the closest point on the sector's boundary lines and use
 			// that as the perceived origin of the sound.
 			DVector2 xy;
-			sec->ClosestPoint(listenpos, xy);
+			sec->ClosestPoint(listenpos.XY(), xy);
 			pos.X = (float)xy.X;
 			pos.Z = (float)xy.Y;
 		}
@@ -988,7 +989,7 @@ static void CalcPolyobjSoundOrg(const DVector3& listenpos, const FPolyObj* poly,
 	sector_t* sec;
 
 	DVector2 ppos;
-	poly->ClosestPoint(listenpos, ppos, &side);
+	poly->ClosestPoint(listenpos.XY(), ppos, &side);
 	pos.X = (float)ppos.X;
 	pos.Z = (float)ppos.Y;
 	sec = side->sector;
@@ -1165,7 +1166,7 @@ bool DoomSoundEngine::ValidatePosVel(int sourcetype, const void* source, const F
 // 
 //==========================================================================
 
-TArray<uint8_t> DoomSoundEngine::ReadSound(int lumpnum)
+std::vector<uint8_t> DoomSoundEngine::ReadSound(int lumpnum)
 {
 	auto wlump = fileSystem.OpenFileReader(lumpnum);
 	return wlump.Read();
@@ -1241,9 +1242,8 @@ void DoomSoundEngine::NoiseDebug()
 		color = (chan->ChanFlags & CHANF_LOOP) ? CR_BROWN : CR_GREY;
 
 		// Name
-		fileSystem.GetFileShortName(temp, S_sfx[chan->SoundID.index()].lumpnum);
-		temp[8] = 0;
-		DrawText(twod, NewConsoleFont, color, 0, y, temp, TAG_DONE);
+		auto tname = fileSystem.GetFileShortName(S_sfx[chan->SoundID.index()].lumpnum);
+		DrawText(twod, NewConsoleFont, color, 0, y, tname, TAG_DONE);
 
 		if (!(chan->ChanFlags & CHANF_IS3D))
 		{
@@ -1336,10 +1336,8 @@ ADD_STAT(sounddebug)
 
 void DoomSoundEngine::PrintSoundList()
 {
-	char lumpname[9];
 	unsigned int i;
 
-	lumpname[8] = 0;
 	for (i = 0; i < soundEngine->GetNumSounds(); i++)
 	{
 		const sfxinfo_t* sfx = soundEngine->GetSfx(FSoundID::fromInt(i));
@@ -1359,8 +1357,7 @@ void DoomSoundEngine::PrintSoundList()
 		}
 		else if (S_sfx[i].lumpnum != -1)
 		{
-			fileSystem.GetFileShortName(lumpname, sfx->lumpnum);
-			Printf("%3d. %s (%s)\n", i, sfx->name.GetChars(), lumpname);
+			Printf("%3d. %s (%s)\n", i, sfx->name.GetChars(), fileSystem.GetFileShortName(sfx->lumpnum));
 		}
 		else if (S_sfx[i].link != sfxinfo_t::NO_LINK)
 		{

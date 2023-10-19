@@ -127,6 +127,7 @@ static FCompatOption Options[] =
 	{ "noslopeid",				BCOMPATF_NOSLOPEID, SLOT_BCOMPAT },
 	{ "clipmidtex",				BCOMPATF_CLIPMIDTEX, SLOT_BCOMPAT },
 	{ "nosectionmerge",			BCOMPATF_NOSECTIONMERGE, SLOT_BCOMPAT },
+	{ "nomirrors",				BCOMPATF_NOMIRRORS, SLOT_BCOMPAT },
 
 
 	// list copied from g_mapinfo.cpp
@@ -303,7 +304,7 @@ FName MapLoader::CheckCompatibility(MapData *map)
 		}
 		if (gameinfo.flags & GI_NOSECTIONMERGE)
 		{
-			Level->ib_compatflags |= BCOMPATF_NOSECTIONMERGE;
+			//Level->ib_compatflags |= BCOMPATF_NOSECTIONMERGE;
 		}
 	}
 

@@ -216,9 +216,9 @@ sector_t * hw_FakeFlat(HWDrawContext* drawctx, sector_t * sec, area_t in_area, b
 			if (drawctx->fakesectorbuffer && drawctx->fakesectorbuffer[sec->sectornum]) return drawctx->fakesectorbuffer[sec->sectornum];
 			auto dest = localcopy? localcopy : allocateSector(drawctx, sec);
 			*dest = *sec;
-			dest->ceilingplane = sec->floorplane;
-			dest->ceilingplane.FlipVert();
-			dest->planes[sector_t::ceiling].TexZ = dest->planes[sector_t::floor].TexZ;
+			dest->floorplane = sec->ceilingplane;
+			dest->floorplane.FlipVert();
+			dest->planes[sector_t::floor].TexZ = dest->planes[sector_t::ceiling].TexZ;
 			dest->ClearPortal(sector_t::ceiling);
 			dest->ClearPortal(sector_t::floor);
 			return dest;

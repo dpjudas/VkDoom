@@ -858,7 +858,7 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 
 	if (thruportal != 2 && di->mClipPortal != nullptr)
 	{
-		int clipres = di->mClipPortal->ClipPoint(thingpos);
+		int clipres = di->mClipPortal->ClipPoint(thingpos.XY());
 		if (clipres == PClip_InFront) return;
 	}
 	// disabled because almost none of the actual game code is even remotely prepared for this. If desired, use the INTERPOLATE flag.
@@ -1013,7 +1013,7 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 		// Tests show that this doesn't look good for many decorations and corpses
 		if (spriteheight > 0 && gl_spriteclip > 0 && (thing->renderflags & RF_SPRITETYPEMASK) == RF_FACESPRITE)
 		{
-			PerformSpriteClipAdjustment(thing, thingpos, spriteheight);
+			PerformSpriteClipAdjustment(thing, thingpos.XY(), spriteheight);
 		}
 
 		switch (spritetype)

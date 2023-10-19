@@ -40,6 +40,7 @@
 #include <string>
 #include "tarray.h"
 #include "utf8.h"
+#include "filesystem.h"
 
 #ifdef __GNUC__
 #define PRINTFISH(x) __attribute__((format(printf, 2, x)))
@@ -145,9 +146,6 @@ public:
 	FString (const char *head, const char *tail);
 	FString (char head, const FString &tail);
 
-	// Other constructors
-	FString (ELumpNum);	// Create from a lump
-
 	~FString ();
 
 	// Discard string's contents, create a new buffer, and lock it.
@@ -164,8 +162,6 @@ public:
 	// We do not want any implicit conversions from FString in conditionals.
 	explicit operator bool() = delete; // this is needed to render the operator const char * ineffective when used in boolean constructs.
 	bool operator !() = delete;
-
-	operator const char *() const { return Chars; }
 
 	const char *GetChars() const { return Chars; }
 
@@ -328,13 +324,13 @@ public:
 
 	int Compare (const FString &other) const { return strcmp (Chars, other.Chars); }
 	int Compare (const char *other) const { return strcmp (Chars, other); }
-	int Compare(const FString &other, int len) const { return strncmp(Chars, other.Chars, len); }
-	int Compare(const char *other, int len) const { return strncmp(Chars, other, len); }
+	int Compare(const FString &other, size_t len) const { return strncmp(Chars, other.Chars, len); }
+	int Compare(const char *other, size_t len) const { return strncmp(Chars, other, len); }
 
 	int CompareNoCase (const FString &other) const { return stricmp (Chars, other.Chars); }
 	int CompareNoCase (const char *other) const { return stricmp (Chars, other); }
-	int CompareNoCase(const FString &other, int len) const { return strnicmp(Chars, other.Chars, len); }
-	int CompareNoCase(const char *other, int len) const { return strnicmp(Chars, other, len); }
+	int CompareNoCase(const FString &other, size_t len) const { return strnicmp(Chars, other.Chars, len); }
+	int CompareNoCase(const char *other, size_t len) const { return strnicmp(Chars, other, len); }
 
 	enum EmptyTokenType
 	{

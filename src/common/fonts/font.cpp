@@ -91,24 +91,25 @@ FFont::FFont (const char *name, const char *nametemplate, const char *filetempla
 	// Read the font's configuration.
 	// This will not be done for the default fonts, because they are not atomic and the default content does not need it.
 
-	TArray<FolderEntry> folderdata;
+	std::vector<FileSys::FolderEntry> folderdata;
 	if (filetemplate != nullptr)
 	{
 		FStringf path("fonts/%s/", filetemplate);
 		// If a name template is given, collect data from all resource files.
 		// For anything else, each folder is being treated as an atomic, self-contained unit and mixing from different glyph sets is blocked.
-		fileSystem.GetFilesInFolder(path, folderdata, nametemplate == nullptr);
+		fileSystem.GetFilesInFolder(path.GetChars(), folderdata, nametemplate == nullptr);
 
 		//if (nametemplate == nullptr)
 		{
 			FStringf infpath("fonts/%s/font.inf", filetemplate);
 
-			unsigned index = folderdata.FindEx([=](const FolderEntry &entry)
+			size_t index;
+			for(index = 0; index < folderdata.size(); index++)
 			{
-				return infpath.CompareNoCase(entry.name) == 0;
-			});
+				if (infpath.CompareNoCase(folderdata[index].name) == 0) break;
+			}
 
-			if (index < folderdata.Size())
+			if (index < folderdata.size())
 			{
 				FScanner sc;
 				sc.OpenLumpNum(folderdata[index].lumpnum);
@@ -230,8 +231,8 @@ FFont::FFont (const char *name, const char *nametemplate, const char *filetempla
 					  // provide STCFN120 (x) and STCFN122 (z) for STCFN121 to load as a 'y'.
 						FStringf c120(nametemplate, 120);
 						FStringf c122(nametemplate, 122);
-						if (!TexMan.CheckForTexture(c120, ETextureType::MiscPatch).isValid() ||
-							!TexMan.CheckForTexture(c122, ETextureType::MiscPatch).isValid())
+						if (!TexMan.CheckForTexture(c120.GetChars(), ETextureType::MiscPatch).isValid() ||
+							!TexMan.CheckForTexture(c122.GetChars(), ETextureType::MiscPatch).isValid())
 						{
 							// insert the incorrectly named '|' graphic in its correct position.
 							position = 124;
@@ -288,7 +289,7 @@ FFont::FFont (const char *name, const char *nametemplate, const char *filetempla
 				}
 			}
 		}
-		if (folderdata.Size() > 0)
+		if (folderdata.size() > 0)
 		{
 			// all valid lumps must be named with a hex number that represents its Unicode character index.
 			for (auto &entry : folderdata)
@@ -389,7 +390,7 @@ public:
 		Y = y;
 	}
 
-	int CopyPixels(FBitmap* dest, int conversion)
+	int CopyPixels(FBitmap* dest, int conversion, int frame = 0) override
 	{
 		auto& pic = sheetBitmaps[baseSheet];
 		dest->CopyPixelDataRGB(0, 0, pic.GetPixels() + 4 * (X + pic.GetWidth() * Y), Width, Height, 4, pic.GetWidth() * 4, 0, CF_BGRA);
@@ -397,7 +398,7 @@ public:
 	}
 
 };
-void FFont::ReadSheetFont(TArray<FolderEntry> &folderdata, int width, int height, const DVector2 &Scale)
+void FFont::ReadSheetFont(std::vector<FileSys::FolderEntry> &folderdata, int width, int height, const DVector2 &Scale)
 {
 	TMap<int, FGameTexture*> charMap;
 	int minchar = INT_MAX;
@@ -421,7 +422,7 @@ void FFont::ReadSheetFont(TArray<FolderEntry> &folderdata, int width, int height
 
 				FBitmap* sheetimg = &sheetBitmaps[sheetBitmaps.Reserve(1)];
 				sheetimg->Create(tex->GetTexelWidth(), tex->GetTexelHeight());
-				tex->GetTexture()->GetImage()->CopyPixels(sheetimg, FImageSource::normal);
+				tex->GetTexture()->GetImage()->CopyPixels(sheetimg, FImageSource::normal, 0);
 
 				for (int y = 0; y < numtex_y; y++)
 				{

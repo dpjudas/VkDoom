@@ -153,7 +153,7 @@ class AnmPlayer : public MoviePlayer
 {
 	// This doesn't need its own class type
 	anim_t anim;
-	TArray<uint8_t> buffer;
+	std::vector<uint8_t> buffer;
 	int numframes = 0;
 	int curframe = 1;
 	int frametime = 0;
@@ -173,7 +173,7 @@ public:
 		buffer = fr.ReadPadded(1);
 		fr.Close();
 
-		if (ANIM_LoadAnim(&anim, buffer.Data(), buffer.Size() - 1) < 0)
+		if (ANIM_LoadAnim(&anim, buffer.data(), buffer.size() - 1) < 0)
 		{
 			return;
 		}
@@ -231,7 +231,6 @@ public:
 
 	~AnmPlayer()
 	{
-		buffer.Reset();
 		animtex.Clean();
 	}
 
@@ -838,7 +837,7 @@ MoviePlayer* OpenMovie(const char* filename, TArray<int>& ans, const int* framet
 	{
 		auto fn = StripExtension(filename);
 		DefaultExtension(fn, ".ivf");
-		fr = fileSystem.OpenFileReader(fn);
+		fr = fileSystem.OpenFileReader(fn.GetChars());
 	}
 
 	if (!fr.isOpen()) fr = fileSystem.OpenFileReader(filename);
@@ -906,7 +905,7 @@ MoviePlayer* OpenMovie(const char* filename, TArray<int>& ans, const int* framet
 		// VPX files have no sound track, so look for a same-named sound file with a known extension as the soundtrack to be played.
 		static const char* knownSoundExts[] = { "OGG",	"FLAC",	"MP3",	"OPUS", "WAV" };
 		FString name = StripExtension(filename);
-		anm->soundtrack = fileSystem.FindFileWithExtensions(name, knownSoundExts, countof(knownSoundExts));
+		anm->soundtrack = fileSystem.FindFileWithExtensions(name.GetChars(), knownSoundExts, countof(knownSoundExts));
 		return anm;
 	}
 	// add more formats here.
@@ -937,7 +936,7 @@ DEFINE_ACTION_FUNCTION(_MoviePlayer, Create)
 	if (firstframetime == -1) firstframetime = frametime;
 	if (lastframetime == -1) lastframetime = frametime;
 	int frametimes[] = { firstframetime, frametime, lastframetime };
-	auto movie = OpenMovie(filename, *sndinf, frametime == -1? nullptr : frametimes, flags, error);
+	auto movie = OpenMovie(filename.GetChars(), *sndinf, frametime == -1? nullptr : frametimes, flags, error);
 	if (!movie)
 	{
 		Printf(TEXTCOLOR_YELLOW "%s", error.GetChars());

@@ -98,7 +98,7 @@ void M_FindResponseFile (void)
 		else
 		{
 			char	**argv;
-			TArray<uint8_t> file;
+			std::vector<uint8_t> file;
 			int		argc = 0;
 			int 	size;
 			size_t	argsize = 0;
@@ -119,8 +119,8 @@ void M_FindResponseFile (void)
 					Printf ("Found response file %s!\n", Args->GetArg(i) + 1);
 					size = (int)fr.GetLength();
 					file = fr.Read (size);
-					file[size] = 0;
-					argsize = ParseCommandLine ((char*)file.Data(), &argc, NULL);
+					file.push_back(0);
+					argsize = ParseCommandLine ((char*)file.data(), &argc, NULL);
 				}
 			}
 			else
@@ -132,7 +132,7 @@ void M_FindResponseFile (void)
 			{
 				argv = (char **)M_Malloc (argc*sizeof(char *) + argsize);
 				argv[0] = (char *)argv + argc*sizeof(char *);
-				ParseCommandLine ((char*)file.Data(), NULL, argv);
+				ParseCommandLine ((char*)file.data(), NULL, argv);
 
 				// Create a new argument vector
 				FArgs *newargs = new FArgs;
@@ -281,7 +281,7 @@ bool M_SaveDefaults (const char *filename)
 	GameConfig->ArchiveGlobalData ();
 	if (gameinfo.ConfigName.IsNotEmpty())
 	{
-		GameConfig->ArchiveGameData (gameinfo.ConfigName);
+		GameConfig->ArchiveGameData (gameinfo.ConfigName.GetChars());
 	}
 	success = GameConfig->WriteConfigFile ();
 	if (filename != nullptr)
@@ -318,7 +318,7 @@ UNSAFE_CCMD (writeini)
 CCMD(openconfig)
 {
 	M_SaveDefaults(nullptr);
-	I_OpenShellFolder(ExtractFilePath(GameConfig->GetPathName()));
+	I_OpenShellFolder(ExtractFilePath(GameConfig->GetPathName()).GetChars());
 }
 
 //
@@ -537,7 +537,7 @@ static bool FindFreeName (FString &fullname, const char *extension)
 
 	for (i = 0; i <= 9999; i++)
 	{
-		const char *gamename = gameinfo.ConfigName;
+		const char *gamename = gameinfo.ConfigName.GetChars();
 
 		time_t now;
 		tm *tm;
@@ -601,8 +601,8 @@ void M_ScreenShot (const char *filename)
 				autoname += '/';
 			}
 		}
-		autoname = NicePath(autoname);
-		CreatePath(autoname);
+		autoname = NicePath(autoname.GetChars());
+		CreatePath(autoname.GetChars());
 		if (!FindFreeName (autoname, writepcx ? "pcx" : "png"))
 		{
 			Printf ("M_ScreenShot: Delete some screenshots\n");
@@ -623,7 +623,7 @@ void M_ScreenShot (const char *filename)
 	auto buffer = screen->GetScreenshotBuffer(pitch, color_type, gamma);
 	if (buffer.Size() > 0)
 	{
-		file = FileWriter::Open(autoname);
+		file = FileWriter::Open(autoname.GetChars());
 		if (file == NULL)
 		{
 			Printf ("Could not open %s\n", autoname.GetChars());
@@ -687,9 +687,9 @@ CCMD(openscreenshots)
 			autoname += '/';
 		}
 	}
-	autoname = NicePath(autoname);
+	autoname = NicePath(autoname.GetChars());
 
-	CreatePath(autoname);
+	CreatePath(autoname.GetChars());
 
 	I_OpenShellFolder(autoname.GetChars());
 }
