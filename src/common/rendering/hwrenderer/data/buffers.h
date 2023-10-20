@@ -26,6 +26,7 @@ enum
 	VATTR_LIGHTMAP,	
 	VATTR_BONEWEIGHT,
 	VATTR_BONESELECTOR,
+	VATTR_UNIFORM_INDEXES,
 	VATTR_MAX
 };
 
@@ -37,7 +38,8 @@ enum EVertexAttributeFormat
 	VFmt_Float,
 	VFmt_Byte4,
 	VFmt_Packed_A2R10G10B10,
-	VFmt_Byte4_UInt
+	VFmt_Byte4_UInt,
+	VFmt_Int
 };
 
 struct FVertexBufferAttribute

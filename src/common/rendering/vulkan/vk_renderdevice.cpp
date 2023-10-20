@@ -662,9 +662,10 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 		{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(FFlatVertex, x) },
 		{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(FFlatVertex, u) },
 		{ 0, VATTR_LIGHTMAP, VFmt_Float2, (int)myoffsetof(FFlatVertex, lu) },
+		{ 1, VATTR_UNIFORM_INDEXES, VFmt_Int, 0 }
 	};
-	int vertexFormatIndex = GetRenderPassManager()->GetVertexFormat(1, 3, sizeof(FFlatVertex), format);
-	VkBuffer vertexBuffers[2] = { GetRaytrace()->GetVertexBuffer()->buffer, GetRaytrace()->GetVertexBuffer()->buffer };
+	int vertexFormatIndex = GetRenderPassManager()->GetVertexFormat(2, 4, sizeof(FFlatVertex), format);
+	VkBuffer vertexBuffers[2] = { GetRaytrace()->GetVertexBuffer()->buffer, GetRaytrace()->GetUniformIndexBuffer()->buffer };
 	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
 	cmdbuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);
 	cmdbuffer->bindIndexBuffer(GetRaytrace()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);

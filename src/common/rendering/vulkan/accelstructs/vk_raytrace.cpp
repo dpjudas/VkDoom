@@ -49,6 +49,7 @@ void VkRaytrace::Reset()
 {
 	auto deletelist = fb->GetCommands()->DrawDeleteList.get();
 	deletelist->Add(std::move(VertexBuffer));
+	deletelist->Add(std::move(UniformIndexBuffer));
 	deletelist->Add(std::move(IndexBuffer));
 	deletelist->Add(std::move(NodeBuffer));
 	deletelist->Add(std::move(SurfaceBuffer));
@@ -146,6 +147,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 	{
 		const SubmeshBufferLocation& cur = locations[i];
 		transferBufferSize += cur.Submesh->MeshVertices.Size() * sizeof(FFlatVertex);
+		transferBufferSize += cur.Submesh->MeshUniformIndexes.Size() * sizeof(int);
 		transferBufferSize += cur.Submesh->MeshElements.Size() * sizeof(uint32_t);
 		transferBufferSize += cur.Submesh->Collision->get_nodes().size() * sizeof(CollisionNode);
 		transferBufferSize += cur.Submesh->MeshSurfaceIndexes.Size() * sizeof(int);
@@ -214,6 +216,19 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		memcpy(data + datapos, submesh->MeshVertices.Data(), copysize);
 		if (copysize > 0)
 			cmdbuffer->copyBuffer(transferBuffer.get(), VertexBuffer.get(), datapos, cur.VertexOffset * sizeof(FFlatVertex), copysize);
+		datapos += copysize;
+	}
+
+	// Copy uniform indexes
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		auto submesh = cur.Submesh;
+
+		size_t copysize = submesh->MeshUniformIndexes.Size() * sizeof(int);
+		memcpy(data + datapos, submesh->MeshUniformIndexes.Data(), copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), UniformIndexBuffer.get(), datapos, cur.VertexOffset * sizeof(int), copysize);
 		datapos += copysize;
 	}
 
@@ -395,6 +410,14 @@ void VkRaytrace::CreateBuffers()
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
 		.Size(GetMaxVertexBufferSize() * sizeof(FFlatVertex))
 		.DebugName("VertexBuffer")
+		.Create(fb->GetDevice());
+
+	UniformIndexBuffer = BufferBuilder()
+		.Usage(
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(GetMaxVertexBufferSize() * sizeof(int))
+		.DebugName("UniformIndexes")
 		.Create(fb->GetDevice());
 
 	IndexBuffer = BufferBuilder()

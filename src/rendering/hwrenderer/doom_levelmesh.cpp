@@ -267,8 +267,12 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 
 void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 {
+	Surfaces.Clear();
 	MeshVertices.Clear();
 	MeshElements.Clear();
+	MeshSurfaceIndexes.Clear();
+	MeshUniformIndexes.Clear();
+	MeshSurfaceUniforms.Clear();
 
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
 
@@ -301,6 +305,8 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartInd
 	MeshVertices.Clear();
 	MeshElements.Clear();
 	MeshSurfaceIndexes.Clear();
+	MeshUniformIndexes.Clear();
+	MeshSurfaceUniforms.Clear();
 
 	// Look for polyobjects
 	for (unsigned int i = 0; i < doomMap.lines.Size(); i++)
@@ -662,6 +668,12 @@ void DoomLevelSubmesh::CreateLinePortalSurface(FLevelLocals& doomMap, side_t* si
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
 
+	int surfaceIndex = Surfaces.Size();
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+
 	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
@@ -762,6 +774,12 @@ void DoomLevelSubmesh::CreateLineHorizonSurface(FLevelLocals& doomMap, side_t* s
 	MeshVertices.Push(verts[3]);
 	MeshVertices.Push(verts[1]);
 
+	int surfaceIndex = Surfaces.Size();
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+
 	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
@@ -814,6 +832,12 @@ void DoomLevelSubmesh::CreateFrontWallSurface(FLevelLocals& doomMap, side_t* sid
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
 	MeshVertices.Push(verts[1]);
+
+	int surfaceIndex = Surfaces.Size();
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
 
 	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.Type = ST_MIDDLESIDE;
@@ -908,6 +932,12 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	MeshVertices.Push(verts[3]);
 	MeshVertices.Push(verts[1]);
 
+	int surfaceIndex = Surfaces.Size();
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+
 	surf.Type = ST_MIDDLESIDE;
 	surf.TypeIndex = side->Index();
 	surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
@@ -986,6 +1016,12 @@ void DoomLevelSubmesh::Create3DFloorWallSurfaces(FLevelLocals& doomMap, side_t* 
 		MeshVertices.Push(verts[3]);
 		MeshVertices.Push(verts[1]);
 
+		int surfaceIndex = Surfaces.Size();
+		MeshUniformIndexes.Push(surfaceIndex);
+		MeshUniformIndexes.Push(surfaceIndex);
+		MeshUniformIndexes.Push(surfaceIndex);
+		MeshUniformIndexes.Push(surfaceIndex);
+
 		surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 		surf.sectorGroup = sectorGroup[front->Index()];
 		surf.texture = side->textures[side_t::mid].texture;
@@ -1036,6 +1072,12 @@ void DoomLevelSubmesh::CreateTopWallSurface(FLevelLocals& doomMap, side_t* side)
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
 	MeshVertices.Push(verts[1]);
+
+	int surfaceIndex = Surfaces.Size();
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
 
 	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.Type = ST_UPPERSIDE;
@@ -1090,6 +1132,12 @@ void DoomLevelSubmesh::CreateBottomWallSurface(FLevelLocals& doomMap, side_t* si
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
 	MeshVertices.Push(verts[1]);
+
+	int surfaceIndex = Surfaces.Size();
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
+	MeshUniformIndexes.Push(surfaceIndex);
 
 	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.Type = ST_LOWERSIDE;

@@ -93,7 +93,6 @@ void VkDescriptorSetManager::UpdateLevelMeshSet()
 		.AddBuffer(LevelMesh.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetSurfaceUniformsBuffer())
 		.AddBuffer(LevelMesh.Set.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
 		.AddBuffer(LevelMesh.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
-		.AddBuffer(LevelMesh.Set.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetSurfaceIndexBuffer())
 		.Execute(fb->GetDevice());
 }
 
@@ -273,7 +272,6 @@ void VkDescriptorSetManager::CreateLevelMeshLayout()
 		.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
-		.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
 		.DebugName("VkDescriptorSetManager.LevelMesh.Layout")
 		.Create(fb->GetDevice());
 }
@@ -314,7 +312,7 @@ void VkDescriptorSetManager::CreateLevelMeshPool()
 {
 	LevelMesh.Pool = DescriptorPoolBuilder()
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 3)
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2)
 		.MaxSets(1)
 		.DebugName("VkDescriptorSetManager.LevelMesh.Pool")
 		.Create(fb->GetDevice());

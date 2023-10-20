@@ -28,5 +28,6 @@ layout(location = 8) out vec4 ClipDistanceB;
 #endif
 
 #if defined(USE_LEVELMESH)
+layout(location = 9) in int aDataIndex;
 layout(location = 10) out flat int uDataIndex;
 #endif

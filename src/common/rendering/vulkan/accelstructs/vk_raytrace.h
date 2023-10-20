@@ -69,6 +69,7 @@ public:
 
 	VulkanAccelerationStructure* GetAccelStruct() { return TopLevelAS.AccelStruct.get(); }
 	VulkanBuffer* GetVertexBuffer() { return VertexBuffer.get(); }
+	VulkanBuffer* GetUniformIndexBuffer() { return UniformIndexBuffer.get(); }
 	VulkanBuffer* GetIndexBuffer() { return IndexBuffer.get(); }
 	VulkanBuffer* GetNodeBuffer() { return NodeBuffer.get(); }
 	VulkanBuffer* GetSurfaceIndexBuffer() { return SurfaceIndexBuffer.get(); }
@@ -113,6 +114,7 @@ private:
 	LevelMesh* Mesh = nullptr;
 
 	std::unique_ptr<VulkanBuffer> VertexBuffer;
+	std::unique_ptr<VulkanBuffer> UniformIndexBuffer;
 	std::unique_ptr<VulkanBuffer> IndexBuffer;
 	std::unique_ptr<VulkanBuffer> SurfaceIndexBuffer;
 	std::unique_ptr<VulkanBuffer> SurfaceBuffer;

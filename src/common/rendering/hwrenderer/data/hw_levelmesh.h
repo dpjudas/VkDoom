@@ -231,6 +231,7 @@ public:
 	TArray<FFlatVertex> MeshVertices;
 	TArray<uint32_t> MeshElements;
 	TArray<int> MeshSurfaceIndexes;
+	TArray<int> MeshUniformIndexes;
 	TArray<SurfaceUniforms> MeshSurfaceUniforms;
 
 	TArray<LevelMeshPortal> Portals;

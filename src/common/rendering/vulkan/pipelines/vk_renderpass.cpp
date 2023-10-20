@@ -261,7 +261,8 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 		VK_FORMAT_R32_SFLOAT,
 		VK_FORMAT_R8G8B8A8_UNORM,
 		VK_FORMAT_A2B10G10R10_SNORM_PACK32,
-		VK_FORMAT_R8G8B8A8_UINT
+		VK_FORMAT_R8G8B8A8_UINT,
+		VK_FORMAT_R32_SINT
 	};
 
 	bool inputLocations[VATTR_MAX] = {};

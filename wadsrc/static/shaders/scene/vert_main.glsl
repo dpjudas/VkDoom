@@ -9,7 +9,7 @@ void main()
 	vec4 parmPosition;
 
 #if defined(USE_LEVELMESH)
-	uDataIndex = surfaceIndices[gl_VertexIndex / 3];
+	uDataIndex = aDataIndex;
 #endif
 
 	BonesResult bones = ApplyBones();
