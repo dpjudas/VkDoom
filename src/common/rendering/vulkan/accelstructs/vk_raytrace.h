@@ -55,6 +55,8 @@ struct SubmeshBufferLocation
 	int SurfaceIndexSize = 0;
 	int SurfaceOffset = 0;
 	int SurfaceSize = 0;
+	int SurfaceUniformsOffset = 0;
+	int SurfaceUniformsSize = 0;
 };
 
 class VkRaytrace
@@ -71,6 +73,7 @@ public:
 	VulkanBuffer* GetNodeBuffer() { return NodeBuffer.get(); }
 	VulkanBuffer* GetSurfaceIndexBuffer() { return SurfaceIndexBuffer.get(); }
 	VulkanBuffer* GetSurfaceBuffer() { return SurfaceBuffer.get(); }
+	VulkanBuffer* GetSurfaceUniformsBuffer() { return SurfaceUniformsBuffer.get(); }
 	VulkanBuffer* GetPortalBuffer() { return PortalBuffer.get(); }
 
 	int GetIndexCount();
@@ -99,6 +102,7 @@ private:
 	int GetMaxIndexBufferSize();
 	int GetMaxNodeBufferSize();
 	int GetMaxSurfaceBufferSize();
+	int GetMaxSurfaceUniformsBufferSize();
 	int GetMaxSurfaceIndexBufferSize();
 
 	VulkanRenderDevice* fb = nullptr;
@@ -112,6 +116,7 @@ private:
 	std::unique_ptr<VulkanBuffer> IndexBuffer;
 	std::unique_ptr<VulkanBuffer> SurfaceIndexBuffer;
 	std::unique_ptr<VulkanBuffer> SurfaceBuffer;
+	std::unique_ptr<VulkanBuffer> SurfaceUniformsBuffer;
 	std::unique_ptr<VulkanBuffer> PortalBuffer;
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
@@ -120,6 +125,7 @@ private:
 	static const int MaxDynamicVertices = 100'000;
 	static const int MaxDynamicIndexes = 100'000;
 	static const int MaxDynamicSurfaces = 100'000;
+	static const int MaxDynamicSurfaceUniforms = 100'000;
 	static const int MaxDynamicSurfaceIndexes = 25'000;
 	static const int MaxDynamicNodes = 10'000;
 

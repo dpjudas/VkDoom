@@ -52,6 +52,7 @@ void VkRaytrace::Reset()
 	deletelist->Add(std::move(IndexBuffer));
 	deletelist->Add(std::move(NodeBuffer));
 	deletelist->Add(std::move(SurfaceBuffer));
+	deletelist->Add(std::move(SurfaceUniformsBuffer));
 	deletelist->Add(std::move(SurfaceIndexBuffer));
 	deletelist->Add(std::move(PortalBuffer));
 	deletelist->Add(std::move(StaticBLAS.ScratchBuffer));
@@ -108,6 +109,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		location.NodeSize = (int)submesh->Collision->get_nodes().size();
 		location.SurfaceIndexSize = submesh->MeshSurfaceIndexes.Size();
 		location.SurfaceSize = submesh->GetSurfaceCount();
+		location.SurfaceUniformsSize = submesh->MeshSurfaceUniforms.Size();
 		locations.Push(location);
 	}
 
@@ -121,12 +123,14 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		cur.NodeOffset = prev.NodeOffset + prev.NodeSize;
 		cur.SurfaceIndexOffset = prev.SurfaceIndexOffset + prev.SurfaceIndexSize;
 		cur.SurfaceOffset = prev.SurfaceOffset + prev.SurfaceSize;
+		cur.SurfaceUniformsOffset = prev.SurfaceUniformsOffset + prev.SurfaceUniformsSize;
 
 		if (
 			cur.VertexOffset + cur.VertexSize > GetMaxVertexBufferSize() ||
 			cur.IndexOffset + cur.IndexSize > GetMaxIndexBufferSize() ||
 			cur.NodeOffset + cur.NodeSize > GetMaxNodeBufferSize() ||
 			cur.SurfaceOffset + cur.SurfaceSize > GetMaxSurfaceBufferSize() ||
+			cur.SurfaceUniformsOffset + cur.SurfaceUniformsSize > GetMaxSurfaceUniformsBufferSize() ||
 			cur.SurfaceIndexOffset + cur.SurfaceIndexSize > GetMaxSurfaceIndexBufferSize())
 		{
 			I_FatalError("Dynamic accel struct buffers are too small!");
@@ -146,6 +150,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		transferBufferSize += cur.Submesh->Collision->get_nodes().size() * sizeof(CollisionNode);
 		transferBufferSize += cur.Submesh->MeshSurfaceIndexes.Size() * sizeof(int);
 		transferBufferSize += cur.Submesh->GetSurfaceCount() * sizeof(SurfaceInfo);
+		transferBufferSize += cur.Submesh->MeshSurfaceUniforms.Size() * sizeof(SurfaceUniforms);
 	}
 	if (!dynamicOnly)
 		transferBufferSize += Mesh->StaticMesh->Portals.Size() * sizeof(PortalInfo);
@@ -284,6 +289,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			info.PortalIndex = surface->portalIndex;
 			info.SamplingDistance = (float)surface->sampleDimension;
 			info.Sky = surface->bSky;
+			info.Alpha = surface->alpha;
 			if (surface->texture.isValid())
 			{
 				auto mat = FMaterial::ValidateTexture(TexMan.GetGameTexture(surface->texture), 0);
@@ -293,7 +299,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			{
 				info.TextureIndex = -1;
 			}
-			info.Alpha = surface->alpha;
+			submesh->MeshSurfaceUniforms[j].uTextureIndex = info.TextureIndex; // Bit of a hack, but we don't know the texture index before now
 
 			*(surfaces++) = info;
 		}
@@ -301,6 +307,20 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		size_t copysize = submesh->GetSurfaceCount() * sizeof(SurfaceInfo);
 		if (copysize > 0)
 			cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceBuffer.get(), datapos, cur.SurfaceOffset * sizeof(SurfaceInfo), copysize);
+		datapos += copysize;
+	}
+
+	// Copy surface uniforms
+	for (unsigned int i = start; i < end; i++)
+	{
+		const SubmeshBufferLocation& cur = locations[i];
+		auto submesh = cur.Submesh;
+
+		SurfaceUniforms* uniforms = (SurfaceUniforms*)(data + datapos);
+		size_t copysize = submesh->MeshSurfaceUniforms.Size() * sizeof(SurfaceUniforms);
+		memcpy(uniforms, submesh->MeshSurfaceUniforms.Data(), copysize);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceUniformsBuffer.get(), datapos, cur.SurfaceUniformsOffset * sizeof(SurfaceUniforms), copysize);
 		datapos += copysize;
 	}
 
@@ -353,6 +373,11 @@ int VkRaytrace::GetMaxSurfaceBufferSize()
 	return Mesh->StaticMesh->GetSurfaceCount() + MaxDynamicSurfaces;
 }
 
+int VkRaytrace::GetMaxSurfaceUniformsBufferSize()
+{
+	return Mesh->StaticMesh->MeshSurfaceUniforms.Size() + MaxDynamicSurfaceUniforms;
+}
+
 int VkRaytrace::GetMaxSurfaceIndexBufferSize()
 {
 	return Mesh->StaticMesh->MeshSurfaceIndexes.Size() + MaxDynamicSurfaceIndexes;
@@ -400,6 +425,12 @@ void VkRaytrace::CreateBuffers()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 		.Size(GetMaxSurfaceBufferSize() * sizeof(SurfaceInfo))
 		.DebugName("SurfaceBuffer")
+		.Create(fb->GetDevice());
+
+	SurfaceUniformsBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(GetMaxSurfaceUniformsBufferSize() * sizeof(SurfaceUniforms))
+		.DebugName("SurfaceUniformsBuffer")
 		.Create(fb->GetDevice());
 
 	PortalBuffer = BufferBuilder()
