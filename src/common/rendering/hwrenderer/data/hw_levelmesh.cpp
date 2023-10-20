@@ -80,8 +80,6 @@ LevelSubmesh::LevelSubmesh()
 	MeshVertices.Push({ minval, maxval, maxval });
 	MeshVertices.Push({ maxval, maxval, maxval });
 
-	MeshVertexUVs.Resize(MeshVertices.Size());
-
 	for (int i = 0; i < 3 * 4; i++)
 		MeshElements.Push(i);
 

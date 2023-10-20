@@ -28,7 +28,7 @@
 #include <immintrin.h>
 #endif
 
-TriangleMeshShape::TriangleMeshShape(const FVector3 *vertices, int num_vertices, const unsigned int *elements, int num_elements)
+TriangleMeshShape::TriangleMeshShape(const FFlatVertex *vertices, int num_vertices, const unsigned int *elements, int num_elements)
 	: vertices(vertices), num_vertices(num_vertices), elements(elements), num_elements(num_elements)
 {
 	int num_triangles = num_elements / 3;
@@ -44,7 +44,7 @@ TriangleMeshShape::TriangleMeshShape(const FVector3 *vertices, int num_vertices,
 		triangles.push_back(i);
 
 		int element_index = i * 3;
-		FVector3 centroid = (vertices[elements[element_index + 0]] + vertices[elements[element_index + 1]] + vertices[elements[element_index + 2]]) * (1.0f / 3.0f);
+		FVector3 centroid = (vertices[elements[element_index + 0]].fPos() + vertices[elements[element_index + 1]].fPos() + vertices[elements[element_index + 2]].fPos()) * (1.0f / 3.0f);
 		centroids.push_back(centroid);
 	}
 
@@ -280,9 +280,9 @@ float TriangleMeshShape::intersect_triangle_ray(TriangleMeshShape *shape, const 
 
 	FVector3 p[3] =
 	{
-		shape->vertices[shape->elements[start_element]],
-		shape->vertices[shape->elements[start_element + 1]],
-		shape->vertices[shape->elements[start_element + 2]]
+		shape->vertices[shape->elements[start_element]].fPos(),
+		shape->vertices[shape->elements[start_element + 1]].fPos(),
+		shape->vertices[shape->elements[start_element + 2]].fPos()
 	};
 
 	// Moeller–Trumbore ray-triangle intersection algorithm:
@@ -356,9 +356,9 @@ float TriangleMeshShape::sweep_intersect_triangle_sphere(TriangleMeshShape *shap
 
 	FVector3 p[3] =
 	{
-		shape1->vertices[shape1->elements[start_element]],
-		shape1->vertices[shape1->elements[start_element + 1]],
-		shape1->vertices[shape1->elements[start_element + 2]]
+		shape1->vertices[shape1->elements[start_element]].fPos(),
+		shape1->vertices[shape1->elements[start_element + 1]].fPos(),
+		shape1->vertices[shape1->elements[start_element + 2]].fPos()
 	};
 
 	FVector3 c = shape2->center;
@@ -528,9 +528,9 @@ bool TriangleMeshShape::overlap_triangle_sphere(TriangleMeshShape *shape1, Spher
 	int element_index = shape1->nodes[shape1_node_index].element_index;
 
 	FVector3 P = shape2->center;
-	FVector3 A = shape1->vertices[shape1->elements[element_index]] - P;
-	FVector3 B = shape1->vertices[shape1->elements[element_index + 1]] - P;
-	FVector3 C = shape1->vertices[shape1->elements[element_index + 2]] - P;
+	FVector3 A = shape1->vertices[shape1->elements[element_index]].fPos() - P;
+	FVector3 B = shape1->vertices[shape1->elements[element_index + 1]].fPos() - P;
+	FVector3 C = shape1->vertices[shape1->elements[element_index + 2]].fPos() - P;
 	float r = shape2->radius;
 	float rr = r * r;
 
@@ -640,14 +640,14 @@ int TriangleMeshShape::subdivide(int *triangles, int num_triangles, const FVecto
 	// Find bounding box and median of the triangle centroids
 	FVector3 median;
 	FVector3 min, max;
-	min = vertices[elements[triangles[0] * 3]];
+	min = vertices[elements[triangles[0] * 3]].fPos();
 	max = min;
 	for (int i = 0; i < num_triangles; i++)
 	{
 		int element_index = triangles[i] * 3;
 		for (int j = 0; j < 3; j++)
 		{
-			const FVector3 &vertex = vertices[elements[element_index + j]];
+			const FVector3 &vertex = vertices[elements[element_index + j]].fPos();
 
 			min.X = std::min(min.X, vertex.X);
 			min.Y = std::min(min.Y, vertex.Y);

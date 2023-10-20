@@ -28,11 +28,12 @@ layout(std430, set = 1, binding = 0) buffer NodeBuffer
 
 #endif
 
-struct SurfaceVertex
+struct SurfaceVertex // Note: this must always match the FFlatVertex struct
 {
-	vec4 pos;
+	vec3 pos;
+	float lindex;
 	vec2 uv;
-	float Padding1, Padding2;
+	vec2 luv;
 };
 
 layout(std430, set = 1, binding = 1) buffer VertexBuffer { SurfaceVertex vertices[]; };

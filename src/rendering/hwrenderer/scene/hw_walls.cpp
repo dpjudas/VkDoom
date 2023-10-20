@@ -917,15 +917,21 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 		texlength = 0;
 	}
 
-	texcoord* srclightuv;
+	texcoord srclightuv[4];
 	if (lightmap && lightmap->Type != ST_UNKNOWN)
 	{
-		srclightuv = (texcoord*)lightmap->TexCoords;
-		lindex = (float)lightmap->AtlasTile.ArrayIndex;
+		srclightuv[0] = { lightmap->Vertices[0].lu, lightmap->Vertices[0].lv };
+		srclightuv[1] = { lightmap->Vertices[1].lu, lightmap->Vertices[1].lv };
+		srclightuv[2] = { lightmap->Vertices[2].lu, lightmap->Vertices[2].lv };
+		srclightuv[3] = { lightmap->Vertices[3].lu, lightmap->Vertices[3].lv };
+		lindex = lightmap->Vertices[0].lindex;
 	}
 	else
 	{
-		srclightuv = (texcoord*)ZeroLightmapUVs;
+		srclightuv[0] = { 0.0f, 0.0f };
+		srclightuv[1] = { 0.0f, 0.0f };
+		srclightuv[2] = { 0.0f, 0.0f };
+		srclightuv[3] = { 0.0f, 0.0f };
 		lindex = -1.0f;
 	}
 
@@ -1639,15 +1645,21 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 		type = RENDERWALL_FFBLOCK;
 		CheckTexturePosition(&tci);
 
-		texcoord* srclightuv;
+		texcoord srclightuv[4];
 		if (lightmap && lightmap->Type != ST_UNKNOWN)
 		{
-			srclightuv = (texcoord*)lightmap->TexCoords;
-			lindex = (float)lightmap->AtlasTile.ArrayIndex;
+			srclightuv[0] = { lightmap->Vertices[0].lu, lightmap->Vertices[0].lv };
+			srclightuv[1] = { lightmap->Vertices[1].lu, lightmap->Vertices[1].lv };
+			srclightuv[2] = { lightmap->Vertices[2].lu, lightmap->Vertices[2].lv };
+			srclightuv[3] = { lightmap->Vertices[3].lu, lightmap->Vertices[3].lv };
+			lindex = lightmap->Vertices[0].lindex;
 		}
 		else
 		{
-			srclightuv = (texcoord*)ZeroLightmapUVs;
+			srclightuv[0] = { 0.0f, 0.0f };
+			srclightuv[1] = { 0.0f, 0.0f };
+			srclightuv[2] = { 0.0f, 0.0f };
+			srclightuv[3] = { 0.0f, 0.0f };
 			lindex = -1.0f;
 		}
 

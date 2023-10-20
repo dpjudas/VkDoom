@@ -12,10 +12,6 @@ void main()
 
 	parmTexCoord = aTexCoord;
 	parmPosition = bones.Position;
-	
-	#ifdef USE_LEVELMESH
-	parmPosition.xyz = parmPosition.xzy; // The level mesh is in world coordinates
-	#endif
 
 	#ifndef SIMPLE
 		vec4 worldcoord = ModelMatrix * mix(parmPosition, aVertex2, uInterpolationFactor);
@@ -35,7 +31,7 @@ void main()
 	#endif
 
 	#ifndef SIMPLE
-		vLightmap = aLightmap;
+		vLightmap = vec3(aLightmap, aPosition.w);
 
 		pixelpos.xyz = worldcoord.xyz;
 		pixelpos.w = -eyeCoordPos.z/eyeCoordPos.w;

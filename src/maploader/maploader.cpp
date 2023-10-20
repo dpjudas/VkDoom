@@ -3357,27 +3357,27 @@ bool MapLoader::LoadLightmap(MapData* map)
 	{
 		auto& realSurface = *surface.targetSurface;
 
-		auto* UVs = &submesh->LightmapUvs[realSurface.startUvIndex];
+		auto* vertices = &submesh->MeshVertices[realSurface.startVertIndex];
 		auto* newUVs = &zdrayUvs[surface.uvOffset];
 
 		for (uint32_t i = 0; i < surface.uvCount; ++i)
 		{
-			FVector2 oldUv = UVs[i];
+			FVector2 oldUv = FVector2(vertices[i].lu, vertices[i].lv);
 
 			if (developer >= 5)
 			{
-				Printf("Old UV: %.6f %.6f (w:%d, h:%d) (x:%d, y:%d), Lump UVs %.3f %.3f\n", UVs[i].X, UVs[i].Y, realSurface.AtlasTile.Width, realSurface.AtlasTile.Height, realSurface.AtlasTile.X, realSurface.AtlasTile.Y, newUVs[i].X, newUVs[i].Y);
+				Printf("Old UV: %.6f %.6f (w:%d, h:%d) (x:%d, y:%d), Lump UVs %.3f %.3f\n", vertices[i].lu, vertices[i].lv, realSurface.AtlasTile.Width, realSurface.AtlasTile.Height, realSurface.AtlasTile.X, realSurface.AtlasTile.Y, newUVs[i].X, newUVs[i].Y);
 			}
 
 			// Finish surface
-			UVs[i].X = (newUVs[i].X + realSurface.AtlasTile.X) / textureSize;
-			UVs[i].Y = (newUVs[i].Y + realSurface.AtlasTile.Y) / textureSize;
+			vertices[i].lu = (newUVs[i].X + realSurface.AtlasTile.X) / textureSize;
+			vertices[i].lv = (newUVs[i].Y + realSurface.AtlasTile.Y) / textureSize;
 
 			if (developer >= 5)
 			{
-				if (abs(oldUv.X - UVs[i].X) >= 0.0000001f || abs(oldUv.Y - UVs[i].Y) >= 0.0000001f)
+				if (abs(oldUv.X - vertices[i].lu) >= 0.0000001f || abs(oldUv.Y - vertices[i].lv) >= 0.0000001f)
 				{
-					Printf("New UV: %.6f %.6f\n", UVs[i].X, UVs[i].Y);
+					Printf("New UV: %.6f %.6f\n", vertices[i].lu, vertices[i].lv);
 				}
 			}
 		}

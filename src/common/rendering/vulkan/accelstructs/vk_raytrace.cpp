@@ -141,7 +141,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 	for (unsigned int i = start; i < end; i++)
 	{
 		const SubmeshBufferLocation& cur = locations[i];
-		transferBufferSize += cur.Submesh->MeshVertices.Size() * sizeof(SurfaceVertex);
+		transferBufferSize += cur.Submesh->MeshVertices.Size() * sizeof(FFlatVertex);
 		transferBufferSize += cur.Submesh->MeshElements.Size() * sizeof(uint32_t);
 		transferBufferSize += cur.Submesh->Collision->get_nodes().size() * sizeof(CollisionNode);
 		transferBufferSize += cur.Submesh->MeshSurfaceIndexes.Size() * sizeof(int);
@@ -205,13 +205,10 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		const SubmeshBufferLocation& cur = locations[i];
 		auto submesh = cur.Submesh;
 
-		SurfaceVertex* vertices = (SurfaceVertex*)(data + datapos);
-		for (int j = 0, count = submesh->MeshVertices.Size(); j < count; ++j)
-			*(vertices++) = { { submesh->MeshVertices[j], 1.0f }, submesh->MeshVertexUVs[j], float(j), j + 10000.0f, FVector3(0.0f, 0.0f, -1.0f), 0.0f};
-
-		size_t copysize = submesh->MeshVertices.Size() * sizeof(SurfaceVertex);
+		size_t copysize = submesh->MeshVertices.Size() * sizeof(FFlatVertex);
+		memcpy(data + datapos, submesh->MeshVertices.Data(), copysize);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), VertexBuffer.get(), datapos, cur.VertexOffset * sizeof(SurfaceVertex), copysize);
+			cmdbuffer->copyBuffer(transferBuffer.get(), VertexBuffer.get(), datapos, cur.VertexOffset * sizeof(FFlatVertex), copysize);
 		datapos += copysize;
 	}
 
@@ -283,7 +280,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			LevelMeshSurface* surface = submesh->GetSurface(j);
 
 			SurfaceInfo info;
-			info.Normal = surface->plane.XYZ();
+			info.Normal = FVector3(surface->plane.X, surface->plane.Z, surface->plane.Y);
 			info.PortalIndex = surface->portalIndex;
 			info.SamplingDistance = (float)surface->sampleDimension;
 			info.Sky = surface->bSky;
@@ -371,7 +368,7 @@ void VkRaytrace::CreateBuffers()
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 				VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0) |
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-		.Size(GetMaxVertexBufferSize() * sizeof(SurfaceVertex))
+		.Size(GetMaxVertexBufferSize() * sizeof(FFlatVertex))
 		.DebugName("VertexBuffer")
 		.Create(fb->GetDevice());
 
@@ -425,7 +422,7 @@ VkRaytrace::BLAS VkRaytrace::CreateBLAS(LevelSubmesh* submesh, bool preferFastBu
 	accelStructBLDesc.geometry.triangles = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
 	accelStructBLDesc.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 	accelStructBLDesc.geometry.triangles.vertexData.deviceAddress = VertexBuffer->GetDeviceAddress();
-	accelStructBLDesc.geometry.triangles.vertexStride = sizeof(SurfaceVertex);
+	accelStructBLDesc.geometry.triangles.vertexStride = sizeof(FFlatVertex);
 	accelStructBLDesc.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	accelStructBLDesc.geometry.triangles.indexData.deviceAddress = IndexBuffer->GetDeviceAddress() + indexOffset * sizeof(uint32_t);
 	accelStructBLDesc.geometry.triangles.maxVertex = vertexOffset + submesh->MeshVertices.Size() - 1;

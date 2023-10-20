@@ -201,9 +201,9 @@ void VkLightmap::Render()
 		pc.TextureSize = (float)bakeImageSize;
 		pc.TileWidth = (float)targetSurface->AtlasTile.Width;
 		pc.TileHeight = (float)targetSurface->AtlasTile.Height;
-		pc.WorldToLocal = targetSurface->translateWorldToLocal;
-		pc.ProjLocalToU = targetSurface->projLocalToU;
-		pc.ProjLocalToV = targetSurface->projLocalToV;
+		pc.WorldToLocal = SwapYZ(targetSurface->translateWorldToLocal);
+		pc.ProjLocalToU = SwapYZ(targetSurface->projLocalToU);
+		pc.ProjLocalToV = SwapYZ(targetSurface->projLocalToV);
 
 		bool buffersFull = false;
 
@@ -229,13 +229,13 @@ void VkLightmap::Render()
 				for (int i = 0; i < lightCount; i++)
 				{
 					const LevelMeshLight* light = &templightlist[i];
-					lightinfo->Origin = light->Origin;
-					lightinfo->RelativeOrigin = light->RelativeOrigin;
+					lightinfo->Origin = SwapYZ(light->Origin);
+					lightinfo->RelativeOrigin = SwapYZ(light->RelativeOrigin);
 					lightinfo->Radius = light->Radius;
 					lightinfo->Intensity = light->Intensity;
 					lightinfo->InnerAngleCos = light->InnerAngleCos;
 					lightinfo->OuterAngleCos = light->OuterAngleCos;
-					lightinfo->SpotDir = light->SpotDir;
+					lightinfo->SpotDir = SwapYZ(light->SpotDir);
 					lightinfo->Color = light->Color;
 					lightinfo++;
 				}
@@ -294,7 +294,7 @@ void VkLightmap::Render()
 void VkLightmap::UploadUniforms()
 {
 	Uniforms values = {};
-	values.SunDir = mesh->SunDirection;
+	values.SunDir = SwapYZ(mesh->SunDirection);
 	values.SunColor = mesh->SunColor;
 	values.SunIntensity = 1.0f;
 
@@ -760,7 +760,7 @@ void VkLightmap::CreateRaytracePipeline()
 			.RenderPass(raytrace.renderPass.get())
 			.AddVertexShader(shaders.vertRaytrace.get())
 			.AddFragmentShader(shaders.fragRaytrace[i].get())
-			.AddVertexBufferBinding(0, sizeof(SurfaceVertex))
+			.AddVertexBufferBinding(0, sizeof(FFlatVertex))
 			.AddVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0)
 			.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
 			.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)

@@ -195,7 +195,7 @@ static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plan
 	ffv.lindex = -1.0f;
 }
 
-static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plane, float llu, float llv, int llindex)
+static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plane, float llu, float llv, float llindex)
 {
 	ffv.x = (float)vt->fX();
 	ffv.y = (float)vt->fY();
@@ -204,7 +204,7 @@ static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plan
 	ffv.v = -(float)vt->fY() / 64.f;
 	ffv.lu = llu;
 	ffv.lv = llv;
-	ffv.lindex = (float)llindex;
+	ffv.lindex = llindex;
 }
 
 //==========================================================================
@@ -246,11 +246,10 @@ static int CreateIndexedSectorVerticesLM(FRenderState& renderstate, sector_t* se
 			DoomLevelMeshSurface* lightmap = sub->lightmap[h].Size() > lightmapIndex ? sub->lightmap[h][lightmapIndex] : nullptr;
 			if (lightmap && lightmap->Type != ST_UNKNOWN) // lightmap may be missing if the subsector is degenerate triangle
 			{
-				float* luvs = lightmap->TexCoords;
-				int lindex = lightmap->AtlasTile.ArrayIndex;
+				FFlatVertex* luvs = lightmap->Vertices;
 				for (unsigned int j = 0; j < sub->numlines; j++)
 				{
-					SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane, luvs[j * 2], luvs[j * 2 + 1], lindex);
+					SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane, luvs[j].lu, luvs[j].lv, luvs[j].lindex);
 					vbo_shadowdata[vi + pos].z += diff;
 					pos++;
 				}

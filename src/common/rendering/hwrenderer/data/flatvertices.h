@@ -1,11 +1,11 @@
 #pragma once
 
-struct FFlatVertex
+struct FFlatVertex // Note: this must always match the SurfaceVertex struct in shaders (std430 layout rules apply)
 {
 	float x, z, y;	// world position
+	float lindex;	// lightmap texture index
 	float u, v;		// texture coordinates
 	float lu, lv;	// lightmap texture coordinates
-	float lindex;	// lightmap texture index
 
 	void Set(float xx, float zz, float yy, float uu, float vv)
 	{
@@ -22,11 +22,11 @@ struct FFlatVertex
 		x = xx;
 		z = zz;
 		y = yy;
+		lindex = llindex;
 		u = uu;
 		v = vv;
 		lu = llu;
 		lv = llv;
-		lindex = llindex;
 	}
 
 	void SetVertex(float _x, float _y, float _z = 0)
@@ -42,4 +42,5 @@ struct FFlatVertex
 		v = _v;
 	}
 
+	FVector3 fPos() const { return FVector3(x, y, z); }
 };

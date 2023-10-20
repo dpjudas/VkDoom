@@ -267,7 +267,6 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 {
 	MeshVertices.Clear();
-	MeshVertexUVs.Clear();
 	MeshElements.Clear();
 
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
@@ -299,10 +298,8 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartInd
 {
 	Surfaces.Clear();
 	MeshVertices.Clear();
-	MeshVertexUVs.Clear();
 	MeshElements.Clear();
 	MeshSurfaceIndexes.Clear();
-	LightmapUvs.Clear();
 
 	// Look for polyobjects
 	for (unsigned int i = 0; i < doomMap.lines.Size(); i++)
@@ -340,16 +337,16 @@ void DoomLevelSubmesh::CreateIndexes()
 		DoomLevelMeshSurface& s = Surfaces[i];
 		int numVerts = s.numVerts;
 		unsigned int pos = s.startVertIndex;
-		FVector3* verts = &MeshVertices[pos];
+		FFlatVertex* verts = &MeshVertices[pos];
 
 		s.startElementIndex = MeshElements.Size();
 		s.numElements = 0;
 
-		if (s.Type == ST_FLOOR || s.Type == ST_CEILING)
+		if (s.Type == ST_CEILING)
 		{
 			for (int j = 2; j < numVerts; j++)
 			{
-				if (!IsDegenerate(verts[0], verts[j - 1], verts[j]))
+				if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
 				{
 					MeshElements.Push(pos);
 					MeshElements.Push(pos + j - 1);
@@ -359,9 +356,23 @@ void DoomLevelSubmesh::CreateIndexes()
 				}
 			}
 		}
+		else if (s.Type == ST_FLOOR)
+		{
+			for (int j = 2; j < numVerts; j++)
+			{
+				if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
+				{
+					MeshElements.Push(pos + j);
+					MeshElements.Push(pos + j - 1);
+					MeshElements.Push(pos);
+					MeshSurfaceIndexes.Push((int)i);
+					s.numElements += 3;
+				}
+			}
+		}
 		else if (s.Type == ST_MIDDLESIDE || s.Type == ST_UPPERSIDE || s.Type == ST_LOWERSIDE)
 		{
-			if (!IsDegenerate(verts[0], verts[1], verts[2]))
+			if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[1].fPos()))
 			{
 				MeshElements.Push(pos + 0);
 				MeshElements.Push(pos + 1);
@@ -369,11 +380,11 @@ void DoomLevelSubmesh::CreateIndexes()
 				MeshSurfaceIndexes.Push((int)i);
 				s.numElements += 3;
 			}
-			if (!IsDegenerate(verts[1], verts[2], verts[3]))
+			if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[3].fPos()))
 			{
-				MeshElements.Push(pos + 3);
+				MeshElements.Push(pos + 0);
 				MeshElements.Push(pos + 2);
-				MeshElements.Push(pos + 1);
+				MeshElements.Push(pos + 3);
 				MeshSurfaceIndexes.Push((int)i);
 				s.numElements += 3;
 			}
@@ -542,33 +553,11 @@ void DoomLevelSubmesh::CreatePortals()
 
 void DoomLevelSubmesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
 {
-	// You have no idea how long this took me to figure out...
-
-	// Reorder vertices into renderer format
-	for (DoomLevelMeshSurface& surface : Surfaces)
-	{
-		if (surface.Type == ST_FLOOR)
-		{
-			// reverse vertices on floor
-			for (int j = surface.startUvIndex + surface.numVerts - 1, k = surface.startUvIndex; j > k; j--, k++)
-			{
-				std::swap(LightmapUvs[k], LightmapUvs[j]);
-			}
-		}
-		else if (surface.Type != ST_CEILING) // walls
-		{
-			// from 0 1 2 3
-			// to   0 2 1 3
-			std::swap(LightmapUvs[surface.startUvIndex + 1], LightmapUvs[surface.startUvIndex + 2]);
-			std::swap(LightmapUvs[surface.startUvIndex + 2], LightmapUvs[surface.startUvIndex + 3]);
-		}
-
-		surface.TexCoords = (float*)&LightmapUvs[surface.startUvIndex];
-	}
-
 	// Link surfaces
 	for (auto& surface : Surfaces)
 	{
+		surface.Vertices = &MeshVertices[surface.startVertIndex];
+
 		if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
 		{
 			surface.Subsector = &doomMap.subsectors[surface.TypeIndex];
@@ -648,15 +637,15 @@ void DoomLevelSubmesh::CreateLinePortalSurface(FLevelLocals& doomMap, side_t* si
 	float v2Top = (float)front->ceilingplane.ZatPoint(v2);
 	float v2Bottom = (float)front->floorplane.ZatPoint(v2);
 
-	FVector3 verts[4];
-	verts[0].X = verts[2].X = v1.X;
-	verts[0].Y = verts[2].Y = v1.Y;
-	verts[1].X = verts[3].X = v2.X;
-	verts[1].Y = verts[3].Y = v2.Y;
-	verts[0].Z = v1Bottom;
-	verts[1].Z = v2Bottom;
-	verts[2].Z = v1Top;
-	verts[3].Z = v2Top;
+	FFlatVertex verts[4];
+	verts[0].x = verts[2].x = v1.X;
+	verts[0].y = verts[2].y = v1.Y;
+	verts[1].x = verts[3].x = v2.X;
+	verts[1].y = verts[3].y = v2.Y;
+	verts[0].z = v1Bottom;
+	verts[1].z = v2Bottom;
+	verts[2].z = v1Top;
+	verts[3].z = v2Top;
 
 	DoomLevelMeshSurface surf;
 	surf.Submesh = this;
@@ -672,7 +661,7 @@ void DoomLevelSubmesh::CreateLinePortalSurface(FLevelLocals& doomMap, side_t* si
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
 
-	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
+	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
@@ -751,24 +740,24 @@ void DoomLevelSubmesh::CreateLineHorizonSurface(FLevelLocals& doomMap, side_t* s
 	surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
 	surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 
-	FVector3 verts[4];
-	verts[0].X = verts[2].X = v1.X;
-	verts[0].Y = verts[2].Y = v1.Y;
-	verts[1].X = verts[3].X = v2.X;
-	verts[1].Y = verts[3].Y = v2.Y;
-	verts[0].Z = v1Bottom;
-	verts[1].Z = v2Bottom;
-	verts[2].Z = v1Top;
-	verts[3].Z = v2Top;
+	FFlatVertex verts[4];
+	verts[0].x = verts[2].x = v1.X;
+	verts[0].y = verts[2].y = v1.Y;
+	verts[1].x = verts[3].x = v2.X;
+	verts[1].y = verts[3].y = v2.Y;
+	verts[0].z = v1Bottom;
+	verts[1].z = v2Bottom;
+	verts[2].z = v1Top;
+	verts[3].z = v2Top;
 
 	surf.startVertIndex = MeshVertices.Size();
 	surf.numVerts = 4;
 	MeshVertices.Push(verts[0]);
-	MeshVertices.Push(verts[1]);
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
+	MeshVertices.Push(verts[1]);
 
-	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
+	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
@@ -796,15 +785,15 @@ void DoomLevelSubmesh::CreateFrontWallSurface(FLevelLocals& doomMap, side_t* sid
 	float v2Top = (float)front->ceilingplane.ZatPoint(v2);
 	float v2Bottom = (float)front->floorplane.ZatPoint(v2);
 
-	FVector3 verts[4];
-	verts[0].X = verts[2].X = v1.X;
-	verts[0].Y = verts[2].Y = v1.Y;
-	verts[1].X = verts[3].X = v2.X;
-	verts[1].Y = verts[3].Y = v2.Y;
-	verts[0].Z = v1Bottom;
-	verts[1].Z = v2Bottom;
-	verts[2].Z = v1Top;
-	verts[3].Z = v2Top;
+	FFlatVertex verts[4];
+	verts[0].x = verts[2].x = v1.X;
+	verts[0].y = verts[2].y = v1.Y;
+	verts[1].x = verts[3].x = v2.X;
+	verts[1].y = verts[3].y = v2.Y;
+	verts[0].z = v1Bottom;
+	verts[1].z = v2Bottom;
+	verts[2].z = v1Top;
+	verts[3].z = v2Top;
 
 	DoomLevelMeshSurface surf;
 	surf.Submesh = this;
@@ -813,11 +802,11 @@ void DoomLevelSubmesh::CreateFrontWallSurface(FLevelLocals& doomMap, side_t* sid
 	surf.numVerts = 4;
 	surf.bSky = false;
 	MeshVertices.Push(verts[0]);
-	MeshVertices.Push(verts[1]);
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
+	MeshVertices.Push(verts[1]);
 
-	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
+	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.Type = ST_MIDDLESIDE;
 	surf.TypeIndex = side->Index();
 	surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
@@ -843,20 +832,20 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	float v2Top = (float)front->ceilingplane.ZatPoint(v2);
 	float v2Bottom = (float)front->floorplane.ZatPoint(v2);
 
-	FVector3 verts[4];
-	verts[0].X = verts[2].X = v1.X;
-	verts[0].Y = verts[2].Y = v1.Y;
-	verts[1].X = verts[3].X = v2.X;
-	verts[1].Y = verts[3].Y = v2.Y;
+	FFlatVertex verts[4];
+	verts[0].x = verts[2].x = v1.X;
+	verts[0].y = verts[2].y = v1.Y;
+	verts[1].x = verts[3].x = v2.X;
+	verts[1].y = verts[3].y = v2.Y;
 
 	const auto& texture = side->textures[side_t::mid].texture;
 
 	if ((side->Flags & WALLF_WRAP_MIDTEX) || (side->linedef->flags & WALLF_WRAP_MIDTEX))
 	{
-		verts[0].Z = v1Bottom;
-		verts[1].Z = v2Bottom;
-		verts[2].Z = v1Top;
-		verts[3].Z = v2Top;
+		verts[0].z = v1Bottom;
+		verts[1].z = v2Bottom;
+		verts[2].z = v1Top;
+		verts[3].z = v2Top;
 	}
 	else
 	{
@@ -880,10 +869,10 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 			yTextureOffset += (float)(side->sector->planes[sector_t::ceiling].TexZ - gameTexture->GetDisplayHeight() / side->textures[side_t::mid].yScale);
 		}
 
-		verts[0].Z = min(max(yTextureOffset + mid1Bottom, v1Bottom), v1Top);
-		verts[1].Z = min(max(yTextureOffset + mid2Bottom, v2Bottom), v2Top);
-		verts[2].Z = max(min(yTextureOffset + mid1Top, v1Top), v1Bottom);
-		verts[3].Z = max(min(yTextureOffset + mid2Top, v2Top), v2Bottom);
+		verts[0].z = min(max(yTextureOffset + mid1Bottom, v1Bottom), v1Top);
+		verts[1].z = min(max(yTextureOffset + mid2Bottom, v2Bottom), v2Top);
+		verts[2].z = max(min(yTextureOffset + mid1Top, v1Top), v1Bottom);
+		verts[3].z = max(min(yTextureOffset + mid2Top, v2Top), v2Bottom);
 	}
 
 	// mid texture
@@ -893,9 +882,7 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.startVertIndex = MeshVertices.Size();
 	surf.numVerts = 4;
 	surf.bSky = false;
-	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
-
-	FVector3 offset = surf.plane.XYZ() * 0.05f; // for better accuracy when raytracing mid-textures from each side
+	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 
 	if (side->linedef->sidedef[0] != side)
 	{
@@ -903,10 +890,10 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 		surf.plane.W = -surf.plane.W;
 	}
 
-	MeshVertices.Push(verts[0] + offset);
-	MeshVertices.Push(verts[1] + offset);
-	MeshVertices.Push(verts[2] + offset);
-	MeshVertices.Push(verts[3] + offset);
+	MeshVertices.Push(verts[0]);
+	MeshVertices.Push(verts[2]);
+	MeshVertices.Push(verts[3]);
+	MeshVertices.Push(verts[1]);
 
 	surf.Type = ST_MIDDLESIDE;
 	surf.TypeIndex = side->Index();
@@ -917,7 +904,7 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.alpha = float(side->linedef->alpha);
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-	SetSideTextureUVs(surf, side, side_t::top, verts[2].Z, verts[0].Z, verts[3].Z, verts[1].Z);
+	SetSideTextureUVs(surf, side, side_t::top, verts[2].z, verts[0].z, verts[3].z, verts[1].z);
 
 	Surfaces.Push(surf);
 }
@@ -965,24 +952,24 @@ void DoomLevelSubmesh::Create3DFloorWallSurfaces(FLevelLocals& doomMap, side_t* 
 		float tlZ = (float)xfloor->model->ceilingplane.ZatPoint(v1);
 		float trZ = (float)xfloor->model->ceilingplane.ZatPoint(v2);
 
-		FVector3 verts[4];
-		verts[0].X = verts[2].X = v2.X;
-		verts[0].Y = verts[2].Y = v2.Y;
-		verts[1].X = verts[3].X = v1.X;
-		verts[1].Y = verts[3].Y = v1.Y;
-		verts[0].Z = brZ;
-		verts[1].Z = blZ;
-		verts[2].Z = trZ;
-		verts[3].Z = tlZ;
+		FFlatVertex verts[4];
+		verts[0].x = verts[2].x = v2.X;
+		verts[0].y = verts[2].y = v2.Y;
+		verts[1].x = verts[3].x = v1.X;
+		verts[1].y = verts[3].y = v1.Y;
+		verts[0].z = brZ;
+		verts[1].z = blZ;
+		verts[2].z = trZ;
+		verts[3].z = tlZ;
 
 		surf.startVertIndex = MeshVertices.Size();
 		surf.numVerts = 4;
 		MeshVertices.Push(verts[0]);
-		MeshVertices.Push(verts[1]);
 		MeshVertices.Push(verts[2]);
 		MeshVertices.Push(verts[3]);
+		MeshVertices.Push(verts[1]);
 
-		surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
+		surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 		surf.sectorGroup = sectorGroup[front->Index()];
 		surf.texture = side->textures[side_t::mid].texture;
 		surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
@@ -1010,26 +997,26 @@ void DoomLevelSubmesh::CreateTopWallSurface(FLevelLocals& doomMap, side_t* side)
 	if (!bSky && !IsTopSideVisible(side))
 		return;
 
-	FVector3 verts[4];
-	verts[0].X = verts[2].X = v1.X;
-	verts[0].Y = verts[2].Y = v1.Y;
-	verts[1].X = verts[3].X = v2.X;
-	verts[1].Y = verts[3].Y = v2.Y;
-	verts[0].Z = v1TopBack;
-	verts[1].Z = v2TopBack;
-	verts[2].Z = v1Top;
-	verts[3].Z = v2Top;
+	FFlatVertex verts[4];
+	verts[0].x = verts[2].x = v1.X;
+	verts[0].y = verts[2].y = v1.Y;
+	verts[1].x = verts[3].x = v2.X;
+	verts[1].y = verts[3].y = v2.Y;
+	verts[0].z = v1TopBack;
+	verts[1].z = v2TopBack;
+	verts[2].z = v1Top;
+	verts[3].z = v2Top;
 
 	DoomLevelMeshSurface surf;
 	surf.Submesh = this;
 	surf.startVertIndex = MeshVertices.Size();
 	surf.numVerts = 4;
 	MeshVertices.Push(verts[0]);
-	MeshVertices.Push(verts[1]);
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
+	MeshVertices.Push(verts[1]);
 
-	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
+	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.Type = ST_UPPERSIDE;
 	surf.TypeIndex = side->Index();
 	surf.bSky = bSky;
@@ -1060,26 +1047,26 @@ void DoomLevelSubmesh::CreateBottomWallSurface(FLevelLocals& doomMap, side_t* si
 	float v1BottomBack = (float)back->floorplane.ZatPoint(v1);
 	float v2BottomBack = (float)back->floorplane.ZatPoint(v2);
 
-	FVector3 verts[4];
-	verts[0].X = verts[2].X = v1.X;
-	verts[0].Y = verts[2].Y = v1.Y;
-	verts[1].X = verts[3].X = v2.X;
-	verts[1].Y = verts[3].Y = v2.Y;
-	verts[0].Z = v1Bottom;
-	verts[1].Z = v2Bottom;
-	verts[2].Z = v1BottomBack;
-	verts[3].Z = v2BottomBack;
+	FFlatVertex verts[4];
+	verts[0].x = verts[2].x = v1.X;
+	verts[0].y = verts[2].y = v1.Y;
+	verts[1].x = verts[3].x = v2.X;
+	verts[1].y = verts[3].y = v2.Y;
+	verts[0].z = v1Bottom;
+	verts[1].z = v2Bottom;
+	verts[2].z = v1BottomBack;
+	verts[3].z = v2BottomBack;
 
 	DoomLevelMeshSurface surf;
 	surf.Submesh = this;
 	surf.startVertIndex = MeshVertices.Size();
 	surf.numVerts = 4;
 	MeshVertices.Push(verts[0]);
-	MeshVertices.Push(verts[1]);
 	MeshVertices.Push(verts[2]);
 	MeshVertices.Push(verts[3]);
+	MeshVertices.Push(verts[1]);
 
-	surf.plane = ToPlane(verts[0], verts[1], verts[2], verts[3]);
+	surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 	surf.Type = ST_LOWERSIDE;
 	surf.TypeIndex = side->Index();
 	surf.bSky = false;
@@ -1096,8 +1083,7 @@ void DoomLevelSubmesh::CreateBottomWallSurface(FLevelLocals& doomMap, side_t* si
 
 void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* side, side_t::ETexpart texpart, float v1TopZ, float v1BottomZ, float v2TopZ, float v2BottomZ)
 {
-	MeshVertexUVs.Reserve(4);
-	FVector2* uvs = &MeshVertexUVs[surface.startVertIndex];
+	FFlatVertex* uvs = &MeshVertices[surface.startVertIndex];
 
 	if (surface.texture.isValid())
 	{
@@ -1109,26 +1095,30 @@ void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* 
 		float startU = tci.FloatToTexU(tci.TextureOffset((float)side->GetTextureXOffset(texpart)) + tci.TextureOffset((float)side->GetTextureXOffset(texpart)));
 		float endU = startU + tci.FloatToTexU(side->TexelLength);
 
-		uvs[0].X = startU;
-		uvs[1].X = endU;
-		uvs[2].X = startU;
-		uvs[3].X = endU;
+		uvs[0].u = startU;
+		uvs[1].u = endU;
+		uvs[2].u = startU;
+		uvs[3].u = endU;
 
 		// To do: the ceiling version is apparently used in some situation related to 3d floors (rover->top.isceiling)
 		//float offset = tci.RowOffset((float)side->GetTextureYOffset(texpart)) + tci.RowOffset((float)side->GetTextureYOffset(texpart)) + (float)side->sector->GetPlaneTexZ(sector_t::ceiling);
 		float offset = tci.RowOffset((float)side->GetTextureYOffset(texpart)) + tci.RowOffset((float)side->GetTextureYOffset(texpart)) + (float)side->sector->GetPlaneTexZ(sector_t::floor);
 
-		uvs[0].Y = tci.FloatToTexV(offset - v1BottomZ);
-		uvs[1].Y = tci.FloatToTexV(offset - v2BottomZ);
-		uvs[2].Y = tci.FloatToTexV(offset - v1TopZ);
-		uvs[3].Y = tci.FloatToTexV(offset - v2TopZ);
+		uvs[0].v = tci.FloatToTexV(offset - v1BottomZ);
+		uvs[1].v = tci.FloatToTexV(offset - v2BottomZ);
+		uvs[2].v = tci.FloatToTexV(offset - v1TopZ);
+		uvs[3].v = tci.FloatToTexV(offset - v2TopZ);
 	}
 	else
 	{
-		uvs[0] = FVector2(0.0f, 0.0f);
-		uvs[1] = FVector2(0.0f, 0.0f);
-		uvs[2] = FVector2(0.0f, 0.0f);
-		uvs[3] = FVector2(0.0f, 0.0f);
+		uvs[0].u = 0.0f;
+		uvs[0].v = 0.0f;
+		uvs[1].u = 0.0f;
+		uvs[1].v = 0.0f;
+		uvs[2].u = 0.0f;
+		uvs[2].v = 0.0f;
+		uvs[3].u = 0.0f;
+		uvs[3].v = 0.0f;
 	}
 }
 
@@ -1160,21 +1150,20 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::floor);
 
 	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
-	MeshVertexUVs.Resize(surf.startVertIndex + surf.numVerts);
 
-	FVector3* verts = &MeshVertices[surf.startVertIndex];
-	FVector2* uvs = &MeshVertexUVs[surf.startVertIndex];
+	FFlatVertex* verts = &MeshVertices[surf.startVertIndex];
 
 	for (int j = 0; j < surf.numVerts; j++)
 	{
-		seg_t *seg = &sub->firstline[(surf.numVerts - 1) - j];
+		seg_t* seg = &sub->firstline[j];
 		FVector2 v1 = ToFVector2(seg->v1->fPos());
+		FVector2 uv = (mat * FVector4(v1.X / 64.f, -v1.Y / 64.f, 0.f, 1.f)).XY(); // The magic 64.f and negative Y is based on SetFlatVertex
 
-		verts[j].X = v1.X;
-		verts[j].Y = v1.Y;
-		verts[j].Z = (float)plane.ZatPoint(verts[j]);
-
-		uvs[j] = (mat * FVector4(v1.X / 64.f, -v1.Y / 64.f, 0.f, 1.f)).XY(); // The magic 64.f and negative Y is based on SetFlatVertex
+		verts[j].x = v1.X;
+		verts[j].y = v1.Y;
+		verts[j].z = (float)plane.ZatPoint(v1);
+		verts[j].u = uv.X;
+		verts[j].v = uv.Y;
 	}
 
 	surf.Type = ST_FLOOR;
@@ -1216,21 +1205,20 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::ceiling);
 
 	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
-	MeshVertexUVs.Resize(surf.startVertIndex + surf.numVerts);
 
-	FVector3* verts = &MeshVertices[surf.startVertIndex];
-	FVector2* uvs = &MeshVertexUVs[surf.startVertIndex];
+	FFlatVertex* verts = &MeshVertices[surf.startVertIndex];
 
 	for (int j = 0; j < surf.numVerts; j++)
 	{
-		seg_t *seg = &sub->firstline[j];
+		seg_t* seg = &sub->firstline[j];
 		FVector2 v1 = ToFVector2(seg->v1->fPos());
+		FVector2 uv = (mat * FVector4(v1.X / 64.f, -v1.Y / 64.f, 0.f, 1.f)).XY(); // The magic 64.f and negative Y is based on SetFlatVertex
 
-		verts[j].X = v1.X;
-		verts[j].Y = v1.Y;
-		verts[j].Z = (float)plane.ZatPoint(verts[j]);
-
-		uvs[j] = (mat * FVector4(v1.X / 64.f, -v1.Y / 64.f, 0.f, 1.f)).XY(); // The magic 64.f and negative Y is based on SetFlatVertex
+		verts[j].x = v1.X;
+		verts[j].y = v1.Y;
+		verts[j].z = (float)plane.ZatPoint(v1);
+		verts[j].u = uv.X;
+		verts[j].v = uv.Y;
 	}
 
 	surf.Type = ST_CEILING;
@@ -1321,14 +1309,12 @@ void DoomLevelSubmesh::DumpMesh(const FString& objFilename, const FString& mtlFi
 
 	for (const auto& v : MeshVertices)
 	{
-		fprintf(f, "v %f %f %f\n", v.X * scale, v.Y * scale, v.Z * scale);
+		fprintf(f, "v %f %f %f\n", v.x * scale, v.y * scale, v.z * scale);
 	}
 
+	for (const auto& v : MeshVertices)
 	{
-		for (const auto& uv : LightmapUvs)
-		{
-			fprintf(f, "vt %f %f\n", uv.X, uv.Y);
-		}
+		fprintf(f, "vt %f %f\n", v.lu, v.lv);
 	}
 
 	auto name = [](DoomLevelMeshSurfaceType type) -> const char* {
@@ -1459,10 +1445,10 @@ void DoomLevelSubmesh::PackLightmapAtlas(int lightmapStartIndex)
 		// calculate final texture coordinates
 		for (int i = 0; i < (int)surf->numVerts; i++)
 		{
-			auto& u = LightmapUvs[surf->startUvIndex + i].X;
-			auto& v = LightmapUvs[surf->startUvIndex + i].Y;
-			u = (u + x) / (float)LMTextureSize;
-			v = (v + y) / (float)LMTextureSize;
+			auto& vertex = MeshVertices[surf->startVertIndex + i];
+			vertex.lu = (vertex.lu + x) / (float)LMTextureSize;
+			vertex.lv = (vertex.lv + y) / (float)LMTextureSize;
+			vertex.lindex = (float)surf->AtlasTile.ArrayIndex;
 		}
 	}
 
@@ -1480,13 +1466,13 @@ BBox DoomLevelSubmesh::GetBoundsFromSurface(const LevelMeshSurface& surface) con
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			if (MeshVertices[i][j] < low[j])
+			if (MeshVertices[i].fPos()[j] < low[j])
 			{
-				low[j] = MeshVertices[i][j];
+				low[j] = MeshVertices[i].fPos()[j];
 			}
-			if (MeshVertices[i][j] > hi[j])
+			if (MeshVertices[i].fPos()[j] > hi[j])
 			{
-				hi[j] = MeshVertices[i][j];
+				hi[j] = MeshVertices[i].fPos()[j];
 			}
 		}
 	}
@@ -1598,14 +1584,12 @@ void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMap
 	surface.projLocalToU = tCoords[0];
 	surface.projLocalToV = tCoords[1];
 
-	surface.startUvIndex = AllocUvs(surface.numVerts);
-
 	for (int i = 0; i < surface.numVerts; i++)
 	{
-		FVector3 tDelta = MeshVertices[surface.startVertIndex + i] - surface.translateWorldToLocal;
+		FVector3 tDelta = MeshVertices[surface.startVertIndex + i].fPos() - surface.translateWorldToLocal;
 
-		LightmapUvs[surface.startUvIndex + i].X = (tDelta | surface.projLocalToU);
-		LightmapUvs[surface.startUvIndex + i].Y = (tDelta | surface.projLocalToV);
+		MeshVertices[surface.startVertIndex + i].lu = (tDelta | surface.projLocalToU);
+		MeshVertices[surface.startVertIndex + i].lv = (tDelta | surface.projLocalToV);
 	}
 
 	// project tCoords so they lie on the plane

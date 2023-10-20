@@ -37,15 +37,6 @@ struct SurfaceInfo
 	float Alpha;
 };
 
-struct SurfaceVertex
-{
-	FVector4 pos;
-	FVector2 uv;
-	float Padding1, Padding2;
-	FVector3 lightmap;
-	float Padding3;
-};
-
 struct PortalInfo
 {
 	VSMatrix transformation;
@@ -125,7 +116,7 @@ private:
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
 
-	TArray<SurfaceVertex> Vertices;
+	TArray<FFlatVertex> Vertices;
 	static const int MaxDynamicVertices = 100'000;
 	static const int MaxDynamicIndexes = 100'000;
 	static const int MaxDynamicSurfaces = 100'000;

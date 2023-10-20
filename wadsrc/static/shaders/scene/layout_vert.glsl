@@ -11,7 +11,7 @@ layout(location = 9) out vec3 vLightmap;
 layout(location = 3) in vec4 aVertex2;
 layout(location = 4) in vec4 aNormal;
 layout(location = 5) in vec4 aNormal2;
-layout(location = 6) in vec3 aLightmap;
+layout(location = 6) in vec2 aLightmap;
 layout(location = 7) in vec4 aBoneWeight;
 layout(location = 8) in uvec4 aBoneSelector;
 

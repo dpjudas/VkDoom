@@ -9,6 +9,7 @@
 #include <memory>
 #include <cstring>
 #include "textureid.h"
+#include "flatvertices.h"
 
 #include <dp_rect_pack.h>
 
@@ -36,7 +37,6 @@ struct LevelMeshSurface
 
 	int numVerts = 0;
 	unsigned int startVertIndex = 0;
-	unsigned int startUvIndex = 0;
 	unsigned int startElementIndex = 0;
 	unsigned int numElements = 0;
 	FVector4 plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
@@ -183,8 +183,7 @@ public:
 	virtual unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const { return 0xffffffff; }
 	virtual int GetSurfaceCount() { return 0; }
 
-	TArray<FVector3> MeshVertices;
-	TArray<FVector2> MeshVertexUVs;
+	TArray<FFlatVertex> MeshVertices;
 	TArray<uint32_t> MeshElements;
 	TArray<int> MeshSurfaceIndexes;
 

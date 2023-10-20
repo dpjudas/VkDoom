@@ -13,9 +13,9 @@ void Mesh::Draw(FRenderState& renderstate)
 	{
 		static const FVertexBufferAttribute format[] =
 		{
-			{ 0, VATTR_VERTEX, VFmt_Float3, (int)myoffsetof(FFlatVertex, x) },
+			{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(FFlatVertex, x) },
 			{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(FFlatVertex, u) },
-			{ 0, VATTR_LIGHTMAP, VFmt_Float3, (int)myoffsetof(FFlatVertex, lu) },
+			{ 0, VATTR_LIGHTMAP, VFmt_Float2, (int)myoffsetof(FFlatVertex, lu) },
 		};
 		mVertexBuffer.reset(screen->CreateVertexBuffer(1, 3, sizeof(FFlatVertex), format));
 		mVertexBuffer->SetData(mVertices.Size() * sizeof(FFlatVertex), mVertices.Data(), BufferUsageType::Static);

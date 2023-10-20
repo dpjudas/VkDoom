@@ -88,7 +88,7 @@ public:
 	// This vertex type is hardware independent and needs conversion when put into a buffer.
 	struct TwoDVertex
 	{
-		float x, y, z;
+		float x, y, z, lindex;
 		float u, v;
 		PalEntry color0;
 
@@ -100,6 +100,7 @@ public:
 			u = 0;
 			v = 0;
 			color0 = 0;
+			lindex = -1.0f;
 		}
 
 		void Set(double xx, double yy, double zz, double uu, double vv, PalEntry col)
@@ -110,6 +111,7 @@ public:
 			u = (float)uu;
 			v = (float)vv;
 			color0 = col;
+			lindex = -1.0f;
 		}
 
 	};

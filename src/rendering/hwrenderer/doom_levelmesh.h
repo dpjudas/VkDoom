@@ -33,7 +33,7 @@ struct DoomLevelMeshSurface : public LevelMeshSurface
 	side_t* Side = nullptr;
 	sector_t* ControlSector = nullptr;
 
-	float* TexCoords = nullptr;
+	FFlatVertex* Vertices = nullptr;
 };
 
 class DoomLevelSubmesh : public LevelSubmesh
@@ -56,7 +56,6 @@ public:
 	void DisableLightmaps() { Surfaces.Clear(); } // Temp hack that disables lightmapping
 
 	TArray<DoomLevelMeshSurface> Surfaces;
-	TArray<FVector2> LightmapUvs;
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 
 	TArray<std::unique_ptr<DoomLevelMeshSurface*[]>> PolyLMSurfaces;
@@ -121,8 +120,6 @@ private:
 
 	static PlaneAxis BestAxis(const FVector4& p);
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
-
-	inline int AllocUvs(int amount) { return LightmapUvs.Reserve(amount); }
 
 	void BuildSurfaceParams(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface);
 

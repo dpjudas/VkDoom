@@ -2,7 +2,14 @@
 void main()
 {
 #ifdef USE_LEVELMESH
-	FragColor = vec4(vec3(pixelpos.w / 1000), 1.0);
+	if (vLightmap.z >= 0.0)
+	{
+		FragColor = vec4(texture(LightMap, vLightmap).rgb, 1.0);
+	}
+	else
+	{
+		FragColor = vec4(vec3(pixelpos.w / 1000), 1.0);
+	}
 #else
 
 #ifdef NO_CLIPDISTANCE_SUPPORT

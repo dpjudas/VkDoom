@@ -158,6 +158,8 @@ private:
 	static FString LoadPublicShaderLump(const char* lumpname);
 	static ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
 
+	FVector3 SwapYZ(const FVector3& v) { return FVector3(v.X, v.Z, v.Y); }
+
 	VulkanRenderDevice* fb = nullptr;
 	LevelMesh* mesh = nullptr;
 
