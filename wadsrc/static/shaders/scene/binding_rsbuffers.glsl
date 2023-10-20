@@ -108,3 +108,10 @@ layout(set = 1, binding = 5, std430) buffer BoneBufferSSO
 {
 	mat4 bones[];
 };
+
+#ifdef USE_LEVELMESH
+layout(set = 1, binding = 5) buffer SurfaceIndexBuffer
+{
+	int surfaceIndices[];
+};
+#endif

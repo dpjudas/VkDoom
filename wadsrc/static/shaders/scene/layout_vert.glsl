@@ -26,3 +26,7 @@ layout(location = 6) out vec4 vEyeNormal;
 layout(location = 7) out vec4 ClipDistanceA;
 layout(location = 8) out vec4 ClipDistanceB;
 #endif
+
+#if defined(USE_LEVELMESH)
+layout(location = 10) out flat int uDataIndex;
+#endif

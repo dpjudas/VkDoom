@@ -8,6 +8,10 @@ void main()
 	vec2 parmTexCoord;
 	vec4 parmPosition;
 
+#if defined(USE_LEVELMESH)
+	uDataIndex = surfaceIndices[gl_VertexIndex / 3];
+#endif
+
 	BonesResult bones = ApplyBones();
 
 	parmTexCoord = aTexCoord;

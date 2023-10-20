@@ -6,7 +6,11 @@
 // This must match the PushConstants struct
 layout(push_constant) uniform PushConstants
 {
+#if defined(USE_LEVELMESH)
+	int unused;
+#else
 	int uDataIndex; // surfaceuniforms index
+#endif
 	int uLightIndex; // dynamic lights
 	int uBoneIndexBase; // bone animation
 	int uFogballIndex; // fog balls
