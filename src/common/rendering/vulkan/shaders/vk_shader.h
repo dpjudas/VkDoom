@@ -26,11 +26,11 @@ struct MatricesUBO
 	VSMatrix TextureMatrix;
 };
 
-#define MAX_STREAM_DATA ((int)(65536 / sizeof(StreamData)))
+#define MAX_SURFACE_UNIFORMS ((int)(65536 / sizeof(SurfaceUniforms)))
 
-struct StreamUBO
+struct SurfaceUniformsUBO
 {
-	StreamData data[MAX_STREAM_DATA];
+	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
 };
 
 #define MAX_LIGHT_DATA ((int)(65536 / sizeof(FVector4)))

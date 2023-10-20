@@ -35,13 +35,13 @@ void Mesh::Draw(FRenderState& renderstate)
 	origState.applyData.RenderStyle = renderstate.mRenderStyle;
 	origState.applyData.SpecialEffect = renderstate.mSpecialEffect;
 	origState.applyData.TextureEnabled = renderstate.mTextureEnabled;
-	origState.applyData.AlphaThreshold = renderstate.mStreamData.uAlphaThreshold;
+	origState.applyData.AlphaThreshold = renderstate.mSurfaceUniforms.uAlphaThreshold;
 	origState.applyData.FogEnabled = renderstate.mFogEnabled;
 	origState.applyData.BrightmapEnabled = renderstate.mBrightmapEnabled;
 	origState.applyData.TextureClamp = renderstate.mTextureClamp;
 	origState.applyData.TextureMode = renderstate.mTextureMode;
 	origState.applyData.TextureModeFlags = renderstate.mTextureModeFlags;
-	origState.streamData = renderstate.mStreamData;
+	origState.surfaceUniforms = renderstate.mSurfaceUniforms;
 	origState.material = renderstate.mMaterial;
 	origState.textureMatrix.loadIdentity();
 
@@ -106,7 +106,7 @@ void Mesh::Apply(FRenderState& renderstate, const MeshApplyState& state)
 	renderstate.mTextureClamp = state.applyData.TextureClamp;
 	renderstate.mTextureMode = state.applyData.TextureMode;
 	renderstate.mTextureModeFlags = state.applyData.TextureModeFlags;
-	renderstate.mStreamData = state.streamData;
+	renderstate.mSurfaceUniforms = state.surfaceUniforms;
 	renderstate.mMaterial = state.material;
 	renderstate.SetTextureMatrix(state.textureMatrix);
 }

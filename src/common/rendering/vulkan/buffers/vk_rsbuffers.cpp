@@ -57,7 +57,7 @@ VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 		.Create(fb->GetDevice());
 
 	MatrixBuffer = std::make_unique<VkMatrixBufferWriter>(fb);
-	StreamBuffer = std::make_unique<VkStreamBufferWriter>(fb);
+	SurfaceUniformsBuffer = std::make_unique<VkSurfaceUniformsBufferWriter>(fb);
 
 	Viewpoint.BlockAlign = (sizeof(HWViewpointUniforms) + fb->uniformblockalignment - 1) / fb->uniformblockalignment * fb->uniformblockalignment;
 
@@ -166,30 +166,30 @@ uint32_t VkStreamBuffer::NextStreamDataBlock()
 
 /////////////////////////////////////////////////////////////////////////////
 
-VkStreamBufferWriter::VkStreamBufferWriter(VulkanRenderDevice* fb)
+VkSurfaceUniformsBufferWriter::VkSurfaceUniformsBufferWriter(VulkanRenderDevice* fb)
 {
-	mBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(StreamUBO), 300);
+	mBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(SurfaceUniformsUBO), 300);
 }
 
-bool VkStreamBufferWriter::Write(const StreamData& data)
+bool VkSurfaceUniformsBufferWriter::Write(const SurfaceUniforms& data)
 {
 	mDataIndex++;
-	if (mDataIndex == MAX_STREAM_DATA)
+	if (mDataIndex == MAX_SURFACE_UNIFORMS)
 	{
 		mDataIndex = 0;
-		mStreamDataOffset = mBuffer->NextStreamDataBlock();
-		if (mStreamDataOffset == 0xffffffff)
+		mOffset = mBuffer->NextStreamDataBlock();
+		if (mOffset == 0xffffffff)
 			return false;
 	}
 	uint8_t* ptr = (uint8_t*)mBuffer->Data;
-	memcpy(ptr + mStreamDataOffset + sizeof(StreamData) * mDataIndex, &data, sizeof(StreamData));
+	memcpy(ptr + mOffset + sizeof(SurfaceUniforms) * mDataIndex, &data, sizeof(SurfaceUniforms));
 	return true;
 }
 
-void VkStreamBufferWriter::Reset()
+void VkSurfaceUniformsBufferWriter::Reset()
 {
-	mDataIndex = MAX_STREAM_DATA - 1;
-	mStreamDataOffset = 0;
+	mDataIndex = MAX_SURFACE_UNIFORMS - 1;
+	mOffset = 0;
 	mBuffer->Reset();
 }
 

@@ -25,7 +25,7 @@ public:
 	};
 
 	ApplyData applyData;
-	StreamData streamData;
+	SurfaceUniforms surfaceUniforms;
 	FMaterialState material;
 	VSMatrix textureMatrix;
 
@@ -48,7 +48,7 @@ public:
 		if (result != 0)
 			return result < 0;
 
-		result = memcmp(&streamData, &other.streamData, sizeof(StreamData));
+		result = memcmp(&surfaceUniforms, &other.surfaceUniforms, sizeof(SurfaceUniforms));
 		return result < 0;
 	}
 };

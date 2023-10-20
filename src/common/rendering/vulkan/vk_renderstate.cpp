@@ -194,7 +194,7 @@ void VkRenderState::Apply(int dt)
 		mApplyCount = 0;
 	}
 
-	ApplyStreamData();
+	ApplySurfaceUniforms();
 	ApplyMatrices();
 	ApplyRenderPass(dt);
 	ApplyScissor();
@@ -250,7 +250,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 		pipelineKey.ShaderKey.EffectState = mTextureEnabled ? effectState : SHADER_NoTexture;
 		if (r_skipmats && pipelineKey.ShaderKey.EffectState >= 3 && pipelineKey.ShaderKey.EffectState <= 4)
 			pipelineKey.ShaderKey.EffectState = 0;
-		pipelineKey.ShaderKey.AlphaTest = mStreamData.uAlphaThreshold >= 0.f;
+		pipelineKey.ShaderKey.AlphaTest = mSurfaceUniforms.uAlphaThreshold >= 0.f;
 	}
 
 	int uTextureMode = GetTextureModeAndFlags((mMaterial.mMaterial && mMaterial.mMaterial->Source()->isHardwareCanvas()) ? TM_OPAQUE : TM_NORMAL);
@@ -285,7 +285,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.SWLightBanded = false; // gl_bandedswlight;
 	pipelineKey.ShaderKey.FogBalls = mFogballIndex >= 0;
 
-	float lightlevel = mStreamData.uLightLevel;
+	float lightlevel = mSurfaceUniforms.uLightLevel;
 	if (lightlevel < 0.0)
 	{
 		pipelineKey.ShaderKey.LightMode = 0; // Default
@@ -392,33 +392,33 @@ void VkRenderState::ApplyViewport()
 	}
 }
 
-void VkRenderState::ApplyStreamData()
+void VkRenderState::ApplySurfaceUniforms()
 {
 	auto passManager = fb->GetRenderPassManager();
 
-	mStreamData.useVertexData = mVertexBuffer ? passManager->GetVertexFormat(static_cast<VkHardwareVertexBuffer*>(mVertexBuffer)->VertexFormat)->UseVertexData : 0;
+	mSurfaceUniforms.useVertexData = mVertexBuffer ? passManager->GetVertexFormat(static_cast<VkHardwareVertexBuffer*>(mVertexBuffer)->VertexFormat)->UseVertexData : 0;
 
 	if (mMaterial.mMaterial && mMaterial.mMaterial->Source())
-		mStreamData.timer = static_cast<float>((double)(screen->FrameTime - firstFrame) * (double)mMaterial.mMaterial->Source()->GetShaderSpeed() / 1000.);
+		mSurfaceUniforms.timer = static_cast<float>((double)(screen->FrameTime - firstFrame) * (double)mMaterial.mMaterial->Source()->GetShaderSpeed() / 1000.);
 	else
-		mStreamData.timer = 0.0f;
+		mSurfaceUniforms.timer = 0.0f;
 
 	if (mMaterial.mMaterial)
 	{
 		auto source = mMaterial.mMaterial->Source();
-		mStreamData.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+		mSurfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
 	}
 
-	if (!mRSBuffers->StreamBuffer->Write(mStreamData))
+	if (!mRSBuffers->SurfaceUniformsBuffer->Write(mSurfaceUniforms))
 	{
 		WaitForStreamBuffers();
-		mRSBuffers->StreamBuffer->Write(mStreamData);
+		mRSBuffers->SurfaceUniformsBuffer->Write(mSurfaceUniforms);
 	}
 }
 
 void VkRenderState::ApplyPushConstants()
 {
-	mPushConstants.uDataIndex = mRSBuffers->StreamBuffer->DataIndex();
+	mPushConstants.uDataIndex = mRSBuffers->SurfaceUniformsBuffer->DataIndex();
 	mPushConstants.uLightIndex = mLightIndex >= 0 ? (mLightIndex % MAX_LIGHT_DATA) : -1;
 	mPushConstants.uBoneIndexBase = mBoneIndexBase;
 	mPushConstants.uFogballIndex = mFogballIndex >= 0 ? (mFogballIndex % MAX_FOGBALL_DATA) : -1;
@@ -500,21 +500,21 @@ void VkRenderState::ApplyMaterial()
 void VkRenderState::ApplyBufferSets()
 {
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
-	uint32_t streamDataOffset = mRSBuffers->StreamBuffer->Offset();
+	uint32_t surfaceUniformsOffset = mRSBuffers->SurfaceUniformsBuffer->Offset();
 	uint32_t lightsOffset = mLightIndex >= 0 ? (uint32_t)(mLightIndex / MAX_LIGHT_DATA) * sizeof(LightBufferUBO) : mLastLightsOffset;
 	uint32_t fogballsOffset = mFogballIndex >= 0 ? (uint32_t)(mFogballIndex / MAX_FOGBALL_DATA) * sizeof(FogballBufferUBO) : mLastFogballsOffset;
-	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || streamDataOffset != mLastStreamDataOffset || lightsOffset != mLastLightsOffset || fogballsOffset != mLastFogballsOffset)
+	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || surfaceUniformsOffset != mLastSurfaceUniformsOffset || lightsOffset != mLastLightsOffset || fogballsOffset != mLastFogballsOffset)
 	{
 		auto descriptors = fb->GetDescriptorSetManager();
 		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.NumTextureLayers);
 
-		uint32_t offsets[5] = { mViewpointOffset, matrixOffset, streamDataOffset, lightsOffset, fogballsOffset };
+		uint32_t offsets[5] = { mViewpointOffset, matrixOffset, surfaceUniformsOffset, lightsOffset, fogballsOffset };
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedDescriptorSet());
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(), 5, offsets);
 
 		mLastViewpointOffset = mViewpointOffset;
 		mLastMatricesOffset = matrixOffset;
-		mLastStreamDataOffset = streamDataOffset;
+		mLastSurfaceUniformsOffset = surfaceUniformsOffset;
 		mLastLightsOffset = lightsOffset;
 		mLastFogballsOffset = fogballsOffset;
 	}
@@ -524,7 +524,7 @@ void VkRenderState::WaitForStreamBuffers()
 {
 	fb->WaitForCommands(false);
 	mApplyCount = 0;
-	mRSBuffers->StreamBuffer->Reset();
+	mRSBuffers->SurfaceUniformsBuffer->Reset();
 	mRSBuffers->MatrixBuffer->Reset();
 }
 
@@ -758,7 +758,7 @@ void VkRenderState::EndRenderPass()
 void VkRenderState::EndFrame()
 {
 	mRSBuffers->MatrixBuffer->Reset();
-	mRSBuffers->StreamBuffer->Reset();
+	mRSBuffers->SurfaceUniformsBuffer->Reset();
 }
 
 void VkRenderState::EnableDrawBuffers(int count, bool apply)

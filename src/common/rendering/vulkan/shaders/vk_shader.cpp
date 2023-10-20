@@ -132,7 +132,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 {
 	FString definesBlock;
 	definesBlock << defines;
-	definesBlock << "\n#define MAX_STREAM_DATA " << std::to_string(MAX_STREAM_DATA).c_str() << "\n";
+	definesBlock << "\n#define MAX_SURFACE_UNIFORMS " << std::to_string(MAX_SURFACE_UNIFORMS).c_str() << "\n";
 	definesBlock << "#define MAX_LIGHT_DATA " << std::to_string(MAX_LIGHT_DATA).c_str() << "\n";
 	definesBlock << "#define MAX_FOGBALL_DATA " << std::to_string(MAX_FOGBALL_DATA).c_str() << "\n";
 #ifdef NPOT_EMULATION
@@ -170,7 +170,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	FString definesBlock;
 	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
 	definesBlock << defines;
-	definesBlock << "\n#define MAX_STREAM_DATA " << std::to_string(MAX_STREAM_DATA).c_str() << "\n";
+	definesBlock << "\n#define MAX_SURFACE_UNIFORMS " << std::to_string(MAX_SURFACE_UNIFORMS).c_str() << "\n";
 	definesBlock << "#define MAX_LIGHT_DATA " << std::to_string(MAX_LIGHT_DATA).c_str() << "\n";
 	definesBlock << "#define MAX_FOGBALL_DATA " << std::to_string(MAX_FOGBALL_DATA).c_str() << "\n";
 #ifdef NPOT_EMULATION

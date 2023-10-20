@@ -64,6 +64,7 @@ layout(push_constant) uniform PushConstants
 #define uLightFactor data[uDataIndex].uLightFactor
 #define uLightDist data[uDataIndex].uLightDist
 #define uAlphaThreshold data[uDataIndex].uAlphaThreshold
+#define uTextureIndex data[uDataIndex].uTextureIndex
 
 #define VULKAN_COORDINATE_SYSTEM
 #define HAS_UNIFORM_VERTEX_DATA

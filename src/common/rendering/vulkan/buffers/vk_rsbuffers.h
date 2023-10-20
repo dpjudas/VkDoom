@@ -5,7 +5,7 @@
 #include "vulkan/shaders/vk_shader.h"
 
 class VkMatrixBufferWriter;
-class VkStreamBufferWriter;
+class VkSurfaceUniformsBufferWriter;
 struct FFlatVertex;
 
 class VkRSBuffers
@@ -60,7 +60,7 @@ public:
 	} Fogballbuffer;
 
 	std::unique_ptr<VkMatrixBufferWriter> MatrixBuffer;
-	std::unique_ptr<VkStreamBufferWriter> StreamBuffer;
+	std::unique_ptr<VkSurfaceUniformsBufferWriter> SurfaceUniformsBuffer;
 };
 
 class VkStreamBuffer
@@ -80,23 +80,23 @@ private:
 	uint32_t mStreamDataOffset = 0;
 };
 
-class VkStreamBufferWriter
+class VkSurfaceUniformsBufferWriter
 {
 public:
-	VkStreamBufferWriter(VulkanRenderDevice* fb);
+	VkSurfaceUniformsBufferWriter(VulkanRenderDevice* fb);
 
-	bool Write(const StreamData& data);
+	bool Write(const SurfaceUniforms& data);
 	void Reset();
 
 	uint32_t DataIndex() const { return mDataIndex; }
-	uint32_t Offset() const { return mStreamDataOffset; }
+	uint32_t Offset() const { return mOffset; }
 
 	VulkanBuffer* UBO() const { return mBuffer->UBO.get(); }
 
 private:
 	std::unique_ptr<VkStreamBuffer> mBuffer;
-	uint32_t mDataIndex = MAX_STREAM_DATA - 1;
-	uint32_t mStreamDataOffset = 0;
+	uint32_t mDataIndex = MAX_SURFACE_UNIFORMS - 1;
+	uint32_t mOffset = 0;
 };
 
 class VkMatrixBufferWriter

@@ -700,39 +700,39 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	memcpy(((char*)rsbuffers->Viewpoint.Data) + rsbuffers->Viewpoint.UploadIndex * rsbuffers->Viewpoint.BlockAlign, &viewpoint, sizeof(HWViewpointUniforms));
 	int viewpointIndex = rsbuffers->Viewpoint.UploadIndex++;
 
-	StreamData streamdata = {};
-	streamdata.uFogColor = 0xffffffff;
-	streamdata.uDesaturationFactor = 0.0f;
-	streamdata.uAlphaThreshold = 0.5f;
-	streamdata.uAddColor = 0;
-	streamdata.uObjectColor = 0xffffffff;
-	streamdata.uObjectColor2 = 0;
-	streamdata.uTextureBlendColor = 0;
-	streamdata.uTextureAddColor = 0;
-	streamdata.uTextureModulateColor = 0;
-	streamdata.uLightDist = 0.0f;
-	streamdata.uLightFactor = 0.0f;
-	streamdata.uFogDensity = 0.0f;
-	streamdata.uLightLevel = 255.0f;// -1.0f;
-	streamdata.uInterpolationFactor = 0;
-	streamdata.uVertexColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-	streamdata.uGlowTopColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uGlowBottomColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uGlowTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uGlowBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uGradientTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uGradientBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uSplitTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uSplitBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	streamdata.uDynLightColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-	streamdata.uDetailParms = { 0.0f, 0.0f, 0.0f, 0.0f };
+	SurfaceUniforms surfaceUniforms = {};
+	surfaceUniforms.uFogColor = toFVector4(PalEntry(0xffffffff));
+	surfaceUniforms.uDesaturationFactor = 0.0f;
+	surfaceUniforms.uAlphaThreshold = 0.5f;
+	surfaceUniforms.uAddColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uObjectColor = toFVector4(PalEntry(0xffffffff));
+	surfaceUniforms.uObjectColor2 = toFVector4(PalEntry(0));
+	surfaceUniforms.uTextureBlendColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uTextureAddColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uTextureModulateColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uLightDist = 0.0f;
+	surfaceUniforms.uLightFactor = 0.0f;
+	surfaceUniforms.uFogDensity = 0.0f;
+	surfaceUniforms.uLightLevel = 255.0f;// -1.0f;
+	surfaceUniforms.uInterpolationFactor = 0;
+	surfaceUniforms.uVertexColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	surfaceUniforms.uGlowTopColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGlowBottomColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGlowTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGlowBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGradientTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGradientBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uSplitTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uSplitBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uDynLightColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	surfaceUniforms.uDetailParms = { 0.0f, 0.0f, 0.0f, 0.0f };
 #ifdef NPOT_EMULATION
-	streamdata.uNpotEmulation = { 0,0,0,0 };
+	surfaceUniforms.uNpotEmulation = { 0,0,0,0 };
 #endif
-	streamdata.uClipSplit.X = -1000000.f;
-	streamdata.uClipSplit.Y = 1000000.f;
+	surfaceUniforms.uClipSplit.X = -1000000.f;
+	surfaceUniforms.uClipSplit.Y = 1000000.f;
 
-	rsbuffers->StreamBuffer->Write(streamdata);
+	rsbuffers->SurfaceUniformsBuffer->Write(surfaceUniforms);
 
 	MatricesUBO matrices = {};
 	matrices.ModelMatrix.loadIdentity();
@@ -742,15 +742,15 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 
 	uint32_t viewpointOffset = viewpointIndex * rsbuffers->Viewpoint.BlockAlign;
 	uint32_t matrixOffset = rsbuffers->MatrixBuffer->Offset();
-	uint32_t streamDataOffset = rsbuffers->StreamBuffer->Offset();
+	uint32_t surfaceUniformsOffset = rsbuffers->SurfaceUniformsBuffer->Offset();
 	uint32_t lightsOffset = 0;
-	uint32_t offsets[4] = { viewpointOffset, matrixOffset, streamDataOffset, lightsOffset };
+	uint32_t offsets[4] = { viewpointOffset, matrixOffset, surfaceUniformsOffset, lightsOffset };
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedDescriptorSet());
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(), 4, offsets);
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetNullTextureDescriptorSet());
 
 	PushConstants pushConstants = {};
-	pushConstants.uDataIndex = rsbuffers->StreamBuffer->DataIndex();
+	pushConstants.uDataIndex = rsbuffers->SurfaceUniformsBuffer->DataIndex();
 	pushConstants.uLightIndex = -1;
 	pushConstants.uBoneIndexBase = -1;
 	cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);

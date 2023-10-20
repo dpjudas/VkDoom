@@ -26,8 +26,8 @@ layout(set = 1, binding = 1, std140) uniform MatricesUBO
 	mat4 TextureMatrix;
 };
 
-// This must match the StreamData struct
-struct StreamData
+// This must match the SurfaceUniforms struct
+struct SurfaceUniforms
 {
 	vec4 uObjectColor;
 	vec4 uObjectColor2;
@@ -67,14 +67,14 @@ struct StreamData
 	float uLightDist;
 
 	float uAlphaThreshold;
-	float padding1;
+	int uTextureIndex;
 	float padding2;
 	float padding3;
 };
 
 layout(set = 1, binding = 2, std140) uniform StreamUBO
 {
-	StreamData data[MAX_STREAM_DATA];
+	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
 };
 
 // light buffers
