@@ -616,6 +616,8 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	auto buffers = GetBuffers();
 	auto descriptors = GetDescriptorSetManager();
 
+	descriptors->UpdateLevelMeshSet();
+
 	VkRenderPassKey key = {};
 	key.DrawBufferFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 	key.Samples = buffers->GetSceneSamples();
@@ -692,47 +694,13 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	pipelineKey.ShaderKey.GBufferPass = key.DrawBuffers > 1;
 	pipelineKey.ShaderKey.UseLevelMesh = true;
 
-	VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers);
+	VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers, pipelineKey.ShaderKey.UseLevelMesh);
 
 	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, passSetup->GetPipeline(pipelineKey));
 
 	auto rsbuffers = GetBufferManager()->GetRSBuffers();
 	memcpy(((char*)rsbuffers->Viewpoint.Data) + rsbuffers->Viewpoint.UploadIndex * rsbuffers->Viewpoint.BlockAlign, &viewpoint, sizeof(HWViewpointUniforms));
 	int viewpointIndex = rsbuffers->Viewpoint.UploadIndex++;
-
-	SurfaceUniforms surfaceUniforms = {};
-	surfaceUniforms.uFogColor = toFVector4(PalEntry(0xffffffff));
-	surfaceUniforms.uDesaturationFactor = 0.0f;
-	surfaceUniforms.uAlphaThreshold = 0.5f;
-	surfaceUniforms.uAddColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uObjectColor = toFVector4(PalEntry(0xffffffff));
-	surfaceUniforms.uObjectColor2 = toFVector4(PalEntry(0));
-	surfaceUniforms.uTextureBlendColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uTextureAddColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uTextureModulateColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uLightDist = 0.0f;
-	surfaceUniforms.uLightFactor = 0.0f;
-	surfaceUniforms.uFogDensity = 0.0f;
-	surfaceUniforms.uLightLevel = 255.0f;// -1.0f;
-	surfaceUniforms.uInterpolationFactor = 0;
-	surfaceUniforms.uVertexColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-	surfaceUniforms.uGlowTopColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGlowBottomColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGlowTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGlowBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGradientTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGradientBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uSplitTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uSplitBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uDynLightColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-	surfaceUniforms.uDetailParms = { 0.0f, 0.0f, 0.0f, 0.0f };
-#ifdef NPOT_EMULATION
-	surfaceUniforms.uNpotEmulation = { 0,0,0,0 };
-#endif
-	surfaceUniforms.uClipSplit.X = -1000000.f;
-	surfaceUniforms.uClipSplit.Y = 1000000.f;
-
-	rsbuffers->SurfaceUniformsBuffer->Write(surfaceUniforms);
 
 	MatricesUBO matrices = {};
 	matrices.ModelMatrix.loadIdentity();
@@ -742,15 +710,14 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 
 	uint32_t viewpointOffset = viewpointIndex * rsbuffers->Viewpoint.BlockAlign;
 	uint32_t matrixOffset = rsbuffers->MatrixBuffer->Offset();
-	uint32_t surfaceUniformsOffset = rsbuffers->SurfaceUniformsBuffer->Offset();
 	uint32_t lightsOffset = 0;
-	uint32_t offsets[4] = { viewpointOffset, matrixOffset, surfaceUniformsOffset, lightsOffset };
-	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedDescriptorSet());
-	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferDescriptorSet(), 4, offsets);
-	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetNullTextureDescriptorSet());
+	uint32_t offsets[] = { viewpointOffset, matrixOffset, lightsOffset };
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 3, offsets);
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetNullTextureSet());
 
 	PushConstants pushConstants = {};
-	pushConstants.uDataIndex = rsbuffers->SurfaceUniformsBuffer->DataIndex();
+	pushConstants.uDataIndex = 0;
 	pushConstants.uLightIndex = -1;
 	pushConstants.uBoneIndexBase = -1;
 	cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);

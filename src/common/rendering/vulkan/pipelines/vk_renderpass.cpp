@@ -137,22 +137,22 @@ VkVertexFormat *VkRenderPassManager::GetVertexFormat(int index)
 	return &VertexFormats[index];
 }
 
-VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(int numLayers)
+VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(int numLayers, bool levelmesh)
 {
-	if (PipelineLayouts.size() <= (size_t)numLayers)
-		PipelineLayouts.resize(numLayers + 1);
+	if (PipelineLayouts[levelmesh].size() <= (size_t)numLayers)
+		PipelineLayouts[levelmesh].resize(numLayers + 1);
 
-	auto &layout = PipelineLayouts[numLayers];
+	auto &layout = PipelineLayouts[levelmesh][numLayers];
 	if (layout)
 		return layout.get();
 
 	auto descriptors = fb->GetDescriptorSetManager();
 
 	PipelineLayoutBuilder builder;
-	builder.AddSetLayout(descriptors->GetFixedSetLayout());
-	builder.AddSetLayout(descriptors->GetRSBufferSetLayout());
+	builder.AddSetLayout(descriptors->GetFixedLayout());
+	builder.AddSetLayout(levelmesh ? descriptors->GetLevelMeshLayout() : descriptors->GetRSBufferLayout());
 	if (numLayers != 0)
-		builder.AddSetLayout(descriptors->GetTextureSetLayout(numLayers));
+		builder.AddSetLayout(descriptors->GetTextureLayout(numLayers));
 	builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants));
 	builder.DebugName("VkRenderPassManager.PipelineLayout");
 	layout = builder.Create(fb->GetDevice());
@@ -317,7 +317,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	builder.SubpassColorAttachmentCount(PassKey.DrawBuffers);
 	builder.RasterizationSamples((VkSampleCountFlagBits)PassKey.Samples);
 
-	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.NumTextureLayers));
+	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.NumTextureLayers, key.ShaderKey.UseLevelMesh));
 	builder.RenderPass(GetRenderPass(0));
 	builder.DebugName("VkRenderPassSetup.Pipeline");
 

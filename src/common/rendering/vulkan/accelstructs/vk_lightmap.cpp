@@ -173,7 +173,7 @@ void VkLightmap::Render()
 	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipeline[GetRaytracePipelineIndex()].get());
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 0, raytrace.descriptorSet0.get());
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 1, raytrace.descriptorSet1.get());
-	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 2, fb->GetDescriptorSetManager()->GetBindlessDescriptorSet());
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, raytrace.pipelineLayout.get(), 2, fb->GetDescriptorSetManager()->GetBindlessSet());
 
 	VkViewport viewport = {};
 	viewport.maxDepth = 1;
@@ -728,7 +728,7 @@ void VkLightmap::CreateRaytracePipeline()
 	raytrace.pipelineLayout = PipelineLayoutBuilder()
 		.AddSetLayout(raytrace.descriptorSetLayout0.get())
 		.AddSetLayout(raytrace.descriptorSetLayout1.get())
-		.AddSetLayout(fb->GetDescriptorSetManager()->GetBindlessSetLayout())
+		.AddSetLayout(fb->GetDescriptorSetManager()->GetBindlessLayout())
 #ifndef USE_DRAWINDIRECT
 		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(LightmapRaytracePC))
 #endif

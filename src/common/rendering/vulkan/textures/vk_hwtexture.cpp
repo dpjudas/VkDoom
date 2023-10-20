@@ -353,7 +353,7 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 	int numLayers = NumLayers();
 
 	auto descriptors = fb->GetDescriptorSetManager();
-	auto descriptor = descriptors->AllocateTextureDescriptorSet(max(numLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS));
+	auto descriptor = descriptors->AllocateTextureSet(max(numLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS));
 
 	descriptor->SetDebugName("VkHardwareTexture.mDescriptorSets");
 

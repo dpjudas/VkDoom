@@ -6,7 +6,7 @@
 // This must match the PushConstants struct
 layout(push_constant) uniform PushConstants
 {
-	int uDataIndex; // streamdata index
+	int uDataIndex; // surfaceuniforms index
 	int uLightIndex; // dynamic lights
 	int uBoneIndexBase; // bone animation
 	int uFogballIndex; // fog balls

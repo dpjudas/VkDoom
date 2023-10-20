@@ -40,11 +40,13 @@
 
 VkDescriptorSetManager::VkDescriptorSetManager(VulkanRenderDevice* fb) : fb(fb)
 {
-	CreateRSBufferSetLayout();
-	CreateFixedSetLayout();
+	CreateLevelMeshLayout();
+	CreateRSBufferLayout();
+	CreateFixedLayout();
+	CreateLevelMeshPool();
 	CreateRSBufferPool();
-	CreateFixedSetPool();
-	CreateBindlessDescriptorSet();
+	CreateFixedPool();
+	CreateBindlessSet();
 }
 
 VkDescriptorSetManager::~VkDescriptorSetManager()
@@ -57,19 +59,18 @@ void VkDescriptorSetManager::Init()
 {
 	UpdateFixedSet();
 
+	RSBuffer.Set = RSBuffer.Pool->allocate(RSBuffer.Layout.get());
+	LevelMesh.Set = LevelMesh.Pool->allocate(LevelMesh.Layout.get());
+
 	auto rsbuffers = fb->GetBufferManager()->GetRSBuffers();
-	auto rsbufferset = RSBufferDescriptorPool->allocate(RSBufferSetLayout.get());
-
 	WriteDescriptors()
-		.AddBuffer(rsbufferset.get(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Viewpoint.UBO.get(), 0, sizeof(HWViewpointUniforms))
-		.AddBuffer(rsbufferset.get(), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->MatrixBuffer->UBO(), 0, sizeof(MatricesUBO))
-		.AddBuffer(rsbufferset.get(), 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->SurfaceUniformsBuffer->UBO(), 0, sizeof(SurfaceUniformsUBO))
-		.AddBuffer(rsbufferset.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
-		.AddBuffer(rsbufferset.get(), 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Fogballbuffer.UBO.get(), 0, sizeof(FogballBufferUBO))
-		.AddBuffer(rsbufferset.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
+		.AddBuffer(RSBuffer.Set.get(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Viewpoint.UBO.get(), 0, sizeof(HWViewpointUniforms))
+		.AddBuffer(RSBuffer.Set.get(), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->MatrixBuffer->UBO(), 0, sizeof(MatricesUBO))
+		.AddBuffer(RSBuffer.Set.get(), 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->SurfaceUniformsBuffer->UBO(), 0, sizeof(SurfaceUniformsUBO))
+		.AddBuffer(RSBuffer.Set.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
+		.AddBuffer(RSBuffer.Set.get(), 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Fogballbuffer.UBO.get(), 0, sizeof(FogballBufferUBO))
+		.AddBuffer(RSBuffer.Set.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
 		.Execute(fb->GetDevice());
-
-	RSBufferSet = std::move(rsbufferset);
 }
 
 void VkDescriptorSetManager::Deinit()
@@ -83,29 +84,41 @@ void VkDescriptorSetManager::BeginFrame()
 	UpdateFixedSet();
 }
 
+void VkDescriptorSetManager::UpdateLevelMeshSet()
+{
+	auto rsbuffers = fb->GetBufferManager()->GetRSBuffers();
+	WriteDescriptors()
+		.AddBuffer(LevelMesh.Set.get(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Viewpoint.UBO.get(), 0, sizeof(HWViewpointUniforms))
+		.AddBuffer(LevelMesh.Set.get(), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->MatrixBuffer->UBO(), 0, sizeof(MatricesUBO))
+		.AddBuffer(LevelMesh.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetSurfaceUniformsBuffer())
+		.AddBuffer(LevelMesh.Set.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
+		.AddBuffer(LevelMesh.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
+		.Execute(fb->GetDevice());
+}
+
 void VkDescriptorSetManager::UpdateFixedSet()
 {
-	fb->GetCommands()->DrawDeleteList->Add(std::move(FixedSet));
+	fb->GetCommands()->DrawDeleteList->Add(std::move(Fixed.Set));
 
-	FixedSet = FixedDescriptorPool->tryAllocate(FixedSetLayout.get());
-	if (!FixedSet)
+	Fixed.Set = Fixed.Pool->tryAllocate(Fixed.Layout.get());
+	if (!Fixed.Set)
 	{
 		fb->GetCommands()->WaitForCommands(false);
-		FixedSet = FixedDescriptorPool->allocate(FixedSetLayout.get());
+		Fixed.Set = Fixed.Pool->allocate(Fixed.Layout.get());
 	}
 
 	WriteDescriptors update;
-	update.AddCombinedImageSampler(FixedSet.get(), 0, fb->GetTextureManager()->Shadowmap.View.get(), fb->GetSamplerManager()->ShadowmapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	update.AddCombinedImageSampler(FixedSet.get(), 1, fb->GetTextureManager()->Lightmap.View.get(), fb->GetSamplerManager()->LightmapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	update.AddCombinedImageSampler(Fixed.Set.get(), 0, fb->GetTextureManager()->Shadowmap.View.get(), fb->GetSamplerManager()->ShadowmapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	update.AddCombinedImageSampler(Fixed.Set.get(), 1, fb->GetTextureManager()->Lightmap.View.get(), fb->GetSamplerManager()->LightmapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery)
 	{
-		update.AddAccelerationStructure(FixedSet.get(), 2, fb->GetRaytrace()->GetAccelStruct());
+		update.AddAccelerationStructure(Fixed.Set.get(), 2, fb->GetRaytrace()->GetAccelStruct());
 	}
 	else
 	{
-		update.AddBuffer(FixedSet.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetNodeBuffer());
-		update.AddBuffer(FixedSet.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetVertexBuffer());
-		update.AddBuffer(FixedSet.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetIndexBuffer());
+		update.AddBuffer(Fixed.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetNodeBuffer());
+		update.AddBuffer(Fixed.Set.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetVertexBuffer());
+		update.AddBuffer(Fixed.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetIndexBuffer());
 	}
 	update.Execute(fb->GetDevice());
 }
@@ -116,62 +129,62 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 		mat->DeleteDescriptors();
 
 	auto deleteList = fb->GetCommands()->DrawDeleteList.get();
-	for (auto& desc : TextureDescriptorPools)
+	for (auto& desc : Texture.Pools)
 	{
 		deleteList->Add(std::move(desc));
 	}
-	deleteList->Add(std::move(NullTextureDescriptorSet));
+	deleteList->Add(std::move(Texture.NullSet));
 
-	TextureDescriptorPools.clear();
-	TextureDescriptorSetsLeft = 0;
-	TextureDescriptorsLeft = 0;
+	Texture.Pools.clear();
+	Texture.SetsLeft = 0;
+	Texture.DescriptorsLeft = 0;
 
-	WriteBindless = WriteDescriptors();
-	NextBindlessIndex = 0;
+	Bindless.Writer = WriteDescriptors();
+	Bindless.NextIndex = 0;
 }
 
-VulkanDescriptorSet* VkDescriptorSetManager::GetNullTextureDescriptorSet()
+VulkanDescriptorSet* VkDescriptorSetManager::GetNullTextureSet()
 {
-	if (!NullTextureDescriptorSet)
+	if (!Texture.NullSet)
 	{
-		NullTextureDescriptorSet = AllocateTextureDescriptorSet(SHADER_MIN_REQUIRED_TEXTURE_LAYERS);
+		Texture.NullSet = AllocateTextureSet(SHADER_MIN_REQUIRED_TEXTURE_LAYERS);
 
 		WriteDescriptors update;
 		for (int i = 0; i < SHADER_MIN_REQUIRED_TEXTURE_LAYERS; i++)
 		{
-			update.AddCombinedImageSampler(NullTextureDescriptorSet.get(), i, fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			update.AddCombinedImageSampler(Texture.NullSet.get(), i, fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
 		update.Execute(fb->GetDevice());
 	}
 
-	return NullTextureDescriptorSet.get();
+	return Texture.NullSet.get();
 }
 
-std::unique_ptr<VulkanDescriptorSet> VkDescriptorSetManager::AllocateTextureDescriptorSet(int numLayers)
+std::unique_ptr<VulkanDescriptorSet> VkDescriptorSetManager::AllocateTextureSet(int numLayers)
 {
-	if (TextureDescriptorSetsLeft == 0 || TextureDescriptorsLeft < numLayers)
+	if (Texture.SetsLeft == 0 || Texture.DescriptorsLeft < numLayers)
 	{
-		TextureDescriptorSetsLeft = 1000;
-		TextureDescriptorsLeft = 2000;
+		Texture.SetsLeft = 1000;
+		Texture.DescriptorsLeft = 2000;
 
-		TextureDescriptorPools.push_back(DescriptorPoolBuilder()
-			.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, TextureDescriptorsLeft)
-			.MaxSets(TextureDescriptorSetsLeft)
-			.DebugName("VkDescriptorSetManager.TextureDescriptorPool")
+		Texture.Pools.push_back(DescriptorPoolBuilder()
+			.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Texture.DescriptorsLeft)
+			.MaxSets(Texture.SetsLeft)
+			.DebugName("VkDescriptorSetManager.Texture.Pool")
 			.Create(fb->GetDevice()));
 	}
 
-	TextureDescriptorSetsLeft--;
-	TextureDescriptorsLeft -= numLayers;
-	return TextureDescriptorPools.back()->allocate(GetTextureSetLayout(numLayers));
+	Texture.SetsLeft--;
+	Texture.DescriptorsLeft -= numLayers;
+	return Texture.Pools.back()->allocate(GetTextureLayout(numLayers));
 }
 
-VulkanDescriptorSetLayout* VkDescriptorSetManager::GetTextureSetLayout(int numLayers)
+VulkanDescriptorSetLayout* VkDescriptorSetManager::GetTextureLayout(int numLayers)
 {
-	if (TextureSetLayouts.size() < (size_t)numLayers)
-		TextureSetLayouts.resize(numLayers);
+	if (Texture.Layouts.size() < (size_t)numLayers)
+		Texture.Layouts.resize(numLayers);
 
-	auto& layout = TextureSetLayouts[numLayers - 1];
+	auto& layout = Texture.Layouts[numLayers - 1];
 	if (layout)
 		return layout.get();
 
@@ -180,7 +193,7 @@ VulkanDescriptorSetLayout* VkDescriptorSetManager::GetTextureSetLayout(int numLa
 	{
 		builder.AddBinding(i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	}
-	builder.DebugName("VkDescriptorSetManager.TextureSetLayout");
+	builder.DebugName("VkDescriptorSetManager.Texture.SetLayout");
 	layout = builder.Create(fb->GetDevice());
 	return layout.get();
 }
@@ -199,7 +212,7 @@ void VkDescriptorSetManager::RemoveMaterial(VkMaterial* texture)
 
 VulkanDescriptorSet* VkDescriptorSetManager::GetInput(VkPPRenderPassSetup* passSetup, const TArray<PPTextureInput>& textures, bool bindShadowMapBuffers)
 {
-	auto descriptors = AllocatePPDescriptorSet(passSetup->DescriptorLayout.get());
+	auto descriptors = AllocatePPSet(passSetup->DescriptorLayout.get());
 	descriptors->SetDebugName("VkPostprocess.descriptors");
 
 	WriteDescriptors write;
@@ -230,41 +243,53 @@ VulkanDescriptorSet* VkDescriptorSetManager::GetInput(VkPPRenderPassSetup* passS
 	return set;
 }
 
-std::unique_ptr<VulkanDescriptorSet> VkDescriptorSetManager::AllocatePPDescriptorSet(VulkanDescriptorSetLayout* layout)
+std::unique_ptr<VulkanDescriptorSet> VkDescriptorSetManager::AllocatePPSet(VulkanDescriptorSetLayout* layout)
 {
-	if (PPDescriptorPool)
+	if (Postprocess.Pool)
 	{
-		auto descriptors = PPDescriptorPool->tryAllocate(layout);
+		auto descriptors = Postprocess.Pool->tryAllocate(layout);
 		if (descriptors)
 			return descriptors;
 
-		fb->GetCommands()->DrawDeleteList->Add(std::move(PPDescriptorPool));
+		fb->GetCommands()->DrawDeleteList->Add(std::move(Postprocess.Pool));
 	}
 
-	PPDescriptorPool = DescriptorPoolBuilder()
+	Postprocess.Pool = DescriptorPoolBuilder()
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 200)
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4)
 		.MaxSets(100)
 		.DebugName("PPDescriptorPool")
 		.Create(fb->GetDevice());
 
-	return PPDescriptorPool->allocate(layout);
+	return Postprocess.Pool->allocate(layout);
 }
 
-void VkDescriptorSetManager::CreateRSBufferSetLayout()
+void VkDescriptorSetManager::CreateLevelMeshLayout()
 {
-	RSBufferSetLayout = DescriptorSetLayoutBuilder()
+	LevelMesh.Layout = DescriptorSetLayoutBuilder()
+		.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+		.AddBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+		.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+		.AddBinding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+		.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
+		.DebugName("VkDescriptorSetManager.LevelMesh.Layout")
+		.Create(fb->GetDevice());
+}
+
+void VkDescriptorSetManager::CreateRSBufferLayout()
+{
+	RSBuffer.Layout = DescriptorSetLayoutBuilder()
 		.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
-		.DebugName("VkDescriptorSetManager.RSBufferSetLayout")
+		.DebugName("VkDescriptorSetManager.RSBuffer.Layout")
 		.Create(fb->GetDevice());
 }
 
-void VkDescriptorSetManager::CreateFixedSetLayout()
+void VkDescriptorSetManager::CreateFixedLayout()
 {
 	DescriptorSetLayoutBuilder builder;
 	builder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -279,68 +304,78 @@ void VkDescriptorSetManager::CreateFixedSetLayout()
 		builder.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 		builder.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	}
-	builder.DebugName("VkDescriptorSetManager.FixedSetLayout");
-	FixedSetLayout = builder.Create(fb->GetDevice());
+	builder.DebugName("VkDescriptorSetManager.Fixed.SetLayout");
+	Fixed.Layout = builder.Create(fb->GetDevice());
+}
+
+void VkDescriptorSetManager::CreateLevelMeshPool()
+{
+	LevelMesh.Pool = DescriptorPoolBuilder()
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 3)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2)
+		.MaxSets(1)
+		.DebugName("VkDescriptorSetManager.LevelMesh.Pool")
+		.Create(fb->GetDevice());
 }
 
 void VkDescriptorSetManager::CreateRSBufferPool()
 {
-	RSBufferDescriptorPool = DescriptorPoolBuilder()
+	RSBuffer.Pool = DescriptorPoolBuilder()
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 5)
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1)
 		.MaxSets(1)
-		.DebugName("VkDescriptorSetManager.RSBufferDescriptorPool")
+		.DebugName("VkDescriptorSetManager.RSBuffer.Pool")
 		.Create(fb->GetDevice());
 }
 
-void VkDescriptorSetManager::CreateFixedSetPool()
+void VkDescriptorSetManager::CreateFixedPool()
 {
 	DescriptorPoolBuilder poolbuilder;
-	poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * maxSets);
+	poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * MaxFixedSets);
 	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery)
 	{
-		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 * maxSets);
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 * MaxFixedSets);
 	}
 	else
 	{
-		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3 * maxSets);
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3 * MaxFixedSets);
 	}
-	poolbuilder.MaxSets(maxSets);
-	poolbuilder.DebugName("VkDescriptorSetManager.FixedDescriptorPool");
-	FixedDescriptorPool = poolbuilder.Create(fb->GetDevice());
+	poolbuilder.MaxSets(MaxFixedSets);
+	poolbuilder.DebugName("VkDescriptorSetManager.Fixed.Pool");
+	Fixed.Pool = poolbuilder.Create(fb->GetDevice());
 }
 
-void VkDescriptorSetManager::CreateBindlessDescriptorSet()
+void VkDescriptorSetManager::CreateBindlessSet()
 {
-	BindlessDescriptorPool = DescriptorPoolBuilder()
+	Bindless.Pool = DescriptorPoolBuilder()
 		.Flags(VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT)
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxBindlessTextures)
 		.MaxSets(MaxBindlessTextures)
-		.DebugName("BindlessDescriptorPool")
+		.DebugName("Bindless.Pool")
 		.Create(fb->GetDevice());
 
-	BindlessDescriptorSetLayout = DescriptorSetLayoutBuilder()
+	Bindless.Layout = DescriptorSetLayoutBuilder()
 		.Flags(VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT)
 		.AddBinding(
 			0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			MaxBindlessTextures,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT)
-		.DebugName("BindlessDescriptorSetLayout")
+		.DebugName("Bindless.Layout")
 		.Create(fb->GetDevice());
 
-	BindlessDescriptorSet = BindlessDescriptorPool->allocate(BindlessDescriptorSetLayout.get(), MaxBindlessTextures);
+	Bindless.Set = Bindless.Pool->allocate(Bindless.Layout.get(), MaxBindlessTextures);
 }
 
 void VkDescriptorSetManager::UpdateBindlessDescriptorSet()
 {
-	WriteBindless.Execute(fb->GetDevice());
-	WriteBindless = WriteDescriptors();
+	Bindless.Writer.Execute(fb->GetDevice());
+	Bindless.Writer = WriteDescriptors();
 }
 
 int VkDescriptorSetManager::AddBindlessTextureIndex(VulkanImageView* imageview, VulkanSampler* sampler)
 {
-	int index = NextBindlessIndex++;
-	WriteBindless.AddCombinedImageSampler(BindlessDescriptorSet.get(), 0, index, imageview, sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	int index = Bindless.NextIndex++;
+	Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index, imageview, sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	return index;
 }

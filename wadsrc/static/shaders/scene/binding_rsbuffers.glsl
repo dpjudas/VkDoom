@@ -72,10 +72,17 @@ struct SurfaceUniforms
 	float padding3;
 };
 
-layout(set = 1, binding = 2, std140) uniform StreamUBO
+#ifdef USE_LEVELMESH
+layout(set = 1, binding = 2, std430) buffer SurfaceUniformsSSO
+{
+	SurfaceUniforms data[];
+};
+#else
+layout(set = 1, binding = 2, std140) uniform SurfaceUniformsUBO
 {
 	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
 };
+#endif
 
 // light buffers
 layout(set = 1, binding = 3, std140) uniform LightBufferUBO

@@ -7,8 +7,9 @@
 #include "c_dispatch.h"
 #include "g_levellocals.h"
 #include "a_dynlight.h"
+#include "hw_renderstate.h"
 #include "common/rendering/vulkan/accelstructs/vk_lightmap.h"
-#include <vulkan/accelstructs/halffloat.h>
+#include "common/rendering/vulkan/accelstructs/halffloat.h"
 
 VSMatrix GetPlaneTextureRotationMatrix(FGameTexture* gltexture, const sector_t* sector, int plane);
 void GetTexCoordInfo(FGameTexture* tex, FTexCoordInfo* tci, side_t* side, int texpos);
@@ -665,7 +666,8 @@ void DoomLevelSubmesh::CreateLinePortalSurface(FLevelLocals& doomMap, side_t* si
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
+	uniforms.uLightLevel = front->lightlevel;
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1Bottom, v2Top, v2Bottom);
 
@@ -764,7 +766,8 @@ void DoomLevelSubmesh::CreateLineHorizonSurface(FLevelLocals& doomMap, side_t* s
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
+	uniforms.uLightLevel = front->lightlevel;
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1Bottom, v2Top, v2Bottom);
 
@@ -821,7 +824,7 @@ void DoomLevelSubmesh::CreateFrontWallSurface(FLevelLocals& doomMap, side_t* sid
 	surf.texture = side->textures[side_t::mid].texture;
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1Bottom, v2Top, v2Bottom);
@@ -914,7 +917,7 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.alpha = float(side->linedef->alpha);
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
 
 	SetSideTextureUVs(surf, side, side_t::top, verts[2].z, verts[0].z, verts[3].z, verts[1].z);
@@ -988,7 +991,7 @@ void DoomLevelSubmesh::Create3DFloorWallSurfaces(FLevelLocals& doomMap, side_t* 
 		surf.texture = side->textures[side_t::mid].texture;
 		surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-		SurfaceUniforms uniforms = {};
+		SurfaceUniforms uniforms = DefaultUniforms();
 		uniforms.uLightLevel = front->lightlevel;
 
 		SetSideTextureUVs(surf, side, side_t::top, tlZ, blZ, trZ, brZ);
@@ -1044,7 +1047,7 @@ void DoomLevelSubmesh::CreateTopWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.texture = side->textures[side_t::top].texture;
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
 
 	SetSideTextureUVs(surf, side, side_t::top, v1Top, v1TopBack, v2Top, v2TopBack);
@@ -1098,7 +1101,7 @@ void DoomLevelSubmesh::CreateBottomWallSurface(FLevelLocals& doomMap, side_t* si
 	surf.texture = side->textures[side_t::bottom].texture;
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
 
 	SetSideTextureUVs(surf, side, side_t::bottom, v1BottomBack, v1Bottom, v2BottomBack, v2Bottom);
@@ -1200,7 +1203,7 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 	surf.sectorGroup = sectorGroup[sector->Index()];
 	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = sector->lightlevel;
 
 	MeshSurfaceUniforms.Push(uniforms);
@@ -1259,7 +1262,7 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 	surf.sectorGroup = sectorGroup[sector->Index()];
 	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
 
-	SurfaceUniforms uniforms = {};
+	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = sector->lightlevel;
 
 	MeshSurfaceUniforms.Push(uniforms);
@@ -1638,4 +1641,40 @@ void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMap
 
 	surface.AtlasTile.Width = width;
 	surface.AtlasTile.Height = height;
+}
+
+SurfaceUniforms DoomLevelSubmesh::DefaultUniforms()
+{
+	SurfaceUniforms surfaceUniforms = {};
+	surfaceUniforms.uFogColor = toFVector4(PalEntry(0xffffffff));
+	surfaceUniforms.uDesaturationFactor = 0.0f;
+	surfaceUniforms.uAlphaThreshold = 0.5f;
+	surfaceUniforms.uAddColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uObjectColor = toFVector4(PalEntry(0xffffffff));
+	surfaceUniforms.uObjectColor2 = toFVector4(PalEntry(0));
+	surfaceUniforms.uTextureBlendColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uTextureAddColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uTextureModulateColor = toFVector4(PalEntry(0));
+	surfaceUniforms.uLightDist = 0.0f;
+	surfaceUniforms.uLightFactor = 0.0f;
+	surfaceUniforms.uFogDensity = 0.0f;
+	surfaceUniforms.uLightLevel = 255.0f;// -1.0f;
+	surfaceUniforms.uInterpolationFactor = 0;
+	surfaceUniforms.uVertexColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	surfaceUniforms.uGlowTopColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGlowBottomColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGlowTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGlowBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGradientTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uGradientBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uSplitTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uSplitBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
+	surfaceUniforms.uDynLightColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	surfaceUniforms.uDetailParms = { 0.0f, 0.0f, 0.0f, 0.0f };
+#ifdef NPOT_EMULATION
+	surfaceUniforms.uNpotEmulation = { 0,0,0,0 };
+#endif
+	surfaceUniforms.uClipSplit.X = -1000000.f;
+	surfaceUniforms.uClipSplit.Y = 1000000.f;
+	return surfaceUniforms;
 }
