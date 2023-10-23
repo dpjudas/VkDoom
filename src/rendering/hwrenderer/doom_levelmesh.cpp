@@ -1179,8 +1179,8 @@ void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* 
 
 		uvs[0].u = startU;
 		uvs[1].u = endU;
-		uvs[2].u = startU;
-		uvs[3].u = endU;
+		uvs[3].u = startU;
+		uvs[2].u = endU;
 
 		// To do: the ceiling version is apparently used in some situation related to 3d floors (rover->top.isceiling)
 		//float offset = tci.RowOffset((float)side->GetTextureYOffset(texpart)) + tci.RowOffset((float)side->GetTextureYOffset(texpart)) + (float)side->sector->GetPlaneTexZ(sector_t::ceiling);
@@ -1188,8 +1188,8 @@ void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* 
 
 		uvs[0].v = tci.FloatToTexV(offset - v1BottomZ);
 		uvs[1].v = tci.FloatToTexV(offset - v2BottomZ);
-		uvs[2].v = tci.FloatToTexV(offset - v1TopZ);
-		uvs[3].v = tci.FloatToTexV(offset - v2TopZ);
+		uvs[3].v = tci.FloatToTexV(offset - v1TopZ);
+		uvs[2].v = tci.FloatToTexV(offset - v2TopZ);
 	}
 	else
 	{
