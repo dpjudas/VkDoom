@@ -141,6 +141,9 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 
 	Bindless.Writer = WriteDescriptors();
 	Bindless.NextIndex = 0;
+
+	// Slot zero always needs to be the null texture
+	AddBindlessTextureIndex(fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
 }
 
 VulkanDescriptorSet* VkDescriptorSetManager::GetNullTextureSet()

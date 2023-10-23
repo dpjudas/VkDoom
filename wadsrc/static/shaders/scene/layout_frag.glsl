@@ -25,3 +25,10 @@ layout(location=0) out vec4 FragColor;
 layout(location=1) out vec4 FragFog;
 layout(location=2) out vec4 FragNormal;
 #endif
+
+#if defined(USE_LEVELMESH)
+vec4 texture(int index, vec2 p)
+{
+	return texture(textures[uTextureIndex + index], p);
+}
+#endif

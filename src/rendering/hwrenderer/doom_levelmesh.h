@@ -53,7 +53,7 @@ public:
 	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
 	void PackLightmapAtlas(int lightmapStartIndex);
 	void CreatePortals();
-	void DisableLightmaps() { Surfaces.Clear(); } // Temp hack that disables lightmapping
+	void DisableLightmaps() { /*Surfaces.Clear();*/ } // Temp hack that disables lightmapping
 
 	TArray<DoomLevelMeshSurface> Surfaces;
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup

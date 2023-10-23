@@ -25,7 +25,7 @@ int TraceFirstHitTriangleT(vec3 origin, float tmin, vec3 dir, float tmax, out fl
 			int index = primitiveID * 3;
 			vec2 uv = vertices[elements[index + 1]].uv * primitiveWeights.x + vertices[elements[index + 2]].uv * primitiveWeights.y + vertices[elements[index + 0]].uv * primitiveWeights.z;
 
-			if (surface.TextureIndex < 0)
+			if (surface.TextureIndex == 0)
 			{
 				break;
 			}
@@ -88,7 +88,7 @@ bool TracePoint(vec3 origin, vec3 target, float tmin, vec3 dir, float tmax)
 			int index = primitiveID * 3;
 			vec2 uv = vertices[elements[index + 1]].uv * primitiveWeights.x + vertices[elements[index + 2]].uv * primitiveWeights.y + vertices[elements[index + 0]].uv * primitiveWeights.z;
 
-			if (surface.TextureIndex < 0)
+			if (surface.TextureIndex == 0)
 			{
 				break;
 			}

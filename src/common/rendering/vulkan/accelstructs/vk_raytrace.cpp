@@ -312,7 +312,7 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			}
 			else
 			{
-				info.TextureIndex = -1;
+				info.TextureIndex = 0;
 			}
 			submesh->MeshSurfaceUniforms[j].uTextureIndex = info.TextureIndex; // Bit of a hack, but we don't know the texture index before now
 

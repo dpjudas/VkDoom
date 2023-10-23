@@ -567,14 +567,12 @@ void DoomLevelSubmesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
 
 		if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
 		{
-			surface.Subsector = &doomMap.subsectors[surface.TypeIndex];
 			if (surface.Subsector->firstline && surface.Subsector->firstline->sidedef)
 				surface.Subsector->firstline->sidedef->sector->HasLightmaps = true;
 			SetSubsectorLightmap(&surface);
 		}
 		else
 		{
-			surface.Side = &doomMap.sides[surface.TypeIndex];
 			SetSideLightmap(&surface);
 		}
 	}
@@ -662,6 +660,7 @@ void DoomLevelSubmesh::CreateLinePortalSurface(FLevelLocals& doomMap, side_t* si
 	surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 	surf.startVertIndex = MeshVertices.Size();
 	surf.numVerts = 4;
+	surf.Side = side;
 
 	MeshVertices.Push(verts[0]);
 	MeshVertices.Push(verts[1]);
@@ -756,6 +755,7 @@ void DoomLevelSubmesh::CreateLineHorizonSurface(FLevelLocals& doomMap, side_t* s
 	surf.TypeIndex = side->Index();
 	surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
 	surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+	surf.Side = side;
 
 	FFlatVertex verts[4];
 	verts[0].x = verts[2].x = v1.X;
@@ -847,6 +847,7 @@ void DoomLevelSubmesh::CreateFrontWallSurface(FLevelLocals& doomMap, side_t* sid
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.texture = side->textures[side_t::mid].texture;
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
+	surf.Side = side;
 
 	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
@@ -946,6 +947,7 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.texture = texture;
 	surf.alpha = float(side->linedef->alpha);
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
+	surf.Side = side;
 
 	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
@@ -993,6 +995,7 @@ void DoomLevelSubmesh::Create3DFloorWallSurfaces(FLevelLocals& doomMap, side_t* 
 		surf.ControlSector = xfloor->model;
 		surf.bSky = false;
 		surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+		surf.Side = side;
 
 		float blZ = (float)xfloor->model->floorplane.ZatPoint(v1);
 		float brZ = (float)xfloor->model->floorplane.ZatPoint(v2);
@@ -1088,6 +1091,7 @@ void DoomLevelSubmesh::CreateTopWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.texture = side->textures[side_t::top].texture;
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
+	surf.Side = side;
 
 	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
@@ -1148,6 +1152,7 @@ void DoomLevelSubmesh::CreateBottomWallSurface(FLevelLocals& doomMap, side_t* si
 	surf.sectorGroup = sectorGroup[front->Index()];
 	surf.texture = side->textures[side_t::bottom].texture;
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
+	surf.Side = side;
 
 	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = front->lightlevel;
@@ -1250,6 +1255,7 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
 	surf.sectorGroup = sectorGroup[sector->Index()];
 	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
+	surf.Subsector = sub;
 
 	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = sector->lightlevel;
@@ -1309,6 +1315,7 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
 	surf.sectorGroup = sectorGroup[sector->Index()];
 	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
+	surf.Subsector = sub;
 
 	SurfaceUniforms uniforms = DefaultUniforms();
 	uniforms.uLightLevel = sector->lightlevel;

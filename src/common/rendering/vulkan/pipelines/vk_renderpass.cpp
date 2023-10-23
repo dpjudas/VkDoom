@@ -151,7 +151,9 @@ VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(int numLayers, bool
 	PipelineLayoutBuilder builder;
 	builder.AddSetLayout(descriptors->GetFixedLayout());
 	builder.AddSetLayout(levelmesh ? descriptors->GetLevelMeshLayout() : descriptors->GetRSBufferLayout());
-	if (numLayers != 0)
+	if (levelmesh)
+		builder.AddSetLayout(descriptors->GetBindlessLayout());
+	else if (numLayers != 0)
 		builder.AddSetLayout(descriptors->GetTextureLayout(numLayers));
 	builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants));
 	builder.DebugName("VkRenderPassManager.PipelineLayout");

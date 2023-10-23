@@ -321,6 +321,7 @@ FString VkShaderManager::GetVersionBlock()
 	}
 
 	versionBlock << "#extension GL_GOOGLE_include_directive : enable\n";
+	versionBlock << "#extension GL_EXT_nonuniform_qualifier : enable\r\n";
 
 	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery)
 	{

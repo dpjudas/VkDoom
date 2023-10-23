@@ -10,7 +10,7 @@ void main()
 	{
 		FragColor = vec4(vec3(pixelpos.w / 1000), 1.0);
 	}*/
-	FragColor.rgb = vec3(uLightLevel / 255.0);
+	FragColor.rgb = texture(tex, vTexCoord.st).rgb * (uLightLevel / 255.0);
 	FragColor.a = 1.0;
 #else
 
