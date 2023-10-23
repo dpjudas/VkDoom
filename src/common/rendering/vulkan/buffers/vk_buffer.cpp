@@ -73,7 +73,9 @@ void VkBufferManager::RemoveBuffer(VkHardwareBuffer* buffer)
 
 IBuffer* VkBufferManager::CreateVertexBuffer(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute* attrs)
 {
-	return new VkHardwareVertexBuffer(fb, fb->GetRenderPassManager()->GetVertexFormat(numBindingPoints, numAttributes, stride, attrs));
+	std::vector<size_t> bufferStrides;
+	bufferStrides.resize(numBindingPoints, stride);
+	return new VkHardwareVertexBuffer(fb, fb->GetRenderPassManager()->GetVertexFormat(bufferStrides, std::vector<FVertexBufferAttribute>(attrs, attrs + numAttributes)));
 }
 
 IBuffer* VkBufferManager::CreateIndexBuffer()

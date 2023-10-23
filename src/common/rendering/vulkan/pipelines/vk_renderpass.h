@@ -90,8 +90,7 @@ private:
 class VkVertexFormat
 {
 public:
-	int NumBindingPoints;
-	size_t Stride;
+	std::vector<size_t> BufferStrides;
 	std::vector<FVertexBufferAttribute> Attrs;
 	int UseVertexData;
 };
@@ -107,7 +106,7 @@ public:
 	void RenderBuffersReset();
 
 	VkRenderPassSetup *GetRenderPass(const VkRenderPassKey &key);
-	int GetVertexFormat(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute *attrs);
+	int GetVertexFormat(const std::vector<size_t>& bufferStrides, const std::vector<FVertexBufferAttribute>& attrs);
 	VkVertexFormat *GetVertexFormat(int index);
 	VulkanPipelineLayout* GetPipelineLayout(int numLayers, bool levelmesh);
 

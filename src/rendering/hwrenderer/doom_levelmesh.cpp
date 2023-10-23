@@ -1231,6 +1231,8 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 	float h = txt->GetDisplayHeight();
 	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::floor);
 
+	int surfaceIndex = Surfaces.Size();
+
 	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
 
 	FFlatVertex* verts = &MeshVertices[surf.startVertIndex];
@@ -1246,6 +1248,8 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 		verts[j].z = (float)plane.ZatPoint(v1);
 		verts[j].u = uv.X;
 		verts[j].v = uv.Y;
+
+		MeshUniformIndexes.Push(surfaceIndex);
 	}
 
 	surf.Type = ST_FLOOR;
@@ -1291,6 +1295,8 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 	float h = txt->GetDisplayHeight();
 	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::ceiling);
 
+	int surfaceIndex = Surfaces.Size();
+
 	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
 
 	FFlatVertex* verts = &MeshVertices[surf.startVertIndex];
@@ -1306,6 +1312,8 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 		verts[j].z = (float)plane.ZatPoint(v1);
 		verts[j].u = uv.X;
 		verts[j].v = uv.Y;
+
+		MeshUniformIndexes.Push(surfaceIndex);
 	}
 
 	surf.Type = ST_CEILING;

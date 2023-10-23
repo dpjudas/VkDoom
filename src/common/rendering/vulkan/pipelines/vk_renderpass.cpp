@@ -94,39 +94,30 @@ VkRenderPassSetup *VkRenderPassManager::GetRenderPass(const VkRenderPassKey &key
 	return item.get();
 }
 
-int VkRenderPassManager::GetVertexFormat(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute *attrs)
+int VkRenderPassManager::GetVertexFormat(const std::vector<size_t>& bufferStrides, const std::vector<FVertexBufferAttribute>& attrs)
 {
 	for (size_t i = 0; i < VertexFormats.size(); i++)
 	{
 		const auto &f = VertexFormats[i];
-		if (f.Attrs.size() == (size_t)numAttributes && f.NumBindingPoints == numBindingPoints && f.Stride == stride)
+		if (f.BufferStrides.size() == bufferStrides.size() &&
+			f.Attrs.size() == attrs.size() &&
+			memcmp(f.BufferStrides.data(), bufferStrides.data(), bufferStrides.size() * sizeof(size_t)) == 0 &&
+			memcmp(f.Attrs.data(), attrs.data(), attrs.size() * sizeof(FVertexBufferAttribute)) == 0)
 		{
-			bool matches = true;
-			for (int j = 0; j < numAttributes; j++)
-			{
-				if (memcmp(&f.Attrs[j], &attrs[j], sizeof(FVertexBufferAttribute)) != 0)
-				{
-					matches = false;
-					break;
-				}
-			}
-
-			if (matches)
-				return (int)i;
+			return (int)i;
 		}
 	}
 
 	VkVertexFormat fmt;
-	fmt.NumBindingPoints = numBindingPoints;
-	fmt.Stride = stride;
+	fmt.BufferStrides = bufferStrides;
+	fmt.Attrs = attrs;
 	fmt.UseVertexData = 0;
-	for (int j = 0; j < numAttributes; j++)
+	for (const FVertexBufferAttribute& attr : fmt.Attrs)
 	{
-		if (attrs[j].location == VATTR_COLOR)
+		if (attr.location == VATTR_COLOR)
 			fmt.UseVertexData |= 1;
-		else if (attrs[j].location == VATTR_NORMAL)
+		else if (attr.location == VATTR_NORMAL)
 			fmt.UseVertexData |= 2;
-		fmt.Attrs.push_back(attrs[j]);
 	}
 	VertexFormats.push_back(fmt);
 	return (int)VertexFormats.size() - 1;
@@ -253,8 +244,8 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 
 	const VkVertexFormat &vfmt = *fb->GetRenderPassManager()->GetVertexFormat(key.VertexFormat);
 
-	for (int i = 0; i < vfmt.NumBindingPoints; i++)
-		builder.AddVertexBufferBinding(i, vfmt.Stride);
+	for (int i = 0; i < vfmt.BufferStrides.size(); i++)
+		builder.AddVertexBufferBinding(i, vfmt.BufferStrides[i]);
 
 	const static VkFormat vkfmts[] = {
 		VK_FORMAT_R32G32B32A32_SFLOAT,

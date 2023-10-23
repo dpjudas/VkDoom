@@ -30,14 +30,15 @@
 
 VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 {
-	static const FVertexBufferAttribute format[] =
+	static std::vector<FVertexBufferAttribute> format =
 	{
 		{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(FFlatVertex, x) },
 		{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(FFlatVertex, u) },
 		{ 0, VATTR_LIGHTMAP, VFmt_Float2, (int)myoffsetof(FFlatVertex, lu) },
 	};
+	static std::vector<size_t> bufferStrides = { sizeof(FFlatVertex), sizeof(FFlatVertex) };
 
-	Flatbuffer.VertexFormat = fb->GetRenderPassManager()->GetVertexFormat(1, 3, sizeof(FFlatVertex), format);
+	Flatbuffer.VertexFormat = fb->GetRenderPassManager()->GetVertexFormat(bufferStrides, format);
 
 	Flatbuffer.VertexBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_UNKNOWN, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)

@@ -658,14 +658,14 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	cmdbuffer->setStencilReference(VK_STENCIL_FRONT_AND_BACK, 0);
 	cmdbuffer->setDepthBias(0.0f, 0.0f, 0.0f);
 
-	static const FVertexBufferAttribute format[] =
+	static const std::vector<FVertexBufferAttribute> format =
 	{
 		{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(FFlatVertex, x) },
 		{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(FFlatVertex, u) },
 		{ 0, VATTR_LIGHTMAP, VFmt_Float2, (int)myoffsetof(FFlatVertex, lu) },
 		{ 1, VATTR_UNIFORM_INDEXES, VFmt_Int, 0 }
 	};
-	int vertexFormatIndex = GetRenderPassManager()->GetVertexFormat(2, 4, sizeof(FFlatVertex), format);
+	int vertexFormatIndex = GetRenderPassManager()->GetVertexFormat({ sizeof(FFlatVertex), sizeof(int32_t) }, format);
 	VkBuffer vertexBuffers[2] = { GetRaytrace()->GetVertexBuffer()->buffer, GetRaytrace()->GetUniformIndexBuffer()->buffer };
 	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
 	cmdbuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);

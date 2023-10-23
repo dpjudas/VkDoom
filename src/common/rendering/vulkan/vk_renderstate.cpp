@@ -443,19 +443,20 @@ void VkRenderState::ApplyVertexBuffers()
 {
 	if ((mVertexBuffer != mLastVertexBuffer || mVertexOffsets[0] != mLastVertexOffsets[0] || mVertexOffsets[1] != mLastVertexOffsets[1]))
 	{
+		// Note: second [0] for BufferStrides is not a typo. Not all the vertex formats have a second buffer and the entire thing assumes they have the same stride anyway.
 		if (mVertexBuffer)
 		{
 			auto vkbuf = static_cast<VkHardwareVertexBuffer*>(mVertexBuffer);
 			const VkVertexFormat* format = fb->GetRenderPassManager()->GetVertexFormat(vkbuf->VertexFormat);
 			VkBuffer vertexBuffers[2] = { vkbuf->mBuffer->buffer, vkbuf->mBuffer->buffer };
-			VkDeviceSize offsets[] = { mVertexOffsets[0] * format->Stride, mVertexOffsets[1] * format->Stride };
+			VkDeviceSize offsets[] = { mVertexOffsets[0] * format->BufferStrides[0], mVertexOffsets[1] * format->BufferStrides[0]};
 			mCommandBuffer->bindVertexBuffers(0, 2, vertexBuffers, offsets);
 		}
 		else
 		{
 			const VkVertexFormat* format = fb->GetRenderPassManager()->GetVertexFormat(mRSBuffers->Flatbuffer.VertexFormat);
 			VkBuffer vertexBuffers[2] = { mRSBuffers->Flatbuffer.VertexBuffer->buffer, mRSBuffers->Flatbuffer.VertexBuffer->buffer };
-			VkDeviceSize offsets[] = { mVertexOffsets[0] * format->Stride, mVertexOffsets[1] * format->Stride };
+			VkDeviceSize offsets[] = { mVertexOffsets[0] * format->BufferStrides[0], mVertexOffsets[1] * format->BufferStrides[0]};
 			mCommandBuffer->bindVertexBuffers(0, 2, vertexBuffers, offsets);
 		}
 
