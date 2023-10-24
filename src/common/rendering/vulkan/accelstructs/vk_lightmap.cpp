@@ -283,10 +283,6 @@ void VkLightmap::Render()
 	}
 
 #ifdef USE_DRAWINDIRECT
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
-
 	cmdbuffer->drawIndexedIndirect(drawindexed.CommandsBuffer->buffer, 0, drawindexed.Pos, sizeof(VkDrawIndexedIndirectCommand));
 #endif
 
