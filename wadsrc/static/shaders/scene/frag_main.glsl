@@ -2,11 +2,12 @@
 void main()
 {
 #ifdef USE_LEVELMESH
-	FragColor.rgb = texture(tex, vTexCoord.st).rgb * (uLightLevel / 255.0);
+	vec3 mat = texture(tex, vTexCoord.st).rgb;
+	FragColor.rgb = mat * (uLightLevel / 255.0);
 	FragColor.a = 1.0;
 	if (vLightmap.z >= 0.0)
 	{
-		FragColor.rgb *= texture(LightMap, vLightmap).rgb;
+		FragColor.rgb += mat * texture(LightMap, vLightmap).rgb;
 	}
 #else
 
