@@ -8,6 +8,10 @@
 #include "g_levellocals.h"
 #include "a_dynlight.h"
 #include "hw_renderstate.h"
+#include "hwrenderer/scene/hw_drawstructs.h"
+#include "hwrenderer/scene/hw_drawinfo.h"
+#include "hwrenderer/scene/hw_walldispatcher.h"
+#include "common/rendering/hwrenderer/data/hw_meshbuilder.h"
 #include "common/rendering/vulkan/accelstructs/vk_lightmap.h"
 #include "common/rendering/vulkan/accelstructs/halffloat.h"
 
@@ -18,26 +22,14 @@ EXTERN_CVAR(Float, lm_scale);
 
 void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 {
-	Surfaces.Clear();
-	MeshVertices.Clear();
-	MeshElements.Clear();
-	MeshSurfaceIndexes.Clear();
-	MeshUniformIndexes.Clear();
-	MeshSurfaceUniforms.Clear();
-
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
 
+	Reset();
 	BuildSectorGroups(doomMap);
 
-	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
-	{
-		bool isPolyLine = !!(doomMap.sides[i].Flags & WALLF_POLYOBJ);
-		if (!isPolyLine)
-			CreateSideSurfaces(doomMap, &doomMap.sides[i]);
-	}
-
-	CreateSubsectorSurfaces(doomMap);
+	CreateStaticSurfaces(doomMap);
 	LinkSurfaces(doomMap);
+	ProcessStaticSurfaces(doomMap);
 
 	CreateIndexes();
 	SetupLightmapUvs(doomMap);
@@ -48,10 +40,28 @@ void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 void DoomLevelSubmesh::CreateDynamic(FLevelLocals& doomMap)
 {
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
+	Reset();
 	BuildSectorGroups(doomMap);
 }
 
 void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartIndex)
+{
+	Reset();
+
+	CreateDynamicSurfaces(doomMap);
+	LinkSurfaces(doomMap);
+	ProcessStaticSurfaces(doomMap);
+
+	CreateIndexes();
+	SetupLightmapUvs(doomMap);
+	BuildTileSurfaceLists();
+	UpdateCollision();
+
+	if (doomMap.lightmaps)
+		PackLightmapAtlas(lightmapStartIndex);
+}
+
+void DoomLevelSubmesh::Reset()
 {
 	Surfaces.Clear();
 	MeshVertices.Clear();
@@ -59,34 +69,234 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartInd
 	MeshSurfaceIndexes.Clear();
 	MeshUniformIndexes.Clear();
 	MeshSurfaceUniforms.Clear();
+}
 
+void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
+{
+	// Create surface objects for all visible side parts
+	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
+	{
+		bool isPolyLine = !!(doomMap.sides[i].Flags & WALLF_POLYOBJ);
+		if (!isPolyLine)
+		{
+			// To do: it would be nice if HWWall could figure this out for us.
+
+			side_t* side = &doomMap.sides[i];
+
+			sector_t* front = side->sector;
+			sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+
+			FVector2 v1 = ToFVector2(side->V1()->fPos());
+			FVector2 v2 = ToFVector2(side->V2()->fPos());
+
+			float v1Top = (float)front->ceilingplane.ZatPoint(v1);
+			float v1Bottom = (float)front->floorplane.ZatPoint(v1);
+			float v2Top = (float)front->ceilingplane.ZatPoint(v2);
+			float v2Bottom = (float)front->floorplane.ZatPoint(v2);
+
+			DoomLevelMeshSurface surf;
+			surf.Submesh = this;
+			surf.TypeIndex = side->Index();
+			surf.Side = side;
+			surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
+			surf.sectorGroup = sectorGroup[front->Index()];
+
+			if (side->linedef->getPortal() && side->linedef->frontsector == front) // line portal
+			{
+				surf.Type = ST_MIDDLESIDE;
+				surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
+				surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+				//surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
+				Surfaces.Push(surf);
+			}
+			else if (side->linedef->special == Line_Horizon && front != back) // line horizon
+			{
+				surf.Type = ST_MIDDLESIDE;
+				surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
+				surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+				//surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
+				Surfaces.Push(surf);
+			}
+			else if (!back) // front wall
+			{
+				surf.Type = ST_MIDDLESIDE;
+				surf.bSky = false;
+				surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+				surf.texture = side->textures[side_t::mid].texture;
+				Surfaces.Push(surf);
+			}
+			else
+			{
+				if (side->textures[side_t::mid].texture.isValid()) // mid wall
+				{
+					surf.Type = ST_MIDDLESIDE;
+					surf.bSky = false;
+					surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+					surf.texture = side->textures[side_t::mid].texture;
+					surf.alpha = float(side->linedef->alpha);
+					Surfaces.Push(surf);
+				}
+
+				float v1TopBack = (float)back->ceilingplane.ZatPoint(v1);
+				float v1BottomBack = (float)back->floorplane.ZatPoint(v1);
+				float v2TopBack = (float)back->ceilingplane.ZatPoint(v2);
+				float v2BottomBack = (float)back->floorplane.ZatPoint(v2);
+
+				if (v1Bottom < v1BottomBack || v2Bottom < v2BottomBack) // lower wall
+				{
+					surf.Type = ST_LOWERSIDE;
+					surf.bSky = false;
+					surf.sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
+					surf.texture = side->textures[side_t::bottom].texture;
+					Surfaces.Push(surf);
+				}
+
+				if (v1Top > v1TopBack || v2Top > v2TopBack) // top wall
+				{
+					bool bSky = IsTopSideSky(front, back, side);
+					if (bSky || IsTopSideVisible(side))
+					{
+						surf.Type = ST_UPPERSIDE;
+						surf.bSky = bSky;
+						surf.sampleDimension = side->textures[side_t::top].LightmapSampleDistance;
+						surf.texture = side->textures[side_t::top].texture;
+						Surfaces.Push(surf);
+					}
+				}
+
+				for (unsigned int j = 0; j < front->e->XFloor.ffloors.Size(); j++)
+				{
+					F3DFloor* xfloor = front->e->XFloor.ffloors[j];
+
+					// Don't create a line when both sectors have the same 3d floor
+					bool bothSides = false;
+					for (unsigned int k = 0; k < back->e->XFloor.ffloors.Size(); k++)
+					{
+						if (back->e->XFloor.ffloors[k] == xfloor)
+						{
+							bothSides = true;
+							break;
+						}
+					}
+					if (bothSides)
+						continue;
+
+					surf.Type = ST_MIDDLESIDE;
+					surf.ControlSector = xfloor->model;
+					surf.bSky = false;
+					surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+					surf.texture = side->textures[side_t::mid].texture;
+					Surfaces.Push(surf);
+				}
+			}
+		}
+	}
+
+	// Create surfaces for all flats
+	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
+	{
+		subsector_t* sub = &doomMap.subsectors[i];
+		if (sub->numlines < 3 || !sub->sector)
+			continue;
+		sector_t* sector = sub->sector;
+
+		// To do: only create the surface objects here and then fill them in ProcessStaticSurfaces
+
+		CreateFloorSurface(doomMap, sub, sector, nullptr, i);
+		CreateCeilingSurface(doomMap, sub, sector, nullptr, i);
+
+		for (unsigned int j = 0; j < sector->e->XFloor.ffloors.Size(); j++)
+		{
+			CreateFloorSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
+			CreateCeilingSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
+		}
+	}
+}
+
+void DoomLevelSubmesh::ProcessStaticSurfaces(FLevelLocals& doomMap)
+{
+	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
+	{
+		side_t* side = &doomMap.sides[i];
+		bool isPolyLine = !!(side->Flags & WALLF_POLYOBJ);
+		if (isPolyLine)
+			continue;
+
+		sector_t* front = side->sector;
+		sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+
+#if 0
+		MeshBuilder state;
+		HWMeshHelper result;
+		HWWallDispatcher disp(&doomMap, &result, ELightMode::ZDoomSoftware);
+		HWWall wall;
+		wall.Process(&disp, state, side->segs[0], front, back);
+		for (HWWall& wallpart : result.list)
+		{
+			wallpart.DrawWall(disp, state, false);
+			state.AddToSurface(wallpart.surface);
+
+			/*
+			surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
+
+			FFlatVertex verts[4];
+
+			MeshVertices.Push(verts[0]);
+			MeshVertices.Push(verts[1]);
+			MeshVertices.Push(verts[2]);
+			MeshVertices.Push(verts[3]);
+
+			int surfaceIndex = Surfaces.Size();
+			MeshUniformIndexes.Push(surfaceIndex);
+			MeshUniformIndexes.Push(surfaceIndex);
+			MeshUniformIndexes.Push(surfaceIndex);
+			MeshUniformIndexes.Push(surfaceIndex);
+
+			SurfaceUniforms uniforms = DefaultUniforms();
+			uniforms.uLightLevel = front->lightlevel;
+			MeshSurfaceUniforms.Push(uniforms);
+			Surfaces.Push(surf);
+			*/
+		}
+#endif
+	}
+
+	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
+	{
+		subsector_t* sub = &doomMap.subsectors[i];
+		if (sub->numlines < 3 || !sub->sector)
+			continue;
+		sector_t* sector = sub->sector;
+
+		// To do: use HWFlat
+	}
+}
+
+void DoomLevelSubmesh::CreateDynamicSurfaces(FLevelLocals& doomMap)
+{
 	// Look for polyobjects
 	for (unsigned int i = 0; i < doomMap.lines.Size(); i++)
 	{
 		side_t* side = doomMap.lines[i].sidedef[0];
 		bool isPolyLine = !!(side->Flags & WALLF_POLYOBJ);
-		if (isPolyLine)
+		if (!isPolyLine)
+			continue;
+
+		// Make sure we have a surface array on the polyobj sidedef
+		if (!side->surface)
 		{
-			// Make sure we have a lightmap array on the polyobj sidedef
-			if (!side->surface)
-			{
-				auto array = std::make_unique<DoomLevelMeshSurface*[]>(4);
-				memset(array.get(), 0, sizeof(DoomLevelMeshSurface*));
-				side->surface = array.get();
-				PolyLMSurfaces.Push(std::move(array));
-			}
-
-			CreateSideSurfaces(doomMap, side);
+			auto array = std::make_unique<DoomLevelMeshSurface * []>(4);
+			memset(array.get(), 0, sizeof(DoomLevelMeshSurface*));
+			side->surface = array.get();
+			PolyLMSurfaces.Push(std::move(array));
 		}
+
+		CreateSideSurfaces(doomMap, side);
 	}
+}
 
-	LinkSurfaces(doomMap);
-	CreateIndexes();
-	SetupLightmapUvs(doomMap);
-	BuildTileSurfaceLists();
-	UpdateCollision();
-
-	PackLightmapAtlas(lightmapStartIndex);
+void DoomLevelSubmesh::ProcessDynamicSurfaces(FLevelLocals& doomMap)
+{
 }
 
 void DoomLevelSubmesh::CreateIndexes()

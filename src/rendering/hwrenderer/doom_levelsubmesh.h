@@ -58,7 +58,13 @@ public:
 	TArray<std::unique_ptr<DoomLevelMeshSurface*[]>> PolyLMSurfaces;
 
 private:
+	void Reset();
 	void BuildSectorGroups(const FLevelLocals& doomMap);
+
+	void CreateStaticSurfaces(FLevelLocals& doomMap);
+	void CreateDynamicSurfaces(FLevelLocals& doomMap);
+	void ProcessStaticSurfaces(FLevelLocals& doomMap);
+	void ProcessDynamicSurfaces(FLevelLocals& doomMap);
 
 	void CreateSubsectorSurfaces(FLevelLocals& doomMap);
 	void CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* sub, sector_t* sector, sector_t* controlSector, int typeIndex);
