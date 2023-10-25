@@ -38,6 +38,7 @@
 #include "hw_drawinfo.h"
 #include "hw_fakeflat.h"
 #include "hw_drawcontext.h"
+#include "hw_walldispatcher.h"
 
 //==========================================================================
 //
@@ -373,8 +374,8 @@ void HWDrawList::SortWallIntoWall(HWDrawInfo *di, FRenderState& state, SortNode 
 		w->zbottom[0]=ws->zbottom[1]=izb;
 		w->tcs[HWWall::LOLFT].u = w->tcs[HWWall::UPLFT].u = ws->tcs[HWWall::LORGT].u = ws->tcs[HWWall::UPRGT].u = iu;
 		w->lightuv[HWWall::LOLFT].u = w->lightuv[HWWall::UPLFT].u = ws->lightuv[HWWall::LORGT].u = ws->lightuv[HWWall::UPRGT].u = iu;
-		ws->MakeVertices(di, state, false);
-		w->MakeVertices(di, state, false);
+		ws->MakeVertices(state, false);
+		w->MakeVertices(state, false);
 
 		SortNode * sort2=drawctx->SortNodes.GetNew();
 		memset(sort2,0,sizeof(SortNode));
@@ -722,8 +723,9 @@ void HWDrawList::DoDraw(HWDrawInfo *di, FRenderState &state, bool translucent, i
 	case DrawType_WALL:
 		{
 			HWWall * w= walls[drawitems[i].index];
+			HWWallDispatcher dis(di);
 			RenderWall.Clock();
-			w->DrawWall(di, state, translucent);
+			w->DrawWall(&dis, state, translucent);
 			RenderWall.Unclock();
 		}
 		break;
@@ -759,10 +761,11 @@ void HWDrawList::Draw(HWDrawInfo *di, FRenderState &state, bool translucent)
 //==========================================================================
 void HWDrawList::DrawWalls(HWDrawInfo *di, FRenderState &state, bool translucent)
 {
+	HWWallDispatcher dis(di);
 	RenderWall.Clock();
 	for (auto &item : drawitems)
 	{
-		walls[item.index]->DrawWall(di, state, translucent);
+		walls[item.index]->DrawWall(&dis, state, translucent);
 	}
 	RenderWall.Unclock();
 }

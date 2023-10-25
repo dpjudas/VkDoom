@@ -226,7 +226,7 @@ public:
 
 	void SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata);
 
-	void MakeVertices(HWDrawInfo* di, FRenderState& state, bool nosplit);
+	void MakeVertices(FRenderState& state, bool nosplit);
 
 	void SkyPlane(HWWallDispatcher* di, FRenderState& state, sector_t* sector, int plane, bool allowmirror);
 	void SkyLine(HWWallDispatcher* di, FRenderState& state, sector_t* sec, line_t* line);
@@ -237,19 +237,19 @@ public:
 	bool DoHorizon(HWWallDispatcher* di, FRenderState& state, seg_t* seg, sector_t* fs, vertex_t* v1, vertex_t* v2);
 
 	bool SetWallCoordinates(seg_t* seg, FTexCoordInfo* tci, float ceilingrefheight,
-		float topleft, float topright, float bottomleft, float bottomright, float t_ofs);
+		float topleft, float topright, float bottomleft, float bottomright, float t_ofs, float skew);
 
 	void DoTexture(HWWallDispatcher* di, FRenderState& state, int type, seg_t* seg, int peg,
 		float ceilingrefheight, float floorrefheight,
 		float CeilingHeightstart, float CeilingHeightend,
 		float FloorHeightstart, float FloorHeightend,
-		float v_offset);
+		float v_offset, float skew);
 
 	void DoMidTexture(HWWallDispatcher* di, FRenderState& state, seg_t* seg, bool drawfogboundary,
 		sector_t* front, sector_t* back,
 		sector_t* realfront, sector_t* realback,
 		float fch1, float fch2, float ffh1, float ffh2,
-		float bch1, float bch2, float bfh1, float bfh2, float zalign);
+		float bch1, float bch2, float bfh1, float bfh2, float zalign, float skew);
 
 	void GetPlanePos(F3DFloor::planeref* planeref, float& left, float& right);
 
@@ -280,11 +280,11 @@ public:
 
 	int CountVertices();
 
-	void RenderWall(HWDrawInfo* di, FRenderState& state, int textured);
-	void RenderFogBoundary(HWDrawInfo* di, FRenderState& state);
-	void RenderMirrorSurface(HWDrawInfo* di, FRenderState& state);
-	void RenderTexturedWall(HWDrawInfo* di, FRenderState& state, int rflags);
-	void RenderTranslucentWall(HWDrawInfo* di, FRenderState& state);
+	void RenderWall(FRenderState& state, int textured);
+	void RenderFogBoundary(HWWallDispatcher* di, FRenderState& state);
+	void RenderMirrorSurface(HWWallDispatcher* di, FRenderState& state);
+	void RenderTexturedWall(HWWallDispatcher* di, FRenderState& state, int rflags);
+	void RenderTranslucentWall(HWWallDispatcher* di, FRenderState& state);
 	void DrawDecalsForMirror(HWDrawInfo* di, FRenderState& state, TArray<HWDecal*>& decals);
 
 public:
@@ -296,7 +296,7 @@ public:
 		return -((y - glseg.y1) * (glseg.x2 - glseg.x1) - (x - glseg.x1) * (glseg.y2 - glseg.y1));
 	}
 
-	void DrawWall(HWDrawInfo* di, FRenderState& state, bool translucent);
+	void DrawWall(HWWallDispatcher* di, FRenderState& state, bool translucent);
 
 };
 

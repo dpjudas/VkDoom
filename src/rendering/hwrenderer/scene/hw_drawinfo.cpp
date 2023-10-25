@@ -599,7 +599,7 @@ void HWDrawInfo::DrawCorona(FRenderState& state, AActor* corona, float coronaFad
 	alpha *= distFade;
 
 	state.SetColorAlpha(0xffffff, alpha, 0);
-	if (isSoftwareLighting()) state.SetSoftLightLevel(255);
+	if (isSoftwareLighting(lightmode)) state.SetSoftLightLevel(255);
 	else state.SetNoSoftLightLevel();
 
 	state.SetLightIndex(-1);

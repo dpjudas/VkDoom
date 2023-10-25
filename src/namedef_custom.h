@@ -858,4 +858,11 @@ xx(lm_sampledist_ceiling)
 xx(lm_suncolor)
 xx(lm_dynamic)
 
+xx(skew_bottom_type)
+xx(skew_middle_type)
+xx(skew_top_type)
+xx(skew_bottom)
+xx(skew_middle)
+xx(skew_top)
+
 xx(Corona)

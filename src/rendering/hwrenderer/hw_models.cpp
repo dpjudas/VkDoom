@@ -88,7 +88,7 @@ void FHWModelRenderer::EndDrawModel(FRenderStyle style, FSpriteModelFrame *smf)
 		state.SetCulling(Cull_None);
 }
 
-void FHWModelRenderer::BeginDrawHUDModel(FRenderStyle style, const VSMatrix &objectToWorldMatrix, bool mirrored)
+void FHWModelRenderer::BeginDrawHUDModel(FRenderStyle style, const VSMatrix &objectToWorldMatrix, bool mirrored, FSpriteModelFrame *smf)
 {
 	state.SetDepthFunc(DF_LEqual);
 	state.SetDepthClamp(true);
@@ -104,7 +104,7 @@ void FHWModelRenderer::BeginDrawHUDModel(FRenderStyle style, const VSMatrix &obj
 	// [BB] In case the model should be rendered translucent, do back face culling.
 	// This solves a few of the problems caused by the lack of depth sorting.
 	// TO-DO: Implement proper depth sorting.
-	if (!(style == DefaultRenderStyle()))
+	if (!(style == DefaultRenderStyle()) || (smf->flags & MDL_FORCECULLBACKFACES))
 	{
 		state.SetCulling((mirrored ^ di->drawctx->portalState.isMirrored()) ? Cull_CW : Cull_CCW);
 	}
@@ -114,13 +114,13 @@ void FHWModelRenderer::BeginDrawHUDModel(FRenderStyle style, const VSMatrix &obj
 	state.SetModelMatrix(objectToWorldMatrix, normalModelMatrix);
 }
 
-void FHWModelRenderer::EndDrawHUDModel(FRenderStyle style)
+void FHWModelRenderer::EndDrawHUDModel(FRenderStyle style, FSpriteModelFrame *smf)
 {
 	state.SetBoneIndexBase(-1);
 	state.SetModelMatrix(VSMatrix::identity(), VSMatrix::identity());
 
 	state.SetDepthFunc(DF_Less);
-	if (!(style == DefaultRenderStyle()))
+	if (!(style == DefaultRenderStyle()) || (smf->flags & MDL_FORCECULLBACKFACES))
 		state.SetCulling(Cull_None);
 }
 

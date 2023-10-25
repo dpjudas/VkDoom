@@ -41,6 +41,7 @@
 #include "hw_clock.h"
 #include "hw_lighting.h"
 #include "hw_material.h"
+#include "hw_drawcontext.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "flatvertices.h"
 #include "hw_drawstructs.h"
@@ -321,8 +322,8 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 
 	state.SetNormal(plane.plane.Normal().X, plane.plane.Normal().Z, plane.plane.Normal().Y);
 
-	di->SetColor(state, lightlevel, rel, di->isFullbrightScene(), Colormap, alpha);
-	di->SetFog(state, lightlevel, rel, di->isFullbrightScene(), &Colormap, false);
+	SetColor(state, di->Level, di->lightmode, lightlevel, rel, di->isFullbrightScene(), Colormap, alpha);
+	SetFog(state, di->Level, di->lightmode, lightlevel, rel, di->isFullbrightScene(), &Colormap, false, di->drawctx->portalState.inskybox);
 	state.SetObjectColor(FlatColor | 0xff000000);
 	state.SetAddColor(AddColor | 0xff000000);
 	state.ApplyTextureManipulation(TextureFx);

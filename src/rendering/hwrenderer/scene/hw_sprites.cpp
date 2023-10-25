@@ -56,6 +56,7 @@
 #include "hw_material.h"
 #include "hw_dynlightdata.h"
 #include "hw_renderstate.h"
+#include "hw_drawcontext.h"
 
 extern TArray<spritedef_t> sprites;
 extern TArray<spriteframe_t> SpriteFrames;
@@ -144,7 +145,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 			if (!Colormap.FadeColor.isBlack())
 			{
 				float dist = Dist2(vp.Pos.X, vp.Pos.Y, x, y);
-				int fogd = di->GetFogDensity(lightlevel, Colormap.FadeColor, Colormap.FogDensity, Colormap.BlendFactor);
+				int fogd = GetFogDensity(di->Level, di->lightmode, lightlevel, Colormap.FadeColor, Colormap.FogDensity, Colormap.BlendFactor);
 
 				// this value was determined by trial and error and is scale dependent!
 				float factor = 0.05f + exp(-fogd * dist / 62500.f);
@@ -189,7 +190,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 			state.SetObjectColor(finalcol);
 			state.SetAddColor(cursec->AdditiveColors[sector_t::sprites] | 0xff000000);
 		}
-		di->SetColor(state, lightlevel, rel, di->isFullbrightScene(), Colormap, trans);
+		SetColor(state, di->Level, di->lightmode, lightlevel, rel, di->isFullbrightScene(), Colormap, trans);
 	}
 
 
@@ -216,7 +217,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 		else RenderStyle.BlendOp = STYLEOP_Fuzz;	// subtractive with models is not going to work.
 	}
 
-	if (!foglayer) di->SetFog(state, foglevel, rel, di->isFullbrightScene(), &Colormap, additivefog);
+	if (!foglayer) SetFog(state, di->Level, di->lightmode, foglevel, rel, di->isFullbrightScene(), &Colormap, additivefog, di->drawctx->portalState.inskybox);
 	else
 	{
 		state.EnableFog(false);
@@ -257,10 +258,10 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 				thiscm.Decolorize();
 			}
 
-			di->SetColor(state, thisll, rel, di->isFullbrightScene(), thiscm, trans);
+			SetColor(state, di->Level, di->lightmode, thisll, rel, di->isFullbrightScene(), thiscm, trans);
 			if (!foglayer)
 			{
-				di->SetFog(state, thislight, rel, di->isFullbrightScene(), &thiscm, additivefog);
+				SetFog(state, di->Level, di->lightmode, thislight, rel, di->isFullbrightScene(), &thiscm, additivefog, di->drawctx->portalState.inskybox);
 			}
 			SetSplitPlanes(state, *topplane, *lowplane);
 		}
@@ -285,7 +286,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 			if (foglayer)
 			{
 				// If we get here we know that we have colored fog and no fixed colormap.
-				di->SetFog(state, foglevel, rel, false, &Colormap, additivefog);
+				SetFog(state, di->Level, di->lightmode, foglevel, rel, false, &Colormap, additivefog, di->drawctx->portalState.inskybox);
 				state.SetTextureMode(TM_FOGLAYER);
 				state.SetRenderStyle(STYLE_Translucent);
 				state.Draw(DT_TriangleStrip, vertexindex, 4);
@@ -347,8 +348,8 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 		state.SetDynLight(0, 0, 0);
 		state.SetRenderStyle(STYLE_Normal);
 		state.SetTextureMode(TM_NORMAL);
-		di->SetFog(state, 0, 0, false, &Colormap, true);
-		di->SetColor(state, 255, 0, true, Colormap, true);
+		SetFog(state, di->Level, di->lightmode, 0, 0, false, &Colormap, true, di->drawctx->portalState.inskybox);
+		SetColor(state, di->Level, di->lightmode, 255, 0, true, Colormap, true);
 		state.EnableTexture(false);
 
 		int scales[12][6] =

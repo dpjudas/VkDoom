@@ -36,6 +36,7 @@
 #include "flatvertices.h"
 #include "hw_clock.h"
 #include "hw_lighting.h"
+#include "hw_drawcontext.h"
 #include "texturemanager.h"
 
 EXTERN_CVAR(Int, r_mirror_recursions)
@@ -969,14 +970,14 @@ void HWHorizonPortal::DrawContents(HWDrawInfo *di, FRenderState &state)
 	if (texture->isFullbright())
 	{
 		// glowing textures are always drawn full bright without color
-		di->SetColor(state, 255, 0, false, origin->colormap, 1.f);
-		di->SetFog(state, 255, 0, false, &origin->colormap, false);
+		SetColor(state, di->Level, di->lightmode, 255, 0, false, origin->colormap, 1.f);
+		SetFog(state, di->Level, di->lightmode, 255, 0, false, &origin->colormap, false, di->drawctx->portalState.inskybox);
 	}
 	else
 	{
 		int rel = getExtraLight();
-		di->SetColor(state, origin->lightlevel, rel, di->isFullbrightScene(), origin->colormap, 1.0f);
-		di->SetFog(state, origin->lightlevel, rel, di->isFullbrightScene(), &origin->colormap, false);
+		SetColor(state, di->Level, di->lightmode, origin->lightlevel, rel, di->isFullbrightScene(), origin->colormap, 1.0f);
+		SetFog(state, di->Level, di->lightmode, origin->lightlevel, rel, di->isFullbrightScene(), &origin->colormap, false, di->drawctx->portalState.inskybox);
 	}
 
 
