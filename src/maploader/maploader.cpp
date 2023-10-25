@@ -2979,51 +2979,45 @@ void MapLoader::InitLevelMesh(MapData* map)
 		Level->lightmaps = Level->lightmaps || *genlightmaps; // Allow lightmapping in non-lightmapped levels.
 	}
 
-	// Levelmesh and lightmap binding/loading
+	// Allocate room for surface arrays on sectors, sides and their 3D floors
+
+	unsigned int allSurfaces = 0;
+
+	for (unsigned int i = 0; i < Level->sides.Size(); i++)
+		allSurfaces += 4 + Level->sides[i].sector->e->XFloor.ffloors.Size();
+
+	for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
+		allSurfaces += 2 + Level->subsectors[i].sector->e->XFloor.ffloors.Size() * 2;
+
+	Level->LMSurfaces.Resize(allSurfaces);
+	memset(Level->LMSurfaces.Data(), 0, sizeof(DoomLevelMeshSurface*) * allSurfaces);
+
+	unsigned int offset = 0;
+	for (unsigned int i = 0; i < Level->sides.Size(); i++)
+	{
+		auto& side = Level->sides[i];
+		side.lightmap = &Level->LMSurfaces[offset];
+		offset += 4 + side.sector->e->XFloor.ffloors.Size();
+	}
+	for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
+	{
+		auto& subsector = Level->subsectors[i];
+		unsigned int count = 1 + subsector.sector->e->XFloor.ffloors.Size();
+		subsector.lightmap[0] = &Level->LMSurfaces[offset];
+		subsector.lightmap[1] = &Level->LMSurfaces[offset + count];
+		offset += count * 2;
+	}
+
+	// Create the levelmesh
 	Level->levelMesh = new DoomLevelMesh(*Level);
 
+	// Lightmap binding/loading
 	if (Level->lightmaps)
 	{
 		if (!LoadLightmap(map))
 		{
 			Level->levelMesh->PackLightmapAtlas();
 		}
-
-		// Allocate room for lightmap arrays on sectors, sides and their 3D floors
-
-		unsigned int allSurfaces = 0;
-
-		for (unsigned int i = 0; i < Level->sides.Size(); i++)
-			allSurfaces += 4 + Level->sides[i].sector->e->XFloor.ffloors.Size();
-
-		for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
-			allSurfaces += 2 + Level->subsectors[i].sector->e->XFloor.ffloors.Size() * 2;
-
-		Level->LMSurfaces.Resize(allSurfaces);
-		memset(Level->LMSurfaces.Data(), 0, sizeof(DoomLevelMeshSurface*) * allSurfaces);
-
-		unsigned int offset = 0;
-		for (unsigned int i = 0; i < Level->sides.Size(); i++)
-		{
-			auto& side = Level->sides[i];
-			int count = 4 + side.sector->e->XFloor.ffloors.Size();
-			side.lightmap = TArrayView<DoomLevelMeshSurface*>(&Level->LMSurfaces[offset], count);
-			offset += count;
-		}
-		for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
-		{
-			auto& subsector = Level->subsectors[i];
-			unsigned int count = 1 + subsector.sector->e->XFloor.ffloors.Size();
-			subsector.lightmap[0] = TArrayView<DoomLevelMeshSurface*>(&Level->LMSurfaces[offset], count);
-			subsector.lightmap[1] = TArrayView<DoomLevelMeshSurface*>(&Level->LMSurfaces[offset + count], count);
-			offset += count * 2;
-		}
-
-		Level->levelMesh->BindLightmapSurfacesToGeometry(*Level);
-	}
-	else
-	{
-		Level->levelMesh->DisableLightmaps();
 	}
 }
 

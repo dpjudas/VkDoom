@@ -14,7 +14,5 @@ public:
 	void BeginFrame(FLevelLocals& doomMap);
 	bool TraceSky(const FVector3& start, FVector3 direction, float dist);
 	void PackLightmapAtlas();
-	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
-	void DisableLightmaps();
 	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const;
 };

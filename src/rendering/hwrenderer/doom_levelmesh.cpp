@@ -167,21 +167,6 @@ void DoomLevelMesh::PackLightmapAtlas()
 	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->PackLightmapAtlas(0);
 }
 
-void DoomLevelMesh::BindLightmapSurfacesToGeometry(FLevelLocals& doomMap)
-{
-	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->BindLightmapSurfacesToGeometry(doomMap);
-}
-
-void DoomLevelMesh::DisableLightmaps()
-{
-	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DisableLightmaps();
-}
-
-void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const
-{
-	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->DumpMesh(objFilename, mtlFilename);
-}
-
 int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize)
 {
 	const DoomLevelMeshSurface* doomsurf = static_cast<const DoomLevelMeshSurface*>(surface);
@@ -259,4 +244,115 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 	}
 
 	return listpos;
+}
+
+void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const
+{
+	DoomLevelSubmesh* submesh = static_cast<DoomLevelSubmesh*>(StaticMesh.get());
+
+	auto f = fopen(objFilename.GetChars(), "w");
+
+	fprintf(f, "# DoomLevelMesh debug export\n");
+	fprintf(f, "# MeshVertices: %u, MeshElements: %u, Surfaces: %u\n", submesh->MeshVertices.Size(), submesh->MeshElements.Size(), submesh->Surfaces.Size());
+	fprintf(f, "mtllib %s\n", mtlFilename.GetChars());
+
+	double scale = 1 / 10.0;
+
+	for (const auto& v : submesh->MeshVertices)
+	{
+		fprintf(f, "v %f %f %f\n", v.x * scale, v.y * scale, v.z * scale);
+	}
+
+	for (const auto& v : submesh->MeshVertices)
+	{
+		fprintf(f, "vt %f %f\n", v.lu, v.lv);
+	}
+
+	auto name = [](DoomLevelMeshSurfaceType type) -> const char* {
+		switch (type)
+		{
+		case ST_CEILING:
+			return "ceiling";
+		case ST_FLOOR:
+			return "floor";
+		case ST_LOWERSIDE:
+			return "lowerside";
+		case ST_UPPERSIDE:
+			return "upperside";
+		case ST_MIDDLESIDE:
+			return "middleside";
+		case ST_UNKNOWN:
+			return "unknown";
+		default:
+			break;
+		}
+		return "error";
+		};
+
+
+	uint32_t lastSurfaceIndex = -1;
+
+
+	bool useErrorMaterial = false;
+	int highestUsedAtlasPage = -1;
+
+	for (unsigned i = 0, count = submesh->MeshElements.Size(); i + 2 < count; i += 3)
+	{
+		auto index = submesh->MeshSurfaceIndexes[i / 3];
+
+		if (index != lastSurfaceIndex)
+		{
+			lastSurfaceIndex = index;
+
+			if (unsigned(index) >= submesh->Surfaces.Size())
+			{
+				fprintf(f, "o Surface[%d] (bad index)\n", index);
+				fprintf(f, "usemtl error\n");
+
+				useErrorMaterial = true;
+			}
+			else
+			{
+				const auto& surface = submesh->Surfaces[index];
+				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.TypeIndex, surface.bSky ? " sky" : "");
+				fprintf(f, "usemtl lightmap%d\n", surface.AtlasTile.ArrayIndex);
+
+				if (surface.AtlasTile.ArrayIndex > highestUsedAtlasPage)
+				{
+					highestUsedAtlasPage = surface.AtlasTile.ArrayIndex;
+				}
+			}
+		}
+
+		// fprintf(f, "f %d %d %d\n", MeshElements[i] + 1, MeshElements[i + 1] + 1, MeshElements[i + 2] + 1);
+		fprintf(f, "f %d/%d %d/%d %d/%d\n",
+			submesh->MeshElements[i + 0] + 1, submesh->MeshElements[i + 0] + 1,
+			submesh->MeshElements[i + 1] + 1, submesh->MeshElements[i + 1] + 1,
+			submesh->MeshElements[i + 2] + 1, submesh->MeshElements[i + 2] + 1);
+
+	}
+
+	fclose(f);
+
+	// material
+
+	f = fopen(mtlFilename.GetChars(), "w");
+
+	fprintf(f, "# DoomLevelMesh debug export\n");
+
+	if (useErrorMaterial)
+	{
+		fprintf(f, "# Surface indices that are referenced, but do not exists in the 'Surface' array\n");
+		fprintf(f, "newmtl error\nKa 1 0 0\nKd 1 0 0\nKs 1 0 0\n");
+	}
+
+	for (int page = 0; page <= highestUsedAtlasPage; ++page)
+	{
+		fprintf(f, "newmtl lightmap%d\n", page);
+		fprintf(f, "Ka 1 1 1\nKd 1 1 1\nKs 0 0 0\n");
+		fprintf(f, "map_Ka lightmap%d.png\n", page);
+		fprintf(f, "map_Kd lightmap%d.png\n", page);
+	}
+
+	fclose(f);
 }

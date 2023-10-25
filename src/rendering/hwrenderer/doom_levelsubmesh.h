@@ -47,13 +47,10 @@ public:
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
 	int GetSurfaceCount() override { return Surfaces.Size(); }
 
-	void DumpMesh(const FString& objFilename, const FString& mtlFilename) const;
-
 	// Used by Maploader
-	void BindLightmapSurfacesToGeometry(FLevelLocals& doomMap);
+	void LinkSurfaces(FLevelLocals& doomMap);
 	void PackLightmapAtlas(int lightmapStartIndex);
 	void CreatePortals();
-	void DisableLightmaps() { /*Surfaces.Clear();*/ } // Temp hack that disables lightmapping
 
 	TArray<DoomLevelMeshSurface> Surfaces;
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
