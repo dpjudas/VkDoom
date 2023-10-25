@@ -68,11 +68,11 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartInd
 		if (isPolyLine)
 		{
 			// Make sure we have a lightmap array on the polyobj sidedef
-			if (!side->lightmap)
+			if (!side->surface)
 			{
 				auto array = std::make_unique<DoomLevelMeshSurface*[]>(4);
 				memset(array.get(), 0, sizeof(DoomLevelMeshSurface*));
-				side->lightmap = array.get();
+				side->surface = array.get();
 				PolyLMSurfaces.Push(std::move(array));
 			}
 
@@ -334,7 +334,7 @@ void DoomLevelSubmesh::SetSubsectorLightmap(DoomLevelMeshSurface* surface)
 	if (!surface->ControlSector)
 	{
 		int index = surface->Type == ST_CEILING ? 1 : 0;
-		surface->Subsector->lightmap[index][0] = surface;
+		surface->Subsector->surface[index][0] = surface;
 	}
 	else
 	{
@@ -344,7 +344,7 @@ void DoomLevelSubmesh::SetSubsectorLightmap(DoomLevelMeshSurface* surface)
 		{
 			if (ffloors[i]->model == surface->ControlSector)
 			{
-				surface->Subsector->lightmap[index][i + 1] = surface;
+				surface->Subsector->surface[index][i + 1] = surface;
 			}
 		}
 	}
@@ -356,16 +356,16 @@ void DoomLevelSubmesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 	{
 		if (surface->Type == ST_UPPERSIDE)
 		{
-			surface->Side->lightmap[0] = surface;
+			surface->Side->surface[0] = surface;
 		}
 		else if (surface->Type == ST_MIDDLESIDE)
 		{
-			surface->Side->lightmap[1] = surface;
-			surface->Side->lightmap[2] = surface;
+			surface->Side->surface[1] = surface;
+			surface->Side->surface[2] = surface;
 		}
 		else if (surface->Type == ST_LOWERSIDE)
 		{
-			surface->Side->lightmap[3] = surface;
+			surface->Side->surface[3] = surface;
 		}
 	}
 	else
@@ -375,7 +375,7 @@ void DoomLevelSubmesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 		{
 			if (ffloors[i]->model == surface->ControlSector)
 			{
-				surface->Side->lightmap[4 + i] = surface;
+				surface->Side->surface[4 + i] = surface;
 			}
 		}
 	}

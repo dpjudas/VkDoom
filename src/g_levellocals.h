@@ -465,7 +465,7 @@ public:
 
 	// Lightmaps
 	bool lightmaps = false;
-	TArray<DoomLevelMeshSurface*> LMSurfaces;
+	TArray<DoomLevelMeshSurface*> Surfaces;
 	FVector3 SunDirection;
 	FVector3 SunColor;
 	uint16_t LightmapSampleDistance;

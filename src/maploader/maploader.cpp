@@ -2989,22 +2989,22 @@ void MapLoader::InitLevelMesh(MapData* map)
 	for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
 		allSurfaces += 2 + Level->subsectors[i].sector->e->XFloor.ffloors.Size() * 2;
 
-	Level->LMSurfaces.Resize(allSurfaces);
-	memset(Level->LMSurfaces.Data(), 0, sizeof(DoomLevelMeshSurface*) * allSurfaces);
+	Level->Surfaces.Resize(allSurfaces);
+	memset(Level->Surfaces.Data(), 0, sizeof(DoomLevelMeshSurface*) * allSurfaces);
 
 	unsigned int offset = 0;
 	for (unsigned int i = 0; i < Level->sides.Size(); i++)
 	{
 		auto& side = Level->sides[i];
-		side.lightmap = &Level->LMSurfaces[offset];
+		side.surface = &Level->Surfaces[offset];
 		offset += 4 + side.sector->e->XFloor.ffloors.Size();
 	}
 	for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
 	{
 		auto& subsector = Level->subsectors[i];
 		unsigned int count = 1 + subsector.sector->e->XFloor.ffloors.Size();
-		subsector.lightmap[0] = &Level->LMSurfaces[offset];
-		subsector.lightmap[1] = &Level->LMSurfaces[offset + count];
+		subsector.surface[0] = &Level->Surfaces[offset];
+		subsector.surface[1] = &Level->Surfaces[offset + count];
 		offset += count * 2;
 	}
 
@@ -3110,7 +3110,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 	{
 		surface.NeedsUpdate = false; // let's consider everything valid until we make a mistake trying to change this surface
 
-		if (surface.Type > ST_UNKNOWN && surface.Type <= ST_FLOOR)
+		if (surface.Type > ST_NONE && surface.Type <= ST_FLOOR)
 		{
 			if (auto list = surfaceGroups[surface.Type - 1].CheckKey(surface.TypeIndex))
 			{
@@ -3140,7 +3140,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 		// Check against the internal levelmesh
 
-		if (surface.type <= ST_UNKNOWN || surface.type > ST_FLOOR)
+		if (surface.type <= ST_NONE || surface.type > ST_FLOOR)
 		{
 			errors = true;
 			if (developer >= 1)

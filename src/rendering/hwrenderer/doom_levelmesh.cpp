@@ -281,8 +281,8 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 			return "upperside";
 		case ST_MIDDLESIDE:
 			return "middleside";
-		case ST_UNKNOWN:
-			return "unknown";
+		case ST_NONE:
+			return "none";
 		default:
 			break;
 		}

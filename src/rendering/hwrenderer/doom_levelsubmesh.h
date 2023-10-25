@@ -16,7 +16,7 @@ struct FPolyObj;
 
 enum DoomLevelMeshSurfaceType
 {
-	ST_UNKNOWN,
+	ST_NONE,
 	ST_MIDDLESIDE,
 	ST_UPPERSIDE,
 	ST_LOWERSIDE,
@@ -26,7 +26,7 @@ enum DoomLevelMeshSurfaceType
 
 struct DoomLevelMeshSurface : public LevelMeshSurface
 {
-	DoomLevelMeshSurfaceType Type = ST_UNKNOWN;
+	DoomLevelMeshSurfaceType Type = ST_NONE;
 	int TypeIndex = 0;
 
 	subsector_t* Subsector = nullptr;

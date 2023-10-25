@@ -918,13 +918,13 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 	}
 
 	texcoord srclightuv[4];
-	if (lightmap && lightmap->Type != ST_UNKNOWN)
+	if (surface && surface->Type != ST_NONE)
 	{
-		srclightuv[0] = { lightmap->Vertices[0].lu, lightmap->Vertices[0].lv };
-		srclightuv[1] = { lightmap->Vertices[1].lu, lightmap->Vertices[1].lv };
-		srclightuv[2] = { lightmap->Vertices[2].lu, lightmap->Vertices[2].lv };
-		srclightuv[3] = { lightmap->Vertices[3].lu, lightmap->Vertices[3].lv };
-		lindex = lightmap->Vertices[0].lindex;
+		srclightuv[0] = { surface->Vertices[0].lu, surface->Vertices[0].lv };
+		srclightuv[1] = { surface->Vertices[1].lu, surface->Vertices[1].lv };
+		srclightuv[2] = { surface->Vertices[2].lu, surface->Vertices[2].lv };
+		srclightuv[3] = { surface->Vertices[3].lu, surface->Vertices[3].lv };
+		lindex = surface->Vertices[0].lindex;
 	}
 	else
 	{
@@ -1170,17 +1170,17 @@ void HWWall::DoTexture(HWWallDispatcher *di, FRenderState& state, int _type,seg_
 
 	type = _type;
 
-	if (seg->sidedef->lightmap.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
+	if (seg->sidedef->surface.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
 	{
-		lightmap = seg->sidedef->lightmap[type - RENDERWALL_TOP];
-		if (lightmap && di->di)
+		surface = seg->sidedef->surface[type - RENDERWALL_TOP];
+		if (surface && di->di)
 		{
-			di->di->PushVisibleSurface(lightmap);
+			di->di->PushVisibleSurface(surface);
 		}
 	}
 	else
 	{
-		lightmap = nullptr;
+		surface = nullptr;
 	}
 
 	float floatceilingref = ceilingrefheight + tci.RowOffset(seg->sidedef->GetTextureYOffset(texpos));
@@ -1237,12 +1237,12 @@ void HWWall::DoMidTexture(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	//
 	if (texture)
 	{
-		if (seg->sidedef->lightmap.Size() >= 4)
+		if (seg->sidedef->surface.Size() >= 4)
 		{
-			lightmap = seg->sidedef->lightmap[side_t::mid];
-			if (lightmap && di->di)
+			surface = seg->sidedef->surface[side_t::mid];
+			if (surface && di->di)
 			{
-				di->di->PushVisibleSurface(lightmap);
+				di->di->PushVisibleSurface(surface);
 			}
 		}
 
@@ -1575,15 +1575,15 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	float texlength;
 	FTexCoordInfo tci;
 
-	lightmap = nullptr;
+	surface = nullptr;
 	if (seg->sidedef == seg->linedef->sidedef[0])
-		lightmap = seg->linedef->sidedef[1]->lightmap.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->lightmap[4 + roverIndex] : nullptr;
+		surface = seg->linedef->sidedef[1]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->surface[4 + roverIndex] : nullptr;
 	else
-		lightmap = seg->linedef->sidedef[0]->lightmap.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->lightmap[4 + roverIndex] : nullptr;
+		surface = seg->linedef->sidedef[0]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->surface[4 + roverIndex] : nullptr;
 
-	if (lightmap && di->di)
+	if (surface && di->di)
 	{
-		di->di->PushVisibleSurface(lightmap);
+		di->di->PushVisibleSurface(surface);
 	}
 
 	if (rover->flags&FF_FOG)
@@ -1646,13 +1646,13 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 		CheckTexturePosition(&tci);
 
 		texcoord srclightuv[4];
-		if (lightmap && lightmap->Type != ST_UNKNOWN)
+		if (surface && surface->Type != ST_NONE)
 		{
-			srclightuv[0] = { lightmap->Vertices[0].lu, lightmap->Vertices[0].lv };
-			srclightuv[1] = { lightmap->Vertices[1].lu, lightmap->Vertices[1].lv };
-			srclightuv[2] = { lightmap->Vertices[2].lu, lightmap->Vertices[2].lv };
-			srclightuv[3] = { lightmap->Vertices[3].lu, lightmap->Vertices[3].lv };
-			lindex = lightmap->Vertices[0].lindex;
+			srclightuv[0] = { surface->Vertices[0].lu, surface->Vertices[0].lv };
+			srclightuv[1] = { surface->Vertices[1].lu, surface->Vertices[1].lv };
+			srclightuv[2] = { surface->Vertices[2].lu, surface->Vertices[2].lv };
+			srclightuv[3] = { surface->Vertices[3].lu, surface->Vertices[3].lv };
+			lindex = surface->Vertices[0].lindex;
 		}
 		else
 		{
@@ -1977,7 +1977,7 @@ void HWWall::Process(HWWallDispatcher *di, FRenderState& state, seg_t *seg, sect
 	}
 #endif
 
-	lightmap = nullptr;
+	surface = nullptr;
 
 	// note: we always have a valid sidedef and linedef reference when getting here.
 

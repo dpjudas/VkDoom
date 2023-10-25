@@ -162,7 +162,7 @@ public:
 	vertex_t* vertexes[2];				// required for polygon splitting
 	FGameTexture* texture;
 	TArray<lightlist_t>* lightlist;
-	DoomLevelMeshSurface* lightmap;
+	DoomLevelMeshSurface* surface;
 
 	HWSeg glseg;
 	float ztop[2], zbottom[2];
