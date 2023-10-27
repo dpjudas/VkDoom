@@ -18,6 +18,7 @@ typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 class LevelSubmesh;
 class FMaterial;
+class FGameTexture;
 
 class LevelMeshLight
 {
@@ -58,7 +59,7 @@ struct LevelMeshSurface
 	bool NeedsUpdate = true;
 	bool AlwaysUpdate = false;
 
-	FTextureID texture = FNullTextureID();
+	FGameTexture* texture = nullptr;
 	float alpha = 1.0;
 	
 	int portalIndex = 0;

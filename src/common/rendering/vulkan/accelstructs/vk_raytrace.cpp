@@ -305,9 +305,9 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			info.SamplingDistance = (float)surface->sampleDimension;
 			info.Sky = surface->bSky;
 			info.Alpha = surface->alpha;
-			if (surface->texture.isValid())
+			if (surface->texture)
 			{
-				auto mat = FMaterial::ValidateTexture(TexMan.GetGameTexture(surface->texture), 0);
+				auto mat = FMaterial::ValidateTexture(surface->texture, 0);
 				info.TextureIndex = fb->GetBindlessTextureIndex(mat, CLAMP_NONE, 0);
 			}
 			else

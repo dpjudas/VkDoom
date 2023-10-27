@@ -82,7 +82,7 @@ void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
 {
 	if (!RequireLevelMesh()) return;
 
-	auto gameTexture = TexMan.GameByIndex(surface->texture.GetIndex());
+	auto gameTexture = surface->texture;
 
 	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", surface->Submesh->GetSurfaceIndex(surface), surface, surface->Type, surface->TypeIndex, surface->ControlSector ? surface->ControlSector->Index() : -1);
 	Printf("    Atlas page: %d, x:%d, y:%d\n", surface->AtlasTile.ArrayIndex, surface->AtlasTile.X, surface->AtlasTile.Y);
@@ -91,7 +91,7 @@ void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
 	Printf("    Needs update?: %d\n", surface->NeedsUpdate);
 	Printf("    Always update?: %d\n", surface->AlwaysUpdate);
 	Printf("    Sector group: %d\n", surface->sectorGroup);
-	Printf("    Texture: '%s' (id=%d)\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>", surface->texture.GetIndex());
+	Printf("    Texture: '%s'\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>");
 	Printf("    Alpha: %f\n", surface->alpha);
 }
 

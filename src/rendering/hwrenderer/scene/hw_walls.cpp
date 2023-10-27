@@ -1170,16 +1170,33 @@ void HWWall::DoTexture(HWWallDispatcher *di, FRenderState& state, int _type,seg_
 
 	type = _type;
 
-	if (seg->sidedef->surface.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
+	if (di->di)
 	{
-		surface = seg->sidedef->surface[type - RENDERWALL_TOP];
-		if (surface && di->di)
+		if (seg->sidedef->surface.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
 		{
-			di->di->PushVisibleSurface(surface);
+			surface = seg->sidedef->surface[type - RENDERWALL_TOP];
+			if (surface && di->di)
+			{
+				di->di->PushVisibleSurface(surface);
+			}
+		}
+		else
+		{
+			surface = nullptr;
 		}
 	}
 	else
 	{
+		if (type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
+		{
+			static const DoomLevelMeshSurfaceType surfTypes[] = { ST_UPPERSIDE, ST_MIDDLESIDE, ST_MIDDLESIDE, ST_LOWERSIDE };
+			LevelMeshInfo.Type = surfTypes[type - RENDERWALL_TOP];
+		}
+		else
+		{
+			LevelMeshInfo.Type = ST_NONE;
+		}
+		LevelMeshInfo.ControlSector = nullptr;
 		surface = nullptr;
 	}
 
@@ -1237,13 +1254,22 @@ void HWWall::DoMidTexture(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	//
 	if (texture)
 	{
-		if (seg->sidedef->surface.Size() >= 4)
+		if (di->di)
 		{
-			surface = seg->sidedef->surface[side_t::mid];
-			if (surface && di->di)
+			if (seg->sidedef->surface.Size() >= 4)
 			{
-				di->di->PushVisibleSurface(surface);
+				surface = seg->sidedef->surface[side_t::mid];
+				if (surface && di->di)
+				{
+					di->di->PushVisibleSurface(surface);
+				}
 			}
+		}
+		else
+		{
+			LevelMeshInfo.Type = ST_MIDDLESIDE;
+			LevelMeshInfo.ControlSector = nullptr;
+			surface = nullptr;
 		}
 
 		// Align the texture to the ORIGINAL sector's height!!
@@ -1575,15 +1601,23 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	float texlength;
 	FTexCoordInfo tci;
 
-	surface = nullptr;
-	if (seg->sidedef == seg->linedef->sidedef[0])
-		surface = seg->linedef->sidedef[1]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->surface[4 + roverIndex] : nullptr;
-	else
-		surface = seg->linedef->sidedef[0]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->surface[4 + roverIndex] : nullptr;
-
-	if (surface && di->di)
+	if (di->di)
 	{
-		di->di->PushVisibleSurface(surface);
+		if (seg->sidedef == seg->linedef->sidedef[0])
+			surface = seg->linedef->sidedef[1]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->surface[4 + roverIndex] : nullptr;
+		else
+			surface = seg->linedef->sidedef[0]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->surface[4 + roverIndex] : nullptr;
+
+		if (surface)
+		{
+			di->di->PushVisibleSurface(surface);
+		}
+	}
+	else
+	{
+		LevelMeshInfo.Type = ST_MIDDLESIDE;
+		LevelMeshInfo.ControlSector = rover->model;
+		surface = nullptr;
 	}
 
 	if (rover->flags&FF_FOG)
@@ -1978,6 +2012,9 @@ void HWWall::Process(HWWallDispatcher *di, FRenderState& state, seg_t *seg, sect
 #endif
 
 	surface = nullptr;
+
+	LevelMeshInfo.Type = ST_NONE;
+	LevelMeshInfo.ControlSector = nullptr;
 
 	// note: we always have a valid sidedef and linedef reference when getting here.
 

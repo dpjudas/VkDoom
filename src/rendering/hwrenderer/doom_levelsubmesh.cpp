@@ -30,7 +30,6 @@ void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 
 	CreateStaticSurfaces(doomMap);
 	LinkSurfaces(doomMap);
-	ProcessStaticSurfaces(doomMap);
 
 	CreateIndexes();
 	SetupLightmapUvs(doomMap);
@@ -51,7 +50,6 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartInd
 
 	CreateDynamicSurfaces(doomMap);
 	LinkSurfaces(doomMap);
-	ProcessStaticSurfaces(doomMap);
 
 	CreateIndexes();
 	SetupLightmapUvs(doomMap);
@@ -75,149 +73,6 @@ void DoomLevelSubmesh::Reset()
 
 void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 {
-	// Create surface objects for all visible side parts
-	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
-	{
-		bool isPolyLine = !!(doomMap.sides[i].Flags & WALLF_POLYOBJ);
-		if (!isPolyLine)
-		{
-			// To do: it would be nice if HWWall could figure this out for us.
-
-			side_t* side = &doomMap.sides[i];
-
-			sector_t* front = side->sector;
-			sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
-
-			FVector2 v1 = ToFVector2(side->V1()->fPos());
-			FVector2 v2 = ToFVector2(side->V2()->fPos());
-
-			float v1Top = (float)front->ceilingplane.ZatPoint(v1);
-			float v1Bottom = (float)front->floorplane.ZatPoint(v1);
-			float v2Top = (float)front->ceilingplane.ZatPoint(v2);
-			float v2Bottom = (float)front->floorplane.ZatPoint(v2);
-
-			DoomLevelMeshSurface surf;
-			surf.Submesh = this;
-			surf.TypeIndex = side->Index();
-			surf.Side = side;
-			surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
-			surf.sectorGroup = sectorGroup[front->Index()];
-
-			if (side->linedef->getPortal() && side->linedef->frontsector == front) // line portal
-			{
-				surf.Type = ST_MIDDLESIDE;
-				surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
-				surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
-				//surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
-				Surfaces.Push(surf);
-			}
-			else if (side->linedef->special == Line_Horizon && front != back) // line horizon
-			{
-				surf.Type = ST_MIDDLESIDE;
-				surf.bSky = front->GetTexture(sector_t::floor) == skyflatnum || front->GetTexture(sector_t::ceiling) == skyflatnum;
-				surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
-				//surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
-				Surfaces.Push(surf);
-			}
-			else if (!back) // front wall
-			{
-				surf.Type = ST_MIDDLESIDE;
-				surf.bSky = false;
-				surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
-				surf.texture = side->textures[side_t::mid].texture;
-				Surfaces.Push(surf);
-			}
-			else
-			{
-				if (side->textures[side_t::mid].texture.isValid()) // mid wall
-				{
-					surf.Type = ST_MIDDLESIDE;
-					surf.bSky = false;
-					surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
-					surf.texture = side->textures[side_t::mid].texture;
-					surf.alpha = float(side->linedef->alpha);
-					Surfaces.Push(surf);
-					surf.alpha = 1.0f;
-				}
-
-				float v1TopBack = (float)back->ceilingplane.ZatPoint(v1);
-				float v1BottomBack = (float)back->floorplane.ZatPoint(v1);
-				float v2TopBack = (float)back->ceilingplane.ZatPoint(v2);
-				float v2BottomBack = (float)back->floorplane.ZatPoint(v2);
-
-				if (v1Bottom < v1BottomBack || v2Bottom < v2BottomBack) // lower wall
-				{
-					surf.Type = ST_LOWERSIDE;
-					surf.bSky = false;
-					surf.sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
-					surf.texture = side->textures[side_t::bottom].texture;
-					Surfaces.Push(surf);
-				}
-
-				if (v1Top > v1TopBack || v2Top > v2TopBack) // top wall
-				{
-					bool bSky = IsTopSideSky(front, back, side);
-					//if (bSky || IsTopSideVisible(side))
-					{
-						surf.Type = ST_UPPERSIDE;
-						surf.bSky = bSky;
-						surf.sampleDimension = side->textures[side_t::top].LightmapSampleDistance;
-						surf.texture = side->textures[side_t::top].texture;
-						Surfaces.Push(surf);
-					}
-				}
-
-				for (unsigned int j = 0; j < front->e->XFloor.ffloors.Size(); j++)
-				{
-					F3DFloor* xfloor = front->e->XFloor.ffloors[j];
-
-					// Don't create a line when both sectors have the same 3d floor
-					bool bothSides = false;
-					for (unsigned int k = 0; k < back->e->XFloor.ffloors.Size(); k++)
-					{
-						if (back->e->XFloor.ffloors[k] == xfloor)
-						{
-							bothSides = true;
-							break;
-						}
-					}
-					if (bothSides)
-						continue;
-
-					surf.Type = ST_MIDDLESIDE;
-					surf.ControlSector = xfloor->model;
-					surf.bSky = false;
-					surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
-					surf.texture = side->textures[side_t::mid].texture;
-					Surfaces.Push(surf);
-				}
-			}
-		}
-	}
-
-	// Create surfaces for all flats
-	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
-	{
-		subsector_t* sub = &doomMap.subsectors[i];
-		if (sub->numlines < 3 || !sub->sector)
-			continue;
-		sector_t* sector = sub->sector;
-
-		// To do: only create the surface objects here and then fill them in ProcessStaticSurfaces
-
-		CreateFloorSurface(doomMap, sub, sector, nullptr, i);
-		CreateCeilingSurface(doomMap, sub, sector, nullptr, i);
-
-		for (unsigned int j = 0; j < sector->e->XFloor.ffloors.Size(); j++)
-		{
-			CreateFloorSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
-			CreateCeilingSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
-		}
-	}
-}
-
-void DoomLevelSubmesh::ProcessStaticSurfaces(FLevelLocals& doomMap)
-{
 	// We can't use side->segs since it is null.
 	TArray<std::pair<subsector_t*, seg_t*>> sideSegs(doomMap.sides.Size(), true);
 	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
@@ -232,6 +87,7 @@ void DoomLevelSubmesh::ProcessStaticSurfaces(FLevelLocals& doomMap)
 		}
 	}
 
+	// Create surface objects for all visible side parts
 	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
 	{
 		side_t* side = &doomMap.sides[i];
@@ -263,14 +119,9 @@ void DoomLevelSubmesh::ProcessStaticSurfaces(FLevelLocals& doomMap)
 
 		for (HWWall& wallpart : result.list)
 		{
-			DoomLevelMeshSurface* surface = wall.surface;
-			if (!surface)
-				continue;
-
 			wallpart.DrawWall(&disp, state, false);
 
 			int startVertIndex = MeshVertices.Size();
-
 			for (auto& it : state.mSortedLists)
 			{
 				const MeshApplyState& applyState = it.first;
@@ -288,15 +139,26 @@ void DoomLevelSubmesh::ProcessStaticSurfaces(FLevelLocals& doomMap)
 					}
 				}
 			}
-
-			surface->startVertIndex = startVertIndex;
-			surface->numVerts = MeshVertices.Size() - startVertIndex;
-			surface->plane = ToPlane(MeshVertices[startVertIndex].fPos(), MeshVertices[startVertIndex + 1].fPos(), MeshVertices[startVertIndex + 2].fPos(), MeshVertices[startVertIndex + 3].fPos());
-
 			state.mSortedLists.clear();
+
+			DoomLevelMeshSurface surf;
+			surf.Submesh = this;
+			surf.Type = wallpart.LevelMeshInfo.Type;
+			surf.ControlSector = wallpart.LevelMeshInfo.ControlSector;
+			surf.TypeIndex = side->Index();
+			surf.Side = side;
+			surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
+			surf.sectorGroup = sectorGroup[front->Index()];
+			surf.alpha = float(side->linedef->alpha);
+			surf.startVertIndex = startVertIndex;
+			surf.numVerts = MeshVertices.Size() - startVertIndex;
+			surf.plane = ToPlane(MeshVertices[startVertIndex].fPos(), MeshVertices[startVertIndex + 1].fPos(), MeshVertices[startVertIndex + 2].fPos(), MeshVertices[startVertIndex + 3].fPos());
+			surf.texture = wallpart.texture;
+			Surfaces.Push(surf);
 		}
 	}
 
+	// Create surfaces for all flats
 	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
 	{
 		subsector_t* sub = &doomMap.subsectors[i];
@@ -304,9 +166,14 @@ void DoomLevelSubmesh::ProcessStaticSurfaces(FLevelLocals& doomMap)
 			continue;
 		sector_t* sector = sub->sector;
 
-		// To do: use HWFlat
-		// HWFlat flat;
-		// flat.Process(&disp, state, sector, whichplane, notexture);
+		CreateFloorSurface(doomMap, sub, sector, nullptr, i);
+		CreateCeilingSurface(doomMap, sub, sector, nullptr, i);
+
+		for (unsigned int j = 0; j < sector->e->XFloor.ffloors.Size(); j++)
+		{
+			CreateFloorSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
+			CreateCeilingSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
+		}
 	}
 }
 
@@ -331,10 +198,6 @@ void DoomLevelSubmesh::CreateDynamicSurfaces(FLevelLocals& doomMap)
 
 		CreateSideSurfaces(doomMap, side);
 	}
-}
-
-void DoomLevelSubmesh::ProcessDynamicSurfaces(FLevelLocals& doomMap)
-{
 }
 
 void DoomLevelSubmesh::CreateIndexes()
@@ -850,7 +713,7 @@ void DoomLevelSubmesh::CreateFrontWallSurface(FLevelLocals& doomMap, side_t* sid
 	surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 	surf.ControlSector = nullptr;
 	surf.sectorGroup = sectorGroup[front->Index()];
-	surf.texture = side->textures[side_t::mid].texture;
+	surf.texture = TexMan.GetGameTexture(side->textures[side_t::mid].texture);
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 	surf.Side = side;
 
@@ -952,7 +815,7 @@ void DoomLevelSubmesh::CreateMidWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
 	surf.ControlSector = nullptr;
 	surf.sectorGroup = sectorGroup[front->Index()];
-	surf.texture = texture;
+	surf.texture = TexMan.GetGameTexture(texture);
 	surf.alpha = float(side->linedef->alpha);
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 	surf.Side = side;
@@ -1038,7 +901,7 @@ void DoomLevelSubmesh::Create3DFloorWallSurfaces(FLevelLocals& doomMap, side_t* 
 
 		surf.plane = ToPlane(verts[0].fPos(), verts[1].fPos(), verts[2].fPos(), verts[3].fPos());
 		surf.sectorGroup = sectorGroup[front->Index()];
-		surf.texture = side->textures[side_t::mid].texture;
+		surf.texture = TexMan.GetGameTexture(side->textures[side_t::mid].texture);
 		surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 
 		SurfaceUniforms uniforms = DefaultUniforms();
@@ -1103,7 +966,7 @@ void DoomLevelSubmesh::CreateTopWallSurface(FLevelLocals& doomMap, side_t* side)
 	surf.sampleDimension = side->textures[side_t::top].LightmapSampleDistance;
 	surf.ControlSector = nullptr;
 	surf.sectorGroup = sectorGroup[front->Index()];
-	surf.texture = side->textures[side_t::top].texture;
+	surf.texture = TexMan.GetGameTexture(side->textures[side_t::top].texture);
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 	surf.Side = side;
 
@@ -1167,7 +1030,7 @@ void DoomLevelSubmesh::CreateBottomWallSurface(FLevelLocals& doomMap, side_t* si
 	surf.sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
 	surf.ControlSector = nullptr;
 	surf.sectorGroup = sectorGroup[front->Index()];
-	surf.texture = side->textures[side_t::bottom].texture;
+	surf.texture = TexMan.GetGameTexture(side->textures[side_t::bottom].texture);
 	surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
 	surf.Side = side;
 
@@ -1187,9 +1050,9 @@ void DoomLevelSubmesh::SetSideTextureUVs(DoomLevelMeshSurface& surface, side_t* 
 {
 	FFlatVertex* uvs = &MeshVertices[surface.startVertIndex];
 
-	if (surface.texture.isValid())
+	if (surface.texture)
 	{
-		const auto gtxt = TexMan.GetGameTexture(surface.texture);
+		const auto gtxt = surface.texture;
 
 		FTexCoordInfo tci;
 		GetTexCoordInfo(gtxt, &tci, side, texpart);
@@ -1244,9 +1107,9 @@ void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *su
 
 	surf.numVerts = sub->numlines;
 	surf.startVertIndex = MeshVertices.Size();
-	surf.texture = (controlSector ? controlSector : sector)->planes[sector_t::floor].Texture;
+	surf.texture = TexMan.GetGameTexture((controlSector ? controlSector : sector)->planes[sector_t::floor].Texture);
 
-	FGameTexture* txt = TexMan.GetGameTexture(surf.texture);
+	FGameTexture* txt = surf.texture;
 	float w = txt->GetDisplayWidth();
 	float h = txt->GetDisplayHeight();
 	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::floor);
@@ -1321,9 +1184,9 @@ void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* 
 
 	surf.numVerts = sub->numlines;
 	surf.startVertIndex = MeshVertices.Size();
-	surf.texture = (controlSector ? controlSector : sector)->planes[sector_t::ceiling].Texture;
+	surf.texture = TexMan.GetGameTexture((controlSector ? controlSector : sector)->planes[sector_t::ceiling].Texture);
 
-	FGameTexture* txt = TexMan.GetGameTexture(surf.texture);
+	FGameTexture* txt = surf.texture;
 	float w = txt->GetDisplayWidth();
 	float h = txt->GetDisplayHeight();
 	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::ceiling);

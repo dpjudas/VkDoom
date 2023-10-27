@@ -8,6 +8,7 @@
 #include "renderstyle.h"
 #include "textures.h"
 #include "r_data/colormaps.h"
+#include "doom_levelmesh.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable:4244)
@@ -202,7 +203,11 @@ public:
 		};
 	};
 
-
+	struct
+	{
+		DoomLevelMeshSurfaceType Type;
+		sector_t* ControlSector;
+	} LevelMeshInfo;
 
 	// these are not the same as ytop and ybottom!!!
 	float zceil[2];
