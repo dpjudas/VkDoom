@@ -687,7 +687,7 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	pipelineKey.NumTextureLayers = 0;
 	pipelineKey.NumTextureLayers = max(pipelineKey.NumTextureLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS);// Always force minimum 8 textures as the shader requires it
 	pipelineKey.ShaderKey.SpecialEffect = EFF_NONE;
-	pipelineKey.ShaderKey.EffectState = SHADER_NoTexture;
+	pipelineKey.ShaderKey.EffectState = SHADER_Default;
 	pipelineKey.ShaderKey.AlphaTest = false;
 	pipelineKey.ShaderKey.SWLightRadial = true;
 	pipelineKey.ShaderKey.LightMode = 1; // Software

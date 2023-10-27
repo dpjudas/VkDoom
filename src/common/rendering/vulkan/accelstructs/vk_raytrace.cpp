@@ -314,7 +314,6 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 			{
 				info.TextureIndex = 0;
 			}
-			submesh->MeshSurfaceUniforms[j].uTextureIndex = info.TextureIndex; // Bit of a hack, but we don't know the texture index before now
 
 			*(surfaces++) = info;
 		}
@@ -330,6 +329,22 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 	{
 		const SubmeshBufferLocation& cur = locations[i];
 		auto submesh = cur.Submesh;
+
+		for (int j = 0, count = submesh->MeshSurfaceUniforms.Size(); j < count; j++)
+		{
+			auto& surfaceUniforms = submesh->MeshSurfaceUniforms[j];
+			auto& material = submesh->MeshSurfaceMaterials[j];
+			if (material.mMaterial)
+			{
+				auto source = material.mMaterial->Source();
+				surfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+				surfaceUniforms.uTextureIndex = fb->GetBindlessTextureIndex(material.mMaterial, material.mClampMode, material.mTranslation);
+			}
+			else
+			{
+				surfaceUniforms.uTextureIndex = 0;
+			}
+		}
 
 		SurfaceUniforms* uniforms = (SurfaceUniforms*)(data + datapos);
 		size_t copysize = submesh->MeshSurfaceUniforms.Size() * sizeof(SurfaceUniforms);

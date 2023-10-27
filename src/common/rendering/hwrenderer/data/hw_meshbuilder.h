@@ -107,20 +107,20 @@ public:
 
 	std::unique_ptr<Mesh> Create();
 
-private:
-	void Apply();
-
 	struct DrawLists
 	{
 		TArray<MeshDrawCommand> mDraws;
 		TArray<MeshDrawCommand> mIndexedDraws;
 	};
 	std::map<MeshApplyState, DrawLists> mSortedLists;
-	DrawLists* mDrawLists = nullptr;
 
 	TArray<FFlatVertex> mVertices;
 	TArray<uint32_t> mIndexes;
-	int mDepthFunc = 0;
 
+private:
+	void Apply();
+
+	int mDepthFunc = 0;
 	VSMatrix mTextureMatrix = VSMatrix::identity();
+	DrawLists* mDrawLists = nullptr;
 };

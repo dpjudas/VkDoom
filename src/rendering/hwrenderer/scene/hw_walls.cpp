@@ -918,7 +918,7 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 	}
 
 	texcoord srclightuv[4];
-	if (surface && surface->Type != ST_NONE)
+	if (surface && surface->Type != ST_NONE && surface->numVerts != 0)
 	{
 		srclightuv[0] = { surface->Vertices[0].lu, surface->Vertices[0].lv };
 		srclightuv[1] = { surface->Vertices[1].lu, surface->Vertices[1].lv };
@@ -1950,7 +1950,7 @@ inline int CalcRelLight(int lightlevel, int orglightlevel, int rel)
 
 CVAR(Int, topskew, 0, 0)
 CVAR(Int, midskew, 0, 0)
-CVAR(Int, bottomskew, 0, 0)
+CVAR(Int, bottomskew, 0, 0);
 
 //==========================================================================
 //

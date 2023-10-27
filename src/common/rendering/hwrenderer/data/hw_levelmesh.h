@@ -10,12 +10,14 @@
 #include <cstring>
 #include "textureid.h"
 #include "flatvertices.h"
+#include "textures.h"
 
 #include <dp_rect_pack.h>
 
 typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 class LevelSubmesh;
+class FMaterial;
 
 class LevelMeshLight
 {
@@ -217,6 +219,24 @@ struct SurfaceUniforms
 	float padding3;
 };
 
+struct FMaterialState
+{
+	FMaterial* mMaterial = nullptr;
+	int mClampMode;
+	int mTranslation;
+	int mOverrideShader;
+	bool mChanged;
+
+	void Reset()
+	{
+		mMaterial = nullptr;
+		mTranslation = 0;
+		mClampMode = CLAMP_NONE;
+		mOverrideShader = -1;
+		mChanged = false;
+	}
+};
+
 class LevelSubmesh
 {
 public:
@@ -233,6 +253,7 @@ public:
 	TArray<int> MeshSurfaceIndexes;
 	TArray<int> MeshUniformIndexes;
 	TArray<SurfaceUniforms> MeshSurfaceUniforms;
+	TArray<FMaterialState> MeshSurfaceMaterials;
 
 	TArray<LevelMeshPortal> Portals;
 
