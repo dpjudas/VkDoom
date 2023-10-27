@@ -654,10 +654,9 @@ void HWDrawInfo::DrawCoronas(FRenderState& state)
 	float timeElapsed = (screen->FrameTime - LastFrameTime) / 1000.0f;
 	LastFrameTime = screen->FrameTime;
 
-	for (auto& coronap : Coronas)
+	for (AActor* corona : Coronas)
 	{
-		auto corona = coronap.first;
-		auto& coronaFade = coronap.second;
+		auto& coronaFade = corona->specialf1;
 		auto cPos = corona->Vec3Offset(0., 0., corona->Height * 0.5);
 		DVector3 direction = Viewpoint.Pos - cPos;
 		double dist = direction.Length();
@@ -672,15 +671,15 @@ void HWDrawInfo::DrawCoronas(FRenderState& state)
 		FTraceResults results;
 		if (!Trace(cPos, corona->Sector, direction, dist, MF_SOLID, ML_BLOCKEVERYTHING, corona, results, 0, CheckForViewpointActor, &Viewpoint))
 		{
-			coronaFade = std::min(coronaFade + timeElapsed * fadeSpeed, 1.0f);
+			coronaFade = std::min(coronaFade + timeElapsed * fadeSpeed, 1.0);
 		}
 		else
 		{
-			coronaFade = std::max(coronaFade - timeElapsed * fadeSpeed, 0.0f);
+			coronaFade = std::max(coronaFade - timeElapsed * fadeSpeed, 0.0);
 		}
 
 		if (coronaFade > 0.0f)
-			DrawCorona(state, corona, coronaFade, dist);
+			DrawCorona(state, corona, (float)coronaFade, dist);
 	}
 
 	state.SetTextureMode(TM_NORMAL);

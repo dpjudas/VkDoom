@@ -756,7 +756,7 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 
 	if (thing->IsKindOf(NAME_Corona))
 	{
-		di->Coronas.Push(std::make_pair(thing, 0));
+		di->Coronas.Push(thing);
 		return;
 	}
 

@@ -150,7 +150,7 @@ struct HWDrawInfo
 	TArray<HWPortal *> Portals;
 	TArray<HWDecal *> Decals[2];	// the second slot is for mirrors which get rendered in a separate pass.
 	TArray<HUDSprite> hudsprites;	// These may just be stored by value.
-	TArray<std::pair<AActor*, float>> Coronas;
+	TArray<AActor*> Coronas;
 	TArray<LevelMeshSurface*> VisibleSurfaces;
 	uint64_t LastFrameTime = 0;
 
