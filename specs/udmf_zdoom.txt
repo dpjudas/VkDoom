@@ -346,6 +346,7 @@ Note: All <bool> fields default to false unless mentioned otherwise.
 
       lm_sampledist_floor = <int>;      // ZDRay customizable sampling distance for this sector's floor. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
       lm_sampledist_ceiling = <int>;    // ZDRay customizable sampling distance for this sector's ceiling. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_dynamic = <bool>;              // ZDRay marks a sector as having dynamic lightmaps that can update, move, change color, turn on/off etc
    }
 
    thing
