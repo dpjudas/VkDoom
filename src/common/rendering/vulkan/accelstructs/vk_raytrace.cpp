@@ -91,11 +91,6 @@ void VkRaytrace::BeginFrame()
 	}
 }
 
-int VkRaytrace::GetIndexCount()
-{
-	return Mesh->StaticMesh->MeshElements.Size();
-}
-
 void VkRaytrace::UploadMeshes(bool dynamicOnly)
 {
 	TArray<SubmeshBufferLocation> locations(2);

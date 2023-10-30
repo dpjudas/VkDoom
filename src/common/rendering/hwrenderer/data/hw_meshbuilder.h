@@ -7,24 +7,25 @@
 
 class Mesh;
 
+struct MeshApplyData
+{
+	FRenderStyle RenderStyle;
+	int SpecialEffect;
+	int TextureEnabled;
+	float AlphaThreshold;
+	int DepthFunc;
+	int FogEnabled;
+	int FogColor;
+	int BrightmapEnabled;
+	int TextureClamp;
+	int TextureMode;
+	int TextureModeFlags;
+};
+
 class MeshApplyState
 {
 public:
-	struct ApplyData
-	{
-		FRenderStyle RenderStyle;
-		int SpecialEffect;
-		int TextureEnabled;
-		float AlphaThreshold;
-		int DepthFunc;
-		int FogEnabled;
-		int BrightmapEnabled;
-		int TextureClamp;
-		int TextureMode;
-		int TextureModeFlags;
-	};
-
-	ApplyData applyData;
+	MeshApplyData applyData;
 	SurfaceUniforms surfaceUniforms;
 	FMaterialState material;
 	VSMatrix textureMatrix;
@@ -40,7 +41,7 @@ public:
 		if (material.mOverrideShader != other.material.mOverrideShader)
 			return material.mOverrideShader < other.material.mOverrideShader;
 
-		int result = memcmp(&applyData, &other.applyData, sizeof(ApplyData));
+		int result = memcmp(&applyData, &other.applyData, sizeof(MeshApplyData));
 		if (result != 0)
 			return result < 0;
 

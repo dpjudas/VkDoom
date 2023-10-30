@@ -238,6 +238,13 @@ struct FMaterialState
 	}
 };
 
+struct LevelSubmeshDrawRange
+{
+	int PipelineID;
+	int Start;
+	int Count;
+};
+
 class LevelSubmesh
 {
 public:
@@ -259,6 +266,8 @@ public:
 	TArray<LevelMeshPortal> Portals;
 
 	std::unique_ptr<TriangleMeshShape> Collision;
+
+	TArray<LevelSubmeshDrawRange> DrawList;
 
 	// Lightmap atlas
 	int LMTextureCount = 0;

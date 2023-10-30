@@ -74,6 +74,7 @@ class FModelRenderer;
 struct SamplerUniform;
 struct FVertexBufferAttribute;
 struct HWViewpointUniforms;
+struct MeshApplyData;
 
 //
 // VIDEO
@@ -226,6 +227,7 @@ public:
 
 	virtual void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) { if (afterBloomDrawEndScene2D) afterBloomDrawEndScene2D(); }
 
+	virtual int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) { return 0; }
 	virtual void DrawLevelMesh(const HWViewpointUniforms& viewpoint) { }
 
 	void ScaleCoordsFromWindow(int16_t &x, int16_t &y);

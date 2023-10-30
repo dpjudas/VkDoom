@@ -34,6 +34,7 @@ struct DoomLevelMeshSurface : public LevelMeshSurface
 	sector_t* ControlSector = nullptr;
 
 	FFlatVertex* Vertices = nullptr;
+	int PipelineID = 0;
 };
 
 class DoomLevelSubmesh : public LevelSubmesh

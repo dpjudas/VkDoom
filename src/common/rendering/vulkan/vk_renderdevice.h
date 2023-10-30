@@ -22,6 +22,7 @@ class VkHardwareDataBuffer;
 class VkHardwareTexture;
 class VkRenderBuffers;
 class VkPostprocess;
+class VkPipelineKey;
 
 class VulkanRenderDevice : public SystemBaseFrameBuffer
 {
@@ -89,6 +90,7 @@ public:
 
 	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
 
+	int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) override;
 	void DrawLevelMesh(const HWViewpointUniforms& viewpoint) override;
 
 private:
@@ -118,6 +120,9 @@ private:
 
 	LevelMesh* levelMesh = nullptr;
 	bool levelMeshChanged = true;
+
+	int levelVertexFormatIndex = -1;
+	TArray<VkPipelineKey> levelMeshPipelineKeys;
 };
 
 class CVulkanError : public CEngineError

@@ -66,6 +66,7 @@ void MeshBuilder::Apply()
 	state.applyData.AlphaThreshold = mSurfaceUniforms.uAlphaThreshold;
 	state.applyData.DepthFunc = mDepthFunc;
 	state.applyData.FogEnabled = mFogEnabled;
+	state.applyData.FogColor = (mFogColor & 0xffffff) == 0;
 	state.applyData.BrightmapEnabled = mBrightmapEnabled;
 	state.applyData.TextureClamp = mTextureClamp;
 	state.applyData.TextureMode = mTextureMode;

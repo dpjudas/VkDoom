@@ -77,7 +77,7 @@ public:
 	VulkanBuffer* GetSurfaceUniformsBuffer() { return SurfaceUniformsBuffer.get(); }
 	VulkanBuffer* GetPortalBuffer() { return PortalBuffer.get(); }
 
-	int GetIndexCount();
+	LevelMesh* GetMesh() { return Mesh; }
 
 private:
 	struct BLAS

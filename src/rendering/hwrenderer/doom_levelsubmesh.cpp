@@ -112,19 +112,30 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 
 		// Part 1: solid geometry. This is set up so that there are no transparent parts
 		state.SetDepthFunc(DF_Less);
-		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.ClearDepthBias();
 		state.EnableTexture(gl_texture);
 		state.EnableBrightmap(true);
 
 		for (HWWall& wallpart : result.list)
 		{
+			if (wallpart.texture && wallpart.texture->isMasked())
+			{
+				state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+			}
+			else
+			{
+				state.AlphaFunc(Alpha_GEqual, 0.f);
+			}
+
 			wallpart.DrawWall(&disp, state, false);
 
+			int pipelineID = 0;
 			int startVertIndex = MeshVertices.Size();
 			for (auto& it : state.mSortedLists)
 			{
 				const MeshApplyState& applyState = it.first;
+
+				pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
 
 				int uniformsIndex = MeshSurfaceUniforms.Size();
 				MeshSurfaceUniforms.Push(applyState.surfaceUniforms);
@@ -154,6 +165,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			surf.numVerts = MeshVertices.Size() - startVertIndex;
 			surf.plane = ToPlane(MeshVertices[startVertIndex].fPos(), MeshVertices[startVertIndex + 1].fPos(), MeshVertices[startVertIndex + 2].fPos(), MeshVertices[startVertIndex + 3].fPos());
 			surf.texture = wallpart.texture;
+			surf.PipelineID = pipelineID;
 			Surfaces.Push(surf);
 		}
 	}
@@ -204,64 +216,80 @@ void DoomLevelSubmesh::CreateDynamicSurfaces(FLevelLocals& doomMap)
 
 void DoomLevelSubmesh::CreateIndexes()
 {
+	// Order indexes by pipeline
+	std::unordered_map<int, TArray<int>> pipelineSurfaces;
 	for (size_t i = 0; i < Surfaces.Size(); i++)
 	{
-		DoomLevelMeshSurface& s = Surfaces[i];
-		int numVerts = s.numVerts;
-		unsigned int pos = s.startVertIndex;
-		FFlatVertex* verts = &MeshVertices[pos];
+		DoomLevelMeshSurface* s = &Surfaces[i];
+		pipelineSurfaces[s->PipelineID].Push(i);
+	}
 
-		s.Vertices = verts;
-		s.startElementIndex = MeshElements.Size();
-		s.numElements = 0;
-
-		if (s.Type == ST_CEILING)
+	for (const auto& it : pipelineSurfaces)
+	{
+		LevelSubmeshDrawRange range;
+		range.PipelineID = it.first;
+		range.Start = MeshElements.Size();
+		for (unsigned int i : it.second)
 		{
-			for (int j = 2; j < numVerts; j++)
+			DoomLevelMeshSurface& s = Surfaces[i];
+			int numVerts = s.numVerts;
+			unsigned int pos = s.startVertIndex;
+			FFlatVertex* verts = &MeshVertices[pos];
+
+			s.Vertices = verts;
+			s.startElementIndex = MeshElements.Size();
+			s.numElements = 0;
+
+			if (s.Type == ST_CEILING)
 			{
-				if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
+				for (int j = 2; j < numVerts; j++)
 				{
-					MeshElements.Push(pos);
-					MeshElements.Push(pos + j - 1);
-					MeshElements.Push(pos + j);
+					if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
+					{
+						MeshElements.Push(pos);
+						MeshElements.Push(pos + j - 1);
+						MeshElements.Push(pos + j);
+						MeshSurfaceIndexes.Push((int)i);
+						s.numElements += 3;
+					}
+				}
+			}
+			else if (s.Type == ST_FLOOR)
+			{
+				for (int j = 2; j < numVerts; j++)
+				{
+					if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
+					{
+						MeshElements.Push(pos + j);
+						MeshElements.Push(pos + j - 1);
+						MeshElements.Push(pos);
+						MeshSurfaceIndexes.Push((int)i);
+						s.numElements += 3;
+					}
+				}
+			}
+			else if (s.Type == ST_MIDDLESIDE || s.Type == ST_UPPERSIDE || s.Type == ST_LOWERSIDE)
+			{
+				if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[1].fPos()))
+				{
+					MeshElements.Push(pos + 0);
+					MeshElements.Push(pos + 1);
+					MeshElements.Push(pos + 2);
+					MeshSurfaceIndexes.Push((int)i);
+					s.numElements += 3;
+				}
+				if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[3].fPos()))
+				{
+					MeshElements.Push(pos + 0);
+					MeshElements.Push(pos + 2);
+					MeshElements.Push(pos + 3);
 					MeshSurfaceIndexes.Push((int)i);
 					s.numElements += 3;
 				}
 			}
 		}
-		else if (s.Type == ST_FLOOR)
-		{
-			for (int j = 2; j < numVerts; j++)
-			{
-				if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
-				{
-					MeshElements.Push(pos + j);
-					MeshElements.Push(pos + j - 1);
-					MeshElements.Push(pos);
-					MeshSurfaceIndexes.Push((int)i);
-					s.numElements += 3;
-				}
-			}
-		}
-		else if (s.Type == ST_MIDDLESIDE || s.Type == ST_UPPERSIDE || s.Type == ST_LOWERSIDE)
-		{
-			if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[1].fPos()))
-			{
-				MeshElements.Push(pos + 0);
-				MeshElements.Push(pos + 1);
-				MeshElements.Push(pos + 2);
-				MeshSurfaceIndexes.Push((int)i);
-				s.numElements += 3;
-			}
-			if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[3].fPos()))
-			{
-				MeshElements.Push(pos + 0);
-				MeshElements.Push(pos + 2);
-				MeshElements.Push(pos + 3);
-				MeshSurfaceIndexes.Push((int)i);
-				s.numElements += 3;
-			}
-		}
+		range.Count = MeshElements.Size() - range.Start;
+		DrawList.Push(range);
 	}
 }
 
