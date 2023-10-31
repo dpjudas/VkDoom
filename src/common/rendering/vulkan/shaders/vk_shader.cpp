@@ -75,7 +75,8 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 
 		const auto& desc = effectshaders[key.SpecialEffect];
 		program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.defines, key.UseLevelMesh);
-		program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.defines, key);
+		if (!key.NoFragmentShader)
+			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.defines, key);
 	}
 	else
 	{
@@ -113,7 +114,8 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
 			program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.Defines, key.UseLevelMesh);
-			program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump, desc.Defines, key);
+			if (!key.NoFragmentShader)
+				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump, desc.Defines, key);
 		}
 		else
 		{
@@ -122,7 +124,8 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
 			program.vert = LoadVertShader(name, mainvp, defines.GetChars(), key.UseLevelMesh);
-			program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key);
+			if (!key.NoFragmentShader)
+				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key);
 		}
 	}
 	return &program;

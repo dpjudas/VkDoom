@@ -268,6 +268,7 @@ public:
 	std::unique_ptr<TriangleMeshShape> Collision;
 
 	TArray<LevelSubmeshDrawRange> DrawList;
+	TArray<LevelSubmeshDrawRange> PortalList;
 
 	// Lightmap atlas
 	int LMTextureCount = 0;

@@ -217,17 +217,17 @@ void DoomLevelSubmesh::CreateDynamicSurfaces(FLevelLocals& doomMap)
 void DoomLevelSubmesh::CreateIndexes()
 {
 	// Order indexes by pipeline
-	std::unordered_map<int, TArray<int>> pipelineSurfaces;
+	std::unordered_map<int64_t, TArray<int>> pipelineSurfaces;
 	for (size_t i = 0; i < Surfaces.Size(); i++)
 	{
 		DoomLevelMeshSurface* s = &Surfaces[i];
-		pipelineSurfaces[s->PipelineID].Push(i);
+		pipelineSurfaces[(int64_t(s->PipelineID) << 32) | int64_t(s->bSky)].Push(i);
 	}
 
 	for (const auto& it : pipelineSurfaces)
 	{
 		LevelSubmeshDrawRange range;
-		range.PipelineID = it.first;
+		range.PipelineID = it.first >> 32;
 		range.Start = MeshElements.Size();
 		for (unsigned int i : it.second)
 		{
@@ -289,7 +289,11 @@ void DoomLevelSubmesh::CreateIndexes()
 			}
 		}
 		range.Count = MeshElements.Size() - range.Start;
-		DrawList.Push(range);
+
+		if ((it.first & 1) == 0)
+			DrawList.Push(range);
+		else
+			PortalList.Push(range);
 	}
 }
 

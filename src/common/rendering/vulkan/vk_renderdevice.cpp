@@ -789,25 +789,72 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 	matrices.TextureMatrix.loadIdentity();
 	rsbuffers->MatrixBuffer->Write(matrices);
 
+	PushConstants pushConstants = {};
+	pushConstants.uDataIndex = 0;
+	pushConstants.uLightIndex = -1;
+	pushConstants.uBoneIndexBase = -1;
+
 	auto submesh = GetRaytrace()->GetMesh()->StaticMesh.get();
+
+	// Draw opaque scene into the depth buffer
 	for (LevelSubmeshDrawRange& range : submesh->DrawList)
 	{
-		auto& pipelineKey = levelMeshPipelineKeys[range.PipelineID];
-		VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers, pipelineKey.ShaderKey.UseLevelMesh);
-		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, passSetup->GetPipeline(pipelineKey));
+		VkPipelineKey pipelineKey = levelMeshPipelineKeys[range.PipelineID];
+		if (pipelineKey.ShaderKey.AlphaTest)
+			continue;
 
+		pipelineKey.ShaderKey.NoFragmentShader = true;
+
+		VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers, pipelineKey.ShaderKey.UseLevelMesh);
 		uint32_t viewpointOffset = viewpointIndex * rsbuffers->Viewpoint.BlockAlign;
 		uint32_t matrixOffset = rsbuffers->MatrixBuffer->Offset();
 		uint32_t lightsOffset = 0;
 		uint32_t offsets[] = { viewpointOffset, matrixOffset, lightsOffset };
+		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, passSetup->GetPipeline(pipelineKey));
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 3, offsets);
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());
+		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);
 
-		PushConstants pushConstants = {};
-		pushConstants.uDataIndex = 0;
-		pushConstants.uLightIndex = -1;
-		pushConstants.uBoneIndexBase = -1;
+		cmdbuffer->drawIndexed(range.Count, 1, range.Start, 0, 0);
+	}
+
+	// Draw portal surface occlusion queries
+
+	for (LevelSubmeshDrawRange& range : submesh->PortalList)
+	{
+		VkPipelineKey pipelineKey = levelMeshPipelineKeys[range.PipelineID];
+		pipelineKey.ShaderKey.NoFragmentShader = true;
+
+		VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers, pipelineKey.ShaderKey.UseLevelMesh);
+		uint32_t viewpointOffset = viewpointIndex * rsbuffers->Viewpoint.BlockAlign;
+		uint32_t matrixOffset = rsbuffers->MatrixBuffer->Offset();
+		uint32_t lightsOffset = 0;
+		uint32_t offsets[] = { viewpointOffset, matrixOffset, lightsOffset };
+		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, passSetup->GetPipeline(pipelineKey));
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 3, offsets);
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());
+		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);
+
+		// To do: add occlusion query
+
+		cmdbuffer->drawIndexed(range.Count, 1, range.Start, 0, 0);
+	}
+
+	// Draw opaque scene
+	for (LevelSubmeshDrawRange& range : submesh->DrawList)
+	{
+		auto& pipelineKey = levelMeshPipelineKeys[range.PipelineID];
+		VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers, pipelineKey.ShaderKey.UseLevelMesh);
+		uint32_t viewpointOffset = viewpointIndex * rsbuffers->Viewpoint.BlockAlign;
+		uint32_t matrixOffset = rsbuffers->MatrixBuffer->Offset();
+		uint32_t lightsOffset = 0;
+		uint32_t offsets[] = { viewpointOffset, matrixOffset, lightsOffset };
+		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, passSetup->GetPipeline(pipelineKey));
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 3, offsets);
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());
 		cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);
 
 		cmdbuffer->drawIndexed(range.Count, 1, range.Start, 0, 0);
