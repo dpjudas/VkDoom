@@ -23,6 +23,7 @@ class VkHardwareTexture;
 class VkRenderBuffers;
 class VkPostprocess;
 class VkPipelineKey;
+class VkRenderPassSetup;
 
 class VulkanRenderDevice : public SystemBaseFrameBuffer
 {
@@ -97,6 +98,7 @@ private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
 	void PrintStartupLog();
 	void CopyScreenToBuffer(int w, int h, uint8_t *data) override;
+	void DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkRenderPassSetup* passSetup, const VkPipelineKey& pipelineKey, int viewpointIndex, int start, int count, int stencilRef);
 
 	std::shared_ptr<VulkanDevice> mDevice;
 	std::unique_ptr<VkCommandBufferManager> mCommands;
