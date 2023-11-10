@@ -2896,15 +2896,17 @@ OptionValue "os_isanyof_values"
 	1, "$OS_ANY"
 }
 
-/*=======================================
- *
- * Vulkan Menu
- *
- *=======================================*/
-
 OptionValue "SpriteShadowModes"
 {
 	0, "$OPTVAL_OFF"
 	1, "$OPTVAL_DEFAULT"
 	2, "$OPTVAL_SPRSHADALWAYS"
 }
+
+// Add dummy entries for the old simple menus since some mods try to add items to them
+OptionMenu "OptionsMenuSimple" protected {}
+OptionMenu SoundOptionsSimple protected {}
+OptionMenu VideoOptionsSimple protected {}
+OptionMenu ScalingOptionsSimple protected {}
+OptionMenu MiscOptionsSimple protected {}
+OptionMenu "MouseOptionsSimple" protected {}
