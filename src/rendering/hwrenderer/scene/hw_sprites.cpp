@@ -33,7 +33,6 @@
 #include "r_sky.h"
 #include "r_utility.h"
 #include "a_pickups.h"
-#include "a_fogball.h"
 #include "d_player.h"
 #include "g_levellocals.h"
 #include "events.h"

@@ -1,4 +1,4 @@
-class Fogball : Actor native
+class Fogball : Actor
 {
 	Default
 	{
