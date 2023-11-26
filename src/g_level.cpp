@@ -1522,7 +1522,7 @@ void FLevelLocals::DoLoadLevel(const FString &nextmapname, int position, bool au
 	
 
 	// [Nash] allow modder control of autosaving
-	if (changeflags & CHANGELEVEL_NOAUTOSAVE)
+	if ((changeflags & CHANGELEVEL_NOAUTOSAVE) || (vkdflags & VKDLEVELFLAG_NOAUTOSAVEONENTER))
 		autosave = false;
 
 	// [RH] Always save the game when entering a new 
