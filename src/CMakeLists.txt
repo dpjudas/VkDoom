@@ -742,6 +742,7 @@ set( FASTMATH_SOURCES
 #Vulkan stuff must go into a separate list because it needs to be disabled for some platforms
 set (VULKAN_SOURCES
 	common/rendering/vulkan/vk_renderdevice.cpp
+	common/rendering/vulkan/vk_workerthread.cpp
 	common/rendering/vulkan/vk_renderstate.cpp
 	common/rendering/vulkan/vk_postprocess.cpp
 	common/rendering/vulkan/vk_pprenderstate.cpp

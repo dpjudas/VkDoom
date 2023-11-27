@@ -40,6 +40,7 @@
 #include "flatvertices.h"
 
 #include "vk_renderdevice.h"
+#include "vk_workerthread.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_postprocess.h"
 #include "vulkan/accelstructs/vk_raytrace.h"
@@ -152,10 +153,14 @@ VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::sha
 	{
 		I_FatalError("This GPU does not support the minimum requirements of this application");
 	}
+
+	mWorkerThread = std::make_unique<VkWorkerThread>(this);
 }
 
 VulkanRenderDevice::~VulkanRenderDevice()
 {
+	mWorkerThread.reset();
+
 	vkDeviceWaitIdle(mDevice->device); // make sure the GPU is no longer using any objects before RAII tears them down
 
 	delete mSkyData;
@@ -474,6 +479,8 @@ TArray<uint8_t> VulkanRenderDevice::GetScreenshotBuffer(int &pitch, ESSType &col
 
 void VulkanRenderDevice::BeginFrame()
 {
+	mWorkerThread->BeginFrame();
+
 	if (levelMeshChanged)
 	{
 		levelMeshChanged = false;
@@ -694,7 +701,10 @@ void VulkanRenderDevice::DrawLevelMesh(const HWViewpointUniforms& viewpoint)
 
 	VulkanPipelineLayout* layout = GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers);
 
-	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, passSetup->GetPipeline(pipelineKey));
+	auto pipeline = passSetup->GetPipeline(pipelineKey);
+	if (!pipeline)
+		return;
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 	auto rsbuffers = GetBufferManager()->GetRSBuffers();
 	memcpy(((char*)rsbuffers->Viewpoint.Data) + rsbuffers->Viewpoint.UploadIndex * rsbuffers->Viewpoint.BlockAlign, &viewpoint, sizeof(HWViewpointUniforms));

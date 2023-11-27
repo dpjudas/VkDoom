@@ -85,6 +85,8 @@ private:
 	std::unique_ptr<VulkanPipeline> CreatePipeline(const VkPipelineKey &key);
 
 	VulkanRenderDevice* fb = nullptr;
+
+	friend class VkLoadPipelineWork;
 };
 
 class VkVertexFormat

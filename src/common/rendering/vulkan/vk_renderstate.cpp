@@ -65,7 +65,8 @@ void VkRenderState::ClearScreen()
 	SetColor(0, 0, 0);
 	Apply(DT_TriangleStrip);
 
-	mCommandBuffer->draw(4, 1, vertices.second, 0);
+	if (mFoundPipeline)
+		mCommandBuffer->draw(4, 1, vertices.second, 0);
 }
 
 void VkRenderState::Draw(int dt, int index, int count, bool apply)
@@ -73,7 +74,8 @@ void VkRenderState::Draw(int dt, int index, int count, bool apply)
 	if (apply || mNeedApply)
 		Apply(dt);
 
-	mCommandBuffer->draw(count, 1, index, 0);
+	if (mFoundPipeline)
+		mCommandBuffer->draw(count, 1, index, 0);
 }
 
 void VkRenderState::DrawIndexed(int dt, int index, int count, bool apply)
@@ -81,7 +83,8 @@ void VkRenderState::DrawIndexed(int dt, int index, int count, bool apply)
 	if (apply || mNeedApply)
 		Apply(dt);
 
-	mCommandBuffer->drawIndexed(count, 1, index, 0, 0);
+	if (mFoundPipeline)
+		mCommandBuffer->drawIndexed(count, 1, index, 0, 0);
 }
 
 bool VkRenderState::SetDepthClamp(bool on)
@@ -197,15 +200,18 @@ void VkRenderState::Apply(int dt)
 	ApplyStreamData();
 	ApplyMatrices();
 	ApplyRenderPass(dt);
-	ApplyScissor();
-	ApplyViewport();
-	ApplyStencilRef();
-	ApplyDepthBias();
-	ApplyPushConstants();
-	ApplyVertexBuffers();
-	ApplyBufferSets();
-	ApplyMaterial();
-	mNeedApply = false;
+	if (mFoundPipeline)
+	{
+		ApplyScissor();
+		ApplyViewport();
+		ApplyStencilRef();
+		ApplyDepthBias();
+		ApplyPushConstants();
+		ApplyVertexBuffers();
+		ApplyBufferSets();
+		ApplyMaterial();
+		mNeedApply = false;
+	}
 
 	drawcalls.Unclock();
 }
@@ -322,7 +328,10 @@ void VkRenderState::ApplyRenderPass(int dt)
 
 	if (changingPipeline)
 	{
-		mCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, mPassSetup->GetPipeline(pipelineKey));
+		auto pipeline = mPassSetup->GetPipeline(pipelineKey);
+		mFoundPipeline = (pipeline != nullptr);
+		if (pipeline)
+			mCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 		mPipelineKey = pipelineKey;
 	}
 }

@@ -126,4 +126,7 @@ private:
 	std::map<VkShaderKey, VkShaderProgram> programs;
 
 	std::list<VkPPShader*> PPShaders;
+
+	FString GetStringFromLump(int lump, bool zerotruncate = true);
+	FileSys::FileSystem fileSystem;
 };

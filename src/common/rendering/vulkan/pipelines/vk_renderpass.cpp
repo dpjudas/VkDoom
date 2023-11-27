@@ -24,6 +24,7 @@
 #include "vk_pprenderpass.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_renderdevice.h"
+#include "vulkan/vk_workerthread.h"
 #include "vulkan/accelstructs/vk_raytrace.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/textures/vk_renderbuffers.h"
@@ -232,12 +233,29 @@ VulkanRenderPass *VkRenderPassSetup::GetRenderPass(int clearTargets)
 	return RenderPasses[clearTargets].get();
 }
 
+class VkLoadPipelineWork : public VkQueuedWork
+{
+public:
+	VkLoadPipelineWork(VkRenderPassSetup* setup, const VkPipelineKey& key) : setup(setup), key(key) { }
+
+	void RunOnWorker() override { pipeline = setup->CreatePipeline(key); }
+	void RunOnMainThread() override { setup->Pipelines[key] = std::move(pipeline); }
+
+private:
+	VkRenderPassSetup* setup;
+	VkPipelineKey key;
+	std::unique_ptr<VulkanPipeline> pipeline;
+};
+
 VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key)
 {
-	auto &item = Pipelines[key];
-	if (!item)
-		item = CreatePipeline(key);
-	return item.get();
+	auto it = Pipelines.find(key);
+	if (it != Pipelines.end())
+		return it->second.get();
+
+	Pipelines[key] = nullptr;
+	fb->GetWorkerThread()->AddWork(std::make_unique<VkLoadPipelineWork>(this, key));
+	return nullptr;
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipelineKey &key)

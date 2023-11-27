@@ -29,9 +29,15 @@
 #include "engineerrors.h"
 #include "version.h"
 #include "cmdlib.h"
+#include "common/engine/filesystem.h"
+#include "common/utility/findfile.h"
+#include "version.h"
 
 VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 {
+	// To do: we need to copy the fileSystem settings from the main thread. What is the best way to do that?
+	std::vector<std::string> filenames = { BaseFileSearch(BASEWAD, NULL, true, nullptr) };
+	fileSystem.InitMultipleFiles(filenames, nullptr, nullptr);
 }
 
 VkShaderManager::~VkShaderManager()
@@ -305,6 +311,14 @@ ShaderIncludeResult VkShaderManager::OnInclude(FString headerName, FString inclu
 	code << "#endif\n";
 
 	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
+}
+
+FString VkShaderManager::GetStringFromLump(int lump, bool zerotruncate)
+{
+	auto fd = fileSystem.ReadFile(lump);
+	FString ScriptBuffer(fd.GetString(), fd.GetSize());
+	if (zerotruncate) ScriptBuffer.Truncate(strlen(ScriptBuffer.GetChars()));	// this is necessary to properly truncate the generated string to not contain 0 bytes.
+	return ScriptBuffer;
 }
 
 FString VkShaderManager::LoadPublicShaderLump(const char *lumpname)

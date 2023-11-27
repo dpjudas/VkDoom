@@ -22,6 +22,7 @@ class VkHardwareDataBuffer;
 class VkHardwareTexture;
 class VkRenderBuffers;
 class VkPostprocess;
+class VkWorkerThread;
 
 class VulkanRenderDevice : public SystemBaseFrameBuffer
 {
@@ -42,6 +43,7 @@ public:
 	VkLightmap* GetLightmap() { return mLightmap.get(); }
 	VkRenderState *GetRenderState() { return mRenderState.get(); }
 	VkPostprocess *GetPostprocess() { return mPostprocess.get(); }
+	VkWorkerThread* GetWorkerThread() { return mWorkerThread.get(); }
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
 	FRenderState* RenderState() override;
 
@@ -111,6 +113,7 @@ private:
 	std::unique_ptr<VkRaytrace> mRaytrace;
 	std::unique_ptr<VkLightmap> mLightmap;
 	std::unique_ptr<VkRenderState> mRenderState;
+	std::unique_ptr<VkWorkerThread> mWorkerThread;
 
 	VkRenderBuffers *mActiveRenderBuffers = nullptr;
 
