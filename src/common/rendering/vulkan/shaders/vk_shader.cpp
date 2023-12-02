@@ -35,9 +35,6 @@
 
 VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 {
-	// To do: we need to copy the fileSystem settings from the main thread. What is the best way to do that?
-	std::vector<std::string> filenames = { BaseFileSearch(BASEWAD, NULL, true, nullptr) };
-	fileSystem.InitMultipleFiles(filenames, nullptr, nullptr);
 }
 
 VkShaderManager::~VkShaderManager()
@@ -315,7 +312,7 @@ ShaderIncludeResult VkShaderManager::OnInclude(FString headerName, FString inclu
 
 FString VkShaderManager::GetStringFromLump(int lump, bool zerotruncate)
 {
-	auto fd = fileSystem.ReadFile(lump);
+	auto fd = workerFileSystem.ReadFile(lump);
 	FString ScriptBuffer(fd.GetString(), fd.GetSize());
 	if (zerotruncate) ScriptBuffer.Truncate(strlen(ScriptBuffer.GetChars()));	// this is necessary to properly truncate the generated string to not contain 0 bytes.
 	return ScriptBuffer;
@@ -323,15 +320,15 @@ FString VkShaderManager::GetStringFromLump(int lump, bool zerotruncate)
 
 FString VkShaderManager::LoadPublicShaderLump(const char *lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
-	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
+	int lump = workerFileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) lump = workerFileSystem.CheckNumForFullName(lumpname);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
 	return GetStringFromLump(lump);
 }
 
 FString VkShaderManager::LoadPrivateShaderLump(const char *lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	int lump = workerFileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
 	return GetStringFromLump(lump);
 }

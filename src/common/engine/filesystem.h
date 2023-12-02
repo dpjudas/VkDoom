@@ -5,3 +5,4 @@ using FileSys::FileSystem;
 using FileSys::FResourceFile;
 
 inline FileSys::FileSystem fileSystem;
+inline FileSys::FileSystem workerFileSystem;

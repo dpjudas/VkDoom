@@ -3189,9 +3189,18 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		std::make_move_iterator(pwads.end())
 	);
 
+	LumpFilterInfo lfiWorker = lfi;
+	lfiWorker.postprocessFunc = [&]()
+	{
+		RenameNerve(workerFileSystem);
+		RenameSprites(workerFileSystem, iwad_info->DeleteLumps);
+		FixMacHexen(workerFileSystem);
+		FindStrifeTeaserVoices(workerFileSystem);
+	};
+
 	bool allowduplicates = Args->CheckParm("-allowduplicates");
 	auto hashfile = D_GetHashFile();
-	if (!fileSystem.InitMultipleFiles(allwads, &lfi, FileSystemPrintf, allowduplicates, hashfile))
+	if (!fileSystem.InitMultipleFiles(allwads, &lfi, FileSystemPrintf, allowduplicates, hashfile) || !workerFileSystem.InitMultipleFiles(allwads, &lfiWorker, nullptr, allowduplicates, nullptr))
 	{
 		I_FatalError("FileSystem: no files found");
 	}
