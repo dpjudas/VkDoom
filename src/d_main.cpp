@@ -3200,9 +3200,13 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 
 	bool allowduplicates = Args->CheckParm("-allowduplicates");
 	auto hashfile = D_GetHashFile();
-	if (!fileSystem.InitMultipleFiles(allwads, &lfi, FileSystemPrintf, allowduplicates, hashfile) || !workerFileSystem.InitMultipleFiles(allwads, &lfiWorker, nullptr, allowduplicates, nullptr))
+	if (!fileSystem.InitMultipleFiles(allwads, &lfi, FileSystemPrintf, allowduplicates, hashfile))
 	{
 		I_FatalError("FileSystem: no files found");
+	}
+	if (!workerFileSystem.InitMultipleFiles(allwads, &lfiWorker, nullptr, allowduplicates, nullptr))
+	{
+		I_FatalError("WorkerFileSystem: no files found");
 	}
 	allwads.clear();
 	allwads.shrink_to_fit();
