@@ -65,6 +65,7 @@ CVAR(Float, gl_mask_sprite_threshold, 0.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, gl_coronas, true, CVAR_ARCHIVE);
 
 CVAR(Bool, gl_meshcache, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+CVAR(Bool, gl_levelmesh, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
 sector_t * hw_FakeFlat(sector_t * sec, sector_t * dest, area_t in_area, bool back);
 
@@ -400,7 +401,28 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 	// clip the scene and fill the drawlists
 
-	RenderBSP(Level->HeadNode(), drawpsprites, state);
+	if (gl_levelmesh)
+	{
+		// To do:
+		// 1) draw level into depth buffer
+		// 2) use occlusion queries on all portals in level to decide which are visible
+		// 3) draw opaque level so the GPU has something to do while we examine the query results
+		// 4) retrieve the query results and use them to fill the portal manager with portals
+		// 
+		state.DrawLevelMeshDepthPass();
+		// for (HWWall& wall : PortalWalls) { state.BeginQuery(); wall.Draw(state); state.EndQuery(); }
+		// for (HWFlat& flat : PortalFlats) { state.BeginQuery(); flat.Draw(state); state.EndQuery(); }
+		state.DrawLevelMeshOpaquePass();
+		state.GetQueryResults(QueryResultsBuffer);
+		for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
+		{
+			bool portalVisible = QueryResultsBuffer[i];
+		}
+	}
+	else
+	{
+		RenderBSP(Level->HeadNode(), drawpsprites, state);
+	}
 
 	// And now the crappy hacks that have to be done to avoid rendering anomalies.
 	// These cannot be multithreaded when the time comes because all these depend
@@ -851,7 +873,6 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 		state.SetFogballIndex(-1);
 	}
 }
-
 
 //-----------------------------------------------------------------------------
 //

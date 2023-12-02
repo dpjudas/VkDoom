@@ -92,13 +92,13 @@ public:
 	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
 
 	int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) override;
-	void DrawLevelMesh(const HWViewpointUniforms& viewpoint) override;
+
+	const VkPipelineKey& GetLevelMeshPipelineKey(int id) const;
 
 private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
 	void PrintStartupLog();
 	void CopyScreenToBuffer(int w, int h, uint8_t *data) override;
-	void DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkRenderPassSetup* passSetup, const VkPipelineKey& pipelineKey, int viewpointIndex, int start, int count, int stencilRef);
 
 	std::shared_ptr<VulkanDevice> mDevice;
 	std::unique_ptr<VkCommandBufferManager> mCommands;

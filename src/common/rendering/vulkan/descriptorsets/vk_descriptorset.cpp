@@ -82,6 +82,7 @@ void VkDescriptorSetManager::Deinit()
 void VkDescriptorSetManager::BeginFrame()
 {
 	UpdateFixedSet();
+	UpdateLevelMeshSet();
 }
 
 void VkDescriptorSetManager::UpdateLevelMeshSet()

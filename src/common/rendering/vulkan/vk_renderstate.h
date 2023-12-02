@@ -56,6 +56,13 @@ public:
 	void UpdateShadowData(unsigned int index, const FFlatVertex* vertices, unsigned int count) override;
 	void ResetVertices() override;
 
+	// Draw level mesh
+	void DrawLevelMeshDepthPass() override;
+	void DrawLevelMeshOpaquePass() override;
+	void BeginQuery() override;
+	void EndQuery() override;
+	void GetQueryResults(TArray<bool>& results) override;
+
 	// Worker threads
 	void FlushCommands() override { EndRenderPass(); }
 
@@ -80,6 +87,9 @@ protected:
 
 	void BeginRenderPass(VulkanCommandBuffer *cmdbuffer);
 	void WaitForStreamBuffers();
+
+	void ApplyLevelMesh();
+	void DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, const VkPipelineKey& pipelineKey, int start, int count);
 
 	VulkanRenderDevice* fb = nullptr;
 
@@ -108,6 +118,8 @@ protected:
 	int mDepthFunc = 0;
 	int mColorMask = 15;
 	int mCullMode = 0;
+
+	int mNextOcclusionQueryIndex = 0;
 
 	PushConstants mPushConstants = {};
 

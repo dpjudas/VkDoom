@@ -57,8 +57,6 @@ EXTERN_CVAR(Bool, gl_bandedswlight)
 
 extern bool NoInterpolateView;
 
-CVAR(Bool, gl_levelmesh, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
-
 static SWSceneDrawer *swdrawer;
 
 void CleanSWDrawer()
@@ -131,67 +129,6 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 	// Update the attenuation flag of all light defaults for each viewpoint.
 	// This function will only do something if the setting differs.
 	FLightDefaults::SetAttenuationForLevel(!!(camera->Level->flags3 & LEVEL3_ATTENUATE));
-
-	if (gl_levelmesh)
-	{
-		screen->SetViewportRects(bounds);
-
-		auto vrmode = VRMode::GetVRMode(mainview && toscreen);
-		const int eyeCount = vrmode->mEyeCount;
-		screen->FirstEye();
-
-		FRenderViewpoint vp = mainvp;
-		const auto& eye = vrmode->mEyes[0];
-		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
-
-		vp.SetViewAngle(r_viewwindow);
-
-		vp.FieldOfView = DAngle::fromDeg(fov);	// Set the real FOV for the current scene (it's not necessarily the same as the global setting in r_viewpoint)
-
-		auto lightmode = camera->Level->info->lightmode;
-		if (lightmode == ELightMode::NotSet)
-			lightmode = ELightMode::ZDoomSoftware;
-
-		bool mirror = false;
-		bool planemirror = false;
-		float mult = mirror ? -1.f : 1.f;
-		float planemult = planemirror ? -camera->Level->info->pixelstretch : camera->Level->info->pixelstretch;
-		HWViewpointUniforms VPUniforms = {};
-		VPUniforms.mProjectionMatrix = eye.GetProjection(fov, ratio, fovratio);
-		VPUniforms.mViewMatrix.loadIdentity();
-		VPUniforms.mViewMatrix.rotate(vp.HWAngles.Roll.Degrees(), 0.0f, 0.0f, 1.0f);
-		VPUniforms.mViewMatrix.rotate(vp.HWAngles.Pitch.Degrees(), 1.0f, 0.0f, 0.0f);
-		VPUniforms.mViewMatrix.rotate(vp.HWAngles.Yaw.Degrees(), 0.0f, mult, 0.0f);
-		VPUniforms.mViewMatrix.translate(vp.Pos.X * mult, -vp.Pos.Z * planemult, -vp.Pos.Y);
-		VPUniforms.mViewMatrix.scale(-mult, planemult, 1);
-		VPUniforms.mViewHeight = viewheight;
-		VPUniforms.mGlobVis = (float)R_GetGlobVis(r_viewwindow, r_visibility) / 32.f;
-		VPUniforms.mPalLightLevels = static_cast<int>(gl_bandedswlight) | (static_cast<int>(gl_fogmode) << 8) | ((int)lightmode << 16);
-		VPUniforms.mClipLine.X = -10000000.0f;
-		VPUniforms.mShadowFilter = static_cast<int>(gl_light_shadow_filter);
-		VPUniforms.mLightBlendMode = (level.info ? (int)level.info->lightblendmode : 0);
-		VPUniforms.mCameraPos = FVector4(vp.Pos.X, vp.Pos.Z, vp.Pos.Y, 0.0f);
-		VPUniforms.CalcDependencies();
-
-		screen->DrawLevelMesh(VPUniforms);
-
-		PostProcess.Clock();
-		//if (toscreen) di->EndDrawScene(mainvp.sector, RenderState); // do not call this for camera textures.
-
-		/*if (RenderState.GetPassType() == GBUFFER_PASS) // Turn off ssao draw buffers
-		{
-			RenderState.SetPassType(NORMAL_PASS);
-			RenderState.EnableDrawBuffers(1);
-		}*/
-
-		auto cm = CM_DEFAULT; // di->SetFullbrightFlags(mainview ? vp.camera->player : nullptr);
-		float flash = 1.f;
-
-		screen->PostProcessScene(false, cm, flash, [&]() { /* di->DrawEndScene2D(mainvp.sector, RenderState); */ });
-		PostProcess.Unclock();
-
-		return mainvp.sector;
-	}
 
 	static HWDrawContext mainthread_drawctx;
 

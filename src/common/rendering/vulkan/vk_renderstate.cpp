@@ -28,6 +28,7 @@
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/textures/vk_hwtexture.h"
+#include "vulkan/accelstructs/vk_raytrace.h"
 #include <zvulkan/vulkanbuilders.h>
 
 #include "hw_skydome.h"
@@ -739,6 +740,8 @@ void VkRenderState::BeginFrame()
 	mRSBuffers->Lightbuffer.UploadIndex = 0;
 	mRSBuffers->Bonebuffer.UploadIndex = 0;
 	mRSBuffers->Fogballbuffer.UploadIndex = 0;
+
+	mNextOcclusionQueryIndex = 0;
 }
 
 void VkRenderState::EndRenderPass()
@@ -829,6 +832,91 @@ void VkRenderState::BeginRenderPass(VulkanCommandBuffer *cmdbuffer)
 
 	mMaterial.mChanged = true;
 	mClearTargets = 0;
+}
+
+void VkRenderState::ApplyLevelMesh()
+{
+	ApplyMatrices();
+	ApplyRenderPass(DT_Triangles);
+	ApplyScissor();
+	ApplyViewport();
+	ApplyStencilRef();
+	ApplyDepthBias();
+	mNeedApply = true;
+
+	VkBuffer vertexBuffers[2] = { fb->GetRaytrace()->GetVertexBuffer()->buffer, fb->GetRaytrace()->GetUniformIndexBuffer()->buffer };
+	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
+	mCommandBuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);
+	mCommandBuffer->bindIndexBuffer(fb->GetRaytrace()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+}
+
+void VkRenderState::DrawLevelMeshDepthPass()
+{
+	ApplyLevelMesh();
+
+	auto submesh = fb->GetRaytrace()->GetMesh()->StaticMesh.get();
+	for (LevelSubmeshDrawRange& range : submesh->DrawList)
+	{
+		VkPipelineKey pipelineKey = fb->GetLevelMeshPipelineKey(range.PipelineID);
+		if (pipelineKey.ShaderKey.AlphaTest) continue;
+		pipelineKey.ShaderKey.NoFragmentShader = true;
+		DrawLevelMeshRange(mCommandBuffer, pipelineKey, range.Start, range.Count);
+	}
+	for (LevelSubmeshDrawRange& range : submesh->PortalList)
+	{
+		VkPipelineKey pipelineKey = fb->GetLevelMeshPipelineKey(range.PipelineID);
+		pipelineKey.ShaderKey.NoFragmentShader = true;
+		DrawLevelMeshRange(mCommandBuffer, pipelineKey, range.Start, range.Count);
+	}
+}
+
+void VkRenderState::DrawLevelMeshOpaquePass()
+{
+	ApplyLevelMesh();
+
+	auto submesh = fb->GetRaytrace()->GetMesh()->StaticMesh.get();
+	for (LevelSubmeshDrawRange& range : submesh->DrawList)
+	{
+		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count);
+	}
+}
+
+void VkRenderState::BeginQuery()
+{
+	// mCommandBuffer->beginQuery(mNextOcclusionQueryIndex++);
+}
+
+void VkRenderState::EndQuery()
+{
+	// mCommandBuffer->endQuery(mNextOcclusionQueryIndex - 1);
+}
+
+void VkRenderState::GetQueryResults(TArray<bool>& results)
+{
+	//vkGetQueryPoolResults(fb->GetDevice()->device, ...)
+	results.Clear();
+}
+
+void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, const VkPipelineKey& pipelineKey, int start, int count)
+{
+	PushConstants pushConstants = {};
+	pushConstants.uDataIndex = 0;
+	pushConstants.uLightIndex = -1;
+	pushConstants.uBoneIndexBase = -1;
+
+	VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(pipelineKey.NumTextureLayers, pipelineKey.ShaderKey.UseLevelMesh);
+	uint32_t viewpointOffset = mViewpointOffset;
+	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
+	uint32_t lightsOffset = 0;
+	uint32_t offsets[] = { viewpointOffset, matrixOffset, lightsOffset };
+
+	auto descriptors = fb->GetDescriptorSetManager();
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, mPassSetup->GetPipeline(pipelineKey));
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 3, offsets);
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());
+	cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);
+	cmdbuffer->drawIndexed(count, 1, start, 0, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////

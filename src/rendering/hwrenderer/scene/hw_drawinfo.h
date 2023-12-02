@@ -183,6 +183,7 @@ struct HWDrawInfo
 
 	bool MeshBSP = false;
 	bool MeshBuilding = false;
+	TArray<bool> QueryResultsBuffer;
 
 	HWDrawInfo(HWDrawContext* drawctx) : drawctx(drawctx) { for (HWDrawList& list : drawlists) list.drawctx = drawctx; }
 

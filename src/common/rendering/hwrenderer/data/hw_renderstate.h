@@ -688,6 +688,13 @@ public:
 		SetColorMask(on, on, on, on);
 	}
 
+	// Draw level mesh
+	virtual void DrawLevelMeshDepthPass() { }
+	virtual void DrawLevelMeshOpaquePass() { }
+	virtual void BeginQuery() { }
+	virtual void EndQuery() { }
+	virtual void GetQueryResults(TArray<bool>& results) { }
+
 	friend class Mesh;
 };
 
