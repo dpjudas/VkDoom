@@ -691,9 +691,10 @@ public:
 	// Draw level mesh
 	virtual void DrawLevelMeshDepthPass() { }
 	virtual void DrawLevelMeshOpaquePass() { }
+	virtual int GetNextQueryIndex() { return 0; }
 	virtual void BeginQuery() { }
 	virtual void EndQuery() { }
-	virtual void GetQueryResults(TArray<bool>& results) { }
+	virtual void GetQueryResults(int start, int count, TArray<bool>& results) { }
 
 	friend class Mesh;
 };

@@ -105,6 +105,10 @@ VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 		.Create(fb->GetDevice());
 
 	Fogballbuffer.Data = Fogballbuffer.UBO->Map(0, Fogballbuffer.UBO->size);
+
+	OcclusionQuery.QueryPool = QueryPoolBuilder()
+		.QueryType(VK_QUERY_TYPE_OCCLUSION, OcclusionQuery.MaxQueries)
+		.Create(fb->GetDevice());
 }
 
 VkRSBuffers::~VkRSBuffers()

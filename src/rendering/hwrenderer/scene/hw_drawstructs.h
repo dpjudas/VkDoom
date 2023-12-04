@@ -8,7 +8,6 @@
 #include "renderstyle.h"
 #include "textures.h"
 #include "r_data/colormaps.h"
-#include "doom_levelmesh.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable:4244)
@@ -33,6 +32,7 @@ struct HWDecal;
 struct FSection;
 enum area_t : int;
 class HWDrawContext;
+class DoomLevelMeshSurface;
 
 enum HWRenderStyle
 {
@@ -65,6 +65,16 @@ enum PortalTypes
 	PORTALTYPE_PLANEMIRROR,
 	PORTALTYPE_MIRROR,
 	PORTALTYPE_LINETOLINE,
+};
+
+enum DoomLevelMeshSurfaceType
+{
+	ST_NONE,
+	ST_MIDDLESIDE,
+	ST_UPPERSIDE,
+	ST_LOWERSIDE,
+	ST_CEILING,
+	ST_FLOOR
 };
 
 //==========================================================================

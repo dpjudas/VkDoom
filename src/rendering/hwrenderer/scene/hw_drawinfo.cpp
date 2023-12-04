@@ -35,6 +35,7 @@
 #include "hw_renderstate.h"
 #include "hw_drawinfo.h"
 #include "hw_drawcontext.h"
+#include "hw_walldispatcher.h"
 #include "po_man.h"
 #include "models.h"
 #include "hw_clock.h"
@@ -403,21 +404,59 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 	if (gl_levelmesh)
 	{
-		// To do:
-		// 1) draw level into depth buffer
-		// 2) use occlusion queries on all portals in level to decide which are visible
-		// 3) draw opaque level so the GPU has something to do while we examine the query results
-		// 4) retrieve the query results and use them to fill the portal manager with portals
-		// 
+		// Give the DrawInfo the viewpoint in fixed point because that's what the nodes are.
+		viewx = FLOAT2FIXED(Viewpoint.Pos.X);
+		viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
+
+		validcount++;	// used for processing sidedefs only once by the renderer.
+
+		auto& wallPortals = static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->WallPortals;
+
+		// draw level into depth buffer
 		state.DrawLevelMeshDepthPass();
-		// for (HWWall& wall : PortalWalls) { state.BeginQuery(); wall.Draw(state); state.EndQuery(); }
-		// for (HWFlat& flat : PortalFlats) { state.BeginQuery(); flat.Draw(state); state.EndQuery(); }
+
+		// use occlusion queries on all portals in level to decide which are visible
+		int queryStart = state.GetNextQueryIndex();
+		state.SetColorMask(false);
+		state.SetDepthMask(false);
+		state.EnableTexture(false);
+		state.SetEffect(EFF_FOGBOUNDARY);
+		state.AlphaFunc(Alpha_GEqual, 0.f);
+		for (HWWall& wall : wallPortals)
+		{
+			state.BeginQuery();
+
+			wall.MakeVertices(state, false);
+			wall.RenderWall(state, HWWall::RWF_BLANK);
+			wall.vertcount = 0;
+
+			state.EndQuery();
+		}
+		state.SetEffect(EFF_NONE);
+		state.EnableTexture(true);
+		state.SetColorMask(true);
+		state.SetDepthMask(true);
+		int queryEnd = state.GetNextQueryIndex();
+
+		// draw opaque level so the GPU has something to do while we examine the query results
 		state.DrawLevelMeshOpaquePass();
-		state.GetQueryResults(QueryResultsBuffer);
+
+		// retrieve the query results and use them to fill the portal manager with portals
+		state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);
 		for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
 		{
 			bool portalVisible = QueryResultsBuffer[i];
+			if (portalVisible)
+			{
+				PutWallPortal(wallPortals[i], state);
+			}
 		}
+
+		// Process all the sprites on the current portal's back side which touch the portal.
+		if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
+
+		if (drawpsprites)
+			PreparePlayerSprites(Viewpoint.sector, in_area, state);
 	}
 	else
 	{
@@ -445,6 +484,34 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 	ProcessAll.Unclock();
 
+}
+
+void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
+{
+	HWWallDispatcher ddi(this);
+
+	int portaltype = wall.portaltype;
+	int portalplane = wall.portalplane;
+
+	HWSkyInfo skyinfo;
+	if (portaltype == PORTALTYPE_SKY)
+	{
+		skyinfo.init(this, wall.frontsector->sky, wall.Colormap.FadeColor);
+		wall.sky = &skyinfo;
+	}
+	else if (portaltype == PORTALTYPE_SECTORSTACK)
+	{
+		if (screen->instack[1 - portalplane])
+			return;
+	}
+	else if (portaltype == PORTALTYPE_PLANEMIRROR)
+	{
+		auto vpz = Viewpoint.Pos.Z;
+		if ((portalplane == sector_t::ceiling && vpz > wall.frontsector->ceilingplane.fD()) || (portalplane == sector_t::floor && vpz < -wall.frontsector->floorplane.fD()))
+			return;
+		wall.planemirror = (portalplane == sector_t::ceiling) ? &wall.frontsector->ceilingplane : &wall.frontsector->floorplane;
+	}
+	wall.PutPortal(&ddi, state, portaltype, portalplane);
 }
 
 void HWDrawInfo::UpdateLightmaps()
@@ -850,7 +917,7 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	}
 
 	state.SetDepthMask(true);
-	if (!gl_no_skyclear) drawctx->portalState.RenderFirstSkyPortal(recursion, this, state);
+	if (!gl_no_skyclear && !gl_levelmesh) drawctx->portalState.RenderFirstSkyPortal(recursion, this, state);
 
 	RenderScene(state);
 

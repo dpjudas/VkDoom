@@ -262,6 +262,7 @@ public:
 
 	void DrawScene(int drawmode, FRenderState& state);
 	void CreateScene(bool drawpsprites, FRenderState& state);
+	void PutWallPortal(HWWall wall, FRenderState& state);
 	void RenderScene(FRenderState &state);
 	void RenderTranslucent(FRenderState &state);
 	void RenderPortal(HWPortal *p, FRenderState &state, bool usestencil);

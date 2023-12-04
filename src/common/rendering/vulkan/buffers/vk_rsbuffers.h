@@ -61,6 +61,13 @@ public:
 
 	std::unique_ptr<VkMatrixBufferWriter> MatrixBuffer;
 	std::unique_ptr<VkSurfaceUniformsBufferWriter> SurfaceUniformsBuffer;
+
+	struct
+	{
+		const int MaxQueries = 64000;
+		std::unique_ptr<VulkanQueryPool> QueryPool;
+		int NextIndex = 0;
+	} OcclusionQuery;
 };
 
 class VkStreamBuffer

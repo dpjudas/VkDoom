@@ -59,9 +59,10 @@ public:
 	// Draw level mesh
 	void DrawLevelMeshDepthPass() override;
 	void DrawLevelMeshOpaquePass() override;
+	int GetNextQueryIndex() override;
 	void BeginQuery() override;
 	void EndQuery() override;
-	void GetQueryResults(TArray<bool>& results) override;
+	void GetQueryResults(int start, int count, TArray<bool>& results) override;
 
 	// Worker threads
 	void FlushCommands() override { EndRenderPass(); }
@@ -119,8 +120,6 @@ protected:
 	int mColorMask = 15;
 	int mCullMode = 0;
 
-	int mNextOcclusionQueryIndex = 0;
-
 	PushConstants mPushConstants = {};
 
 	uint32_t mLastViewpointOffset = 0xffffffff;
@@ -150,6 +149,8 @@ protected:
 		VkSampleCountFlagBits Samples = VK_SAMPLE_COUNT_1_BIT;
 		int DrawBuffers = 1;
 	} mRenderTarget;
+
+	TArray<uint32_t> mQueryResultsBuffer;
 };
 
 class VkRenderStateMolten : public VkRenderState

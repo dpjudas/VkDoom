@@ -63,6 +63,7 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartInd
 void DoomLevelSubmesh::Reset()
 {
 	Surfaces.Clear();
+	WallPortals.Clear();
 	MeshVertices.Clear();
 	MeshElements.Clear();
 	MeshSurfaceIndexes.Clear();
@@ -167,6 +168,11 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			surf.texture = wallpart.texture;
 			surf.PipelineID = pipelineID;
 			Surfaces.Push(surf);
+		}
+
+		for (const HWWall& portal : result.portals)
+		{
+			WallPortals.Push(portal);
 		}
 	}
 

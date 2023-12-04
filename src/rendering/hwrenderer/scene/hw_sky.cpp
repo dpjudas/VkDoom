@@ -126,9 +126,9 @@ void HWWall::SkyPlane(HWWallDispatcher *di, FRenderState& state, sector_t *secto
 		{
 			HWSkyInfo skyinfo;
 			skyinfo.init(di->di, sector->sky, Colormap.FadeColor);
-			ptype = PORTALTYPE_SKY;
 			sky = &skyinfo;
 		}
+		ptype = PORTALTYPE_SKY;
 		PutPortal(di, state, ptype, plane);
 	}
 	else if (sportal != nullptr)

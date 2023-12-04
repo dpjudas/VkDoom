@@ -2,6 +2,7 @@
 #pragma once
 
 #include "hw_levelmesh.h"
+#include "scene/hw_drawstructs.h"
 #include "tarray.h"
 #include "vectors.h"
 #include "r_defs.h"
@@ -13,16 +14,6 @@ typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct FLevelLocals;
 struct FPolyObj;
-
-enum DoomLevelMeshSurfaceType
-{
-	ST_NONE,
-	ST_MIDDLESIDE,
-	ST_UPPERSIDE,
-	ST_LOWERSIDE,
-	ST_CEILING,
-	ST_FLOOR
-};
 
 struct DoomLevelMeshSurface : public LevelMeshSurface
 {
@@ -57,6 +48,8 @@ public:
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 
 	TArray<std::unique_ptr<DoomLevelMeshSurface*[]>> PolyLMSurfaces;
+
+	TArray<HWWall> WallPortals;
 
 private:
 	void Reset();

@@ -740,8 +740,9 @@ void VkRenderState::BeginFrame()
 	mRSBuffers->Lightbuffer.UploadIndex = 0;
 	mRSBuffers->Bonebuffer.UploadIndex = 0;
 	mRSBuffers->Fogballbuffer.UploadIndex = 0;
+	mRSBuffers->OcclusionQuery.NextIndex = 0;
 
-	mNextOcclusionQueryIndex = 0;
+	fb->GetCommands()->GetDrawCommands()->resetQueryPool(mRSBuffers->OcclusionQuery.QueryPool.get(), 0, mRSBuffers->OcclusionQuery.MaxQueries);
 }
 
 void VkRenderState::EndRenderPass()
@@ -862,12 +863,14 @@ void VkRenderState::DrawLevelMeshDepthPass()
 		pipelineKey.ShaderKey.NoFragmentShader = true;
 		DrawLevelMeshRange(mCommandBuffer, pipelineKey, range.Start, range.Count);
 	}
+	/*
 	for (LevelSubmeshDrawRange& range : submesh->PortalList)
 	{
 		VkPipelineKey pipelineKey = fb->GetLevelMeshPipelineKey(range.PipelineID);
 		pipelineKey.ShaderKey.NoFragmentShader = true;
 		DrawLevelMeshRange(mCommandBuffer, pipelineKey, range.Start, range.Count);
 	}
+	*/
 }
 
 void VkRenderState::DrawLevelMeshOpaquePass()
@@ -883,18 +886,34 @@ void VkRenderState::DrawLevelMeshOpaquePass()
 
 void VkRenderState::BeginQuery()
 {
-	// mCommandBuffer->beginQuery(mNextOcclusionQueryIndex++);
+	mCommandBuffer->beginQuery(mRSBuffers->OcclusionQuery.QueryPool.get(), mRSBuffers->OcclusionQuery.NextIndex++, 0);
 }
 
 void VkRenderState::EndQuery()
 {
-	// mCommandBuffer->endQuery(mNextOcclusionQueryIndex - 1);
+	mCommandBuffer->endQuery(mRSBuffers->OcclusionQuery.QueryPool.get(), mRSBuffers->OcclusionQuery.NextIndex - 1);
 }
 
-void VkRenderState::GetQueryResults(TArray<bool>& results)
+int VkRenderState::GetNextQueryIndex()
 {
-	//vkGetQueryPoolResults(fb->GetDevice()->device, ...)
-	results.Clear();
+	return mRSBuffers->OcclusionQuery.NextIndex;
+}
+
+void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>& results)
+{
+	fb->GetCommands()->FlushCommands(false);
+
+	mQueryResultsBuffer.Resize(queryCount);
+	VkResult result = vkGetQueryPoolResults(fb->GetDevice()->device, mRSBuffers->OcclusionQuery.QueryPool->pool, queryStart, queryCount, mQueryResultsBuffer.Size() * sizeof(uint32_t), mQueryResultsBuffer.Data(), sizeof(uint32_t), VK_QUERY_RESULT_WAIT_BIT);
+	CheckVulkanError(result, "Could not query occlusion query results");
+	if (result == VK_NOT_READY)
+		VulkanError("Occlusion query results returned VK_NOT_READY!");
+
+	results.Resize(queryCount);
+	for (int i = 0; i < queryCount; i++)
+	{
+		results[i] = mQueryResultsBuffer[i] != 0;
+	}
 }
 
 void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, const VkPipelineKey& pipelineKey, int start, int count)
