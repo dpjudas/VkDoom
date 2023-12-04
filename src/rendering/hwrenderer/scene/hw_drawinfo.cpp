@@ -51,6 +51,7 @@
 
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Int, lm_background_updates);
+EXTERN_CVAR(Float, r_actorspriteshadowdist)
 
 CVAR(Bool, lm_always_update, false, 0)
 
@@ -450,6 +451,26 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 			{
 				PutWallPortal(wallPortals[i], state);
 			}
+		}
+
+		// Draw sprites
+		auto it = level.GetThinkerIterator<AActor>();
+		AActor* thing;
+		while ((thing = it.Next()) != nullptr)
+		{
+			HWSprite sprite;
+
+			if (R_ShouldDrawSpriteShadow(thing))
+			{
+				double dist = (thing->Pos() - vp.Pos).LengthSquared();
+				double check = r_actorspriteshadowdist;
+				if (dist <= check * check)
+				{
+					sprite.Process(this, state, thing, thing->Sector, in_area, false, true);
+				}
+			}
+
+			sprite.Process(this, state, thing, thing->Sector, in_area, false);
 		}
 
 		// Process all the sprites on the current portal's back side which touch the portal.
