@@ -115,7 +115,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		wall.Process(&disp, state, seg, front, back);
 
 		// Part 1: solid geometry. This is set up so that there are no transparent parts
-		state.SetDepthFunc(DF_Less);
+		state.SetDepthFunc(DF_LEqual);
 		state.ClearDepthBias();
 		state.EnableTexture(gl_texture);
 		state.EnableBrightmap(true);
@@ -205,7 +205,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			flat.ProcessSector(&disp, state, sector);
 
 			// Part 1: solid geometry. This is set up so that there are no transparent parts
-			state.SetDepthFunc(DF_Less);
+			state.SetDepthFunc(DF_LEqual);
 			state.ClearDepthBias();
 			state.EnableTexture(gl_texture);
 			state.EnableBrightmap(true);
