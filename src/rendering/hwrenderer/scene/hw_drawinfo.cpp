@@ -43,7 +43,6 @@
 #include "flatvertices.h"
 #include "hw_vrmodes.h"
 #include "hw_clipper.h"
-#include "hw_meshcache.h"
 #include "v_draw.h"
 #include "texturemanager.h"
 #include "actorinlines.h"
@@ -66,7 +65,6 @@ CVAR(Float, gl_mask_sprite_threshold, 0.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 CVAR(Bool, gl_coronas, true, CVAR_ARCHIVE);
 
-CVAR(Bool, gl_meshcache, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 CVAR(Bool, gl_levelmesh, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
 sector_t * hw_FakeFlat(sector_t * sec, sector_t * dest, area_t in_area, bool back);
@@ -594,33 +592,16 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	drawlists[GLDL_PLAINWALLS].DrawWalls(this, state, false);
 	drawlists[GLDL_PLAINFLATS].DrawFlats(this, state, false);
 
-	if (gl_meshcache && meshcache.Opaque)
-	{
-		meshcache.Opaque->Draw(state);
-	}
-
 	// Part 2: masked geometry. This is set up so that only pixels with alpha>gl_mask_threshold will show
 	state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
 	drawlists[GLDL_MASKEDWALLS].DrawWalls(this, state, false);
 	drawlists[GLDL_MASKEDFLATS].DrawFlats(this, state, false);
-
-	if (gl_meshcache && meshcache.Translucent)
-	{
-		meshcache.Translucent->Draw(state);
-	}
 
 	// Part 3: masked geometry with polygon offset. This list is empty most of the time so only waste time on it when in use.
 	if (drawlists[GLDL_MASKEDWALLSOFS].Size() > 0)
 	{
 		state.SetDepthBias(-1, -128);
 		drawlists[GLDL_MASKEDWALLSOFS].DrawWalls(this, state, false);
-		state.ClearDepthBias();
-	}
-
-	if (gl_meshcache && meshcache.TranslucentDepthBiased)
-	{
-		state.SetDepthBias(-1, -128);
-		meshcache.TranslucentDepthBiased->Draw(state);
 		state.ClearDepthBias();
 	}
 

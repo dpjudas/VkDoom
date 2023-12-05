@@ -42,8 +42,8 @@
 #include "hw_clock.h"
 #include "flatvertices.h"
 #include "hw_vertexbuilder.h"
-#include "hw_meshportal.h"
 #include "hw_walldispatcher.h"
+#include "hw_flatdispatcher.h"
 
 #ifdef ARCH_IA32
 #include <immintrin.h>
@@ -52,7 +52,6 @@
 CVAR(Bool, gl_multithread, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 EXTERN_CVAR(Float, r_actorspriteshadowdist)
-EXTERN_CVAR(Bool, gl_meshcache)
 
 thread_local bool isWorkerThread;
 ctpl::thread_pool renderPool(1);
@@ -109,6 +108,7 @@ void HWDrawInfo::WorkerThread()
 {
 	sector_t *front, *back;
 	HWWallDispatcher disp(this);
+	HWFlatDispatcher fdisp(this);
 
 	FRenderState& state = *screen->RenderState();
 
@@ -171,23 +171,12 @@ void HWDrawInfo::WorkerThread()
 			}
 			else back = nullptr;
 
-			if (MeshBSP)
-			{
-				SetupWall.Clock();
-				HWPortalWall portalwall;
-				portalwall.Process(&disp, state, job->seg, front, back);
-				rendered_lines++;
-				SetupWall.Unclock();
-			}
-			else
-			{
-				HWWall wall;
-				SetupWall.Clock();
-				wall.sub = job->sub;
-				wall.Process(&disp, state, job->seg, front, back);
-				rendered_lines++;
-				SetupWall.Unclock();
-			}
+			HWWall wall;
+			SetupWall.Clock();
+			wall.sub = job->sub;
+			wall.Process(&disp, state, job->seg, front, back);
+			rendered_lines++;
+			SetupWall.Unclock();
 			break;
 		}
 
@@ -197,7 +186,7 @@ void HWDrawInfo::WorkerThread()
 			SetupFlat.Clock();
 			flat.section = job->sub->section;
 			front = hw_FakeFlat(drawctx, job->sub->render_sector, in_area, false);
-			flat.ProcessSector(this, state, front);
+			flat.ProcessSector(&fdisp, state, front);
 			SetupFlat.Unclock();
 			break;
 		}
@@ -360,15 +349,6 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 			if (multithread)
 			{
 				jobQueue.AddJob(RenderJob::WallJob, seg->Subsector, seg);
-			}
-			else if (MeshBSP)
-			{
-				SetupWall.Clock();
-				HWPortalWall portalwall;
-				HWWallDispatcher disp(this);
-				portalwall.Process(&disp, state, seg, currentsector, backsector);
-				rendered_lines++;
-				SetupWall.Unclock();
 			}
 			else
 			{
@@ -757,20 +737,18 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 				{
 					srf |= SSRF_PROCESSED;
 
-					if (!MeshBSP)
+					if (multithread)
 					{
-						if (multithread)
-						{
-							jobQueue.AddJob(RenderJob::FlatJob, sub);
-						}
-						else
-						{
-							HWFlat flat;
-							flat.section = sub->section;
-							SetupFlat.Clock();
-							flat.ProcessSector(this, state, fakesector);
-							SetupFlat.Unclock();
-						}
+						jobQueue.AddJob(RenderJob::FlatJob, sub);
+					}
+					else
+					{
+						HWFlat flat;
+						flat.section = sub->section;
+						HWFlatDispatcher disp(this);
+						SetupFlat.Clock();
+						flat.ProcessSector(&disp, state, fakesector);
+						SetupFlat.Unclock();
 					}
 				}
 				// mark subsector as processed - but mark for rendering only if it has an actual area.
@@ -870,7 +848,6 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 
 	validcount++;	// used for processing sidedefs only once by the renderer.
 
-	MeshBSP = gl_meshcache;
 	multithread = gl_multithread;
 	if (multithread)
 	{

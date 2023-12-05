@@ -47,7 +47,6 @@
 #include "hwrenderer/scene/hw_fakeflat.h"
 #include "hwrenderer/scene/hw_clipper.h"
 #include "hwrenderer/scene/hw_portal.h"
-#include "hwrenderer/scene/hw_meshcache.h"
 #include "hwrenderer/scene/hw_drawcontext.h"
 #include "hw_vrmodes.h"
 
@@ -133,8 +132,6 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 	static HWDrawContext mainthread_drawctx;
 
 	hw_ClearFakeFlat(&mainthread_drawctx);
-
-	meshcache.Update(&mainthread_drawctx, mainvp);
 
 	// Render (potentially) multiple views for stereo 3d
 	// Fixme. The view offsetting should be done with a static table and not require setup of the entire render state for the mode.

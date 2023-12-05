@@ -39,6 +39,7 @@
 #include "hw_fakeflat.h"
 #include "hw_drawcontext.h"
 #include "hw_walldispatcher.h"
+#include "hw_flatdispatcher.h"
 
 //==========================================================================
 //
@@ -714,8 +715,9 @@ void HWDrawList::DoDraw(HWDrawInfo *di, FRenderState &state, bool translucent, i
 	case DrawType_FLAT:
 		{
 			HWFlat * f= flats[drawitems[i].index];
+			HWFlatDispatcher dis(di);
 			RenderFlat.Clock();
-			f->DrawFlat(di, state, translucent);
+			f->DrawFlat(&dis, state, translucent);
 			RenderFlat.Unclock();
 		}
 		break;
@@ -777,10 +779,11 @@ void HWDrawList::DrawWalls(HWDrawInfo *di, FRenderState &state, bool translucent
 //==========================================================================
 void HWDrawList::DrawFlats(HWDrawInfo *di, FRenderState &state, bool translucent)
 {
+	HWFlatDispatcher dis(di);
 	RenderFlat.Clock();
 	for (unsigned i = 0; i<drawitems.Size(); i++)
 	{
-		flats[drawitems[i].index]->DrawFlat(di, state, translucent);
+		flats[drawitems[i].index]->DrawFlat(&dis, state, translucent);
 	}
 	RenderFlat.Unclock();
 }

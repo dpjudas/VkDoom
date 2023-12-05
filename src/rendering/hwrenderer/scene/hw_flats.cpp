@@ -47,6 +47,7 @@
 #include "hw_drawstructs.h"
 #include "hw_renderstate.h"
 #include "texturemanager.h"
+#include "hw_flatdispatcher.h"
 
 #ifdef _DEBUG
 CVAR(Int, gl_breaksec, -1, 0)
@@ -156,8 +157,14 @@ void HWFlat::CreateSkyboxVertices(FFlatVertex *vert)
 //
 //==========================================================================
 
-void HWFlat::SetupLights(HWDrawInfo *di, FRenderState& state, FLightNode * node, FDynLightData &lightdata, int portalgroup)
+void HWFlat::SetupLights(HWFlatDispatcher *di, FRenderState& state, FLightNode * node, FDynLightData &lightdata, int portalgroup)
 {
+	if (!di->di)
+	{
+		dynlightindex = -1;
+		return;
+	}
+
 	Plane p;
 
 	lightdata.Clear();
@@ -200,7 +207,7 @@ void HWFlat::SetupLights(HWDrawInfo *di, FRenderState& state, FLightNode * node,
 //
 //==========================================================================
 
-void HWFlat::DrawSubsectors(HWDrawInfo *di, FRenderState &state)
+void HWFlat::DrawSubsectors(HWFlatDispatcher *di, FRenderState &state)
 {
 	if (di->Level->HasDynamicLights && !di->isFullbrightScene())
 	{
@@ -309,7 +316,7 @@ void HWFlat::DrawFloodPlanes(HWDrawInfo *di, FRenderState &state)
 //
 //
 //==========================================================================
-void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
+void HWFlat::DrawFlat(HWFlatDispatcher *di, FRenderState &state, bool translucent)
 {
 #ifdef _DEBUG
 	if (sector->sectornum == gl_breaksec)
@@ -323,7 +330,7 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 	state.SetNormal(plane.plane.Normal().X, plane.plane.Normal().Z, plane.plane.Normal().Y);
 
 	SetColor(state, di->Level, di->lightmode, lightlevel, rel, di->isFullbrightScene(), Colormap, alpha);
-	SetFog(state, di->Level, di->lightmode, lightlevel, rel, di->isFullbrightScene(), &Colormap, false, di->drawctx->portalState.inskybox);
+	SetFog(state, di->Level, di->lightmode, lightlevel, rel, di->isFullbrightScene(), &Colormap, false, di->di ? di->di->drawctx->portalState.inskybox : false);
 	state.SetObjectColor(FlatColor | 0xff000000);
 	state.SetAddColor(AddColor | 0xff000000);
 	state.ApplyTextureManipulation(TextureFx);
@@ -331,11 +338,13 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 
 	if (hacktype & SSRF_PLANEHACK)
 	{
-		DrawOtherPlanes(di, state);
+		if (di->di)
+			DrawOtherPlanes(di->di, state);
 	}
 	else if (hacktype & SSRF_FLOODHACK)
 	{
-		DrawFloodPlanes(di, state);
+		if (di->di)
+			DrawFloodPlanes(di->di, state);
 	}
 	else if (!translucent)
 	{
@@ -391,7 +400,7 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 //
 //==========================================================================
 
-inline void HWFlat::PutFlat(HWDrawInfo *di, bool fog)
+inline void HWFlat::PutFlat(HWFlatDispatcher *di, bool fog)
 {
 	if (di->isFullbrightScene())
 	{
@@ -407,7 +416,7 @@ inline void HWFlat::PutFlat(HWDrawInfo *di, bool fog)
 //
 //==========================================================================
 
-void HWFlat::Process(HWDrawInfo *di, FRenderState& state, sector_t * model, int whichplane, bool fog)
+void HWFlat::Process(HWFlatDispatcher *di, FRenderState& state, sector_t * model, int whichplane, bool fog)
 {
 	plane.GetFromSector(model, whichplane);
 	if (whichplane != int(ceiling))
@@ -478,6 +487,8 @@ void HWFlat::SetFrom3DFloor(F3DFloor *rover, bool top, bool underside)
 	alpha = rover->alpha/255.0f;
 	renderstyle = rover->flags&FF_ADDITIVETRANS? STYLE_Add : STYLE_Translucent;
 	iboindex = plane.vindex;
+
+	controlsector = rover;
 }
 
 //==========================================================================
@@ -488,7 +499,7 @@ void HWFlat::SetFrom3DFloor(F3DFloor *rover, bool top, bool underside)
 //
 //==========================================================================
 
-void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * frontsector, int which)
+void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t * frontsector, int which)
 {
 	lightlist_t * light;
 	FSectorPortal *port;
@@ -500,6 +511,8 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 	}
 #endif
 
+	controlsector = nullptr;
+
 	// Get the real sector for this one.
 	sector = &di->Level->sectors[frontsector->sectornum];
 	extsector_t::xfloor &x = sector->e->XFloor;
@@ -507,13 +520,13 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
     hacktype = (which & (SSRF_PLANEHACK|SSRF_FLOODHACK));
 
 	uint8_t sink;
-	uint8_t &srf = hacktype? sink : di->section_renderflags[di->Level->sections.SectionIndex(section)];
-    const auto &vp = di->Viewpoint;
+	uint8_t &srf = hacktype? sink : (di->di ? di->di->section_renderflags[di->Level->sections.SectionIndex(section)] : di->mh->section_renderflags);
+	FRenderViewpoint* vp = di->di ? &di->di->Viewpoint : nullptr;
 
 	//
 	// Lightmaps
 	//
-	if (level.lightmaps)
+	if (di->di && level.lightmaps)
 	{
 		for (int i = 0, count = sector->subsectorcount; i < count; ++i)
 		{
@@ -524,7 +537,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 				{
 					if (auto surface = sector->subsectors[i]->surface[plane].Size() > j ? sector->subsectors[i]->surface[plane][j] : nullptr)
 					{
-						di->PushVisibleSurface(surface);
+						di->di->PushVisibleSurface(surface);
 					}
 				}
 			}
@@ -538,7 +551,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 	//
 	//
 	//
-	if ((which & SSRF_RENDERFLOOR) && (di->MeshBuilding || frontsector->floorplane.ZatPoint(vp.Pos) <= vp.Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERFLOOR)))
+	if ((which & SSRF_RENDERFLOOR) && (!di->di || frontsector->floorplane.ZatPoint(vp->Pos) <= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERFLOOR)))
 	{
 		// process the original floor first.
 
@@ -596,7 +609,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 	//
 	// 
 	//
-	if ((which & SSRF_RENDERCEILING) && (di->MeshBuilding || frontsector->ceilingplane.ZatPoint(vp.Pos) >= vp.Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERCEILING)))
+	if ((which & SSRF_RENDERCEILING) && (!di->di || frontsector->ceilingplane.ZatPoint(vp->Pos) >= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERCEILING)))
 	{
 		// process the original ceiling first.
 
@@ -681,7 +694,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 					double ff_top = rover->top.plane->ZatPoint(sector->centerspot);
 					if (ff_top < lastceilingheight)
 					{
-						if (di->MeshBuilding || vp.Pos.Z <= rover->top.plane->ZatPoint(vp.Pos))
+						if (!di->di || vp->Pos.Z <= rover->top.plane->ZatPoint(vp->Pos))
 						{
 							SetFrom3DFloor(rover, true, !!(rover->flags&FF_FOG));
 							Colormap.FadeColor = frontsector->Colormap.FadeColor;
@@ -695,7 +708,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 					double ff_bottom = rover->bottom.plane->ZatPoint(sector->centerspot);
 					if (ff_bottom < lastceilingheight)
 					{
-						if (di->MeshBuilding || vp.Pos.Z <= rover->bottom.plane->ZatPoint(vp.Pos))
+						if (!di->di || vp->Pos.Z <= rover->bottom.plane->ZatPoint(vp->Pos))
 						{
 							SetFrom3DFloor(rover, false, !(rover->flags&FF_FOG));
 							Colormap.FadeColor = frontsector->Colormap.FadeColor;
@@ -721,7 +734,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 					double ff_bottom = rover->bottom.plane->ZatPoint(sector->centerspot);
 					if (ff_bottom > lastfloorheight || (rover->flags&FF_FIX))
 					{
-						if (di->MeshBuilding || vp.Pos.Z >= rover->bottom.plane->ZatPoint(vp.Pos))
+						if (!di->di || vp->Pos.Z >= rover->bottom.plane->ZatPoint(vp->Pos))
 						{
 							SetFrom3DFloor(rover, false, !(rover->flags&FF_FOG));
 							Colormap.FadeColor = frontsector->Colormap.FadeColor;
@@ -742,7 +755,7 @@ void HWFlat::ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * front
 					double ff_top = rover->top.plane->ZatPoint(sector->centerspot);
 					if (ff_top > lastfloorheight)
 					{
-						if (di->MeshBuilding || vp.Pos.Z >= rover->top.plane->ZatPoint(vp.Pos))
+						if (!di->di || vp->Pos.Z >= rover->top.plane->ZatPoint(vp->Pos))
 						{
 							SetFrom3DFloor(rover, true, !!(rover->flags&FF_FOG));
 							Colormap.FadeColor = frontsector->Colormap.FadeColor;

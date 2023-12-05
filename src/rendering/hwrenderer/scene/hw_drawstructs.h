@@ -33,6 +33,7 @@ struct FSection;
 enum area_t : int;
 class HWDrawContext;
 class DoomLevelMeshSurface;
+struct HWFlatDispatcher;
 
 enum HWRenderStyle
 {
@@ -347,16 +348,18 @@ public:
 
 	int dynlightindex;
 
-	void CreateSkyboxVertices(FFlatVertex *buffer);
-	void SetupLights(HWDrawInfo *di, FRenderState& state, FLightNode *head, FDynLightData &lightdata, int portalgroup);
+	F3DFloor* controlsector;
 
-	void PutFlat(HWDrawInfo *di, bool fog = false);
-	void Process(HWDrawInfo *di, FRenderState& state, sector_t * model, int whichplane, bool notexture);
+	void CreateSkyboxVertices(FFlatVertex *buffer);
+	void SetupLights(HWFlatDispatcher *di, FRenderState& state, FLightNode *head, FDynLightData &lightdata, int portalgroup);
+
+	void PutFlat(HWFlatDispatcher *di, bool fog = false);
+	void Process(HWFlatDispatcher *di, FRenderState& state, sector_t * model, int whichplane, bool notexture);
 	void SetFrom3DFloor(F3DFloor *rover, bool top, bool underside);
-	void ProcessSector(HWDrawInfo *di, FRenderState& state, sector_t * frontsector, int which = 7 /*SSRF_RENDERALL*/);	// cannot use constant due to circular dependencies.
+	void ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t * frontsector, int which = 7 /*SSRF_RENDERALL*/);	// cannot use constant due to circular dependencies.
 	
-	void DrawSubsectors(HWDrawInfo *di, FRenderState &state);
-	void DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent);
+	void DrawSubsectors(HWFlatDispatcher *di, FRenderState &state);
+	void DrawFlat(HWFlatDispatcher *di, FRenderState &state, bool translucent);
     
     void DrawOtherPlanes(HWDrawInfo *di, FRenderState &state);
     void DrawFloodPlanes(HWDrawInfo *di, FRenderState &state);

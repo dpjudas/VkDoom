@@ -181,8 +181,6 @@ struct HWDrawInfo
 	fixed_t viewx, viewy;	// since the nodes are still fixed point, keeping the view position  also fixed point for node traversal is faster.
 	bool multithread;
 
-	bool MeshBSP = false;
-	bool MeshBuilding = false;
 	TArray<bool> QueryResultsBuffer;
 
 	HWDrawInfo(HWDrawContext* drawctx) : drawctx(drawctx) { for (HWDrawList& list : drawlists) list.drawctx = drawctx; }

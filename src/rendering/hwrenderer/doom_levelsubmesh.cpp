@@ -8,9 +8,11 @@
 #include "g_levellocals.h"
 #include "a_dynlight.h"
 #include "hw_renderstate.h"
+#include "hw_vertexbuilder.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_walldispatcher.h"
+#include "hwrenderer/scene/hw_flatdispatcher.h"
 #include "common/rendering/hwrenderer/data/hw_meshbuilder.h"
 #include "common/rendering/vulkan/accelstructs/vk_lightmap.h"
 #include "common/rendering/vulkan/accelstructs/halffloat.h"
@@ -88,6 +90,8 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		}
 	}
 
+	MeshBuilder state;
+
 	// Create surface objects for all visible side parts
 	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
 	{
@@ -104,7 +108,6 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		sector_t* front = side->sector;
 		sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
 
-		MeshBuilder state;
 		HWMeshHelper result;
 		HWWallDispatcher disp(&doomMap, &result, ELightMode::ZDoomSoftware);
 		HWWall wall;
@@ -150,8 +153,18 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 						MeshUniformIndexes.Push(uniformsIndex);
 					}
 				}
+				for (MeshDrawCommand& command : it.second.mIndexedDraws)
+				{
+					for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
+					{
+						MeshVertices.Push(state.mVertices[state.mIndexes[i]]);
+						MeshUniformIndexes.Push(uniformsIndex);
+					}
+				}
 			}
 			state.mSortedLists.clear();
+			state.mVertices.Clear();
+			state.mIndexes.Clear();
 
 			DoomLevelMeshSurface surf;
 			surf.Submesh = this;
@@ -177,20 +190,103 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 	}
 
 	// Create surfaces for all flats
-	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
+	for (unsigned int i = 0; i < doomMap.sectors.Size(); i++)
 	{
-		subsector_t* sub = &doomMap.subsectors[i];
-		if (sub->numlines < 3 || !sub->sector)
-			continue;
-		sector_t* sector = sub->sector;
-
-		CreateFloorSurface(doomMap, sub, sector, nullptr, i);
-		CreateCeilingSurface(doomMap, sub, sector, nullptr, i);
-
-		for (unsigned int j = 0; j < sector->e->XFloor.ffloors.Size(); j++)
+		sector_t* sector = &doomMap.sectors[i];
+		for (FSection& section : doomMap.sections.SectionsForSector(i))
 		{
-			CreateFloorSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
-			CreateCeilingSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
+			int sectionIndex = doomMap.sections.SectionIndex(&section);
+
+			HWFlatMeshHelper result;
+			HWFlatDispatcher disp(&doomMap, &result, ELightMode::ZDoomSoftware);
+
+			HWFlat flat;
+			flat.section = &section;
+			flat.ProcessSector(&disp, state, sector);
+
+			// Part 1: solid geometry. This is set up so that there are no transparent parts
+			state.SetDepthFunc(DF_Less);
+			state.ClearDepthBias();
+			state.EnableTexture(gl_texture);
+			state.EnableBrightmap(true);
+
+			for (HWFlat& flatpart : result.list)
+			{
+				if (flatpart.texture && flatpart.texture->isMasked())
+				{
+					state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+				}
+				else
+				{
+					state.AlphaFunc(Alpha_GEqual, 0.f);
+				}
+
+				flatpart.DrawFlat(&disp, state, false);
+
+				int pipelineID = 0;
+				int uniformsIndex = 0;
+				bool foundDraw = false;
+				for (auto& it : state.mSortedLists)
+				{
+					const MeshApplyState& applyState = it.first;
+
+					pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
+					uniformsIndex = MeshSurfaceUniforms.Size();
+					MeshSurfaceUniforms.Push(applyState.surfaceUniforms);
+					MeshSurfaceMaterials.Push(applyState.material);
+
+					foundDraw = true;
+					break;
+				}
+				state.mSortedLists.clear();
+				state.mVertices.Clear();
+				state.mIndexes.Clear();
+
+				if (!foundDraw)
+					continue;
+
+				auto plane = sector->GetSecPlane(flatpart.ceiling);
+
+				DoomLevelMeshSurface surf;
+				surf.Submesh = this;
+				surf.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
+				surf.ControlSector = flatpart.controlsector ? flatpart.controlsector->model : nullptr;
+				surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
+				surf.sectorGroup = sectorGroup[sector->Index()];
+				surf.alpha = flatpart.alpha;
+				surf.texture = flatpart.texture;
+				surf.PipelineID = pipelineID;
+				surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
+
+				for (subsector_t* sub : section.subsectors)
+				{
+					int startVertIndex = MeshVertices.Size();
+
+					for (int i = 0, end = sub->numlines; i < end; i++)
+					{
+						auto& vt = sub->firstline[i].v1;
+
+						FFlatVertex ffv;
+						ffv.x = (float)vt->fX();
+						ffv.y = (float)vt->fY();
+						ffv.z = (float)plane.ZatPoint(vt);
+						ffv.u = (float)vt->fX() / 64.f;
+						ffv.v = -(float)vt->fY() / 64.f;
+						ffv.lu = 0.0f;
+						ffv.lv = 0.0f;
+						ffv.lindex = -1.0f;
+
+						MeshVertices.Push(ffv);
+						MeshUniformIndexes.Push(uniformsIndex);
+					}
+
+					surf.TypeIndex = sub->Index();
+					surf.Subsector = sub;
+					surf.startVertIndex = startVertIndex;
+					surf.numVerts = sub->numlines;
+					Surfaces.Push(surf);
+				}
+			}
 		}
 	}
 }
@@ -532,192 +628,6 @@ void DoomLevelSubmesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 	}
 }
 
-void DoomLevelSubmesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *sub, sector_t *sector, sector_t *controlSector, int typeIndex)
-{
-	DoomLevelMeshSurface surf;
-	surf.Submesh = this;
-
-	secplane_t plane;
-	if (!controlSector)
-	{
-		plane = sector->floorplane;
-		surf.bSky = IsSkySector(sector, sector_t::floor);
-	}
-	else
-	{
-		plane = controlSector->ceilingplane;
-		plane.FlipVert();
-		surf.bSky = false;
-	}
-
-	surf.numVerts = sub->numlines;
-	surf.startVertIndex = MeshVertices.Size();
-	surf.texture = TexMan.GetGameTexture((controlSector ? controlSector : sector)->planes[sector_t::floor].Texture);
-
-	FGameTexture* txt = surf.texture;
-	float w = txt->GetDisplayWidth();
-	float h = txt->GetDisplayHeight();
-	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::floor);
-
-	int uniformsIndex = MeshSurfaceUniforms.Size();
-
-	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
-
-	FFlatVertex* verts = &MeshVertices[surf.startVertIndex];
-
-	for (int j = 0; j < surf.numVerts; j++)
-	{
-		seg_t* seg = &sub->firstline[j];
-		FVector2 v1 = ToFVector2(seg->v1->fPos());
-		FVector2 uv = (mat * FVector4(v1.X / 64.f, -v1.Y / 64.f, 0.f, 1.f)).XY(); // The magic 64.f and negative Y is based on SetFlatVertex
-
-		verts[j].x = v1.X;
-		verts[j].y = v1.Y;
-		verts[j].z = (float)plane.ZatPoint(v1);
-		verts[j].u = uv.X;
-		verts[j].v = uv.Y;
-
-		MeshUniformIndexes.Push(uniformsIndex);
-	}
-
-	surf.Type = ST_FLOOR;
-	surf.TypeIndex = typeIndex;
-	surf.sampleDimension = (controlSector ? controlSector : sector)->planes[sector_t::floor].LightmapSampleDistance;
-	surf.ControlSector = controlSector;
-	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
-	surf.sectorGroup = sectorGroup[sector->Index()];
-	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
-	surf.Subsector = sub;
-
-	SurfaceUniforms uniforms = DefaultUniforms();
-	uniforms.uLightLevel = sector->lightlevel * (1.0f / 255.0f);
-
-	FMaterialState material;
-	material.mMaterial = FMaterial::ValidateTexture(txt, 0);
-	material.mClampMode = CLAMP_NONE;
-	material.mTranslation = 0;
-	material.mOverrideShader = -1;
-	material.mChanged = true;
-	if (material.mMaterial)
-	{
-		auto scale = material.mMaterial->GetDetailScale();
-		uniforms.uDetailParms = { scale.X, scale.Y, 2, 0 };
-	}
-
-	MeshSurfaceUniforms.Push(uniforms);
-	MeshSurfaceMaterials.Push(material);
-	Surfaces.Push(surf);
-}
-
-void DoomLevelSubmesh::CreateCeilingSurface(FLevelLocals& doomMap, subsector_t* sub, sector_t* sector, sector_t* controlSector, int typeIndex)
-{
-	DoomLevelMeshSurface surf;
-	surf.Submesh = this;
-
-	secplane_t plane;
-	if (!controlSector)
-	{
-		plane = sector->ceilingplane;
-		surf.bSky = IsSkySector(sector, sector_t::ceiling);
-	}
-	else
-	{
-		plane = controlSector->floorplane;
-		plane.FlipVert();
-		surf.bSky = false;
-	}
-
-	surf.numVerts = sub->numlines;
-	surf.startVertIndex = MeshVertices.Size();
-	surf.texture = TexMan.GetGameTexture((controlSector ? controlSector : sector)->planes[sector_t::ceiling].Texture);
-
-	FGameTexture* txt = surf.texture;
-	float w = txt->GetDisplayWidth();
-	float h = txt->GetDisplayHeight();
-	VSMatrix mat = GetPlaneTextureRotationMatrix(txt, sector, sector_t::ceiling);
-
-	int uniformsIndex = MeshSurfaceUniforms.Size();
-
-	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
-
-	FFlatVertex* verts = &MeshVertices[surf.startVertIndex];
-
-	for (int j = 0; j < surf.numVerts; j++)
-	{
-		seg_t* seg = &sub->firstline[j];
-		FVector2 v1 = ToFVector2(seg->v1->fPos());
-		FVector2 uv = (mat * FVector4(v1.X / 64.f, -v1.Y / 64.f, 0.f, 1.f)).XY(); // The magic 64.f and negative Y is based on SetFlatVertex
-
-		verts[j].x = v1.X;
-		verts[j].y = v1.Y;
-		verts[j].z = (float)plane.ZatPoint(v1);
-		verts[j].u = uv.X;
-		verts[j].v = uv.Y;
-
-		MeshUniformIndexes.Push(uniformsIndex);
-	}
-
-	surf.Type = ST_CEILING;
-	surf.TypeIndex = typeIndex;
-	surf.sampleDimension = (controlSector ? controlSector : sector)->planes[sector_t::ceiling].LightmapSampleDistance;
-	surf.ControlSector = controlSector;
-	surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
-	surf.sectorGroup = sectorGroup[sector->Index()];
-	surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
-	surf.Subsector = sub;
-
-	SurfaceUniforms uniforms = DefaultUniforms();
-	uniforms.uLightLevel = sector->lightlevel * (1.0f / 255.0f);
-
-	FMaterialState material;
-	material.mMaterial = FMaterial::ValidateTexture(txt, 0);
-	material.mClampMode = CLAMP_NONE;
-	material.mTranslation = 0;
-	material.mOverrideShader = -1;
-	material.mChanged = true;
-	if (material.mMaterial)
-	{
-		auto scale = material.mMaterial->GetDetailScale();
-		uniforms.uDetailParms = { scale.X, scale.Y, 2, 0 };
-	}
-
-	MeshSurfaceUniforms.Push(uniforms);
-	MeshSurfaceMaterials.Push(material);
-	Surfaces.Push(surf);
-}
-
-void DoomLevelSubmesh::CreateSubsectorSurfaces(FLevelLocals &doomMap)
-{
-	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
-	{
-		subsector_t *sub = &doomMap.subsectors[i];
-
-		if (sub->numlines < 3)
-		{
-			continue;
-		}
-
-		sector_t *sector = sub->sector;
-		if (!sector)
-			continue;
-
-		CreateFloorSurface(doomMap, sub, sector, nullptr, i);
-		CreateCeilingSurface(doomMap, sub, sector, nullptr, i);
-
-		for (unsigned int j = 0; j < sector->e->XFloor.ffloors.Size(); j++)
-		{
-			CreateFloorSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
-			CreateCeilingSurface(doomMap, sub, sector, sector->e->XFloor.ffloors[j]->model, i);
-		}
-	}
-}
-
-bool DoomLevelSubmesh::IsSkySector(sector_t* sector, int plane)
-{
-	// plane is either sector_t::ceiling or sector_t::floor
-	return sector->GetTexture(plane) == skyflatnum;
-}
-
 bool DoomLevelSubmesh::IsDegenerate(const FVector3 &v0, const FVector3 &v1, const FVector3 &v2)
 {
 	// A degenerate triangle has a zero cross product for two of its sides.
@@ -932,40 +842,4 @@ void DoomLevelSubmesh::BuildSurfaceParams(int lightMapTextureWidth, int lightMap
 
 	surface.AtlasTile.Width = width;
 	surface.AtlasTile.Height = height;
-}
-
-SurfaceUniforms DoomLevelSubmesh::DefaultUniforms()
-{
-	SurfaceUniforms surfaceUniforms = {};
-	surfaceUniforms.uFogColor = toFVector4(PalEntry(0xffffffff));
-	surfaceUniforms.uDesaturationFactor = 0.0f;
-	surfaceUniforms.uAlphaThreshold = 0.5f;
-	surfaceUniforms.uAddColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uObjectColor = toFVector4(PalEntry(0xffffffff));
-	surfaceUniforms.uObjectColor2 = toFVector4(PalEntry(0));
-	surfaceUniforms.uTextureBlendColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uTextureAddColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uTextureModulateColor = toFVector4(PalEntry(0));
-	surfaceUniforms.uLightDist = 0.0f;
-	surfaceUniforms.uLightFactor = 0.0f;
-	surfaceUniforms.uFogDensity = 0.0f;
-	surfaceUniforms.uLightLevel = -1.0f;
-	surfaceUniforms.uInterpolationFactor = 0;
-	surfaceUniforms.uVertexColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-	surfaceUniforms.uGlowTopColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGlowBottomColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGlowTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGlowBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGradientTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uGradientBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uSplitTopPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uSplitBottomPlane = { 0.0f, 0.0f, 0.0f, 0.0f };
-	surfaceUniforms.uDynLightColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-	surfaceUniforms.uDetailParms = { 0.0f, 0.0f, 0.0f, 0.0f };
-#ifdef NPOT_EMULATION
-	surfaceUniforms.uNpotEmulation = { 0,0,0,0 };
-#endif
-	surfaceUniforms.uClipSplit.X = -1000000.f;
-	surfaceUniforms.uClipSplit.Y = 1000000.f;
-	return surfaceUniforms;
 }

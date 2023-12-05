@@ -42,6 +42,7 @@
 #include "hwrenderer/scene/hw_portal.h"
 #include "hw_fakeflat.h"
 #include "hw_walldispatcher.h"
+#include "hw_flatdispatcher.h"
 
 //==========================================================================
 //
@@ -51,6 +52,7 @@
 
 void HWDrawInfo::DispatchRenderHacks(FRenderState& state)
 {
+	HWFlatDispatcher dis(this);
 	TMap<int, gl_subsectorrendernode*>::Pair *pair;
 	TMap<int, gl_floodrendernode*>::Pair *fpair;
 	TMap<int, gl_subsectorrendernode*>::Iterator ofi(otherFloorPlanes);
@@ -59,28 +61,28 @@ void HWDrawInfo::DispatchRenderHacks(FRenderState& state)
 	while (ofi.NextPair(pair))
 	{
 		auto sec = hw_FakeFlat(drawctx, &Level->sectors[pair->Key], in_area, false);
-		glflat.ProcessSector(this, state, sec, SSRF_RENDERFLOOR | SSRF_PLANEHACK);
+		glflat.ProcessSector(&dis, state, sec, SSRF_RENDERFLOOR | SSRF_PLANEHACK);
 	}
 
 	TMap<int, gl_subsectorrendernode*>::Iterator oci(otherCeilingPlanes);
 	while (oci.NextPair(pair))
 	{
 		auto sec = hw_FakeFlat(drawctx, &Level->sectors[pair->Key], in_area, false);
-		glflat.ProcessSector(this, state, sec, SSRF_RENDERCEILING | SSRF_PLANEHACK);
+		glflat.ProcessSector(&dis, state, sec, SSRF_RENDERCEILING | SSRF_PLANEHACK);
 	}
 
 	TMap<int, gl_floodrendernode*>::Iterator ffi(floodFloorSegs);
 	while (ffi.NextPair(fpair))
 	{
 		auto sec = hw_FakeFlat(drawctx, &Level->sectors[fpair->Key], in_area, false);
-		glflat.ProcessSector(this, state, sec, SSRF_RENDERFLOOR | SSRF_FLOODHACK);
+		glflat.ProcessSector(&dis, state, sec, SSRF_RENDERFLOOR | SSRF_FLOODHACK);
 	}
 
 	TMap<int, gl_floodrendernode*>::Iterator fci(floodCeilingSegs);
 	while (fci.NextPair(fpair))
 	{
 		auto sec = hw_FakeFlat(drawctx, &Level->sectors[fpair->Key], in_area, false);
-		glflat.ProcessSector(this, state, sec, SSRF_RENDERCEILING | SSRF_FLOODHACK);
+		glflat.ProcessSector(&dis, state, sec, SSRF_RENDERCEILING | SSRF_FLOODHACK);
 	}
 }
 
