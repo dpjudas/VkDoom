@@ -65,7 +65,7 @@ void DoomLevelSubmesh::Reset()
 	Surfaces.Clear();
 	WallPortals.Clear();
 	Mesh.Vertices.Clear();
-	Mesh.Elements.Clear();
+	Mesh.Indexes.Clear();
 	Mesh.SurfaceIndexes.Clear();
 	Mesh.UniformIndexes.Clear();
 	Mesh.Uniforms.Clear();
@@ -328,7 +328,7 @@ void DoomLevelSubmesh::CreateIndexes()
 	{
 		LevelSubmeshDrawRange range;
 		range.PipelineID = it.first >> 32;
-		range.Start = Mesh.Elements.Size();
+		range.Start = Mesh.Indexes.Size();
 		for (unsigned int i : it.second)
 		{
 			DoomLevelMeshSurface& s = Surfaces[i];
@@ -337,7 +337,7 @@ void DoomLevelSubmesh::CreateIndexes()
 			FFlatVertex* verts = &Mesh.Vertices[pos];
 
 			s.Vertices = verts;
-			s.startElementIndex = Mesh.Elements.Size();
+			s.startElementIndex = Mesh.Indexes.Size();
 			s.numElements = 0;
 
 			if (s.Type == ST_CEILING)
@@ -346,9 +346,9 @@ void DoomLevelSubmesh::CreateIndexes()
 				{
 					if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
 					{
-						Mesh.Elements.Push(pos);
-						Mesh.Elements.Push(pos + j - 1);
-						Mesh.Elements.Push(pos + j);
+						Mesh.Indexes.Push(pos);
+						Mesh.Indexes.Push(pos + j - 1);
+						Mesh.Indexes.Push(pos + j);
 						Mesh.SurfaceIndexes.Push((int)i);
 						s.numElements += 3;
 					}
@@ -360,9 +360,9 @@ void DoomLevelSubmesh::CreateIndexes()
 				{
 					if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
 					{
-						Mesh.Elements.Push(pos + j);
-						Mesh.Elements.Push(pos + j - 1);
-						Mesh.Elements.Push(pos);
+						Mesh.Indexes.Push(pos + j);
+						Mesh.Indexes.Push(pos + j - 1);
+						Mesh.Indexes.Push(pos);
 						Mesh.SurfaceIndexes.Push((int)i);
 						s.numElements += 3;
 					}
@@ -372,23 +372,23 @@ void DoomLevelSubmesh::CreateIndexes()
 			{
 				if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[1].fPos()))
 				{
-					Mesh.Elements.Push(pos + 0);
-					Mesh.Elements.Push(pos + 1);
-					Mesh.Elements.Push(pos + 2);
+					Mesh.Indexes.Push(pos + 0);
+					Mesh.Indexes.Push(pos + 1);
+					Mesh.Indexes.Push(pos + 2);
 					Mesh.SurfaceIndexes.Push((int)i);
 					s.numElements += 3;
 				}
 				if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[3].fPos()))
 				{
-					Mesh.Elements.Push(pos + 0);
-					Mesh.Elements.Push(pos + 2);
-					Mesh.Elements.Push(pos + 3);
+					Mesh.Indexes.Push(pos + 0);
+					Mesh.Indexes.Push(pos + 2);
+					Mesh.Indexes.Push(pos + 3);
 					Mesh.SurfaceIndexes.Push((int)i);
 					s.numElements += 3;
 				}
 			}
 		}
-		range.Count = Mesh.Elements.Size() - range.Start;
+		range.Count = Mesh.Indexes.Size() - range.Start;
 
 		if ((it.first & 1) == 0)
 			DrawList.Push(range);

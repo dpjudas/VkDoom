@@ -190,7 +190,7 @@ void VkLightmapper::Render()
 		if (targetSurface->Submesh != mesh->StaticMesh.get())
 		{
 			surfaceIndexOffset = mesh->StaticMesh->GetSurfaceCount();
-			firstIndexOffset = mesh->StaticMesh->Mesh.Elements.Size();
+			firstIndexOffset = mesh->StaticMesh->Mesh.Indexes.Size();
 		}
 
 		LightmapRaytracePC pc;

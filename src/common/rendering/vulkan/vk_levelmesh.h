@@ -42,21 +42,22 @@ struct PortalInfo
 	VSMatrix transformation;
 };
 
+struct SubmeshBufferRange
+{
+	int Offset = 0;
+	int Size = 0;
+};
+
 struct SubmeshBufferLocation
 {
 	LevelSubmesh* Submesh = nullptr;
-	int VertexOffset = 0;
-	int VertexSize = 0;
-	int IndexOffset = 0;
-	int IndexSize = 0;
-	int NodeOffset = 0;
-	int NodeSize = 0;
-	int SurfaceIndexOffset = 0;
-	int SurfaceIndexSize = 0;
-	int SurfaceOffset = 0;
-	int SurfaceSize = 0;
-	int UniformsOffset = 0;
-	int UniformsSize = 0;
+	SubmeshBufferRange Vertex;
+	SubmeshBufferRange Index;
+	SubmeshBufferRange Node;
+	SubmeshBufferRange SurfaceIndex;
+	SubmeshBufferRange Surface;
+	SubmeshBufferRange UniformIndexes;
+	SubmeshBufferRange Uniforms;
 };
 
 class VkLevelMesh
@@ -74,7 +75,7 @@ public:
 	VulkanBuffer* GetNodeBuffer() { return NodeBuffer.get(); }
 	VulkanBuffer* GetSurfaceIndexBuffer() { return SurfaceIndexBuffer.get(); }
 	VulkanBuffer* GetSurfaceBuffer() { return SurfaceBuffer.get(); }
-	VulkanBuffer* GetSurfaceUniformsBuffer() { return SurfaceUniformsBuffer.get(); }
+	VulkanBuffer* GetUniformsBuffer() { return UniformsBuffer.get(); }
 	VulkanBuffer* GetPortalBuffer() { return PortalBuffer.get(); }
 
 	LevelMesh* GetMesh() { return Mesh; }
@@ -118,7 +119,7 @@ private:
 	std::unique_ptr<VulkanBuffer> IndexBuffer;
 	std::unique_ptr<VulkanBuffer> SurfaceIndexBuffer;
 	std::unique_ptr<VulkanBuffer> SurfaceBuffer;
-	std::unique_ptr<VulkanBuffer> SurfaceUniformsBuffer;
+	std::unique_ptr<VulkanBuffer> UniformsBuffer;
 	std::unique_ptr<VulkanBuffer> PortalBuffer;
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
@@ -142,4 +143,38 @@ private:
 		std::unique_ptr<VulkanBuffer> AccelStructBuffer;
 		std::unique_ptr<VulkanAccelerationStructure> AccelStruct;
 	} TopLevelAS;
+
+	friend class VkLevelMeshUploader;
+};
+
+class VkLevelMeshUploader
+{
+public:
+	VkLevelMeshUploader(VkLevelMesh* mesh);
+
+	void Upload(bool dynamicOnly);
+
+private:
+	void BeginTransfer(size_t transferBufferSize);
+	void EndTransfer(size_t transferBufferSize);
+	void UploadNodes();
+	void UploadVertices();
+	void UploadUniformIndexes();
+	void UploadIndexes();
+	void UploadSurfaceIndexes();
+	void UploadSurfaces();
+	void UploadUniforms();
+	void UploadPortals();
+	void UpdateSizes();
+	void UpdateLocations();
+	size_t GetTransferSize();
+
+	VkLevelMesh* Mesh;
+	TArray<SubmeshBufferLocation> locations;
+	unsigned int start = 0;
+	unsigned int end = 0;
+	uint8_t* data = nullptr;
+	size_t datapos = 0;
+	VulkanCommandBuffer* cmdbuffer = nullptr;
+	std::unique_ptr<VulkanBuffer> transferBuffer;
 };

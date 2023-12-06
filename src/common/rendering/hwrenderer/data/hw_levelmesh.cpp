@@ -81,14 +81,14 @@ LevelSubmesh::LevelSubmesh()
 	Mesh.Vertices.Push({ maxval, maxval, maxval });
 
 	for (int i = 0; i < 3 * 4; i++)
-		Mesh.Elements.Push(i);
+		Mesh.Indexes.Push(i);
 
 	UpdateCollision();
 }
 
 void LevelSubmesh::UpdateCollision()
 {
-	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Elements.Data(), Mesh.Elements.Size());
+	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Indexes.Data(), Mesh.Indexes.Size());
 }
 
 void LevelSubmesh::GatherSurfacePixelStats(LevelMeshSurfaceStats& stats)

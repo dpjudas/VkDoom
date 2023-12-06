@@ -91,7 +91,7 @@ void VkDescriptorSetManager::UpdateLevelMeshSet()
 	WriteDescriptors()
 		.AddBuffer(LevelMesh.Set.get(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Viewpoint.UBO.get(), 0, sizeof(HWViewpointUniforms))
 		.AddBuffer(LevelMesh.Set.get(), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->MatrixBuffer->UBO(), 0, sizeof(MatricesUBO))
-		.AddBuffer(LevelMesh.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceUniformsBuffer())
+		.AddBuffer(LevelMesh.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetUniformsBuffer())
 		.AddBuffer(LevelMesh.Set.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
 		.AddBuffer(LevelMesh.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
 		.Execute(fb->GetDevice());

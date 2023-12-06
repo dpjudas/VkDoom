@@ -259,7 +259,7 @@ public:
 	struct
 	{
 		TArray<FFlatVertex> Vertices;
-		TArray<uint32_t> Elements;
+		TArray<uint32_t> Indexes;
 		TArray<int> SurfaceIndexes;
 		TArray<int> UniformIndexes;
 		TArray<SurfaceUniforms> Uniforms;

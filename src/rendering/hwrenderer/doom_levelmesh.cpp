@@ -251,7 +251,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 	auto f = fopen(objFilename.GetChars(), "w");
 
 	fprintf(f, "# DoomLevelMesh debug export\n");
-	fprintf(f, "# MeshVertices: %u, MeshElements: %u, Surfaces: %u\n", submesh->Mesh.Vertices.Size(), submesh->Mesh.Elements.Size(), submesh->Surfaces.Size());
+	fprintf(f, "# Vertices: %u, Indexes: %u, Surfaces: %u\n", submesh->Mesh.Vertices.Size(), submesh->Mesh.Indexes.Size(), submesh->Surfaces.Size());
 	fprintf(f, "mtllib %s\n", mtlFilename.GetChars());
 
 	double scale = 1 / 10.0;
@@ -294,7 +294,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 	bool useErrorMaterial = false;
 	int highestUsedAtlasPage = -1;
 
-	for (unsigned i = 0, count = submesh->Mesh.Elements.Size(); i + 2 < count; i += 3)
+	for (unsigned i = 0, count = submesh->Mesh.Indexes.Size(); i + 2 < count; i += 3)
 	{
 		auto index = submesh->Mesh.SurfaceIndexes[i / 3];
 
@@ -324,9 +324,9 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 
 		// fprintf(f, "f %d %d %d\n", MeshElements[i] + 1, MeshElements[i + 1] + 1, MeshElements[i + 2] + 1);
 		fprintf(f, "f %d/%d %d/%d %d/%d\n",
-			submesh->Mesh.Elements[i + 0] + 1, submesh->Mesh.Elements[i + 0] + 1,
-			submesh->Mesh.Elements[i + 1] + 1, submesh->Mesh.Elements[i + 1] + 1,
-			submesh->Mesh.Elements[i + 2] + 1, submesh->Mesh.Elements[i + 2] + 1);
+			submesh->Mesh.Indexes[i + 0] + 1, submesh->Mesh.Indexes[i + 0] + 1,
+			submesh->Mesh.Indexes[i + 1] + 1, submesh->Mesh.Indexes[i + 1] + 1,
+			submesh->Mesh.Indexes[i + 2] + 1, submesh->Mesh.Indexes[i + 2] + 1);
 
 	}
 
