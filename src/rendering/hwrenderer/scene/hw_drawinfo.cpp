@@ -412,11 +412,12 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		auto& wallPortals = static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->WallPortals;
 
 		// draw level into depth buffer
+		state.SetColorMask(false);
+		state.SetCulling(Cull_CW);
 		state.DrawLevelMeshDepthPass();
 
 		// use occlusion queries on all portals in level to decide which are visible
 		int queryStart = state.GetNextQueryIndex();
-		state.SetColorMask(false);
 		state.SetDepthMask(false);
 		state.EnableTexture(false);
 		state.SetEffect(EFF_FOGBOUNDARY);
@@ -439,6 +440,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 		// draw opaque level so the GPU has something to do while we examine the query results
 		state.DrawLevelMeshOpaquePass();
+		state.SetCulling(Cull_None);
 
 		// retrieve the query results and use them to fill the portal manager with portals
 		state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);

@@ -90,7 +90,7 @@ protected:
 	void WaitForStreamBuffers();
 
 	void ApplyLevelMesh();
-	void DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, const VkPipelineKey& pipelineKey, int start, int count);
+	void DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, int start, int count, bool noFragmentShader);
 
 	VulkanRenderDevice* fb = nullptr;
 

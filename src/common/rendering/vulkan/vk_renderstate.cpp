@@ -858,17 +858,12 @@ void VkRenderState::DrawLevelMeshDepthPass()
 	auto submesh = fb->GetRaytrace()->GetMesh()->StaticMesh.get();
 	for (LevelSubmeshDrawRange& range : submesh->DrawList)
 	{
-		VkPipelineKey pipelineKey = fb->GetLevelMeshPipelineKey(range.PipelineID);
-		if (pipelineKey.ShaderKey.AlphaTest) continue;
-		pipelineKey.ShaderKey.NoFragmentShader = true;
-		DrawLevelMeshRange(mCommandBuffer, pipelineKey, range.Start, range.Count);
+		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, true);
 	}
 	/*
 	for (LevelSubmeshDrawRange& range : submesh->PortalList)
 	{
-		VkPipelineKey pipelineKey = fb->GetLevelMeshPipelineKey(range.PipelineID);
-		pipelineKey.ShaderKey.NoFragmentShader = true;
-		DrawLevelMeshRange(mCommandBuffer, pipelineKey, range.Start, range.Count);
+		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, true);
 	}
 	*/
 }
@@ -880,7 +875,7 @@ void VkRenderState::DrawLevelMeshOpaquePass()
 	auto submesh = fb->GetRaytrace()->GetMesh()->StaticMesh.get();
 	for (LevelSubmeshDrawRange& range : submesh->DrawList)
 	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count);
+		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, false);
 	}
 }
 
@@ -916,8 +911,21 @@ void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>
 	}
 }
 
-void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, const VkPipelineKey& pipelineKey, int start, int count)
+void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, int start, int count, bool noFragmentShader)
 {
+	if (noFragmentShader && pipelineKey.ShaderKey.AlphaTest)
+		return;
+
+	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;
+	pipelineKey.DepthTest = mDepthTest;
+	pipelineKey.DepthWrite = mDepthTest && mDepthWrite;
+	pipelineKey.DepthClamp = mDepthClamp;
+	pipelineKey.DepthBias = !(mBias.mFactor == 0 && mBias.mUnits == 0);
+	pipelineKey.StencilTest = mStencilTest;
+	pipelineKey.StencilPassOp = mStencilOp;
+	pipelineKey.ColorMask = mColorMask;
+	pipelineKey.CullMode = mCullMode;
+
 	PushConstants pushConstants = {};
 	pushConstants.uDataIndex = 0;
 	pushConstants.uLightIndex = -1;
