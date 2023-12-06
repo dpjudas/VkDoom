@@ -20,7 +20,7 @@
 **
 */
 
-#include "vk_raytrace.h"
+#include "vk_levelmesh.h"
 #include "zvulkan/vulkanbuilders.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
@@ -28,14 +28,14 @@
 #include "hw_material.h"
 #include "texturemanager.h"
 
-VkRaytrace::VkRaytrace(VulkanRenderDevice* fb) : fb(fb)
+VkLevelMesh::VkLevelMesh(VulkanRenderDevice* fb) : fb(fb)
 {
 	useRayQuery = fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery;
 
 	SetLevelMesh(nullptr);
 }
 
-void VkRaytrace::SetLevelMesh(LevelMesh* mesh)
+void VkLevelMesh::SetLevelMesh(LevelMesh* mesh)
 {
 	if (!mesh)
 		mesh = &NullMesh;
@@ -45,7 +45,7 @@ void VkRaytrace::SetLevelMesh(LevelMesh* mesh)
 	CreateVulkanObjects();
 }
 
-void VkRaytrace::Reset()
+void VkLevelMesh::Reset()
 {
 	auto deletelist = fb->GetCommands()->DrawDeleteList.get();
 	deletelist->Add(std::move(VertexBuffer));
@@ -69,7 +69,7 @@ void VkRaytrace::Reset()
 	deletelist->Add(std::move(TopLevelAS.AccelStruct));
 }
 
-void VkRaytrace::CreateVulkanObjects()
+void VkLevelMesh::CreateVulkanObjects()
 {
 	CreateBuffers();
 	UploadMeshes(false);
@@ -81,7 +81,7 @@ void VkRaytrace::CreateVulkanObjects()
 	}
 }
 
-void VkRaytrace::BeginFrame()
+void VkLevelMesh::BeginFrame()
 {
 	UploadMeshes(true);
 	if (useRayQuery)
@@ -91,7 +91,7 @@ void VkRaytrace::BeginFrame()
 	}
 }
 
-void VkRaytrace::UploadMeshes(bool dynamicOnly)
+void VkLevelMesh::UploadMeshes(bool dynamicOnly)
 {
 	TArray<SubmeshBufferLocation> locations(2);
 
@@ -378,37 +378,37 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, useRayQuery ? VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
-int VkRaytrace::GetMaxVertexBufferSize()
+int VkLevelMesh::GetMaxVertexBufferSize()
 {
 	return Mesh->StaticMesh->Mesh.Vertices.Size() + MaxDynamicVertices;
 }
 
-int VkRaytrace::GetMaxIndexBufferSize()
+int VkLevelMesh::GetMaxIndexBufferSize()
 {
 	return Mesh->StaticMesh->Mesh.Elements.Size() + MaxDynamicIndexes;
 }
 
-int VkRaytrace::GetMaxNodeBufferSize()
+int VkLevelMesh::GetMaxNodeBufferSize()
 {
 	return (int)Mesh->StaticMesh->Collision->get_nodes().size() + MaxDynamicNodes + 1; // + 1 for the merge root node
 }
 
-int VkRaytrace::GetMaxSurfaceBufferSize()
+int VkLevelMesh::GetMaxSurfaceBufferSize()
 {
 	return Mesh->StaticMesh->GetSurfaceCount() + MaxDynamicSurfaces;
 }
 
-int VkRaytrace::GetMaxUniformsBufferSize()
+int VkLevelMesh::GetMaxUniformsBufferSize()
 {
 	return Mesh->StaticMesh->Mesh.Uniforms.Size() + MaxDynamicUniforms;
 }
 
-int VkRaytrace::GetMaxSurfaceIndexBufferSize()
+int VkLevelMesh::GetMaxSurfaceIndexBufferSize()
 {
 	return Mesh->StaticMesh->Mesh.SurfaceIndexes.Size() + MaxDynamicSurfaceIndexes;
 }
 
-void VkRaytrace::CreateBuffers()
+void VkLevelMesh::CreateBuffers()
 {
 	VertexBuffer = BufferBuilder()
 		.Usage(
@@ -473,7 +473,7 @@ void VkRaytrace::CreateBuffers()
 		.Create(fb->GetDevice());
 }
 
-VkRaytrace::BLAS VkRaytrace::CreateBLAS(LevelSubmesh* submesh, bool preferFastBuild, int vertexOffset, int indexOffset)
+VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(LevelSubmesh* submesh, bool preferFastBuild, int vertexOffset, int indexOffset)
 {
 	BLAS blas;
 
@@ -538,17 +538,17 @@ VkRaytrace::BLAS VkRaytrace::CreateBLAS(LevelSubmesh* submesh, bool preferFastBu
 	return blas;
 }
 
-void VkRaytrace::CreateStaticBLAS()
+void VkLevelMesh::CreateStaticBLAS()
 {
 	StaticBLAS = CreateBLAS(Mesh->StaticMesh.get(), false, 0, 0);
 }
 
-void VkRaytrace::CreateDynamicBLAS()
+void VkLevelMesh::CreateDynamicBLAS()
 {
 	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->Mesh.Vertices.Size(), Mesh->StaticMesh->Mesh.Elements.Size());
 }
 
-void VkRaytrace::CreateTopLevelAS()
+void VkLevelMesh::CreateTopLevelAS()
 {
 	auto deletelist = fb->GetCommands()->DrawDeleteList.get();
 	deletelist->Add(std::move(TopLevelAS.TransferBuffer));
@@ -648,7 +648,7 @@ void VkRaytrace::CreateTopLevelAS()
 		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
-void VkRaytrace::UpdateDynamicBLAS()
+void VkLevelMesh::UpdateDynamicBLAS()
 {
 	// To do: should we reuse the buffers?
 
@@ -660,7 +660,7 @@ void VkRaytrace::UpdateDynamicBLAS()
 	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->Mesh.Vertices.Size(), Mesh->StaticMesh->Mesh.Elements.Size());
 }
 
-void VkRaytrace::UpdateTopLevelAS()
+void VkLevelMesh::UpdateTopLevelAS()
 {
 	VkAccelerationStructureInstanceKHR instances[2] = {};
 	instances[0].transform.matrix[0][0] = 1.0f;

@@ -119,11 +119,11 @@ struct CopyTileInfo
 
 static_assert(sizeof(CopyTileInfo) == sizeof(int32_t) * 8);
 
-class VkLightmap
+class VkLightmapper
 {
 public:
-	VkLightmap(VulkanRenderDevice* fb);
-	~VkLightmap();
+	VkLightmapper(VulkanRenderDevice* fb);
+	~VkLightmapper();
 
 	void BeginFrame();
 	void Raytrace(const TArray<LevelMeshSurface*>& surfaces);

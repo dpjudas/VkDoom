@@ -9,8 +9,6 @@
 #include "g_levellocals.h"
 #include "a_dynlight.h"
 #include "hw_renderstate.h"
-#include "common/rendering/vulkan/accelstructs/vk_lightmap.h"
-#include "common/rendering/vulkan/accelstructs/halffloat.h"
 
 static bool RequireLevelMesh()
 {

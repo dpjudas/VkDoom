@@ -59,10 +59,10 @@ struct SubmeshBufferLocation
 	int UniformsSize = 0;
 };
 
-class VkRaytrace
+class VkLevelMesh
 {
 public:
-	VkRaytrace(VulkanRenderDevice* fb);
+	VkLevelMesh(VulkanRenderDevice* fb);
 
 	void SetLevelMesh(LevelMesh* mesh);
 	void BeginFrame();

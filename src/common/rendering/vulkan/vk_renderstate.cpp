@@ -28,7 +28,7 @@
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/textures/vk_hwtexture.h"
-#include "vulkan/accelstructs/vk_raytrace.h"
+#include "vulkan/accelstructs/vk_levelmesh.h"
 #include <zvulkan/vulkanbuilders.h>
 
 #include "hw_skydome.h"
@@ -845,17 +845,17 @@ void VkRenderState::ApplyLevelMesh()
 	ApplyDepthBias();
 	mNeedApply = true;
 
-	VkBuffer vertexBuffers[2] = { fb->GetRaytrace()->GetVertexBuffer()->buffer, fb->GetRaytrace()->GetUniformIndexBuffer()->buffer };
+	VkBuffer vertexBuffers[2] = { fb->GetLevelMesh()->GetVertexBuffer()->buffer, fb->GetLevelMesh()->GetUniformIndexBuffer()->buffer };
 	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
 	mCommandBuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);
-	mCommandBuffer->bindIndexBuffer(fb->GetRaytrace()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
 void VkRenderState::DrawLevelMeshDepthPass()
 {
 	ApplyLevelMesh();
 
-	auto submesh = fb->GetRaytrace()->GetMesh()->StaticMesh.get();
+	auto submesh = fb->GetLevelMesh()->GetMesh()->StaticMesh.get();
 	for (LevelSubmeshDrawRange& range : submesh->DrawList)
 	{
 		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, true);
@@ -872,7 +872,7 @@ void VkRenderState::DrawLevelMeshOpaquePass()
 {
 	ApplyLevelMesh();
 
-	auto submesh = fb->GetRaytrace()->GetMesh()->StaticMesh.get();
+	auto submesh = fb->GetLevelMesh()->GetMesh()->StaticMesh.get();
 	for (LevelSubmeshDrawRange& range : submesh->DrawList)
 	{
 		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, false);

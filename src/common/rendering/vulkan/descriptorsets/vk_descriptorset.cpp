@@ -22,7 +22,7 @@
 
 #include "vk_descriptorset.h"
 #include "vulkan/vk_renderdevice.h"
-#include "vulkan/accelstructs/vk_raytrace.h"
+#include "vulkan/accelstructs/vk_levelmesh.h"
 #include "vulkan/shaders/vk_shader.h"
 #include "vulkan/samplers/vk_samplers.h"
 #include "vulkan/textures/vk_renderbuffers.h"
@@ -91,7 +91,7 @@ void VkDescriptorSetManager::UpdateLevelMeshSet()
 	WriteDescriptors()
 		.AddBuffer(LevelMesh.Set.get(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Viewpoint.UBO.get(), 0, sizeof(HWViewpointUniforms))
 		.AddBuffer(LevelMesh.Set.get(), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->MatrixBuffer->UBO(), 0, sizeof(MatricesUBO))
-		.AddBuffer(LevelMesh.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetSurfaceUniformsBuffer())
+		.AddBuffer(LevelMesh.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceUniformsBuffer())
 		.AddBuffer(LevelMesh.Set.get(), 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, rsbuffers->Lightbuffer.UBO.get(), 0, sizeof(LightBufferUBO))
 		.AddBuffer(LevelMesh.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rsbuffers->Bonebuffer.SSO.get())
 		.Execute(fb->GetDevice());
@@ -113,13 +113,13 @@ void VkDescriptorSetManager::UpdateFixedSet()
 	update.AddCombinedImageSampler(Fixed.Set.get(), 1, fb->GetTextureManager()->Lightmap.View.get(), fb->GetSamplerManager()->LightmapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery)
 	{
-		update.AddAccelerationStructure(Fixed.Set.get(), 2, fb->GetRaytrace()->GetAccelStruct());
+		update.AddAccelerationStructure(Fixed.Set.get(), 2, fb->GetLevelMesh()->GetAccelStruct());
 	}
 	else
 	{
-		update.AddBuffer(Fixed.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetNodeBuffer());
-		update.AddBuffer(Fixed.Set.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetVertexBuffer());
-		update.AddBuffer(Fixed.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetRaytrace()->GetIndexBuffer());
+		update.AddBuffer(Fixed.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetNodeBuffer());
+		update.AddBuffer(Fixed.Set.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetVertexBuffer());
+		update.AddBuffer(Fixed.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetIndexBuffer());
 	}
 	update.Execute(fb->GetDevice());
 }

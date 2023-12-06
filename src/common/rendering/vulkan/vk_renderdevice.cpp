@@ -43,8 +43,8 @@
 #include "vk_renderdevice.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_postprocess.h"
-#include "vulkan/accelstructs/vk_raytrace.h"
-#include "vulkan/accelstructs/vk_lightmap.h"
+#include "vulkan/accelstructs/vk_levelmesh.h"
+#include "vulkan/accelstructs/vk_lightmapper.h"
 #include "vulkan/pipelines/vk_renderpass.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/shaders/vk_shader.h"
@@ -211,8 +211,8 @@ void VulkanRenderDevice::InitializeState()
 	mPostprocess.reset(new VkPostprocess(this));
 	mDescriptorSetManager.reset(new VkDescriptorSetManager(this));
 	mRenderPassManager.reset(new VkRenderPassManager(this));
-	mRaytrace.reset(new VkRaytrace(this));
-	mLightmap.reset(new VkLightmap(this));
+	mLevelMesh.reset(new VkLevelMesh(this));
+	mLightmapper.reset(new VkLightmapper(this));
 
 	mBufferManager->Init();
 
@@ -480,12 +480,12 @@ void VulkanRenderDevice::BeginFrame()
 	if (levelMeshChanged)
 	{
 		levelMeshChanged = false;
-		mRaytrace->SetLevelMesh(levelMesh);
+		mLevelMesh->SetLevelMesh(levelMesh);
 
 		if (levelMesh && levelMesh->StaticMesh->GetSurfaceCount() > 0)
 		{
 			GetTextureManager()->CreateLightmap(levelMesh->StaticMesh->LMTextureSize, levelMesh->StaticMesh->LMTextureCount, std::move(levelMesh->StaticMesh->LMTextureData));
-			GetLightmap()->SetLevelMesh(levelMesh);
+			GetLightmapper()->SetLevelMesh(levelMesh);
 		}
 	}
 
@@ -496,8 +496,8 @@ void VulkanRenderDevice::BeginFrame()
 	mSaveBuffers->BeginFrame(SAVEPICWIDTH, SAVEPICHEIGHT, SAVEPICWIDTH, SAVEPICHEIGHT);
 	mRenderState->BeginFrame();
 	mDescriptorSetManager->BeginFrame();
-	mRaytrace->BeginFrame();
-	mLightmap->BeginFrame();
+	mLevelMesh->BeginFrame();
+	mLightmapper->BeginFrame();
 }
 
 void VulkanRenderDevice::Draw2D()
@@ -555,7 +555,7 @@ void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)
 
 void VulkanRenderDevice::UpdateLightmaps(const TArray<LevelMeshSurface*>& surfaces)
 {
-	GetLightmap()->Raytrace(surfaces);
+	GetLightmapper()->Raytrace(surfaces);
 }
 
 void VulkanRenderDevice::SetShadowMaps(const TArray<float>& lights, hwrenderer::LevelAABBTree* tree, bool newTree)

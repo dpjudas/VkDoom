@@ -760,8 +760,8 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/textures/vk_renderbuffers.cpp
 	common/rendering/vulkan/textures/vk_texture.cpp
 	common/rendering/vulkan/framebuffers/vk_framebuffer.cpp
-	common/rendering/vulkan/accelstructs/vk_raytrace.cpp
-	common/rendering/vulkan/accelstructs/vk_lightmap.cpp
+	common/rendering/vulkan/accelstructs/vk_levelmesh.cpp
+	common/rendering/vulkan/accelstructs/vk_lightmapper.cpp
 	common/rendering/vulkan/accelstructs/halffloat.cpp
 )
 

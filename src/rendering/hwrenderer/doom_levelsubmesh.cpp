@@ -14,8 +14,6 @@
 #include "hwrenderer/scene/hw_walldispatcher.h"
 #include "hwrenderer/scene/hw_flatdispatcher.h"
 #include "common/rendering/hwrenderer/data/hw_meshbuilder.h"
-#include "common/rendering/vulkan/accelstructs/vk_lightmap.h"
-#include "common/rendering/vulkan/accelstructs/halffloat.h"
 
 VSMatrix GetPlaneTextureRotationMatrix(FGameTexture* gltexture, const sector_t* sector, int plane);
 void GetTexCoordInfo(FGameTexture* tex, FTexCoordInfo* tci, side_t* side, int texpos);
