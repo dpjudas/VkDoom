@@ -22,7 +22,7 @@
 
 #include "vk_descriptorset.h"
 #include "vulkan/vk_renderdevice.h"
-#include "vulkan/accelstructs/vk_levelmesh.h"
+#include "vulkan/vk_levelmesh.h"
 #include "vulkan/shaders/vk_shader.h"
 #include "vulkan/samplers/vk_samplers.h"
 #include "vulkan/textures/vk_renderbuffers.h"

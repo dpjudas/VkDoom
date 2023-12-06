@@ -24,7 +24,7 @@
 #include "vk_pprenderpass.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_renderdevice.h"
-#include "vulkan/accelstructs/vk_levelmesh.h"
+#include "vulkan/vk_levelmesh.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/samplers/vk_samplers.h"

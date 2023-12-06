@@ -605,7 +605,6 @@ file( GLOB HEADER_FILES
 	common/rendering/vulkan/samplers/*.h
 	common/rendering/vulkan/shaders/*.h
 	common/rendering/vulkan/textures/*.h
-	common/rendering/vulkan/accelstructs/*.h
 	common/scripting/core/*h
 	common/scripting/vm/*h
 	common/scripting/jit/*h
@@ -744,6 +743,8 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/vk_renderstate.cpp
 	common/rendering/vulkan/vk_postprocess.cpp
 	common/rendering/vulkan/vk_pprenderstate.cpp
+	common/rendering/vulkan/vk_levelmesh.cpp
+	common/rendering/vulkan/vk_lightmapper.cpp
 	common/rendering/vulkan/commands/vk_commandbuffer.cpp
 	common/rendering/vulkan/buffers/vk_rsbuffers.cpp
 	common/rendering/vulkan/buffers/vk_hwbuffer.cpp
@@ -760,8 +761,6 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/textures/vk_renderbuffers.cpp
 	common/rendering/vulkan/textures/vk_texture.cpp
 	common/rendering/vulkan/framebuffers/vk_framebuffer.cpp
-	common/rendering/vulkan/accelstructs/vk_levelmesh.cpp
-	common/rendering/vulkan/accelstructs/vk_lightmapper.cpp
 )
 
 if (HAVE_VULKAN)
@@ -1466,7 +1465,6 @@ source_group("Common\\Rendering\\Vulkan Renderer\\Pipelines" REGULAR_EXPRESSION 
 source_group("Common\\Rendering\\Vulkan Renderer\\Samplers" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/rendering/vulkan/samplers/.+")
 source_group("Common\\Rendering\\Vulkan Renderer\\Shaders" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/rendering/vulkan/shaders/.+")
 source_group("Common\\Rendering\\Vulkan Renderer\\Textures" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/rendering/vulkan/textures/.+")
-source_group("Common\\Rendering\\Vulkan Renderer\\Accelstructs" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/rendering/vulkan/accelstructs/.+")
 source_group("Common\\Models" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/models/.+")
 source_group("Common\\Textures" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/textures/.+")
 source_group("Common\\Textures\\Hires" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/textures/hires/.+")
