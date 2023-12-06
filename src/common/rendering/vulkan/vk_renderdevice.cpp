@@ -639,7 +639,7 @@ int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, c
 	pipelineKey.StencilTest = false; // mStencilTest;
 	pipelineKey.StencilPassOp = 0; // mStencilOp;
 	pipelineKey.ColorMask = 15; // mColorMask;
-	pipelineKey.CullMode = 0; // mCullMode;
+	pipelineKey.CullMode = Cull_CW; // mCullMode;
 	pipelineKey.NumTextureLayers = material.mMaterial ? material.mMaterial->NumLayers() : 0;
 	pipelineKey.NumTextureLayers = max(pipelineKey.NumTextureLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS);// Always force minimum 8 textures as the shader requires it
 	if (applyData.SpecialEffect > EFF_NONE)

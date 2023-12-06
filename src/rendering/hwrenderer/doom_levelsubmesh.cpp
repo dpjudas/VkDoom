@@ -264,7 +264,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 
 					for (int i = 0, end = sub->numlines; i < end; i++)
 					{
-						auto& vt = sub->firstline[i].v1;
+						auto& vt = sub->firstline[end - 1 - i].v1;
 
 						FFlatVertex ffv;
 						ffv.x = (float)vt->fX();
