@@ -6,7 +6,6 @@
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vk_levelmesh.h"
 #include "zvulkan/vulkanbuilders.h"
-#include "halffloat.h"
 #include "filesystem.h"
 #include "cmdlib.h"
 

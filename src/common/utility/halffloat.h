@@ -1,4 +1,5 @@
 /*
+**  Based on the paper "Fast Half Float Conversions" by Jeroen van der Zijp.
 **
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
@@ -16,10 +17,6 @@
 **     misrepresented as being the original software.
 **  3. This notice may not be removed or altered from any source distribution.
 **
-**  Note: Some of the libraries UICore may link to may have additional
-**  requirements or restrictions.
-**
-**  Based on the paper "Fast Half Float Conversions" by Jeroen van der Zijp.
 */
 
 #pragma once

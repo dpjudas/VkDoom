@@ -85,7 +85,7 @@
 #include "hw_vertexbuilder.h"
 #include "version.h"
 
-#include "vulkan/accelstructs/halffloat.h"
+#include "common/utility/halffloat.h"
 
 enum
 {

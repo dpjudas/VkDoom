@@ -762,7 +762,6 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/framebuffers/vk_framebuffer.cpp
 	common/rendering/vulkan/accelstructs/vk_levelmesh.cpp
 	common/rendering/vulkan/accelstructs/vk_lightmapper.cpp
-	common/rendering/vulkan/accelstructs/halffloat.cpp
 )
 
 if (HAVE_VULKAN)
@@ -1160,6 +1159,7 @@ set( GAME_SOURCES
 	common/thirdparty/stb/stb_sprintf.c
 	common/utility/zstring.cpp
 	common/utility/findfile.cpp
+	common/utility/halffloat.cpp
 	common/thirdparty/math/asin.c
 	common/thirdparty/math/atan.c
 	common/thirdparty/math/const.c
