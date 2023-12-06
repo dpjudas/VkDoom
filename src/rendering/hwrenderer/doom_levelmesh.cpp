@@ -253,17 +253,17 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 	auto f = fopen(objFilename.GetChars(), "w");
 
 	fprintf(f, "# DoomLevelMesh debug export\n");
-	fprintf(f, "# MeshVertices: %u, MeshElements: %u, Surfaces: %u\n", submesh->MeshVertices.Size(), submesh->MeshElements.Size(), submesh->Surfaces.Size());
+	fprintf(f, "# MeshVertices: %u, MeshElements: %u, Surfaces: %u\n", submesh->Mesh.Vertices.Size(), submesh->Mesh.Elements.Size(), submesh->Surfaces.Size());
 	fprintf(f, "mtllib %s\n", mtlFilename.GetChars());
 
 	double scale = 1 / 10.0;
 
-	for (const auto& v : submesh->MeshVertices)
+	for (const auto& v : submesh->Mesh.Vertices)
 	{
 		fprintf(f, "v %f %f %f\n", v.x * scale, v.y * scale, v.z * scale);
 	}
 
-	for (const auto& v : submesh->MeshVertices)
+	for (const auto& v : submesh->Mesh.Vertices)
 	{
 		fprintf(f, "vt %f %f\n", v.lu, v.lv);
 	}
@@ -296,9 +296,9 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 	bool useErrorMaterial = false;
 	int highestUsedAtlasPage = -1;
 
-	for (unsigned i = 0, count = submesh->MeshElements.Size(); i + 2 < count; i += 3)
+	for (unsigned i = 0, count = submesh->Mesh.Elements.Size(); i + 2 < count; i += 3)
 	{
-		auto index = submesh->MeshSurfaceIndexes[i / 3];
+		auto index = submesh->Mesh.SurfaceIndexes[i / 3];
 
 		if (index != lastSurfaceIndex)
 		{
@@ -326,9 +326,9 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 
 		// fprintf(f, "f %d %d %d\n", MeshElements[i] + 1, MeshElements[i + 1] + 1, MeshElements[i + 2] + 1);
 		fprintf(f, "f %d/%d %d/%d %d/%d\n",
-			submesh->MeshElements[i + 0] + 1, submesh->MeshElements[i + 0] + 1,
-			submesh->MeshElements[i + 1] + 1, submesh->MeshElements[i + 1] + 1,
-			submesh->MeshElements[i + 2] + 1, submesh->MeshElements[i + 2] + 1);
+			submesh->Mesh.Elements[i + 0] + 1, submesh->Mesh.Elements[i + 0] + 1,
+			submesh->Mesh.Elements[i + 1] + 1, submesh->Mesh.Elements[i + 1] + 1,
+			submesh->Mesh.Elements[i + 2] + 1, submesh->Mesh.Elements[i + 2] + 1);
 
 	}
 

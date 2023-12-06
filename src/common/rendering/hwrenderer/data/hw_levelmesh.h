@@ -256,12 +256,15 @@ public:
 	virtual unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const { return 0xffffffff; }
 	virtual int GetSurfaceCount() { return 0; }
 
-	TArray<FFlatVertex> MeshVertices;
-	TArray<uint32_t> MeshElements;
-	TArray<int> MeshSurfaceIndexes;
-	TArray<int> MeshUniformIndexes;
-	TArray<SurfaceUniforms> MeshSurfaceUniforms;
-	TArray<FMaterialState> MeshSurfaceMaterials;
+	struct
+	{
+		TArray<FFlatVertex> Vertices;
+		TArray<uint32_t> Elements;
+		TArray<int> SurfaceIndexes;
+		TArray<int> UniformIndexes;
+		TArray<SurfaceUniforms> Uniforms;
+		TArray<FMaterialState> Materials;
+	} Mesh;
 
 	TArray<LevelMeshPortal> Portals;
 

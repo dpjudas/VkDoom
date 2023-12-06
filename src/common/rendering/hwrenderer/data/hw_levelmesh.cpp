@@ -24,7 +24,7 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 			return nullptr;
 		}
 
-		hitSurface = hitmesh->GetSurface(hitmesh->MeshSurfaceIndexes[hit.triangle]);
+		hitSurface = hitmesh->GetSurface(hitmesh->Mesh.SurfaceIndexes[hit.triangle]);
 		auto portal = hitSurface->portalIndex;
 
 		if (!portal)
@@ -67,28 +67,28 @@ LevelSubmesh::LevelSubmesh()
 	// Default empty mesh (we can't make it completely empty since vulkan doesn't like that)
 	float minval = -100001.0f;
 	float maxval = -100000.0f;
-	MeshVertices.Push({ minval, minval, minval });
-	MeshVertices.Push({ maxval, minval, minval });
-	MeshVertices.Push({ maxval, maxval, minval });
-	MeshVertices.Push({ minval, minval, minval });
-	MeshVertices.Push({ minval, maxval, minval });
-	MeshVertices.Push({ maxval, maxval, minval });
-	MeshVertices.Push({ minval, minval, maxval });
-	MeshVertices.Push({ maxval, minval, maxval });
-	MeshVertices.Push({ maxval, maxval, maxval });
-	MeshVertices.Push({ minval, minval, maxval });
-	MeshVertices.Push({ minval, maxval, maxval });
-	MeshVertices.Push({ maxval, maxval, maxval });
+	Mesh.Vertices.Push({ minval, minval, minval });
+	Mesh.Vertices.Push({ maxval, minval, minval });
+	Mesh.Vertices.Push({ maxval, maxval, minval });
+	Mesh.Vertices.Push({ minval, minval, minval });
+	Mesh.Vertices.Push({ minval, maxval, minval });
+	Mesh.Vertices.Push({ maxval, maxval, minval });
+	Mesh.Vertices.Push({ minval, minval, maxval });
+	Mesh.Vertices.Push({ maxval, minval, maxval });
+	Mesh.Vertices.Push({ maxval, maxval, maxval });
+	Mesh.Vertices.Push({ minval, minval, maxval });
+	Mesh.Vertices.Push({ minval, maxval, maxval });
+	Mesh.Vertices.Push({ maxval, maxval, maxval });
 
 	for (int i = 0; i < 3 * 4; i++)
-		MeshElements.Push(i);
+		Mesh.Elements.Push(i);
 
 	UpdateCollision();
 }
 
 void LevelSubmesh::UpdateCollision()
 {
-	Collision = std::make_unique<TriangleMeshShape>(MeshVertices.Data(), MeshVertices.Size(), MeshElements.Data(), MeshElements.Size());
+	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Elements.Data(), Mesh.Elements.Size());
 }
 
 void LevelSubmesh::GatherSurfacePixelStats(LevelMeshSurfaceStats& stats)

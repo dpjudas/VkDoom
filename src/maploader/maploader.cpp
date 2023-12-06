@@ -3350,7 +3350,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 	{
 		auto& realSurface = *surface.targetSurface;
 
-		auto* vertices = &submesh->MeshVertices[realSurface.startVertIndex];
+		auto* vertices = &submesh->Mesh.Vertices[realSurface.startVertIndex];
 		auto* newUVs = &zdrayUvs[surface.uvOffset];
 
 		for (uint32_t i = 0; i < surface.uvCount; ++i)

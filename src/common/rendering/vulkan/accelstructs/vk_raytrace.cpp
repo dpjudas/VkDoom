@@ -100,12 +100,12 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 	{
 		SubmeshBufferLocation location;
 		location.Submesh = submesh;
-		location.VertexSize = submesh->MeshVertices.Size();
-		location.IndexSize = submesh->MeshElements.Size();
+		location.VertexSize = submesh->Mesh.Vertices.Size();
+		location.IndexSize = submesh->Mesh.Elements.Size();
 		location.NodeSize = (int)submesh->Collision->get_nodes().size();
-		location.SurfaceIndexSize = submesh->MeshSurfaceIndexes.Size();
+		location.SurfaceIndexSize = submesh->Mesh.SurfaceIndexes.Size();
 		location.SurfaceSize = submesh->GetSurfaceCount();
-		location.SurfaceUniformsSize = submesh->MeshSurfaceUniforms.Size();
+		location.UniformsSize = submesh->Mesh.Uniforms.Size();
 		locations.Push(location);
 	}
 
@@ -119,14 +119,14 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		cur.NodeOffset = prev.NodeOffset + prev.NodeSize;
 		cur.SurfaceIndexOffset = prev.SurfaceIndexOffset + prev.SurfaceIndexSize;
 		cur.SurfaceOffset = prev.SurfaceOffset + prev.SurfaceSize;
-		cur.SurfaceUniformsOffset = prev.SurfaceUniformsOffset + prev.SurfaceUniformsSize;
+		cur.UniformsOffset = prev.UniformsOffset + prev.UniformsSize;
 
 		if (
 			cur.VertexOffset + cur.VertexSize > GetMaxVertexBufferSize() ||
 			cur.IndexOffset + cur.IndexSize > GetMaxIndexBufferSize() ||
 			cur.NodeOffset + cur.NodeSize > GetMaxNodeBufferSize() ||
 			cur.SurfaceOffset + cur.SurfaceSize > GetMaxSurfaceBufferSize() ||
-			cur.SurfaceUniformsOffset + cur.SurfaceUniformsSize > GetMaxSurfaceUniformsBufferSize() ||
+			cur.UniformsOffset + cur.UniformsSize > GetMaxUniformsBufferSize() ||
 			cur.SurfaceIndexOffset + cur.SurfaceIndexSize > GetMaxSurfaceIndexBufferSize())
 		{
 			I_FatalError("Dynamic accel struct buffers are too small!");
@@ -141,13 +141,13 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 	for (unsigned int i = start; i < end; i++)
 	{
 		const SubmeshBufferLocation& cur = locations[i];
-		transferBufferSize += cur.Submesh->MeshVertices.Size() * sizeof(FFlatVertex);
-		transferBufferSize += cur.Submesh->MeshUniformIndexes.Size() * sizeof(int);
-		transferBufferSize += cur.Submesh->MeshElements.Size() * sizeof(uint32_t);
+		transferBufferSize += cur.Submesh->Mesh.Vertices.Size() * sizeof(FFlatVertex);
+		transferBufferSize += cur.Submesh->Mesh.UniformIndexes.Size() * sizeof(int);
+		transferBufferSize += cur.Submesh->Mesh.Elements.Size() * sizeof(uint32_t);
 		transferBufferSize += cur.Submesh->Collision->get_nodes().size() * sizeof(CollisionNode);
-		transferBufferSize += cur.Submesh->MeshSurfaceIndexes.Size() * sizeof(int);
+		transferBufferSize += cur.Submesh->Mesh.SurfaceIndexes.Size() * sizeof(int);
 		transferBufferSize += cur.Submesh->GetSurfaceCount() * sizeof(SurfaceInfo);
-		transferBufferSize += cur.Submesh->MeshSurfaceUniforms.Size() * sizeof(SurfaceUniforms);
+		transferBufferSize += cur.Submesh->Mesh.Uniforms.Size() * sizeof(SurfaceUniforms);
 	}
 	if (!dynamicOnly)
 		transferBufferSize += Mesh->StaticMesh->Portals.Size() * sizeof(PortalInfo);
@@ -207,8 +207,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		const SubmeshBufferLocation& cur = locations[i];
 		auto submesh = cur.Submesh;
 
-		size_t copysize = submesh->MeshVertices.Size() * sizeof(FFlatVertex);
-		memcpy(data + datapos, submesh->MeshVertices.Data(), copysize);
+		size_t copysize = submesh->Mesh.Vertices.Size() * sizeof(FFlatVertex);
+		memcpy(data + datapos, submesh->Mesh.Vertices.Data(), copysize);
 		if (copysize > 0)
 			cmdbuffer->copyBuffer(transferBuffer.get(), VertexBuffer.get(), datapos, cur.VertexOffset * sizeof(FFlatVertex), copysize);
 		datapos += copysize;
@@ -220,8 +220,8 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		const SubmeshBufferLocation& cur = locations[i];
 		auto submesh = cur.Submesh;
 
-		size_t copysize = submesh->MeshUniformIndexes.Size() * sizeof(int);
-		memcpy(data + datapos, submesh->MeshUniformIndexes.Data(), copysize);
+		size_t copysize = submesh->Mesh.UniformIndexes.Size() * sizeof(int);
+		memcpy(data + datapos, submesh->Mesh.UniformIndexes.Data(), copysize);
 		if (copysize > 0)
 			cmdbuffer->copyBuffer(transferBuffer.get(), UniformIndexBuffer.get(), datapos, cur.VertexOffset * sizeof(int), copysize);
 		datapos += copysize;
@@ -234,10 +234,10 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		auto submesh = cur.Submesh;
 
 		uint32_t* indexes = (uint32_t*)(data + datapos);
-		for (int j = 0, count = submesh->MeshElements.Size(); j < count; ++j)
-			*(indexes++) = cur.VertexOffset + submesh->MeshElements[j];
+		for (int j = 0, count = submesh->Mesh.Elements.Size(); j < count; ++j)
+			*(indexes++) = cur.VertexOffset + submesh->Mesh.Elements[j];
 
-		size_t copysize = submesh->MeshElements.Size() * sizeof(uint32_t);
+		size_t copysize = submesh->Mesh.Elements.Size() * sizeof(uint32_t);
 		if (copysize > 0)
 			cmdbuffer->copyBuffer(transferBuffer.get(), IndexBuffer.get(), datapos, cur.IndexOffset * sizeof(uint32_t), copysize);
 		datapos += copysize;
@@ -274,10 +274,10 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		auto submesh = cur.Submesh;
 
 		int* indexes = (int*)(data + datapos);
-		for (int j = 0, count = submesh->MeshSurfaceIndexes.Size(); j < count; ++j)
-			*(indexes++) = cur.SurfaceIndexOffset + submesh->MeshSurfaceIndexes[j];
+		for (int j = 0, count = submesh->Mesh.SurfaceIndexes.Size(); j < count; ++j)
+			*(indexes++) = cur.SurfaceIndexOffset + submesh->Mesh.SurfaceIndexes[j];
 
-		size_t copysize = submesh->MeshSurfaceIndexes.Size() * sizeof(int);
+		size_t copysize = submesh->Mesh.SurfaceIndexes.Size() * sizeof(int);
 		if (copysize > 0)
 			cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceIndexBuffer.get(), datapos, cur.SurfaceIndexOffset * sizeof(int), copysize);
 		datapos += copysize;
@@ -325,10 +325,10 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		const SubmeshBufferLocation& cur = locations[i];
 		auto submesh = cur.Submesh;
 
-		for (int j = 0, count = submesh->MeshSurfaceUniforms.Size(); j < count; j++)
+		for (int j = 0, count = submesh->Mesh.Uniforms.Size(); j < count; j++)
 		{
-			auto& surfaceUniforms = submesh->MeshSurfaceUniforms[j];
-			auto& material = submesh->MeshSurfaceMaterials[j];
+			auto& surfaceUniforms = submesh->Mesh.Uniforms[j];
+			auto& material = submesh->Mesh.Materials[j];
 			if (material.mMaterial)
 			{
 				auto source = material.mMaterial->Source();
@@ -342,10 +342,10 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 		}
 
 		SurfaceUniforms* uniforms = (SurfaceUniforms*)(data + datapos);
-		size_t copysize = submesh->MeshSurfaceUniforms.Size() * sizeof(SurfaceUniforms);
-		memcpy(uniforms, submesh->MeshSurfaceUniforms.Data(), copysize);
+		size_t copysize = submesh->Mesh.Uniforms.Size() * sizeof(SurfaceUniforms);
+		memcpy(uniforms, submesh->Mesh.Uniforms.Data(), copysize);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceUniformsBuffer.get(), datapos, cur.SurfaceUniformsOffset * sizeof(SurfaceUniforms), copysize);
+			cmdbuffer->copyBuffer(transferBuffer.get(), SurfaceUniformsBuffer.get(), datapos, cur.UniformsOffset * sizeof(SurfaceUniforms), copysize);
 		datapos += copysize;
 	}
 
@@ -380,12 +380,12 @@ void VkRaytrace::UploadMeshes(bool dynamicOnly)
 
 int VkRaytrace::GetMaxVertexBufferSize()
 {
-	return Mesh->StaticMesh->MeshVertices.Size() + MaxDynamicVertices;
+	return Mesh->StaticMesh->Mesh.Vertices.Size() + MaxDynamicVertices;
 }
 
 int VkRaytrace::GetMaxIndexBufferSize()
 {
-	return Mesh->StaticMesh->MeshElements.Size() + MaxDynamicIndexes;
+	return Mesh->StaticMesh->Mesh.Elements.Size() + MaxDynamicIndexes;
 }
 
 int VkRaytrace::GetMaxNodeBufferSize()
@@ -398,14 +398,14 @@ int VkRaytrace::GetMaxSurfaceBufferSize()
 	return Mesh->StaticMesh->GetSurfaceCount() + MaxDynamicSurfaces;
 }
 
-int VkRaytrace::GetMaxSurfaceUniformsBufferSize()
+int VkRaytrace::GetMaxUniformsBufferSize()
 {
-	return Mesh->StaticMesh->MeshSurfaceUniforms.Size() + MaxDynamicSurfaceUniforms;
+	return Mesh->StaticMesh->Mesh.Uniforms.Size() + MaxDynamicUniforms;
 }
 
 int VkRaytrace::GetMaxSurfaceIndexBufferSize()
 {
-	return Mesh->StaticMesh->MeshSurfaceIndexes.Size() + MaxDynamicSurfaceIndexes;
+	return Mesh->StaticMesh->Mesh.SurfaceIndexes.Size() + MaxDynamicSurfaceIndexes;
 }
 
 void VkRaytrace::CreateBuffers()
@@ -462,7 +462,7 @@ void VkRaytrace::CreateBuffers()
 
 	SurfaceUniformsBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(GetMaxSurfaceUniformsBufferSize() * sizeof(SurfaceUniforms))
+		.Size(GetMaxUniformsBufferSize() * sizeof(SurfaceUniforms))
 		.DebugName("SurfaceUniformsBuffer")
 		.Create(fb->GetDevice());
 
@@ -489,7 +489,7 @@ VkRaytrace::BLAS VkRaytrace::CreateBLAS(LevelSubmesh* submesh, bool preferFastBu
 	accelStructBLDesc.geometry.triangles.vertexStride = sizeof(FFlatVertex);
 	accelStructBLDesc.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	accelStructBLDesc.geometry.triangles.indexData.deviceAddress = IndexBuffer->GetDeviceAddress() + indexOffset * sizeof(uint32_t);
-	accelStructBLDesc.geometry.triangles.maxVertex = vertexOffset + submesh->MeshVertices.Size() - 1;
+	accelStructBLDesc.geometry.triangles.maxVertex = vertexOffset + submesh->Mesh.Vertices.Size() - 1;
 
 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 	buildInfo.flags = preferFastBuild ? VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR : VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
@@ -497,7 +497,7 @@ VkRaytrace::BLAS VkRaytrace::CreateBLAS(LevelSubmesh* submesh, bool preferFastBu
 	buildInfo.geometryCount = 1;
 	buildInfo.ppGeometries = geometries;
 
-	uint32_t maxPrimitiveCount = submesh->MeshElements.Size() / 3;
+	uint32_t maxPrimitiveCount = submesh->Mesh.Elements.Size() / 3;
 
 	VkAccelerationStructureBuildSizesInfoKHR sizeInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 	vkGetAccelerationStructureBuildSizesKHR(fb->GetDevice()->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxPrimitiveCount, &sizeInfo);
@@ -545,7 +545,7 @@ void VkRaytrace::CreateStaticBLAS()
 
 void VkRaytrace::CreateDynamicBLAS()
 {
-	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->MeshVertices.Size(), Mesh->StaticMesh->MeshElements.Size());
+	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->Mesh.Vertices.Size(), Mesh->StaticMesh->Mesh.Elements.Size());
 }
 
 void VkRaytrace::CreateTopLevelAS()
@@ -657,7 +657,7 @@ void VkRaytrace::UpdateDynamicBLAS()
 	deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
 	deletelist->Add(std::move(DynamicBLAS.AccelStruct));
 
-	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->MeshVertices.Size(), Mesh->StaticMesh->MeshElements.Size());
+	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->Mesh.Vertices.Size(), Mesh->StaticMesh->Mesh.Elements.Size());
 }
 
 void VkRaytrace::UpdateTopLevelAS()

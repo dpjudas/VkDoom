@@ -55,8 +55,8 @@ struct SubmeshBufferLocation
 	int SurfaceIndexSize = 0;
 	int SurfaceOffset = 0;
 	int SurfaceSize = 0;
-	int SurfaceUniformsOffset = 0;
-	int SurfaceUniformsSize = 0;
+	int UniformsOffset = 0;
+	int UniformsSize = 0;
 };
 
 class VkRaytrace
@@ -103,7 +103,7 @@ private:
 	int GetMaxIndexBufferSize();
 	int GetMaxNodeBufferSize();
 	int GetMaxSurfaceBufferSize();
-	int GetMaxSurfaceUniformsBufferSize();
+	int GetMaxUniformsBufferSize();
 	int GetMaxSurfaceIndexBufferSize();
 
 	VulkanRenderDevice* fb = nullptr;
@@ -127,7 +127,7 @@ private:
 	static const int MaxDynamicVertices = 100'000;
 	static const int MaxDynamicIndexes = 100'000;
 	static const int MaxDynamicSurfaces = 100'000;
-	static const int MaxDynamicSurfaceUniforms = 100'000;
+	static const int MaxDynamicUniforms = 100'000;
 	static const int MaxDynamicSurfaceIndexes = 25'000;
 	static const int MaxDynamicNodes = 10'000;
 
