@@ -2995,15 +2995,16 @@ void MapLoader::InitLevelMesh(MapData* map)
 	for (unsigned int i = 0; i < Level->sides.Size(); i++)
 	{
 		auto& side = Level->sides[i];
-		side.surface = &Level->Surfaces[offset];
-		offset += 4 + side.sector->e->XFloor.ffloors.Size();
+		int count = 4 + side.sector->e->XFloor.ffloors.Size();
+		side.surface = TArrayView<DoomLevelMeshSurface*>(&Level->Surfaces[offset], count);
+		offset += count;
 	}
 	for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
 	{
 		auto& subsector = Level->subsectors[i];
 		unsigned int count = 1 + subsector.sector->e->XFloor.ffloors.Size();
-		subsector.surface[0] = &Level->Surfaces[offset];
-		subsector.surface[1] = &Level->Surfaces[offset + count];
+		subsector.surface[0] = TArrayView<DoomLevelMeshSurface*>(&Level->Surfaces[offset], count);
+		subsector.surface[1] = TArrayView<DoomLevelMeshSurface*>(&Level->Surfaces[offset + count], count);
 		offset += count * 2;
 	}
 
