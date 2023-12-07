@@ -1164,7 +1164,7 @@ void HWWall::DoTexture(HWWallDispatcher *di, FRenderState& state, int _type,seg_
 
 	type = _type;
 
-	if (seg->sidedef->lightmap && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
+	if (seg->sidedef->lightmap.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
 	{
 		lightmap = seg->sidedef->lightmap[type - RENDERWALL_TOP];
 		if (lightmap && di->di)
@@ -1231,9 +1231,9 @@ void HWWall::DoMidTexture(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	//
 	if (texture)
 	{
-		if (auto lightmapPtr = seg->sidedef->lightmap)
+		if (seg->sidedef->lightmap.Size() >= 4)
 		{
-			lightmap = lightmapPtr[side_t::mid];
+			lightmap = seg->sidedef->lightmap[side_t::mid];
 			if (lightmap && di->di)
 			{
 				di->di->PushVisibleSurface(lightmap);
@@ -1571,9 +1571,9 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 
 	lightmap = nullptr;
 	if (seg->sidedef == seg->linedef->sidedef[0])
-		lightmap = seg->linedef->sidedef[1]->lightmap ? seg->linedef->sidedef[1]->lightmap[4 + roverIndex] : nullptr;
+		lightmap = seg->linedef->sidedef[1]->lightmap.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->lightmap[4 + roverIndex] : nullptr;
 	else
-		lightmap = seg->linedef->sidedef[0]->lightmap ? seg->linedef->sidedef[0]->lightmap[4 + roverIndex] : nullptr;
+		lightmap = seg->linedef->sidedef[0]->lightmap.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->lightmap[4 + roverIndex] : nullptr;
 
 	if (lightmap && di->di)
 	{

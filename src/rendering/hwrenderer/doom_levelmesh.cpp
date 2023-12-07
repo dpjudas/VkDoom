@@ -312,11 +312,11 @@ void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartInd
 		if (isPolyLine)
 		{
 			// Make sure we have a lightmap array on the polyobj sidedef
-			if (!side->lightmap)
+			if (side->lightmap.Size() == 0)
 			{
 				auto array = std::make_unique<DoomLevelMeshSurface*[]>(4);
 				memset(array.get(), 0, sizeof(DoomLevelMeshSurface*));
-				side->lightmap = array.get();
+				side->lightmap = TArrayView<DoomLevelMeshSurface*>(array.get(), 4);
 				PolyLMSurfaces.Push(std::move(array));
 			}
 

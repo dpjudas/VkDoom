@@ -1256,7 +1256,7 @@ struct side_t
 	uint16_t	Flags;
 	int			UDMFIndex;		// needed to access custom UDMF fields which are stored in loading order.
 	FLightNode * lighthead;		// all dynamic lights that may affect this wall
-	DoomLevelMeshSurface** lightmap; // all mesh surfaces belonging to this sidedef. Used for lightmapping
+	TArrayView<DoomLevelMeshSurface*> lightmap; // all mesh surfaces belonging to this sidedef. Used for lightmapping
 	seg_t **segs;	// all segs belonging to this sidedef in ascending order. Used for precise rendering
 	int numsegs;
 	int sidenum;
@@ -1673,7 +1673,7 @@ struct subsector_t
 									// 2: has one-sided walls
 	FPortalCoverage	portalcoverage[2];
 
-	DoomLevelMeshSurface** lightmap[2]; // all mesh surfaces belonging to this subsector. Used for lightmapping
+	TArrayView<DoomLevelMeshSurface*> lightmap[2]; // all mesh surfaces belonging to this subsector. Used for lightmapping
 };
 
 

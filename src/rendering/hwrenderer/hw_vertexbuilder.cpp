@@ -243,7 +243,7 @@ static int CreateIndexedSectorVerticesLM(FRenderState& renderstate, sector_t* se
 		for(auto& sub : section.subsectors)
 		{
 			// vertices
-			DoomLevelMeshSurface* lightmap = sub->lightmap[h][lightmapIndex];
+			DoomLevelMeshSurface* lightmap = sub->lightmap[h].Size() > lightmapIndex ? sub->lightmap[h][lightmapIndex] : nullptr;
 			if (lightmap && lightmap->Type != ST_UNKNOWN) // lightmap may be missing if the subsector is degenerate triangle
 			{
 				float* luvs = lightmap->TexCoords;

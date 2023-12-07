@@ -3006,15 +3006,16 @@ void MapLoader::InitLevelMesh(MapData* map)
 		for (unsigned int i = 0; i < Level->sides.Size(); i++)
 		{
 			auto& side = Level->sides[i];
-			side.lightmap = &Level->LMSurfaces[offset];
-			offset += 4 + side.sector->e->XFloor.ffloors.Size();
+			int count = 4 + side.sector->e->XFloor.ffloors.Size();
+			side.lightmap = TArrayView<DoomLevelMeshSurface*>(&Level->LMSurfaces[offset], count);
+			offset += count;
 		}
 		for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
 		{
 			auto& subsector = Level->subsectors[i];
 			unsigned int count = 1 + subsector.sector->e->XFloor.ffloors.Size();
-			subsector.lightmap[0] = &Level->LMSurfaces[offset];
-			subsector.lightmap[1] = &Level->LMSurfaces[offset + count];
+			subsector.lightmap[0] = TArrayView<DoomLevelMeshSurface*>(&Level->LMSurfaces[offset], count);
+			subsector.lightmap[1] = TArrayView<DoomLevelMeshSurface*>(&Level->LMSurfaces[offset + count], count);
 			offset += count * 2;
 		}
 
