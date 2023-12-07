@@ -222,23 +222,67 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 
 	FString materialname = "MaterialBlock";
 	FString materialBlock;
+	FString lightname = "LightBlock";
+	FString lightBlock;
+	FString mateffectname = "MaterialEffectBlock";
+	FString mateffectBlock;
+
 	if (material_lump)
 	{
 		materialname = material_lump;
 		materialBlock = LoadPublicShaderLump(material_lump);
+
+		// Attempt to fix old custom shaders:
+
+		materialBlock = RemoveLegacyUserUniforms(materialBlock);
+		materialBlock.Substitute("gl_TexCoord[0]", "vTexCoord");
+
+		if (materialBlock.IndexOf("ProcessMaterial") < 0 && materialBlock.IndexOf("SetupMaterial") < 0)
+		{
+			// Old hardware shaders that implements GetTexCoord, ProcessTexel or Process
+
+			if (materialBlock.IndexOf("GetTexCoord") >= 0)
+			{
+				mateffectBlock = "vec2 GetTexCoord();";
+			}
+			
+			FString code;
+			if (materialBlock.IndexOf("ProcessTexel") >= 0)
+			{
+				code = LoadPrivateShaderLump("shaders/scene/material_legacy_ptexel.glsl");
+			}
+			else if (materialBlock.IndexOf("Process") >= 0)
+			{
+				code = LoadPrivateShaderLump("shaders/scene/material_legacy_process.glsl");
+			}
+			else
+			{
+				code = LoadPrivateShaderLump("shaders/scene/material_default.glsl");
+			}
+			code << "\n#line 1\n";
+
+			materialBlock = code + materialBlock;
+		}
+		else if (materialBlock.IndexOf("SetupMaterial") < 0)
+		{
+			// Old hardware shader implementing SetupMaterial
+
+			definesBlock << "#define LEGACY_USER_SHADER\n";
+
+			FString code = LoadPrivateShaderLump("shaders/scene/material_legacy_pmaterial.glsl");
+			code << "\n#line 1\n";
+
+			materialBlock = code + materialBlock;
+		}
 	}
 
-	FString lightname = "LightBlock";
-	FString lightBlock;
-	if (light_lump)
+	if (light_lump && lightBlock.IsEmpty())
 	{
 		lightname = light_lump;
 		lightBlock << LoadPrivateShaderLump(light_lump).GetChars();
 	}
 
-	FString mateffectname = "MaterialEffectBlock";
-	FString mateffectBlock;
-	if (mateffect_lump)
+	if (mateffect_lump && mateffectBlock.IsEmpty())
 	{
 		mateffectname = mateffect_lump;
 		mateffectBlock << LoadPrivateShaderLump(mateffect_lump).GetChars();
