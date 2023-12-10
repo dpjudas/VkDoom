@@ -3728,7 +3728,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	if (!Level->IsReentering())
 		Level->FinalizePortals();	// finalize line portals after polyobjects have been initialized. This info is needed for properly flagging them.
 
-	static_cast<DoomLevelSubmesh*>(Level->levelMesh->StaticMesh.get())->CreatePortals(); // [RaveYard]: needs portal data, but at the same time intializing the level mesh here breaks floor/ceiling planes!
+	Level->levelMesh->CreatePortals(*Level); // [RaveYard]: needs portal data, but at the same time intializing the level mesh here breaks floor/ceiling planes!
 
 	Level->aabbTree = new DoomLevelAABBTree(Level);
 }

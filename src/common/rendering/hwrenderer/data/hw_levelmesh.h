@@ -266,8 +266,6 @@ public:
 		TArray<FMaterialState> Materials;
 	} Mesh;
 
-	TArray<LevelMeshPortal> Portals;
-
 	std::unique_ptr<TriangleMeshShape> Collision;
 
 	TArray<LevelSubmeshDrawRange> DrawList;
@@ -293,6 +291,7 @@ private:
 class LevelMesh
 {
 public:
+	LevelMesh();
 	virtual ~LevelMesh() = default;
 
 	std::unique_ptr<LevelSubmesh> StaticMesh = std::make_unique<LevelSubmesh>();
@@ -307,4 +306,6 @@ public:
 	// Map defaults
 	FVector3 SunDirection = FVector3(0.0f, 0.0f, -1.0f);
 	FVector3 SunColor = FVector3(0.0f, 0.0f, 0.0f);
+
+	TArray<LevelMeshPortal> Portals;
 };

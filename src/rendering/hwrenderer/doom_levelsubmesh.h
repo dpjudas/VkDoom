@@ -14,6 +14,7 @@ typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct FLevelLocals;
 struct FPolyObj;
+class DoomLevelMesh;
 
 struct DoomLevelMeshSurface : public LevelMeshSurface
 {
@@ -31,6 +32,8 @@ struct DoomLevelMeshSurface : public LevelMeshSurface
 class DoomLevelSubmesh : public LevelSubmesh
 {
 public:
+	DoomLevelSubmesh(DoomLevelMesh* mesh) : LevelMesh(mesh) { }
+
 	void CreateStatic(FLevelLocals& doomMap);
 	void CreateDynamic(FLevelLocals& doomMap);
 	void UpdateDynamic(FLevelLocals& doomMap, int lightmapStartIndex);
@@ -42,10 +45,8 @@ public:
 	// Used by Maploader
 	void LinkSurfaces(FLevelLocals& doomMap);
 	void PackLightmapAtlas(int lightmapStartIndex);
-	void CreatePortals();
 
 	TArray<DoomLevelMeshSurface> Surfaces;
-	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 
 	TArray<std::unique_ptr<DoomLevelMeshSurface*[]>> PolyLMSurfaces;
 
@@ -53,7 +54,6 @@ public:
 
 private:
 	void Reset();
-	void BuildSectorGroups(const FLevelLocals& doomMap);
 
 	void CreateStaticSurfaces(FLevelLocals& doomMap);
 	void CreateDynamicSurfaces(FLevelLocals& doomMap);
@@ -105,6 +105,8 @@ private:
 	static FVector2 ToFVector2(const DVector2& v) { return FVector2((float)v.X, (float)v.Y); }
 	static FVector3 ToFVector3(const DVector3& v) { return FVector3((float)v.X, (float)v.Y, (float)v.Z); }
 	static FVector4 ToFVector4(const DVector4& v) { return FVector4((float)v.X, (float)v.Y, (float)v.Z, (float)v.W); }
+
+	DoomLevelMesh* LevelMesh = nullptr;
 };
 
 static_assert(alignof(FVector2) == alignof(float[2]) && sizeof(FVector2) == sizeof(float) * 2);

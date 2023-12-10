@@ -187,7 +187,7 @@ void VkLevelMesh::CreateBuffers()
 
 	PortalBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->StaticMesh->Portals.Size() * sizeof(PortalInfo))
+		.Size(Mesh->Portals.Size() * sizeof(PortalInfo))
 		.DebugName("PortalBuffer")
 		.Create(fb->GetDevice());
 }
@@ -700,14 +700,14 @@ void VkLevelMeshUploader::UploadPortals()
 	if (start == 0)
 	{
 		PortalInfo* portals = (PortalInfo*)(data + datapos);
-		for (auto& portal : Mesh->Mesh->StaticMesh->Portals)
+		for (auto& portal : Mesh->Mesh->Portals)
 		{
 			PortalInfo info;
 			info.transformation = portal.transformation;
 			*(portals++) = info;
 		}
 
-		size_t copysize = Mesh->Mesh->StaticMesh->Portals.Size() * sizeof(PortalInfo);
+		size_t copysize = Mesh->Mesh->Portals.Size() * sizeof(PortalInfo);
 		if (copysize > 0)
 			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->PortalBuffer.get(), datapos, 0, copysize);
 		datapos += copysize;
@@ -775,6 +775,6 @@ size_t VkLevelMeshUploader::GetTransferSize()
 		transferBufferSize += cur.Submesh->Mesh.Uniforms.Size() * sizeof(SurfaceUniforms);
 	}
 	if (start == 0)
-		transferBufferSize += Mesh->GetMesh()->StaticMesh->Portals.Size() * sizeof(PortalInfo);
+		transferBufferSize += Mesh->GetMesh()->Portals.Size() * sizeof(PortalInfo);
 	return transferBufferSize;
 }

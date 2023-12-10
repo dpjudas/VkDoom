@@ -141,8 +141,11 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	SunColor = doomMap.SunColor; // TODO keep only one copy?
 	SunDirection = doomMap.SunDirection;
 
-	StaticMesh = std::make_unique<DoomLevelSubmesh>();
-	DynamicMesh = std::make_unique<DoomLevelSubmesh>();
+	BuildSectorGroups(doomMap);
+	CreatePortals(doomMap);
+
+	StaticMesh = std::make_unique<DoomLevelSubmesh>(this);
+	DynamicMesh = std::make_unique<DoomLevelSubmesh>(this);
 
 	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->CreateStatic(doomMap);
 	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->CreateDynamic(doomMap);
@@ -233,7 +236,7 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 			meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
 
 			if (light->Sector)
-				meshlight.SectorGroup = static_cast<DoomLevelSubmesh*>(StaticMesh.get())->sectorGroup[light->Sector->Index()];
+				meshlight.SectorGroup = sectorGroup[light->Sector->Index()];
 			else
 				meshlight.SectorGroup = 0;
 		}
@@ -353,4 +356,163 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 	}
 
 	fclose(f);
+}
+
+void DoomLevelMesh::BuildSectorGroups(const FLevelLocals& doomMap)
+{
+	int groupIndex = 0;
+
+	TArray<sector_t*> queue;
+
+	sectorGroup.Resize(doomMap.sectors.Size());
+	memset(sectorGroup.Data(), 0, sectorGroup.Size() * sizeof(int));
+
+	for (int i = 0, count = doomMap.sectors.Size(); i < count; ++i)
+	{
+		auto* sector = &doomMap.sectors[i];
+
+		auto& currentSectorGroup = sectorGroup[sector->Index()];
+		if (currentSectorGroup == 0)
+		{
+			currentSectorGroup = ++groupIndex;
+
+			queue.Push(sector);
+
+			while (queue.Size() > 0)
+			{
+				auto* sector = queue.Last();
+				queue.Pop();
+
+				for (auto& line : sector->Lines)
+				{
+					auto otherSector = line->frontsector == sector ? line->backsector : line->frontsector;
+					if (otherSector && otherSector != sector)
+					{
+						auto& id = sectorGroup[otherSector->Index()];
+
+						if (id == 0)
+						{
+							id = groupIndex;
+							queue.Push(otherSector);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (developer >= 5)
+	{
+		Printf("DoomLevelMesh::BuildSectorGroups created %d groups.", groupIndex);
+	}
+}
+
+void DoomLevelMesh::CreatePortals(FLevelLocals& doomMap)
+{
+	std::map<LevelMeshPortal, int, IdenticalPortalComparator> transformationIndices;
+	transformationIndices.emplace(LevelMeshPortal{}, 0); // first portal is an identity matrix
+
+	sectorPortals[0].Resize(doomMap.sectors.Size());
+	sectorPortals[1].Resize(doomMap.sectors.Size());
+
+	for (unsigned int i = 0, count = doomMap.sectors.Size(); i < count; i++)
+	{
+		sector_t* sector = &doomMap.sectors[i];
+		for (int plane = 0; plane < 2; plane++)
+		{
+			auto d = sector->GetPortalDisplacement(plane);
+			if (!d.isZero())
+			{
+				VSMatrix transformation;
+				transformation.loadIdentity();
+				transformation.translate((float)d.X, (float)d.Y, 0.0f);
+
+				int targetSectorGroup = 0;
+				auto portalDestination = sector->GetPortal(plane)->mDestination;
+				if (portalDestination)
+				{
+					targetSectorGroup = sectorGroup[portalDestination->Index()];
+				}
+
+				LevelMeshPortal portal;
+				portal.transformation = transformation;
+				portal.sourceSectorGroup = sectorGroup[i];
+				portal.targetSectorGroup = targetSectorGroup;
+
+				auto& index = transformationIndices[portal];
+				if (index == 0) // new transformation was created
+				{
+					index = Portals.Size();
+					Portals.Push(portal);
+				}
+
+				sectorPortals[plane][i] = index;
+			}
+			else
+			{
+				sectorPortals[plane][i] = 0;
+			}
+		}
+	}
+
+	linePortals.Resize(doomMap.lines.Size());
+	for (unsigned int i = 0, count = doomMap.lines.Size(); i < count; i++)
+	{
+		linePortals[i] = 0;
+
+		line_t* sourceLine = &doomMap.lines[i];
+		if (sourceLine->isLinePortal())
+		{
+			VSMatrix transformation;
+			transformation.loadIdentity();
+
+			auto targetLine = sourceLine->getPortalDestination();
+			if (!targetLine || !sourceLine->frontsector || !targetLine->frontsector)
+				continue;
+
+			double z = 0;
+
+			// auto xy = surface.Side->linedef->getPortalDisplacement(); // Works only for static portals... ugh
+			auto sourceXYZ = DVector2((sourceLine->v1->fX() + sourceLine->v2->fX()) / 2, (sourceLine->v2->fY() + sourceLine->v1->fY()) / 2);
+			auto targetXYZ = DVector2((targetLine->v1->fX() + targetLine->v2->fX()) / 2, (targetLine->v2->fY() + targetLine->v1->fY()) / 2);
+
+			// floor or ceiling alignment
+			auto alignment = sourceLine->GetLevel()->linePortals[sourceLine->portalindex].mAlign;
+			if (alignment != PORG_ABSOLUTE)
+			{
+				int plane = alignment == PORG_FLOOR ? 1 : 0;
+
+				auto& sourcePlane = plane ? sourceLine->frontsector->floorplane : sourceLine->frontsector->ceilingplane;
+				auto& targetPlane = plane ? targetLine->frontsector->floorplane : targetLine->frontsector->ceilingplane;
+
+				auto tz = targetPlane.ZatPoint(targetXYZ);
+				auto sz = sourcePlane.ZatPoint(sourceXYZ);
+
+				z = tz - sz;
+			}
+
+			transformation.rotate((float)sourceLine->getPortalAngleDiff().Degrees(), 0.0f, 0.0f, 1.0f);
+			transformation.translate((float)(targetXYZ.X - sourceXYZ.X), (float)(targetXYZ.Y - sourceXYZ.Y), (float)z);
+
+			int targetSectorGroup = 0;
+			if (auto sector = targetLine->frontsector ? targetLine->frontsector : targetLine->backsector)
+			{
+				targetSectorGroup = sectorGroup[sector->Index()];
+			}
+
+			LevelMeshPortal portal;
+			portal.transformation = transformation;
+			portal.sourceSectorGroup = sectorGroup[sourceLine->frontsector->Index()];
+			portal.targetSectorGroup = targetSectorGroup;
+
+			auto& index = transformationIndices[portal];
+			if (index == 0) // new transformation was created
+			{
+				index = Portals.Size();
+				Portals.Push(portal);
+			}
+
+			linePortals[i] = index;
+		}
+	}
 }

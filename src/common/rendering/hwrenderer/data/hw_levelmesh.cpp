@@ -1,6 +1,13 @@
 
 #include "hw_levelmesh.h"
 
+LevelMesh::LevelMesh()
+{
+	// Default portal
+	LevelMeshPortal portal;
+	Portals.Push(portal);
+}
+
 LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, float maxDist)
 {
 	maxDist = std::max(maxDist - 10.0f, 0.0f);
@@ -32,7 +39,7 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 			break;
 		}
 
-		auto& transformation = hitmesh->Portals[portal];
+		auto& transformation = Portals[portal];
 
 		auto travelDist = hit.fraction * maxDist + 2.0f;
 		if (travelDist >= maxDist)
@@ -60,10 +67,6 @@ LevelMeshSurfaceStats LevelMesh::GatherSurfacePixelStats()
 
 LevelSubmesh::LevelSubmesh()
 {
-	// Default portal
-	LevelMeshPortal portal;
-	Portals.Push(portal);
-
 	// Default empty mesh (we can't make it completely empty since vulkan doesn't like that)
 	float minval = -100001.0f;
 	float maxval = -100000.0f;

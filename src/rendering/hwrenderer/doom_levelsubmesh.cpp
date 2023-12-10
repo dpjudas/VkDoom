@@ -26,7 +26,6 @@ void DoomLevelSubmesh::CreateStatic(FLevelLocals& doomMap)
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
 
 	Reset();
-	BuildSectorGroups(doomMap);
 
 	CreateStaticSurfaces(doomMap);
 	LinkSurfaces(doomMap);
@@ -41,7 +40,6 @@ void DoomLevelSubmesh::CreateDynamic(FLevelLocals& doomMap)
 {
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
 	Reset();
-	BuildSectorGroups(doomMap);
 }
 
 void DoomLevelSubmesh::UpdateDynamic(FLevelLocals& doomMap, int lightmapStartIndex)
@@ -171,13 +169,14 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			surf.TypeIndex = side->Index();
 			surf.Side = side;
 			surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
-			surf.sectorGroup = sectorGroup[front->Index()];
+			surf.sectorGroup = LevelMesh->sectorGroup[front->Index()];
 			surf.alpha = float(side->linedef->alpha);
 			surf.startVertIndex = startVertIndex;
 			surf.numVerts = Mesh.Vertices.Size() - startVertIndex;
 			surf.plane = ToPlane(Mesh.Vertices[startVertIndex].fPos(), Mesh.Vertices[startVertIndex + 1].fPos(), Mesh.Vertices[startVertIndex + 2].fPos(), Mesh.Vertices[startVertIndex + 3].fPos());
 			surf.texture = wallpart.texture;
 			surf.PipelineID = pipelineID;
+			surf.portalIndex = (surf.Type == ST_MIDDLESIDE) ? LevelMesh->linePortals[side->linedef->Index()] : 0;
 			Surfaces.Push(surf);
 		}
 
@@ -250,11 +249,12 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 				surf.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
 				surf.ControlSector = flatpart.controlsector ? flatpart.controlsector->model : nullptr;
 				surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
-				surf.sectorGroup = sectorGroup[sector->Index()];
+				surf.sectorGroup = LevelMesh->sectorGroup[sector->Index()];
 				surf.alpha = flatpart.alpha;
 				surf.texture = flatpart.texture;
 				surf.PipelineID = pipelineID;
 				surf.plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
+				surf.portalIndex = LevelMesh->sectorPortals[flatpart.ceiling][i];
 
 				for (subsector_t* sub : section.subsectors)
 				{
@@ -394,165 +394,6 @@ void DoomLevelSubmesh::CreateIndexes()
 			DrawList.Push(range);
 		else
 			PortalList.Push(range);
-	}
-}
-
-void DoomLevelSubmesh::BuildSectorGroups(const FLevelLocals& doomMap)
-{
-	int groupIndex = 0;
-
-	TArray<sector_t*> queue;
-
-	sectorGroup.Resize(doomMap.sectors.Size());
-	memset(sectorGroup.Data(), 0, sectorGroup.Size() * sizeof(int));
-
-	for (int i = 0, count = doomMap.sectors.Size(); i < count; ++i)
-	{
-		auto* sector = &doomMap.sectors[i];
-
-		auto& currentSectorGroup = sectorGroup[sector->Index()];
-		if (currentSectorGroup == 0)
-		{
-			currentSectorGroup = ++groupIndex;
-
-			queue.Push(sector);
-
-			while (queue.Size() > 0)
-			{
-				auto* sector = queue.Last();
-				queue.Pop();
-
-				for (auto& line : sector->Lines)
-				{
-					auto otherSector = line->frontsector == sector ? line->backsector : line->frontsector;
-					if (otherSector && otherSector != sector)
-					{
-						auto& id = sectorGroup[otherSector->Index()];
-
-						if (id == 0)
-						{
-							id = groupIndex;
-							queue.Push(otherSector);
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if (developer >= 5)
-	{
-		Printf("DoomLevelMesh::BuildSectorGroups created %d groups.", groupIndex);
-	}
-}
-
-void DoomLevelSubmesh::CreatePortals()
-{
-	std::map<LevelMeshPortal, int, IdenticalPortalComparator> transformationIndices; // TODO use the list of portals from the level to avoids duplicates?
-	transformationIndices.emplace(LevelMeshPortal{}, 0); // first portal is an identity matrix
-
-	for (auto& surface : Surfaces)
-	{
-		bool hasPortal = [&]() {
-			if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
-			{
-				return !surface.Subsector->sector->GetPortalDisplacement(surface.Type == ST_FLOOR ? sector_t::floor : sector_t::ceiling).isZero();
-			}
-			else if (surface.Type == ST_MIDDLESIDE)
-			{
-				return surface.Side->linedef->isLinePortal();
-			}
-			return false; // It'll take eternity to get lower/upper side portals into the ZDoom family.
-		}();
-
-		if (hasPortal)
-		{
-			auto transformation = [&]() {
-				VSMatrix matrix;
-				matrix.loadIdentity();
-
-				if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
-				{
-					auto d = surface.Subsector->sector->GetPortalDisplacement(surface.Type == ST_FLOOR ? sector_t::floor : sector_t::ceiling);
-					matrix.translate((float)d.X, (float)d.Y, 0.0f);
-				}
-				else if(surface.Type == ST_MIDDLESIDE)
-				{
-					auto sourceLine = surface.Side->linedef;
-
-					if (sourceLine->isLinePortal())
-					{
-						auto targetLine = sourceLine->getPortalDestination();
-						if (targetLine && sourceLine->frontsector && targetLine->frontsector)
-						{
-							double z = 0;
-
-							// auto xy = surface.Side->linedef->getPortalDisplacement(); // Works only for static portals... ugh
-							auto sourceXYZ = DVector2((sourceLine->v1->fX() + sourceLine->v2->fX()) / 2, (sourceLine->v2->fY() + sourceLine->v1->fY()) / 2);
-							auto targetXYZ = DVector2((targetLine->v1->fX() + targetLine->v2->fX()) / 2, (targetLine->v2->fY() + targetLine->v1->fY()) / 2);
-
-							// floor or ceiling alignment
-							auto alignment = surface.Side->linedef->GetLevel()->linePortals[surface.Side->linedef->portalindex].mAlign;
-							if (alignment != PORG_ABSOLUTE)
-							{
-								int plane = alignment == PORG_FLOOR ? 1 : 0;
-
-								auto& sourcePlane = plane ? sourceLine->frontsector->floorplane : sourceLine->frontsector->ceilingplane;
-								auto& targetPlane = plane ? targetLine->frontsector->floorplane : targetLine->frontsector->ceilingplane;
-
-								auto tz = targetPlane.ZatPoint(targetXYZ);
-								auto sz = sourcePlane.ZatPoint(sourceXYZ);
-
-								z = tz - sz;
-							}
-
-							matrix.rotate((float)sourceLine->getPortalAngleDiff().Degrees(), 0.0f, 0.0f, 1.0f);
-							matrix.translate((float)(targetXYZ.X - sourceXYZ.X), (float)(targetXYZ.Y - sourceXYZ.Y), (float)z);
-						}
-					}
-				}
-				return matrix;
-			}();
-
-			LevelMeshPortal portal;
-			portal.transformation = transformation;
-			portal.sourceSectorGroup = surface.sectorGroup;
-			portal.targetSectorGroup = [&]() {
-				if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
-				{
-					auto plane = surface.Type == ST_FLOOR ? sector_t::floor : sector_t::ceiling;
-					auto portalDestination = surface.Subsector->sector->GetPortal(plane)->mDestination;
-					if (portalDestination)
-					{
-						return sectorGroup[portalDestination->Index()];
-					}
-				}
-				else if (surface.Type == ST_MIDDLESIDE)
-				{
-					auto targetLine = surface.Side->linedef->getPortalDestination();
-					auto sector = targetLine->frontsector ? targetLine->frontsector : targetLine->backsector;
-					if (sector)
-					{
-						return sectorGroup[sector->Index()];
-					}
-				}
-				return 0;
-			}();
-
-			auto& index = transformationIndices[portal];
-
-			if (index == 0) // new transformation was created
-			{
-				index = Portals.Size();
-				Portals.Push(portal);
-			}
-
-			surface.portalIndex = index;
-		}
-		else
-		{
-			surface.portalIndex = 0;
-		}
 	}
 }
 
