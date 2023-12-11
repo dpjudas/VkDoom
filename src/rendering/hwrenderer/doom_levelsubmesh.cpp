@@ -7,6 +7,7 @@
 #include "c_dispatch.h"
 #include "g_levellocals.h"
 #include "a_dynlight.h"
+#include "halffloat.h"
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
@@ -252,10 +253,11 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 				surf.PipelineID = pipelineID;
 				surf.PortalIndex = LevelMesh->sectorPortals[flatpart.ceiling][i];
 
-				auto plane = sector->GetSecPlane(flatpart.ceiling);
+				auto plane = surf.ControlSector ? surf.ControlSector->GetSecPlane(!flatpart.ceiling) : sector->GetSecPlane(flatpart.ceiling);
 				surf.Plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
-				//if (flatpart.ceiling)
-				//	surf.Plane = -surf.Plane;
+
+				if (surf.ControlSector)
+					surf.Plane = -surf.Plane;
 
 				for (subsector_t* sub : section.subsectors)
 				{
@@ -283,9 +285,6 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 					surf.Subsector = sub;
 					surf.MeshLocation.StartVertIndex = startVertIndex;
 					surf.MeshLocation.NumVerts = sub->numlines;
-
-					//surf.Plane = ToPlane(Mesh.Vertices[startVertIndex + 2].fPos(), Mesh.Vertices[startVertIndex + 1].fPos(), Mesh.Vertices[startVertIndex].fPos());
-
 					Surfaces.Push(surf);
 				}
 			}
@@ -533,6 +532,47 @@ void DoomLevelSubmesh::PackLightmapAtlas(int lightmapStartIndex)
 	}
 
 	LMTextureCount = (int)packer.getNumPages();
+
+#if 0 // Debug atlas tile locations:
+	uint16_t colors[30] =
+	{
+		floatToHalf(1.0f), floatToHalf(0.0f), floatToHalf(0.0f),
+		floatToHalf(0.0f), floatToHalf(1.0f), floatToHalf(0.0f),
+		floatToHalf(1.0f), floatToHalf(1.0f), floatToHalf(0.0f),
+		floatToHalf(0.0f), floatToHalf(1.0f), floatToHalf(1.0f),
+		floatToHalf(1.0f), floatToHalf(0.0f), floatToHalf(1.0f),
+		floatToHalf(0.5f), floatToHalf(0.0f), floatToHalf(0.0f),
+		floatToHalf(0.0f), floatToHalf(0.5f), floatToHalf(0.0f),
+		floatToHalf(0.5f), floatToHalf(0.5f), floatToHalf(0.0f),
+		floatToHalf(0.0f), floatToHalf(0.5f), floatToHalf(0.5f),
+		floatToHalf(0.5f), floatToHalf(0.0f), floatToHalf(0.5f)
+	};
+	LMTextureData.Resize(LMTextureSize * LMTextureSize * LMTextureCount * 3);
+	uint16_t* pixels = LMTextureData.Data();
+	for (DoomLevelMeshSurface& surf : Surfaces)
+	{
+		surf.AlwaysUpdate = false;
+		surf.NeedsUpdate = false;
+
+		int index = surf.Side ? surf.Side->Index() : (surf.Subsector && surf.Subsector->sector ? surf.Subsector->sector->Index() : 0);
+		uint16_t* color = colors + (index % 10) * 3;
+
+		int x = surf.AtlasTile.X;
+		int y = surf.AtlasTile.Y;
+		int w = surf.AtlasTile.Width;
+		int h = surf.AtlasTile.Height;
+		for (int yy = y; yy < y + h; yy++)
+		{
+			uint16_t* line = pixels + surf.AtlasTile.ArrayIndex * LMTextureSize * LMTextureSize + yy * LMTextureSize * 3;
+			for (int xx = x; xx < x + w; xx++)
+			{
+				line[xx * 3] = color[0];
+				line[xx * 3 + 1] = color[1];
+				line[xx * 3 + 2] = color[2];
+			}
+		}
+	}
+#endif
 }
 
 BBox DoomLevelSubmesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const

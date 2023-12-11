@@ -532,6 +532,11 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 			return;
 		wall.planemirror = (portalplane == sector_t::ceiling) ? &wall.frontsector->ceilingplane : &wall.frontsector->floorplane;
 	}
+	else if (portaltype == PORTALTYPE_SKYBOX || portaltype == PORTALTYPE_MIRROR || portaltype == PORTALTYPE_LINETOLINE)
+	{
+		// To do: add support for these
+		return;
+	}
 	wall.PutPortal(&ddi, state, portaltype, portalplane);
 }
 
