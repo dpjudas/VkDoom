@@ -47,6 +47,7 @@
 #include "texturemanager.h"
 #include "actorinlines.h"
 #include "g_levellocals.h"
+#include "hw_lighting.h"
 
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Int, lm_background_updates);
@@ -519,11 +520,13 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 	{
 		skyinfo.init(this, wall.frontsector->sky, wall.Colormap.FadeColor);
 		wall.sky = &skyinfo;
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
 	}
 	else if (portaltype == PORTALTYPE_SECTORSTACK)
 	{
 		if (screen->instack[1 - portalplane])
 			return;
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
 	}
 	else if (portaltype == PORTALTYPE_PLANEMIRROR)
 	{
@@ -531,13 +534,74 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 		if ((portalplane == sector_t::ceiling && vpz > wall.frontsector->ceilingplane.fD()) || (portalplane == sector_t::floor && vpz < -wall.frontsector->floorplane.fD()))
 			return;
 		wall.planemirror = (portalplane == sector_t::ceiling) ? &wall.frontsector->ceilingplane : &wall.frontsector->floorplane;
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
 	}
-	else if (portaltype == PORTALTYPE_SKYBOX || portaltype == PORTALTYPE_MIRROR || portaltype == PORTALTYPE_LINETOLINE)
+	else if (portaltype == PORTALTYPE_HORIZON)
 	{
-		// To do: add support for these
-		return;
+		HWHorizonInfo hi;
+		auto vpz = ddi.di->Viewpoint.Pos.Z;
+		if (vpz < wall.frontsector->GetPlaneTexZ(sector_t::ceiling))
+		{
+			if (vpz > wall.frontsector->GetPlaneTexZ(sector_t::floor))
+				wall.zbottom[1] = wall.zbottom[0] = vpz;
+
+			hi.plane.GetFromSector(wall.frontsector, sector_t::ceiling);
+			hi.lightlevel = hw_ClampLight(wall.frontsector->GetCeilingLight());
+			hi.colormap = wall.frontsector->Colormap;
+			hi.specialcolor = wall.frontsector->SpecialColors[sector_t::ceiling];
+			if (wall.frontsector->e->XFloor.ffloors.Size())
+			{
+				auto light = P_GetPlaneLight(wall.frontsector, &wall.frontsector->ceilingplane, true);
+
+				if (!(wall.frontsector->GetFlags(sector_t::ceiling) & PLANEF_ABSLIGHTING)) hi.lightlevel = hw_ClampLight(*light->p_lightlevel);
+				hi.colormap.CopyLight(light->extra_colormap);
+			}
+
+			if (ddi.isFullbrightScene()) hi.colormap.Clear();
+			wall.horizon = &hi;
+			wall.PutPortal(&ddi, state, portaltype, portalplane);
+		}
+		if (vpz > wall.frontsector->GetPlaneTexZ(sector_t::floor))
+		{
+			wall.zbottom[1] = wall.zbottom[0] = wall.frontsector->GetPlaneTexZ(sector_t::floor);
+
+			hi.plane.GetFromSector(wall.frontsector, sector_t::floor);
+			hi.lightlevel = hw_ClampLight(wall.frontsector->GetFloorLight());
+			hi.colormap = wall.frontsector->Colormap;
+			hi.specialcolor = wall.frontsector->SpecialColors[sector_t::floor];
+
+			if (wall.frontsector->e->XFloor.ffloors.Size())
+			{
+				auto light = P_GetPlaneLight(wall.frontsector, &wall.frontsector->floorplane, false);
+
+				if (!(wall.frontsector->GetFlags(sector_t::floor) & PLANEF_ABSLIGHTING)) hi.lightlevel = hw_ClampLight(*light->p_lightlevel);
+				hi.colormap.CopyLight(light->extra_colormap);
+			}
+
+			if (ddi.isFullbrightScene()) hi.colormap.Clear();
+			wall.horizon = &hi;
+			wall.PutPortal(&ddi, state, portaltype, portalplane);
+		}
 	}
-	wall.PutPortal(&ddi, state, portaltype, portalplane);
+	else if (portaltype == PORTALTYPE_SKYBOX)
+	{
+		FSectorPortal* sportal = wall.frontsector->ValidatePortal(portalplane);
+		if (sportal != nullptr && sportal->mFlags & PORTSF_INSKYBOX) sportal = nullptr;	// no recursions, delete it here to simplify the following code
+		wall.secportal = sportal;
+		if (sportal)
+		{
+			wall.PutPortal(&ddi, state, portaltype, portalplane);
+		}
+	}
+	else if (portaltype == PORTALTYPE_MIRROR)
+	{
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
+	}
+	else if (portaltype == PORTALTYPE_LINETOLINE)
+	{
+		wall.lineportal = wall.seg->linedef->getPortal()->mGroup;
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
+	}
 }
 
 void HWDrawInfo::UpdateLightmaps()
