@@ -83,8 +83,21 @@ layout(set = 1, binding = 3, std140) uniform LightBufferUBO
 	vec4 lights[MAX_LIGHT_DATA];
 };
 
+struct Fogball
+{
+	vec3 position;
+	float radius;
+	vec3 color;
+	float fog;
+};
+
+layout(set = 1, binding = 4, std140) uniform FogballBufferUBO
+{
+	Fogball fogballs[MAX_FOGBALL_DATA];
+};
+
 // bone matrix buffers
-layout(set = 1, binding = 4, std430) buffer BoneBufferSSO
+layout(set = 1, binding = 5, std430) buffer BoneBufferSSO
 {
 	mat4 bones[];
 };
