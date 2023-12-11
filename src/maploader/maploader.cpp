@@ -3321,7 +3321,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 				dstX, dstY,
 				dstX + realSurface.AtlasTile.Width, dstY + realSurface.AtlasTile.Height,
 				dstPage,
-				realSurface.Area() * 3);
+				realSurface.AtlasTile.Area() * 3);
 		}
 
 		// copy pixels
@@ -3351,7 +3351,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 	{
 		auto& realSurface = *surface.targetSurface;
 
-		auto* vertices = &submesh->Mesh.Vertices[realSurface.startVertIndex];
+		auto* vertices = &submesh->Mesh.Vertices[realSurface.MeshLocation.StartVertIndex];
 		auto* newUVs = &zdrayUvs[surface.uvOffset];
 
 		for (uint32_t i = 0; i < surface.uvCount; ++i)

@@ -38,12 +38,15 @@ struct LevelMeshSurface
 {
 	LevelSubmesh* Submesh = nullptr;
 
-	int numVerts = 0;
-	unsigned int startVertIndex = 0;
-	unsigned int startElementIndex = 0;
-	unsigned int numElements = 0;
-	FVector4 plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
-	bool bSky = false;
+	struct
+	{
+		unsigned int StartVertIndex = 0;
+		int NumVerts = 0;
+		unsigned int StartElementIndex = 0;
+		unsigned int NumElements = 0;
+	} MeshLocation;
+
+	FVector4 Plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
 
 	// Surface location in lightmap texture
 	struct
@@ -53,30 +56,33 @@ struct LevelMeshSurface
 		int Width = 0;
 		int Height = 0;
 		int ArrayIndex = 0;
+		uint32_t Area() const { return Width * Height; }
 	} AtlasTile;
 
 	// True if the surface needs to be rendered into the lightmap texture before it can be used
 	bool NeedsUpdate = true;
 	bool AlwaysUpdate = false;
 
-	FGameTexture* texture = nullptr;
-	float alpha = 1.0;
+	FGameTexture* Texture = nullptr;
+	float Alpha = 1.0;
 	
-	int portalIndex = 0;
-	int sectorGroup = 0;
+	bool IsSky = false;
+	int PortalIndex = 0;
+	int SectorGroup = 0;
 
-	BBox bounds;
-	uint16_t sampleDimension = 0;
+	BBox Bounds;
+	uint16_t SampleDimension = 0;
 
 	// Calculate world coordinates to UV coordinates
-	FVector3 translateWorldToLocal = { 0.f, 0.f, 0.f };
-	FVector3 projLocalToU = { 0.f, 0.f, 0.f };
-	FVector3 projLocalToV = { 0.f, 0.f, 0.f };
+	struct
+	{
+		FVector3 TranslateWorldToLocal = { 0.0f, 0.0f, 0.0f };
+		FVector3 ProjLocalToU = { 0.0f, 0.0f, 0.0f };
+		FVector3 ProjLocalToV = { 0.0f, 0.0f, 0.0f };
+	} TileTransform;
 
 	// Surfaces that are visible within the lightmap tile
-	TArray<LevelMeshSurface*> tileSurfaces;
-
-	uint32_t Area() const { return AtlasTile.Width * AtlasTile.Height; }
+	TArray<LevelMeshSurface*> TileSurfaces;
 
 	// Light list location in the lightmapper GPU buffers
 	struct

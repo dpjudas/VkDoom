@@ -638,14 +638,14 @@ void VkLevelMeshUploader::UploadSurfaces()
 			LevelMeshSurface* surface = submesh->GetSurface(j);
 
 			SurfaceInfo info;
-			info.Normal = FVector3(surface->plane.X, surface->plane.Z, surface->plane.Y);
-			info.PortalIndex = surface->portalIndex;
-			info.SamplingDistance = (float)surface->sampleDimension;
-			info.Sky = surface->bSky;
-			info.Alpha = surface->alpha;
-			if (surface->texture)
+			info.Normal = FVector3(surface->Plane.X, surface->Plane.Z, surface->Plane.Y);
+			info.PortalIndex = surface->PortalIndex;
+			info.SamplingDistance = (float)surface->SampleDimension;
+			info.Sky = surface->IsSky;
+			info.Alpha = surface->Alpha;
+			if (surface->Texture)
 			{
-				auto mat = FMaterial::ValidateTexture(surface->texture, 0);
+				auto mat = FMaterial::ValidateTexture(surface->Texture, 0);
 				info.TextureIndex = Mesh->fb->GetBindlessTextureIndex(mat, CLAMP_NONE, 0);
 			}
 			else

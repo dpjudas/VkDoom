@@ -246,7 +246,7 @@ static int CreateIndexedSectorVerticesLM(FRenderState& renderstate, sector_t* se
 			DoomLevelMeshSurface* lightmap = sub->surface[h].Size() > lightmapIndex ? sub->surface[h][lightmapIndex] : nullptr;
 			if (lightmap && lightmap->Type != ST_NONE) // surface may be missing if the subsector is degenerate triangle
 			{
-				FFlatVertex* luvs = lightmap->Vertices;
+				FFlatVertex* luvs = &lightmap->Submesh->Mesh.Vertices[lightmap->MeshLocation.StartVertIndex];
 				for (unsigned int j = 0; j < sub->numlines; j++)
 				{
 					SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane, luvs[j].lu, luvs[j].lv, luvs[j].lindex);

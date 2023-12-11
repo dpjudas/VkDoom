@@ -80,17 +80,17 @@ void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
 {
 	if (!RequireLevelMesh()) return;
 
-	auto gameTexture = surface->texture;
+	auto gameTexture = surface->Texture;
 
 	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", surface->Submesh->GetSurfaceIndex(surface), surface, surface->Type, surface->TypeIndex, surface->ControlSector ? surface->ControlSector->Index() : -1);
 	Printf("    Atlas page: %d, x:%d, y:%d\n", surface->AtlasTile.ArrayIndex, surface->AtlasTile.X, surface->AtlasTile.Y);
-	Printf("    Pixels: %dx%d (area: %d)\n", surface->AtlasTile.Width, surface->AtlasTile.Height, surface->Area());
-	Printf("    Sample dimension: %d\n", surface->sampleDimension);
+	Printf("    Pixels: %dx%d (area: %d)\n", surface->AtlasTile.Width, surface->AtlasTile.Height, surface->AtlasTile.Area());
+	Printf("    Sample dimension: %d\n", surface->SampleDimension);
 	Printf("    Needs update?: %d\n", surface->NeedsUpdate);
 	Printf("    Always update?: %d\n", surface->AlwaysUpdate);
-	Printf("    Sector group: %d\n", surface->sectorGroup);
+	Printf("    Sector group: %d\n", surface->SectorGroup);
 	Printf("    Texture: '%s'\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>");
-	Printf("    Alpha: %f\n", surface->alpha);
+	Printf("    Alpha: %f\n", surface->Alpha);
 }
 
 FVector3 RayDir(FAngle angle, FAngle pitch)
@@ -144,23 +144,20 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	BuildSectorGroups(doomMap);
 	CreatePortals(doomMap);
 
-	StaticMesh = std::make_unique<DoomLevelSubmesh>(this);
-	DynamicMesh = std::make_unique<DoomLevelSubmesh>(this);
-
-	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->CreateStatic(doomMap);
-	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->CreateDynamic(doomMap);
+	StaticMesh = std::make_unique<DoomLevelSubmesh>(this, doomMap, true);
+	DynamicMesh = std::make_unique<DoomLevelSubmesh>(this, doomMap, false);
 }
 
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 {
-	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->UpdateDynamic(doomMap, static_cast<DoomLevelSubmesh*>(StaticMesh.get())->LMTextureCount);
+	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->Update(doomMap, static_cast<DoomLevelSubmesh*>(StaticMesh.get())->LMTextureCount);
 }
 
 bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float dist)
 {
 	FVector3 end = start + direction * dist;
 	auto surface = Trace(start, direction, dist);
-	return surface && surface->bSky;
+	return surface && surface->IsSky;
 }
 
 void DoomLevelMesh::PackLightmapAtlas()
@@ -170,31 +167,7 @@ void DoomLevelMesh::PackLightmapAtlas()
 
 int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize)
 {
-	const DoomLevelMeshSurface* doomsurf = static_cast<const DoomLevelMeshSurface*>(surface);
-
-	FLightNode* node = nullptr;
-	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
-	{
-		node = doomsurf->Subsector->section->lighthead;
-	}
-	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
-	{
-		bool isPolyLine = !!(doomsurf->Side->Flags & WALLF_POLYOBJ);
-		if (isPolyLine)
-		{
-			subsector_t* subsector = level.PointInRenderSubsector((doomsurf->Side->V1()->fPos() + doomsurf->Side->V2()->fPos()) * 0.5);
-			node = subsector->section->lighthead;
-		}
-		else if (!doomsurf->ControlSector)
-		{
-			node = doomsurf->Side->lighthead;
-		}
-		else // 3d floor needs light from the sidedef on the other side
-		{
-			int otherside = doomsurf->Side->linedef->sidedef[0] == doomsurf->Side ? 1 : 0;
-			node = doomsurf->Side->linedef->sidedef[otherside]->lighthead;
-		}
-	}
+	FLightNode* node = GetSurfaceLightNode(static_cast<const DoomLevelMeshSurface*>(surface));
 	if (!node)
 		return 0;
 
@@ -245,6 +218,34 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 	}
 
 	return listpos;
+}
+
+FLightNode* DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf)
+{
+	FLightNode* node = nullptr;
+	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
+	{
+		node = doomsurf->Subsector->section->lighthead;
+	}
+	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
+	{
+		bool isPolyLine = !!(doomsurf->Side->Flags & WALLF_POLYOBJ);
+		if (isPolyLine)
+		{
+			subsector_t* subsector = level.PointInRenderSubsector((doomsurf->Side->V1()->fPos() + doomsurf->Side->V2()->fPos()) * 0.5);
+			node = subsector->section->lighthead;
+		}
+		else if (!doomsurf->ControlSector)
+		{
+			node = doomsurf->Side->lighthead;
+		}
+		else // 3d floor needs light from the sidedef on the other side
+		{
+			int otherside = doomsurf->Side->linedef->sidedef[0] == doomsurf->Side ? 1 : 0;
+			node = doomsurf->Side->linedef->sidedef[otherside]->lighthead;
+		}
+	}
+	return node;
 }
 
 void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const
@@ -315,7 +316,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 			else
 			{
 				const auto& surface = submesh->Surfaces[index];
-				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.TypeIndex, surface.bSky ? " sky" : "");
+				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.TypeIndex, surface.IsSky ? " sky" : "");
 				fprintf(f, "usemtl lightmap%d\n", surface.AtlasTile.ArrayIndex);
 
 				if (surface.AtlasTile.ArrayIndex > highestUsedAtlasPage)

@@ -241,7 +241,7 @@ public:
 			return;
 		}
 
-		if (surface->NeedsUpdate && !surface->portalIndex && !surface->bSky)
+		if (surface->NeedsUpdate && !surface->PortalIndex && !surface->IsSky)
 		{
 			VisibleSurfaces.Push(surface);
 		}

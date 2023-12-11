@@ -22,4 +22,7 @@ public:
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 	TArray<int> sectorPortals[2]; // index is sector+plane, value is index into the portal list
 	TArray<int> linePortals; // index is linedef, value is index into the portal list
+
+private:
+	FLightNode* GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf);
 };

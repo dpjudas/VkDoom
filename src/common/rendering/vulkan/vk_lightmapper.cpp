@@ -200,14 +200,14 @@ void VkLightmapper::Render()
 		pc.TextureSize = (float)bakeImageSize;
 		pc.TileWidth = (float)targetSurface->AtlasTile.Width;
 		pc.TileHeight = (float)targetSurface->AtlasTile.Height;
-		pc.WorldToLocal = SwapYZ(targetSurface->translateWorldToLocal);
-		pc.ProjLocalToU = SwapYZ(targetSurface->projLocalToU);
-		pc.ProjLocalToV = SwapYZ(targetSurface->projLocalToV);
+		pc.WorldToLocal = SwapYZ(targetSurface->TileTransform.TranslateWorldToLocal);
+		pc.ProjLocalToU = SwapYZ(targetSurface->TileTransform.ProjLocalToU);
+		pc.ProjLocalToV = SwapYZ(targetSurface->TileTransform.ProjLocalToV);
 
 		bool buffersFull = false;
 
 		// Paint all surfaces visible in the tile
-		for (LevelMeshSurface* surface : targetSurface->tileSurfaces)
+		for (LevelMeshSurface* surface : targetSurface->TileSurfaces)
 		{
 			if (surface->LightList.ResetCounter != lights.ResetCounter)
 			{
@@ -247,9 +247,9 @@ void VkLightmapper::Render()
 
 #ifdef USE_DRAWINDIRECT
 			VkDrawIndexedIndirectCommand cmd;
-			cmd.indexCount = surface->numElements;
+			cmd.indexCount = surface->MeshLocation.NumElements;
 			cmd.instanceCount = 1;
-			cmd.firstIndex = firstIndexOffset + surface->startElementIndex;
+			cmd.firstIndex = firstIndexOffset + surface->MeshLocation.StartElementIndex;
 			cmd.vertexOffset = 0;
 			cmd.firstInstance = drawindexed.Pos;
 			drawindexed.Constants[drawindexed.Pos] = pc;
@@ -419,7 +419,7 @@ void VkLightmapper::CopyResult()
 			}
 			copylists[pageIndex].Push(&selected);
 
-			pixels += selected.Surface->Area();
+			pixels += selected.Surface->AtlasTile.Area();
 			lastSurfaceCount++;
 		}
 	}

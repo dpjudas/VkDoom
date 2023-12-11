@@ -32,8 +32,8 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 		}
 
 		hitSurface = hitmesh->GetSurface(hitmesh->Mesh.SurfaceIndexes[hit.triangle]);
-		auto portal = hitSurface->portalIndex;
 
+		int portal = hitSurface->PortalIndex;
 		if (!portal)
 		{
 			break;
@@ -100,7 +100,7 @@ void LevelSubmesh::GatherSurfacePixelStats(LevelMeshSurfaceStats& stats)
 	for (int i = 0; i < count; ++i)
 	{
 		const auto* surface = GetSurface(i);
-		auto area = surface->Area();
+		auto area = surface->AtlasTile.Area();
 
 		stats.pixels.total += area;
 
@@ -109,7 +109,7 @@ void LevelSubmesh::GatherSurfacePixelStats(LevelMeshSurfaceStats& stats)
 			stats.surfaces.dirty++;
 			stats.pixels.dirty += area;
 		}
-		if (surface->bSky)
+		if (surface->IsSky)
 		{
 			stats.surfaces.sky++;
 			stats.pixels.sky += area;
@@ -133,12 +133,12 @@ void LevelSubmesh::BuildTileSurfaceLists()
 
 		for (size_t j = 0; j < SmoothingGroups.Size(); j++)
 		{
-			if (surface->sectorGroup == SmoothingGroups[j].sectorGroup)
+			if (surface->SectorGroup == SmoothingGroups[j].sectorGroup)
 			{
-				float direction = SmoothingGroups[j].plane.XYZ() | surface->plane.XYZ();
+				float direction = SmoothingGroups[j].plane.XYZ() | surface->Plane.XYZ();
 				if (direction >= 0.9999f && direction <= 1.001f)
 				{
-					auto point = (surface->plane.XYZ() * surface->plane.W);
+					auto point = (surface->Plane.XYZ() * surface->Plane.W);
 					auto planeDistance = (SmoothingGroups[j].plane.XYZ() | point) - SmoothingGroups[j].plane.W;
 
 					float dist = std::abs(planeDistance);
@@ -157,8 +157,8 @@ void LevelSubmesh::BuildTileSurfaceLists()
 			smoothingGroupIndex = SmoothingGroups.Size();
 
 			LevelMeshSmoothingGroup group;
-			group.plane = surface->plane;
-			group.sectorGroup = surface->sectorGroup;
+			group.plane = surface->Plane;
+			group.sectorGroup = surface->SectorGroup;
 			SmoothingGroups.Push(group);
 		}
 
@@ -169,23 +169,23 @@ void LevelSubmesh::BuildTileSurfaceLists()
 	for (int i = 0, count = GetSurfaceCount(); i < count; i++)
 	{
 		auto targetSurface = GetSurface(i);
-		targetSurface->tileSurfaces.Clear();
+		targetSurface->TileSurfaces.Clear();
 		for (LevelMeshSurface* surface : SmoothingGroups[SmoothingGroupIndexes[i]].surfaces)
 		{
-			FVector2 minUV = ToUV(surface->bounds.min, targetSurface);
-			FVector2 maxUV = ToUV(surface->bounds.max, targetSurface);
+			FVector2 minUV = ToUV(surface->Bounds.min, targetSurface);
+			FVector2 maxUV = ToUV(surface->Bounds.max, targetSurface);
 			if (surface != targetSurface && (maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
 				continue; // Bounding box not visible
 
-			targetSurface->tileSurfaces.Push(surface);
+			targetSurface->TileSurfaces.Push(surface);
 		}
 	}
 }
 
 FVector2 LevelSubmesh::ToUV(const FVector3& vert, const LevelMeshSurface* targetSurface)
 {
-	FVector3 localPos = vert - targetSurface->translateWorldToLocal;
-	float u = (1.0f + (localPos | targetSurface->projLocalToU)) / (targetSurface->AtlasTile.Width + 2);
-	float v = (1.0f + (localPos | targetSurface->projLocalToV)) / (targetSurface->AtlasTile.Height + 2);
+	FVector3 localPos = vert - targetSurface->TileTransform.TranslateWorldToLocal;
+	float u = (1.0f + (localPos | targetSurface->TileTransform.ProjLocalToU)) / (targetSurface->AtlasTile.Width + 2);
+	float v = (1.0f + (localPos | targetSurface->TileTransform.ProjLocalToV)) / (targetSurface->AtlasTile.Height + 2);
 	return FVector2(u, v);
 }

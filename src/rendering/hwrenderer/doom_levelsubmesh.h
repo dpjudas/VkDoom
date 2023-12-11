@@ -25,18 +25,15 @@ struct DoomLevelMeshSurface : public LevelMeshSurface
 	side_t* Side = nullptr;
 	sector_t* ControlSector = nullptr;
 
-	FFlatVertex* Vertices = nullptr;
 	int PipelineID = 0;
 };
 
 class DoomLevelSubmesh : public LevelSubmesh
 {
 public:
-	DoomLevelSubmesh(DoomLevelMesh* mesh) : LevelMesh(mesh) { }
+	DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, bool staticMesh);
 
-	void CreateStatic(FLevelLocals& doomMap);
-	void CreateDynamic(FLevelLocals& doomMap);
-	void UpdateDynamic(FLevelLocals& doomMap, int lightmapStartIndex);
+	void Update(FLevelLocals& doomMap, int lightmapStartIndex);
 
 	LevelMeshSurface* GetSurface(int index) override { return &Surfaces[index]; }
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
@@ -98,7 +95,7 @@ private:
 	static PlaneAxis BestAxis(const FVector4& p);
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
-	void BuildSurfaceParams(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface);
+	void SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface);
 
 	static bool IsDegenerate(const FVector3& v0, const FVector3& v1, const FVector3& v2);
 
@@ -107,6 +104,7 @@ private:
 	static FVector4 ToFVector4(const DVector4& v) { return FVector4((float)v.X, (float)v.Y, (float)v.Z, (float)v.W); }
 
 	DoomLevelMesh* LevelMesh = nullptr;
+	bool StaticMesh = true;
 };
 
 static_assert(alignof(FVector2) == alignof(float[2]) && sizeof(FVector2) == sizeof(float) * 2);
