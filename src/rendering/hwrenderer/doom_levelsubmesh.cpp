@@ -88,7 +88,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 
 	MeshBuilder state;
 
-	// Create surface objects for all visible side parts
+	// Create surface objects for all sides
 	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
 	{
 		side_t* side = &doomMap.sides[i];
@@ -115,70 +115,15 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		state.ClearDepthBias();
 		state.EnableTexture(gl_texture);
 		state.EnableBrightmap(true);
+		state.AlphaFunc(Alpha_GEqual, 0.f);
+		CreateWallSurface(side, disp, state, result.list);
 
-		for (HWWall& wallpart : result.list)
-		{
-			if (wallpart.texture && wallpart.texture->isMasked())
-			{
-				state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
-			}
-			else
-			{
-				state.AlphaFunc(Alpha_GEqual, 0.f);
-			}
-
-			wallpart.DrawWall(&disp, state, false);
-
-			int pipelineID = 0;
-			int startVertIndex = Mesh.Vertices.Size();
-			for (auto& it : state.mSortedLists)
-			{
-				const MeshApplyState& applyState = it.first;
-
-				pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
-
-				int uniformsIndex = Mesh.Uniforms.Size();
-				Mesh.Uniforms.Push(applyState.surfaceUniforms);
-				Mesh.Materials.Push(applyState.material);
-
-				for (MeshDrawCommand& command : it.second.mDraws)
-				{
-					for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
-					{
-						Mesh.Vertices.Push(state.mVertices[i]);
-						Mesh.UniformIndexes.Push(uniformsIndex);
-					}
-				}
-				for (MeshDrawCommand& command : it.second.mIndexedDraws)
-				{
-					for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
-					{
-						Mesh.Vertices.Push(state.mVertices[state.mIndexes[i]]);
-						Mesh.UniformIndexes.Push(uniformsIndex);
-					}
-				}
-			}
-			state.mSortedLists.clear();
-			state.mVertices.Clear();
-			state.mIndexes.Clear();
-
-			DoomLevelMeshSurface surf;
-			surf.Submesh = this;
-			surf.Type = wallpart.LevelMeshInfo.Type;
-			surf.ControlSector = wallpart.LevelMeshInfo.ControlSector;
-			surf.TypeIndex = side->Index();
-			surf.Side = side;
-			surf.AlwaysUpdate = !!(front->Flags & SECF_LM_DYNAMIC);
-			surf.SectorGroup = LevelMesh->sectorGroup[front->Index()];
-			surf.Alpha = float(side->linedef->alpha);
-			surf.MeshLocation.StartVertIndex = startVertIndex;
-			surf.MeshLocation.NumVerts = Mesh.Vertices.Size() - startVertIndex;
-			surf.Plane = ToPlane(Mesh.Vertices[startVertIndex + 3].fPos(), Mesh.Vertices[startVertIndex + 2].fPos(), Mesh.Vertices[startVertIndex + 1].fPos(), Mesh.Vertices[startVertIndex].fPos());
-			surf.Texture = wallpart.texture;
-			surf.PipelineID = pipelineID;
-			surf.PortalIndex = (surf.Type == ST_MIDDLESIDE) ? LevelMesh->linePortals[side->linedef->Index()] : 0;
-			Surfaces.Push(surf);
-		}
+		// final pass: translucent stuff
+		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
+		state.SetRenderStyle(STYLE_Translucent);
+		CreateWallSurface(side, disp, state, result.translucent);
+		state.AlphaFunc(Alpha_GEqual, 0.f);
+		state.SetRenderStyle(STYLE_Normal);
 
 		for (const HWWall& portal : result.portals)
 		{
@@ -206,88 +151,172 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			state.ClearDepthBias();
 			state.EnableTexture(gl_texture);
 			state.EnableBrightmap(true);
+			CreateFlatSurface(disp, state, result.list);
 
-			for (HWFlat& flatpart : result.list)
+			CreateFlatSurface(disp, state, result.portals, true);
+
+			// final pass: translucent stuff
+			state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
+			state.SetRenderStyle(STYLE_Translucent);
+			CreateFlatSurface(disp, state, result.translucentborder);
+			state.SetDepthMask(false);
+			CreateFlatSurface(disp, state, result.translucent);
+			state.AlphaFunc(Alpha_GEqual, 0.f);
+			state.SetDepthMask(true);
+			state.SetRenderStyle(STYLE_Normal);
+		}
+	}
+}
+
+void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list)
+{
+	for (HWWall& wallpart : list)
+	{
+		if (wallpart.texture && wallpart.texture->isMasked())
+		{
+			state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+		}
+		else
+		{
+			state.AlphaFunc(Alpha_GEqual, 0.f);
+		}
+
+		wallpart.DrawWall(&disp, state, false);
+
+		int pipelineID = 0;
+		int startVertIndex = Mesh.Vertices.Size();
+		for (auto& it : state.mSortedLists)
+		{
+			const MeshApplyState& applyState = it.first;
+
+			pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
+
+			int uniformsIndex = Mesh.Uniforms.Size();
+			Mesh.Uniforms.Push(applyState.surfaceUniforms);
+			Mesh.Materials.Push(applyState.material);
+
+			for (MeshDrawCommand& command : it.second.mDraws)
 			{
-				if (flatpart.texture && flatpart.texture->isMasked())
+				for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
 				{
-					state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
-				}
-				else
-				{
-					state.AlphaFunc(Alpha_GEqual, 0.f);
-				}
-
-				flatpart.DrawFlat(&disp, state, false);
-
-				int pipelineID = 0;
-				int uniformsIndex = 0;
-				bool foundDraw = false;
-				for (auto& it : state.mSortedLists)
-				{
-					const MeshApplyState& applyState = it.first;
-
-					pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
-					uniformsIndex = Mesh.Uniforms.Size();
-					Mesh.Uniforms.Push(applyState.surfaceUniforms);
-					Mesh.Materials.Push(applyState.material);
-
-					foundDraw = true;
-					break;
-				}
-				state.mSortedLists.clear();
-				state.mVertices.Clear();
-				state.mIndexes.Clear();
-
-				if (!foundDraw)
-					continue;
-
-				DoomLevelMeshSurface surf;
-				surf.Submesh = this;
-				surf.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
-				surf.ControlSector = flatpart.controlsector ? flatpart.controlsector->model : nullptr;
-				surf.AlwaysUpdate = !!(sector->Flags & SECF_LM_DYNAMIC);
-				surf.SectorGroup = LevelMesh->sectorGroup[sector->Index()];
-				surf.Alpha = flatpart.alpha;
-				surf.Texture = flatpart.texture;
-				surf.PipelineID = pipelineID;
-				surf.PortalIndex = LevelMesh->sectorPortals[flatpart.ceiling][i];
-
-				auto plane = surf.ControlSector ? surf.ControlSector->GetSecPlane(!flatpart.ceiling) : sector->GetSecPlane(flatpart.ceiling);
-				surf.Plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
-
-				if (surf.ControlSector)
-					surf.Plane = -surf.Plane;
-
-				for (subsector_t* sub : section.subsectors)
-				{
-					int startVertIndex = Mesh.Vertices.Size();
-
-					for (int i = 0, end = sub->numlines; i < end; i++)
-					{
-						auto& vt = sub->firstline[end - 1 - i].v1;
-
-						FFlatVertex ffv;
-						ffv.x = (float)vt->fX();
-						ffv.y = (float)vt->fY();
-						ffv.z = (float)plane.ZatPoint(vt);
-						ffv.u = (float)vt->fX() / 64.f;
-						ffv.v = -(float)vt->fY() / 64.f;
-						ffv.lu = 0.0f;
-						ffv.lv = 0.0f;
-						ffv.lindex = -1.0f;
-
-						Mesh.Vertices.Push(ffv);
-						Mesh.UniformIndexes.Push(uniformsIndex);
-					}
-
-					surf.TypeIndex = sub->Index();
-					surf.Subsector = sub;
-					surf.MeshLocation.StartVertIndex = startVertIndex;
-					surf.MeshLocation.NumVerts = sub->numlines;
-					Surfaces.Push(surf);
+					Mesh.Vertices.Push(state.mVertices[i]);
+					Mesh.UniformIndexes.Push(uniformsIndex);
 				}
 			}
+			for (MeshDrawCommand& command : it.second.mIndexedDraws)
+			{
+				for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
+				{
+					Mesh.Vertices.Push(state.mVertices[state.mIndexes[i]]);
+					Mesh.UniformIndexes.Push(uniformsIndex);
+				}
+			}
+		}
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
+		DoomLevelMeshSurface surf;
+		surf.Submesh = this;
+		surf.Type = wallpart.LevelMeshInfo.Type;
+		surf.ControlSector = wallpart.LevelMeshInfo.ControlSector;
+		surf.TypeIndex = side->Index();
+		surf.Side = side;
+		surf.AlwaysUpdate = !!(side->sector->Flags & SECF_LM_DYNAMIC);
+		surf.SectorGroup = LevelMesh->sectorGroup[side->sector->Index()];
+		surf.Alpha = float(side->linedef->alpha);
+		surf.MeshLocation.StartVertIndex = startVertIndex;
+		surf.MeshLocation.NumVerts = Mesh.Vertices.Size() - startVertIndex;
+		surf.Plane = ToPlane(Mesh.Vertices[startVertIndex + 3].fPos(), Mesh.Vertices[startVertIndex + 2].fPos(), Mesh.Vertices[startVertIndex + 1].fPos(), Mesh.Vertices[startVertIndex].fPos());
+		surf.Texture = wallpart.texture;
+		surf.PipelineID = pipelineID;
+		surf.PortalIndex = (surf.Type == ST_MIDDLESIDE) ? LevelMesh->linePortals[side->linedef->Index()] : 0;
+		Surfaces.Push(surf);
+	}
+}
+
+void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky)
+{
+	for (HWFlat& flatpart : list)
+	{
+		if (flatpart.texture && flatpart.texture->isMasked())
+		{
+			state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+		}
+		else
+		{
+			state.AlphaFunc(Alpha_GEqual, 0.f);
+		}
+
+		flatpart.DrawFlat(&disp, state, false);
+
+		int pipelineID = 0;
+		int uniformsIndex = 0;
+		bool foundDraw = false;
+		for (auto& it : state.mSortedLists)
+		{
+			const MeshApplyState& applyState = it.first;
+
+			pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
+			uniformsIndex = Mesh.Uniforms.Size();
+			Mesh.Uniforms.Push(applyState.surfaceUniforms);
+			Mesh.Materials.Push(applyState.material);
+
+			foundDraw = true;
+			break;
+		}
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
+		if (!foundDraw)
+			continue;
+
+		DoomLevelMeshSurface surf;
+		surf.Submesh = this;
+		surf.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
+		surf.ControlSector = flatpart.controlsector ? flatpart.controlsector->model : nullptr;
+		surf.AlwaysUpdate = !!(flatpart.sector->Flags & SECF_LM_DYNAMIC);
+		surf.SectorGroup = LevelMesh->sectorGroup[flatpart.sector->Index()];
+		surf.Alpha = flatpart.alpha;
+		surf.Texture = flatpart.texture;
+		surf.PipelineID = pipelineID;
+		surf.PortalIndex = LevelMesh->sectorPortals[flatpart.ceiling][flatpart.sector->Index()];
+		surf.IsSky = isSky;
+
+		auto plane = surf.ControlSector ? surf.ControlSector->GetSecPlane(!flatpart.ceiling) : flatpart.sector->GetSecPlane(flatpart.ceiling);
+		surf.Plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
+
+		if (surf.ControlSector)
+			surf.Plane = -surf.Plane;
+
+		for (subsector_t* sub : flatpart.section->subsectors)
+		{
+			int startVertIndex = Mesh.Vertices.Size();
+
+			for (int i = 0, end = sub->numlines; i < end; i++)
+			{
+				auto& vt = sub->firstline[end - 1 - i].v1;
+
+				FFlatVertex ffv;
+				ffv.x = (float)vt->fX();
+				ffv.y = (float)vt->fY();
+				ffv.z = (float)plane.ZatPoint(vt);
+				ffv.u = (float)vt->fX() / 64.f;
+				ffv.v = -(float)vt->fY() / 64.f;
+				ffv.lu = 0.0f;
+				ffv.lv = 0.0f;
+				ffv.lindex = -1.0f;
+
+				Mesh.Vertices.Push(ffv);
+				Mesh.UniformIndexes.Push(uniformsIndex);
+			}
+
+			surf.TypeIndex = sub->Index();
+			surf.Subsector = sub;
+			surf.MeshLocation.StartVertIndex = startVertIndex;
+			surf.MeshLocation.NumVerts = sub->numlines;
+			Surfaces.Push(surf);
 		}
 	}
 }
@@ -711,18 +740,6 @@ void DoomLevelSubmesh::SetupTileTransform(int lightMapTextureWidth, int lightMap
 		Mesh.Vertices[surface.MeshLocation.StartVertIndex + i].lu = (tDelta | surface.TileTransform.ProjLocalToU);
 		Mesh.Vertices[surface.MeshLocation.StartVertIndex + i].lv = (tDelta | surface.TileTransform.ProjLocalToV);
 	}
-
-#if 0
-	// project tCoords so they lie on the plane
-	const FVector4& plane = surface.plane;
-	float d = ((bounds.min | FVector3(plane.X, plane.Y, plane.Z)) - plane.W) / plane[axis]; //d = (plane->PointToDist(bounds.min)) / plane->Normal()[axis];
-	for (int i = 0; i < 2; i++)
-	{
-		tCoords[i].MakeUnit();
-		d = (tCoords[i] | FVector3(plane.X, plane.Y, plane.Z)) / plane[axis]; //d = dot(tCoords[i], plane->Normal()) / plane->Normal()[axis];
-		tCoords[i][axis] -= d;
-	}
-#endif
 
 	surface.AtlasTile.Width = width;
 	surface.AtlasTile.Height = height;

@@ -551,7 +551,7 @@ void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t *
 	//
 	//
 	//
-	if ((which & SSRF_RENDERFLOOR) && (!di->di || frontsector->floorplane.ZatPoint(vp->Pos) <= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERFLOOR)))
+	if ((which & SSRF_RENDERFLOOR) && (!di->di || (frontsector->floorplane.ZatPoint(vp->Pos) <= vp->Pos.Z && (!section || !(section->flags & FSection::DONTRENDERFLOOR)))))
 	{
 		// process the original floor first.
 
@@ -579,7 +579,7 @@ void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t *
 			alpha = 1.0f - frontsector->GetReflect(sector_t::floor);
 		}
 
-		if (alpha != 0.f && frontsector->GetTexture(sector_t::floor) != skyflatnum)
+		if ((di->di && alpha != 0.f && frontsector->GetTexture(sector_t::floor) != skyflatnum) || (!di->di && (alpha != 0.f || stack)))
 		{
 			iboindex = frontsector->iboindex[sector_t::floor];
 
@@ -609,7 +609,7 @@ void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t *
 	//
 	// 
 	//
-	if ((which & SSRF_RENDERCEILING) && (!di->di || frontsector->ceilingplane.ZatPoint(vp->Pos) >= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERCEILING)))
+	if ((which & SSRF_RENDERCEILING) && ((!di->di || frontsector->ceilingplane.ZatPoint(vp->Pos) >= vp->Pos.Z && (!section || !(section->flags & FSection::DONTRENDERCEILING)))))
 	{
 		// process the original ceiling first.
 
@@ -636,7 +636,7 @@ void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t *
 			alpha = 1.0f - frontsector->GetReflect(sector_t::ceiling);
 		}
 
-		if (alpha != 0.f && frontsector->GetTexture(sector_t::ceiling) != skyflatnum)
+		if ((di->di && alpha != 0.f && frontsector->GetTexture(sector_t::ceiling) != skyflatnum) || (!di->di && (alpha != 0.f || stack)))
 		{
 			iboindex = frontsector->iboindex[sector_t::ceiling];
 			ceiling = true;

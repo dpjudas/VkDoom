@@ -44,6 +44,10 @@ struct HWFlatDispatcher
 		{
 			di->AddFlat(flat, fog);
 		}
+		else if (flat->plane.texture == skyflatnum || flat->stack)
+		{
+			mh->portals.Push(*flat);
+		}
 		else
 		{
 			if (flat->renderstyle != STYLE_Translucent || flat->alpha < 1.f - FLT_EPSILON || fog || flat->texture == nullptr)

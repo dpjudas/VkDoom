@@ -14,7 +14,9 @@ typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct FLevelLocals;
 struct FPolyObj;
+struct HWWallDispatcher;
 class DoomLevelMesh;
+class MeshBuilder;
 
 struct DoomLevelMeshSurface : public LevelMeshSurface
 {
@@ -61,6 +63,9 @@ private:
 	void SetupLightmapUvs(FLevelLocals& doomMap);
 
 	void CreateIndexes();
+
+	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list);
+	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky = false);
 
 	static FVector4 ToPlane(const FVector3& pt1, const FVector3& pt2, const FVector3& pt3)
 	{
