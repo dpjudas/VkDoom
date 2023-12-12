@@ -925,6 +925,7 @@ void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelin
 	pipelineKey.StencilPassOp = mStencilOp;
 	pipelineKey.ColorMask = mColorMask;
 	pipelineKey.CullMode = mCullMode;
+	mPipelineKey = pipelineKey;
 
 	PushConstants pushConstants = {};
 	pushConstants.uDataIndex = 0;
