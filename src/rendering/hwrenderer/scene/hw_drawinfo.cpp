@@ -402,7 +402,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 	// clip the scene and fill the drawlists
 
-	if (gl_levelmesh)
+	if (gl_levelmesh && !outer)
 	{
 		// Give the DrawInfo the viewpoint in fixed point because that's what the nodes are.
 		viewx = FLOAT2FIXED(Viewpoint.Pos.X);
