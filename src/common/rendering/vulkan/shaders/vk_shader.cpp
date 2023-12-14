@@ -71,6 +71,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			{ "spheremap",    "shaders/scene/frag_main.glsl",        "shaders/scene/material_default.glsl", "shaders/scene/mateffect_default.glsl", "shaders/scene/lightmodel_normal.glsl", "#define SPHEREMAP\n#define NO_ALPHATEST\n" },
 			{ "burn",         "shaders/scene/frag_burn.glsl",        nullptr,                               nullptr,                                nullptr,                                "#define SIMPLE\n#define NO_ALPHATEST\n" },
 			{ "stencil",      "shaders/scene/frag_stencil.glsl",     nullptr,                               nullptr,                                nullptr,                                "#define SIMPLE\n#define NO_ALPHATEST\n" },
+			{ "portal",       "shaders/scene/frag_portal.glsl",      nullptr,                               nullptr,                                nullptr,                                "#define SIMPLE\n#define NO_ALPHATEST\n" },
 		};
 
 		const auto& desc = effectshaders[key.SpecialEffect];

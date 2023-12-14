@@ -19,7 +19,6 @@
 VSMatrix GetPlaneTextureRotationMatrix(FGameTexture* gltexture, const sector_t* sector, int plane);
 void GetTexCoordInfo(FGameTexture* tex, FTexCoordInfo* tci, side_t* side, int texpos);
 
-EXTERN_CVAR(Bool, gl_texture)
 EXTERN_CVAR(Float, lm_scale);
 
 DoomLevelSubmesh::DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, bool staticMesh) : LevelMesh(mesh), StaticMesh(staticMesh)
@@ -61,7 +60,7 @@ void DoomLevelSubmesh::Update(FLevelLocals& doomMap, int lightmapStartIndex)
 void DoomLevelSubmesh::Reset()
 {
 	Surfaces.Clear();
-	WallPortals.Clear();
+	Portals.Clear();
 	Mesh.Vertices.Clear();
 	Mesh.Indexes.Clear();
 	Mesh.SurfaceIndexes.Clear();
@@ -113,10 +112,17 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		// Part 1: solid geometry. This is set up so that there are no transparent parts
 		state.SetDepthFunc(DF_LEqual);
 		state.ClearDepthBias();
-		state.EnableTexture(gl_texture);
+		state.EnableTexture(true);
 		state.EnableBrightmap(true);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		CreateWallSurface(side, disp, state, result.list);
+
+		for (HWWall& portal : result.portals)
+		{
+			Portals.Push(portal);
+		}
+
+		CreateWallSurface(side, disp, state, result.portals, true);
 
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
@@ -124,11 +130,6 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		CreateWallSurface(side, disp, state, result.translucent);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetRenderStyle(STYLE_Normal);
-
-		for (const HWWall& portal : result.portals)
-		{
-			WallPortals.Push(portal);
-		}
 	}
 
 	// Create surfaces for all flats
@@ -149,7 +150,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			// Part 1: solid geometry. This is set up so that there are no transparent parts
 			state.SetDepthFunc(DF_LEqual);
 			state.ClearDepthBias();
-			state.EnableTexture(gl_texture);
+			state.EnableTexture(true);
 			state.EnableBrightmap(true);
 			CreateFlatSurface(disp, state, result.list);
 
@@ -168,20 +169,39 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 	}
 }
 
-void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list)
+void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky)
 {
 	for (HWWall& wallpart : list)
 	{
-		if (wallpart.texture && wallpart.texture->isMasked())
+		if (isSky)
 		{
-			state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+			state.SetEffect(EFF_PORTAL);
+			state.EnableTexture(false);
+			state.SetRenderStyle(STYLE_Normal);
+
+			wallpart.MakeVertices(state, false);
+			wallpart.RenderWall(state, HWWall::RWF_BLANK);
+			wallpart.vertcount = 0;
+
+			wallpart.LevelMeshInfo.Type = ST_UPPERSIDE;
+			wallpart.LevelMeshInfo.ControlSector = nullptr;
+
+			state.SetEffect(EFF_NONE);
+			state.EnableTexture(true);
 		}
 		else
 		{
-			state.AlphaFunc(Alpha_GEqual, 0.f);
-		}
+			if (wallpart.texture && wallpart.texture->isMasked())
+			{
+				state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+			}
+			else
+			{
+				state.AlphaFunc(Alpha_GEqual, 0.f);
+			}
 
-		wallpart.DrawWall(&disp, state, false);
+			wallpart.DrawWall(&disp, state, false);
+		}
 
 		int pipelineID = 0;
 		int startVertIndex = Mesh.Vertices.Size();
@@ -230,7 +250,8 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 		surf.Plane = ToPlane(Mesh.Vertices[startVertIndex + 3].fPos(), Mesh.Vertices[startVertIndex + 2].fPos(), Mesh.Vertices[startVertIndex + 1].fPos(), Mesh.Vertices[startVertIndex].fPos());
 		surf.Texture = wallpart.texture;
 		surf.PipelineID = pipelineID;
-		surf.PortalIndex = (surf.Type == ST_MIDDLESIDE) ? LevelMesh->linePortals[side->linedef->Index()] : 0;
+		surf.PortalIndex = isSky ? LevelMesh->linePortals[side->linedef->Index()] : 0;
+		surf.IsSky = isSky;
 		Surfaces.Push(surf);
 	}
 }
@@ -239,16 +260,30 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 {
 	for (HWFlat& flatpart : list)
 	{
-		if (flatpart.texture && flatpart.texture->isMasked())
+		if (isSky)
 		{
-			state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+			state.SetEffect(EFF_PORTAL);
+			state.EnableTexture(false);
+			state.SetRenderStyle(STYLE_Normal);
+
+			flatpart.DrawSubsectors(&disp, state);
+
+			state.SetEffect(EFF_NONE);
+			state.EnableTexture(true);
 		}
 		else
 		{
-			state.AlphaFunc(Alpha_GEqual, 0.f);
-		}
+			if (flatpart.texture && flatpart.texture->isMasked())
+			{
+				state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+			}
+			else
+			{
+				state.AlphaFunc(Alpha_GEqual, 0.f);
+			}
 
-		flatpart.DrawFlat(&disp, state, false);
+			flatpart.DrawFlat(&disp, state, false);
+		}
 
 		int pipelineID = 0;
 		int uniformsIndex = 0;
@@ -290,6 +325,8 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 		if (surf.ControlSector)
 			surf.Plane = -surf.Plane;
 
+		float skyZ = flatpart.ceiling ? 32768.0f : -32768.0f;
+
 		for (subsector_t* sub : flatpart.section->subsectors)
 		{
 			int startVertIndex = Mesh.Vertices.Size();
@@ -301,7 +338,7 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 				FFlatVertex ffv;
 				ffv.x = (float)vt->fX();
 				ffv.y = (float)vt->fY();
-				ffv.z = (float)plane.ZatPoint(vt);
+				ffv.z = isSky ? skyZ : (float)plane.ZatPoint(vt);
 				ffv.u = (float)vt->fX() / 64.f;
 				ffv.v = -(float)vt->fY() / 64.f;
 				ffv.lu = 0.0f;

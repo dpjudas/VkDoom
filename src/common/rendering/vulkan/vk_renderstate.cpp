@@ -851,31 +851,31 @@ void VkRenderState::ApplyLevelMesh()
 	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-void VkRenderState::DrawLevelMeshDepthPass()
+void VkRenderState::DrawLevelMeshSurfaces(bool noFragmentShader)
 {
 	ApplyLevelMesh();
 
-	auto submesh = fb->GetLevelMesh()->GetMesh()->StaticMesh.get();
-	for (LevelSubmeshDrawRange& range : submesh->DrawList)
+	auto mesh = fb->GetLevelMesh()->GetMesh();
+	for (LevelSubmesh* submesh : { mesh->StaticMesh.get(), mesh->DynamicMesh.get() })
 	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, true);
+		for (LevelSubmeshDrawRange& range : submesh->DrawList)
+		{
+			DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, noFragmentShader);
+		}
 	}
-	/*
-	for (LevelSubmeshDrawRange& range : submesh->PortalList)
-	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, true);
-	}
-	*/
 }
 
-void VkRenderState::DrawLevelMeshOpaquePass()
+void VkRenderState::DrawLevelMeshPortals(bool noFragmentShader)
 {
 	ApplyLevelMesh();
 
-	auto submesh = fb->GetLevelMesh()->GetMesh()->StaticMesh.get();
-	for (LevelSubmeshDrawRange& range : submesh->DrawList)
+	auto mesh = fb->GetLevelMesh()->GetMesh();
+	for (LevelSubmesh* submesh : { mesh->StaticMesh.get(), mesh->DynamicMesh.get() })
 	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, false);
+		for (LevelSubmeshDrawRange& range : submesh->PortalList)
+		{
+			DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, noFragmentShader);
+		}
 	}
 }
 
@@ -925,6 +925,8 @@ void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelin
 	pipelineKey.StencilPassOp = mStencilOp;
 	pipelineKey.ColorMask = mColorMask;
 	pipelineKey.CullMode = mCullMode;
+	if (!mTextureEnabled)
+		pipelineKey.ShaderKey.EffectState = SHADER_NoTexture;
 	mPipelineKey = pipelineKey;
 
 	PushConstants pushConstants = {};

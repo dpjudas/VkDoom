@@ -31,6 +31,7 @@ enum ERenderEffect
 	EFF_SPHEREMAP,
 	EFF_BURN,
 	EFF_STENCIL,
+	EFF_PORTAL,
 
 	MAX_EFFECTS
 };
@@ -689,8 +690,8 @@ public:
 	}
 
 	// Draw level mesh
-	virtual void DrawLevelMeshDepthPass() { }
-	virtual void DrawLevelMeshOpaquePass() { }
+	virtual void DrawLevelMeshSurfaces(bool noFragmentShader) { }
+	virtual void DrawLevelMeshPortals(bool noFragmentShader) { }
 	virtual int GetNextQueryIndex() { return 0; }
 	virtual void BeginQuery() { }
 	virtual void EndQuery() { }

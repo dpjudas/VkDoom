@@ -3693,7 +3693,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	// set up world state
 	SpawnSpecials();
 
-	InitLevelMesh(map);
+	//InitLevelMesh(map);
 
 	// disable reflective planes on sloped sectors.
 	for (auto &sec : Level->sectors)
@@ -3728,7 +3728,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	if (!Level->IsReentering())
 		Level->FinalizePortals();	// finalize line portals after polyobjects have been initialized. This info is needed for properly flagging them.
 
-	Level->levelMesh->CreatePortals(*Level); // [RaveYard]: needs portal data, but at the same time intializing the level mesh here breaks floor/ceiling planes!
+	InitLevelMesh(map);
 
 	Level->aabbTree = new DoomLevelAABBTree(Level);
 }

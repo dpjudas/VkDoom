@@ -57,8 +57,8 @@ public:
 	void ResetVertices() override;
 
 	// Draw level mesh
-	void DrawLevelMeshDepthPass() override;
-	void DrawLevelMeshOpaquePass() override;
+	void DrawLevelMeshSurfaces(bool noFragmentShader) override;
+	void DrawLevelMeshPortals(bool noFragmentShader) override;
 	int GetNextQueryIndex() override;
 	void BeginQuery() override;
 	void EndQuery() override;

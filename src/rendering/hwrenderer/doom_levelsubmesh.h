@@ -49,7 +49,7 @@ public:
 
 	TArray<std::unique_ptr<DoomLevelMeshSurface*[]>> PolyLMSurfaces;
 
-	TArray<HWWall> WallPortals;
+	TArray<HWWall> Portals;
 
 private:
 	void Reset();
@@ -64,7 +64,7 @@ private:
 
 	void CreateIndexes();
 
-	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list);
+	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky = false);
 	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky = false);
 
 	static FVector4 ToPlane(const FVector3& pt1, const FVector3& pt2, const FVector3& pt3)

@@ -52,6 +52,7 @@
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Int, lm_background_updates);
 EXTERN_CVAR(Float, r_actorspriteshadowdist)
+EXTERN_CVAR(Bool, gl_portals)
 
 CVAR(Bool, lm_always_update, false, 0)
 
@@ -410,20 +411,25 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 		validcount++;	// used for processing sidedefs only once by the renderer.
 
-		auto& wallPortals = static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->WallPortals;
+		auto& portals = static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->Portals;
 
 		// draw level into depth buffer
 		state.SetColorMask(false);
 		state.SetCulling(Cull_CW);
-		state.DrawLevelMeshDepthPass();
+		state.DrawLevelMeshSurfaces(true);
+		if (gl_portals)
+		{
+			state.SetDepthBias(1, 128);
+			state.DrawLevelMeshPortals(true);
+			state.SetDepthBias(0, 0);
+		}
 
 		// use occlusion queries on all portals in level to decide which are visible
 		int queryStart = state.GetNextQueryIndex();
 		state.SetDepthMask(false);
 		state.EnableTexture(false);
-		state.SetEffect(EFF_FOGBOUNDARY);
-		state.AlphaFunc(Alpha_GEqual, 0.f);
-		for (HWWall& wall : wallPortals)
+		state.SetEffect(EFF_PORTAL);
+		for (HWWall& wall : portals)
 		{
 			state.BeginQuery();
 
@@ -434,13 +440,19 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 			state.EndQuery();
 		}
 		state.SetEffect(EFF_NONE);
-		state.EnableTexture(true);
+		state.EnableTexture(gl_texture);
 		state.SetColorMask(true);
 		state.SetDepthMask(true);
 		int queryEnd = state.GetNextQueryIndex();
 
 		// draw opaque level so the GPU has something to do while we examine the query results
-		state.DrawLevelMeshOpaquePass();
+		state.DrawLevelMeshSurfaces(false);
+		if (!gl_portals)
+		{
+			state.SetDepthBias(1, 128);
+			state.DrawLevelMeshPortals(false);
+			state.SetDepthBias(0, 0);
+		}
 		state.SetCulling(Cull_None);
 
 		// retrieve the query results and use them to fill the portal manager with portals
@@ -450,7 +462,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 			bool portalVisible = QueryResultsBuffer[i];
 			if (portalVisible)
 			{
-				PutWallPortal(wallPortals[i], state);
+				PutWallPortal(portals[i], state);
 			}
 		}
 
@@ -524,9 +536,11 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 	}
 	else if (portaltype == PORTALTYPE_SECTORSTACK)
 	{
-		if (screen->instack[1 - portalplane])
-			return;
-		wall.PutPortal(&ddi, state, portaltype, portalplane);
+		// To do: this seems to need AddSubsectorToPortal?
+
+		//if (screen->instack[1 - portalplane])
+		//	return;
+		//wall.PutPortal(&ddi, state, portaltype, portalplane);
 	}
 	else if (portaltype == PORTALTYPE_PLANEMIRROR)
 	{
