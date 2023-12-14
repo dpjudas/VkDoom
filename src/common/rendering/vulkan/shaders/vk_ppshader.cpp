@@ -116,7 +116,8 @@ FString VkPPShader::LoadShaderCode(const FString &lumpName, const FString &defin
 	FString code = GetStringFromLump(lump);
 
 	FString patchedCode;
-	patchedCode.AppendFormat("#version %d\n", 450);
+	patchedCode.AppendFormat("#version %d core\n", fb->GetDevice()->Instance->ApiVersion >= VK_API_VERSION_1_2 ? 460 : 450);
+	patchedCode << "#extension GL_GOOGLE_include_directive : enable\n";
 	patchedCode << defines;
 	patchedCode << "#line 1\n";
 	patchedCode << code;
