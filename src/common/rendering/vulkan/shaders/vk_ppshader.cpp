@@ -38,12 +38,16 @@ VkPPShader::VkPPShader(VulkanRenderDevice* fb, PPShader *shader) : fb(fb)
 	VertexShader = ShaderBuilder()
 		.Type(ShaderType::Vertex)
 		.AddSource(shader->VertexShader.GetChars(), LoadShaderCode(shader->VertexShader, "", shader->Version).GetChars())
+		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
+		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
 		.DebugName(shader->VertexShader.GetChars())
 		.Create(shader->VertexShader.GetChars(), fb->GetDevice());
 
 	FragmentShader = ShaderBuilder()
 		.Type(ShaderType::Fragment)
 		.AddSource(shader->FragmentShader.GetChars(), LoadShaderCode(shader->FragmentShader, prolog, shader->Version).GetChars())
+		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
+		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
 		.DebugName(shader->FragmentShader.GetChars())
 		.Create(shader->FragmentShader.GetChars(), fb->GetDevice());
 
@@ -63,6 +67,45 @@ void VkPPShader::Reset()
 		fb->GetCommands()->DrawDeleteList->Add(std::move(VertexShader));
 		fb->GetCommands()->DrawDeleteList->Add(std::move(FragmentShader));
 	}
+}
+
+ShaderIncludeResult VkPPShader::OnInclude(FString headerName, FString includerName, size_t depth, bool system)
+{
+	if (depth > 8)
+		I_Error("Too much include recursion!");
+
+	FString includeguardname;
+	includeguardname << "_HEADERGUARD_" << headerName.GetChars();
+	includeguardname.ReplaceChars("/\\.", '_');
+
+	FString code;
+	code << "#ifndef " << includeguardname.GetChars() << "\n";
+	code << "#define " << includeguardname.GetChars() << "\n";
+	code << "#line 1\n";
+
+	if (system)
+		code << LoadPrivateShaderLump(headerName.GetChars()).GetChars() << "\n";
+	else
+		code << LoadPublicShaderLump(headerName.GetChars()).GetChars() << "\n";
+
+	code << "#endif\n";
+
+	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
+}
+
+FString VkPPShader::LoadPublicShaderLump(const char* lumpname)
+{
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
+	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
+	return GetStringFromLump(lump);
+}
+
+FString VkPPShader::LoadPrivateShaderLump(const char* lumpname)
+{
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
+	return GetStringFromLump(lump);
 }
 
 FString VkPPShader::LoadShaderCode(const FString &lumpName, const FString &defines, int version)
