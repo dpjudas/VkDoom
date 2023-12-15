@@ -136,6 +136,8 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 	for (unsigned int i = 0; i < doomMap.sectors.Size(); i++)
 	{
 		sector_t* sector = &doomMap.sectors[i];
+		if (sector->subsectors[0]->flags & SSECF_POLYORG)
+			continue;
 		for (FSection& section : doomMap.sections.SectionsForSector(i))
 		{
 			int sectionIndex = doomMap.sections.SectionIndex(&section);
