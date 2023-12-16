@@ -3709,13 +3709,6 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	}
 
 	InitRenderInfo();				// create hardware independent renderer resources for the level. This must be done BEFORE the PolyObj Spawn!!!
-	Level->ClearDynamic3DFloorData();	// CreateVBO must be run on the plain 3D floor data.
-	CreateVBO(*screen->RenderState(), Level->sectors);
-
-	for (auto &sec : Level->sectors)
-	{
-		P_Recalculate3DFloors(&sec);
-	}
 
 	SWRenderer->SetColormap(Level);	//The SW renderer needs to do some special setup for the level's default colormap.
 	InitPortalGroups(Level);
@@ -3727,6 +3720,13 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 		Level->FinalizePortals();	// finalize line portals after polyobjects have been initialized. This info is needed for properly flagging them.
 
 	InitLevelMesh(map);
+
+	Level->ClearDynamic3DFloorData();	// CreateVBO must be run on the plain 3D floor data.
+	CreateVBO(*screen->RenderState(), Level->sectors);
+	for (auto& sec : Level->sectors)
+	{
+		P_Recalculate3DFloors(&sec);
+	}
 
 	Level->aabbTree = new DoomLevelAABBTree(Level);
 }

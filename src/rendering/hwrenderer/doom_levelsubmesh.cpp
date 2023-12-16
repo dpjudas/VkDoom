@@ -115,19 +115,19 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		state.EnableTexture(true);
 		state.EnableBrightmap(true);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
-		CreateWallSurface(side, disp, state, result.list);
+		CreateWallSurface(side, disp, state, result.list, false, true);
 
 		for (HWWall& portal : result.portals)
 		{
 			Portals.Push(portal);
 		}
 
-		CreateWallSurface(side, disp, state, result.portals, true);
+		CreateWallSurface(side, disp, state, result.portals, true, false);
 
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 		state.SetRenderStyle(STYLE_Translucent);
-		CreateWallSurface(side, disp, state, result.translucent);
+		CreateWallSurface(side, disp, state, result.translucent, false, true);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetRenderStyle(STYLE_Normal);
 	}
@@ -171,7 +171,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 	}
 }
 
-void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky)
+void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky, bool translucent)
 {
 	for (HWWall& wallpart : list)
 	{
@@ -202,7 +202,7 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 				state.AlphaFunc(Alpha_GEqual, 0.f);
 			}
 
-			wallpart.DrawWall(&disp, state, false);
+			wallpart.DrawWall(&disp, state, translucent);
 		}
 
 		int pipelineID = 0;
