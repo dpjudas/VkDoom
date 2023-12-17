@@ -129,7 +129,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 	hudsprites.Clear();
 	Coronas.Clear();
 	Fogballs.Clear();
-	VisibleSurfaces.Clear();
+	VisibleTiles.Clear();
 	vpIndex = 0;
 
 	// Fullbright information needs to be propagated from the main view.
@@ -620,20 +620,20 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 
 void HWDrawInfo::UpdateLightmaps()
 {
-	if (!outer && VisibleSurfaces.Size() < unsigned(lm_background_updates))
+	if (!outer && VisibleTiles.Size() < unsigned(lm_background_updates))
 	{
-		for (auto& e : static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->Surfaces)
+		for (auto& e : level.levelMesh->StaticMesh->LightmapTiles)
 		{
-			if (e.NeedsUpdate && !e.IsSky && !e.PortalIndex)
+			if (e.NeedsUpdate)
 			{
-				VisibleSurfaces.Push(&e);
+				VisibleTiles.Push(&e);
 
-				if (VisibleSurfaces.Size() >= unsigned(lm_background_updates))
+				if (VisibleTiles.Size() >= unsigned(lm_background_updates))
 					break;
 			}
 		}
 	}
-	screen->UpdateLightmaps(VisibleSurfaces);
+	screen->UpdateLightmaps(VisibleTiles);
 }
 
 //-----------------------------------------------------------------------------

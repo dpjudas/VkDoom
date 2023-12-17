@@ -92,16 +92,16 @@ void VkLightmapper::BeginFrame()
 	drawindexed.Pos = 0;
 }
 
-void VkLightmapper::Raytrace(const TArray<LevelMeshSurface*>& surfaces)
+void VkLightmapper::Raytrace(const TArray<LightmapTile*>& tiles)
 {
-	if (mesh && surfaces.Size() > 0)
+	if (mesh && tiles.Size() > 0)
 	{
 		lightmapRaytraceLast.active = true;
 
 		lightmapRaytraceLast.ResetAndClock();
 
-		SelectSurfaces(surfaces);
-		if (selectedSurfaces.Size() > 0)
+		SelectTiles(tiles);
+		if (selectedTiles.Size() > 0)
 		{
 			fb->GetCommands()->PushGroup(fb->GetCommands()->GetTransferCommands(), "lightmap.total");
 
@@ -119,36 +119,36 @@ void VkLightmapper::Raytrace(const TArray<LevelMeshSurface*>& surfaces)
 	}
 }
 
-void VkLightmapper::SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces)
+void VkLightmapper::SelectTiles(const TArray<LightmapTile*>& tiles)
 {
 	bakeImage.maxX = 0;
 	bakeImage.maxY = 0;
-	selectedSurfaces.Clear();
+	selectedTiles.Clear();
 
 	const int spacing = 5; // Note: the spacing is here to avoid that the resolve sampler finds data from other surface tiles
 	RectPacker packer(bakeImageSize - spacing, bakeImageSize - spacing, RectPacker::Spacing(spacing));
 
-	for (int i = 0, count = surfaces.Size(); i < count; i++)
+	for (int i = 0, count = tiles.Size(); i < count; i++)
 	{
-		LevelMeshSurface* surface = surfaces[i];
+		LightmapTile* tile = tiles[i];
 
-		if (!surface->NeedsUpdate)
+		if (!tile->NeedsUpdate)
 			continue;
 
 		// Only grab surfaces until our bake texture is full
-		auto result = packer.insert(surface->AtlasTile.Width + 2, surface->AtlasTile.Height + 2);
+		auto result = packer.insert(tile->AtlasLocation.Width + 2, tile->AtlasLocation.Height + 2);
 		if (result.pageIndex == 0)
 		{
-			SelectedSurface selected;
-			selected.Surface = surface;
+			SelectedTile selected;
+			selected.Tile = tile;
 			selected.X = result.pos.x + 1;
 			selected.Y = result.pos.y + 1;
-			selectedSurfaces.Push(selected);
+			selectedTiles.Push(selected);
 
-			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(selected.X + surface->AtlasTile.Width + spacing));
-			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(selected.Y + surface->AtlasTile.Height + spacing));
+			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(selected.X + tile->AtlasLocation.Width + spacing));
+			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(selected.Y + tile->AtlasLocation.Height + spacing));
 
-			surface->NeedsUpdate = false;
+			tile->NeedsUpdate = false;
 		}
 	}
 }
@@ -180,35 +180,40 @@ void VkLightmapper::Render()
 	viewport.height = (float)bakeImageSize;
 	cmdbuffer->setViewport(0, 1, &viewport);
 
-	for (int i = 0, count = selectedSurfaces.Size(); i < count; i++)
-	{
-		auto& selectedSurface = selectedSurfaces[i];
-		LevelMeshSurface* targetSurface = selectedSurface.Surface;
+	int dynamicSurfaceIndexOffset = mesh->StaticMesh->GetSurfaceCount();
+	int dynamicFirstIndexOffset = mesh->StaticMesh->Mesh.Indexes.Size();
+	LevelSubmesh* staticMesh = mesh->StaticMesh.get();
 
-		int surfaceIndexOffset = 0;
-		int firstIndexOffset = 0;
-		if (targetSurface->Submesh != mesh->StaticMesh.get())
-		{
-			surfaceIndexOffset = mesh->StaticMesh->GetSurfaceCount();
-			firstIndexOffset = mesh->StaticMesh->Mesh.Indexes.Size();
-		}
+	for (int i = 0, count = selectedTiles.Size(); i < count; i++)
+	{
+		auto& selectedTile = selectedTiles[i];
+		LightmapTile* targetTile = selectedTile.Tile;
 
 		LightmapRaytracePC pc;
-		pc.TileX = (float)selectedSurface.X;
-		pc.TileY = (float)selectedSurface.Y;
-		pc.SurfaceIndex = surfaceIndexOffset + targetSurface->Submesh->GetSurfaceIndex(targetSurface);
+		pc.TileX = (float)selectedTile.X;
+		pc.TileY = (float)selectedTile.Y;
 		pc.TextureSize = (float)bakeImageSize;
-		pc.TileWidth = (float)targetSurface->AtlasTile.Width;
-		pc.TileHeight = (float)targetSurface->AtlasTile.Height;
-		pc.WorldToLocal = SwapYZ(targetSurface->TileTransform.TranslateWorldToLocal);
-		pc.ProjLocalToU = SwapYZ(targetSurface->TileTransform.ProjLocalToU);
-		pc.ProjLocalToV = SwapYZ(targetSurface->TileTransform.ProjLocalToV);
+		pc.TileWidth = (float)targetTile->AtlasLocation.Width;
+		pc.TileHeight = (float)targetTile->AtlasLocation.Height;
+		pc.WorldToLocal = SwapYZ(targetTile->Transform.TranslateWorldToLocal);
+		pc.ProjLocalToU = SwapYZ(targetTile->Transform.ProjLocalToU);
+		pc.ProjLocalToV = SwapYZ(targetTile->Transform.ProjLocalToV);
 
 		bool buffersFull = false;
 
 		// Paint all surfaces visible in the tile
-		for (LevelMeshSurface* surface : targetSurface->TileSurfaces)
+		for (LevelMeshSurface* surface : targetTile->Surfaces)
 		{
+			int surfaceIndexOffset = 0;
+			int firstIndexOffset = 0;
+			if (surface->Submesh != staticMesh)
+			{
+				surfaceIndexOffset = dynamicSurfaceIndexOffset;
+				firstIndexOffset = dynamicFirstIndexOffset;
+			}
+
+			pc.SurfaceIndex = surfaceIndexOffset + surface->Submesh->GetSurfaceIndex(surface);
+
 			if (surface->LightList.ResetCounter != lights.ResetCounter)
 			{
 				int lightCount = mesh->AddSurfaceLights(surface, templightlist.Data(), (int)templightlist.Size());
@@ -272,13 +277,13 @@ void VkLightmapper::Render()
 		{
 			while (i < count)
 			{
-				selectedSurfaces[i].Surface->NeedsUpdate = true;
+				selectedTiles[i].Tile->NeedsUpdate = true;
 				i++;
 			}
 			break;
 		}
 
-		selectedSurface.Rendered = true;
+		selectedTile.Rendered = true;
 	}
 
 #ifdef USE_DRAWINDIRECT
@@ -407,19 +412,19 @@ void VkLightmapper::CopyResult()
 	uint32_t pixels = 0;
 	lastSurfaceCount = 0;
 	for (auto& list : copylists) list.Clear();
-	for (int i = 0, count = selectedSurfaces.Size(); i < count; i++)
+	for (int i = 0, count = selectedTiles.Size(); i < count; i++)
 	{
-		auto& selected = selectedSurfaces[i];
+		auto& selected = selectedTiles[i];
 		if (selected.Rendered)
 		{
-			unsigned int pageIndex = (unsigned int)selected.Surface->AtlasTile.ArrayIndex;
+			unsigned int pageIndex = (unsigned int)selected.Tile->AtlasLocation.ArrayIndex;
 			if (pageIndex >= copylists.Size())
 			{
 				copylists.Resize(pageIndex + 1);
 			}
 			copylists[pageIndex].Push(&selected);
 
-			pixels += selected.Surface->AtlasTile.Area();
+			pixels += selected.Tile->AtlasLocation.Area();
 			lastSurfaceCount++;
 		}
 	}
@@ -484,17 +489,17 @@ void VkLightmapper::CopyResult()
 
 		// Copy the tile positions into a storage buffer for the vertex shader to read
 		start = pos;
-		for (SelectedSurface* selected : list)
+		for (SelectedTile* selected : list)
 		{
-			LevelMeshSurface* surface = selected->Surface;
+			LightmapTile* tile = selected->Tile;
 
 			CopyTileInfo* copyinfo = &copytiles.Tiles[pos++];
 			copyinfo->SrcPosX = selected->X;
 			copyinfo->SrcPosY = selected->Y;
-			copyinfo->DestPosX = surface->AtlasTile.X;
-			copyinfo->DestPosY = surface->AtlasTile.Y;
-			copyinfo->TileWidth = surface->AtlasTile.Width;
-			copyinfo->TileHeight = surface->AtlasTile.Height;
+			copyinfo->DestPosX = tile->AtlasLocation.X;
+			copyinfo->DestPosY = tile->AtlasLocation.Y;
+			copyinfo->TileWidth = tile->AtlasLocation.Width;
+			copyinfo->TileHeight = tile->AtlasLocation.Height;
 		}
 
 		// Draw the tiles. One instance per tile.

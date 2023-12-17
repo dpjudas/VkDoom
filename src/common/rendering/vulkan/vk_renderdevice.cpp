@@ -553,9 +553,9 @@ void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)
 	levelMeshChanged = true;
 }
 
-void VulkanRenderDevice::UpdateLightmaps(const TArray<LevelMeshSurface*>& surfaces)
+void VulkanRenderDevice::UpdateLightmaps(const TArray<LightmapTile*>& tiles)
 {
-	GetLightmapper()->Raytrace(surfaces);
+	GetLightmapper()->Raytrace(tiles);
 }
 
 void VulkanRenderDevice::SetShadowMaps(const TArray<float>& lights, hwrenderer::LevelAABBTree* tree, bool newTree)

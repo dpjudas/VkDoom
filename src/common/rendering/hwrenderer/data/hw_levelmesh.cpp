@@ -55,11 +55,11 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 	return hitSurface; // I hit something
 }
 
-LevelMeshSurfaceStats LevelMesh::GatherSurfacePixelStats()
+LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 {
-	LevelMeshSurfaceStats stats;
-	StaticMesh->GatherSurfacePixelStats(stats);
-	DynamicMesh->GatherSurfacePixelStats(stats);
+	LevelMeshTileStats stats;
+	StaticMesh->GatherTilePixelStats(stats);
+	DynamicMesh->GatherTilePixelStats(stats);
 	return stats;
 }
 
@@ -94,98 +94,96 @@ void LevelSubmesh::UpdateCollision()
 	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Indexes.Data(), Mesh.Indexes.Size());
 }
 
-void LevelSubmesh::GatherSurfacePixelStats(LevelMeshSurfaceStats& stats)
+void LevelSubmesh::GatherTilePixelStats(LevelMeshTileStats& stats)
 {
 	int count = GetSurfaceCount();
-	for (int i = 0; i < count; ++i)
+	for (const LightmapTile& tile : LightmapTiles)
 	{
-		const auto* surface = GetSurface(i);
-		auto area = surface->AtlasTile.Area();
+		auto area = tile.AtlasLocation.Area();
 
 		stats.pixels.total += area;
 
-		if (surface->NeedsUpdate)
+		if (tile.NeedsUpdate)
 		{
-			stats.surfaces.dirty++;
+			stats.tiles.dirty++;
 			stats.pixels.dirty += area;
 		}
-		if (surface->IsSky)
-		{
-			stats.surfaces.sky++;
-			stats.pixels.sky += area;
-		}
 	}
-	stats.surfaces.total += count;
+	stats.tiles.total += LightmapTiles.Size();
 }
+
+struct LevelMeshPlaneGroup
+{
+	FVector4 plane = FVector4(0, 0, 1, 0);
+	int sectorGroup = 0;
+	std::vector<LevelMeshSurface*> surfaces;
+};
 
 void LevelSubmesh::BuildTileSurfaceLists()
 {
-	// Smoothing group surface is to be rendered with
-	TArray<LevelMeshSmoothingGroup> SmoothingGroups;
-	TArray<int> SmoothingGroupIndexes(GetSurfaceCount());
+	// Plane group surface is to be rendered with
+	TArray<LevelMeshPlaneGroup> PlaneGroups;
+	TArray<int> PlaneGroupIndexes(GetSurfaceCount());
 
 	for (int i = 0, count = GetSurfaceCount(); i < count; i++)
 	{
 		auto surface = GetSurface(i);
 
-		// Is this surface in the same plane as an existing smoothing group?
-		int smoothingGroupIndex = -1;
+		// Is this surface in the same plane as an existing plane group?
+		int planeGroupIndex = -1;
 
-		for (size_t j = 0; j < SmoothingGroups.Size(); j++)
+		for (size_t j = 0; j < PlaneGroups.Size(); j++)
 		{
-			if (surface->SectorGroup == SmoothingGroups[j].sectorGroup)
+			if (surface->SectorGroup == PlaneGroups[j].sectorGroup)
 			{
-				float direction = SmoothingGroups[j].plane.XYZ() | surface->Plane.XYZ();
+				float direction = PlaneGroups[j].plane.XYZ() | surface->Plane.XYZ();
 				if (direction >= 0.9999f && direction <= 1.001f)
 				{
 					auto point = (surface->Plane.XYZ() * surface->Plane.W);
-					auto planeDistance = (SmoothingGroups[j].plane.XYZ() | point) - SmoothingGroups[j].plane.W;
+					auto planeDistance = (PlaneGroups[j].plane.XYZ() | point) - PlaneGroups[j].plane.W;
 
 					float dist = std::abs(planeDistance);
 					if (dist <= 0.01f)
 					{
-						smoothingGroupIndex = (int)j;
+						planeGroupIndex = (int)j;
 						break;
 					}
 				}
 			}
 		}
 
-		// Surface is in a new plane. Create a smoothing group for it
-		if (smoothingGroupIndex == -1)
+		// Surface is in a new plane. Create a plane group for it
+		if (planeGroupIndex == -1)
 		{
-			smoothingGroupIndex = SmoothingGroups.Size();
+			planeGroupIndex = PlaneGroups.Size();
 
-			LevelMeshSmoothingGroup group;
+			LevelMeshPlaneGroup group;
 			group.plane = surface->Plane;
 			group.sectorGroup = surface->SectorGroup;
-			SmoothingGroups.Push(group);
+			PlaneGroups.Push(group);
 		}
 
-		SmoothingGroups[smoothingGroupIndex].surfaces.push_back(surface);
-		SmoothingGroupIndexes.Push(smoothingGroupIndex);
+		PlaneGroups[planeGroupIndex].surfaces.push_back(surface);
+		PlaneGroupIndexes.Push(planeGroupIndex);
 	}
+
+	for (auto& tile : LightmapTiles)
+		tile.Surfaces.Clear();
 
 	for (int i = 0, count = GetSurfaceCount(); i < count; i++)
 	{
-		auto targetSurface = GetSurface(i);
-		targetSurface->TileSurfaces.Clear();
-		for (LevelMeshSurface* surface : SmoothingGroups[SmoothingGroupIndexes[i]].surfaces)
+		LevelMeshSurface* targetSurface = GetSurface(i);
+		if (targetSurface->LightmapTileIndex < 0)
+			continue;
+		LightmapTile* tile = &LightmapTiles[targetSurface->LightmapTileIndex];
+		for (LevelMeshSurface* surface : PlaneGroups[PlaneGroupIndexes[i]].surfaces)
 		{
-			FVector2 minUV = ToUV(surface->Bounds.min, targetSurface);
-			FVector2 maxUV = ToUV(surface->Bounds.max, targetSurface);
+			FVector2 minUV = tile->ToUV(surface->Bounds.min);
+			FVector2 maxUV = tile->ToUV(surface->Bounds.max);
 			if (surface != targetSurface && (maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
 				continue; // Bounding box not visible
 
-			targetSurface->TileSurfaces.Push(surface);
+			tile->Surfaces.Push(surface);
 		}
 	}
-}
-
-FVector2 LevelSubmesh::ToUV(const FVector3& vert, const LevelMeshSurface* targetSurface)
-{
-	FVector3 localPos = vert - targetSurface->TileTransform.TranslateWorldToLocal;
-	float u = (1.0f + (localPos | targetSurface->TileTransform.ProjLocalToU)) / (targetSurface->AtlasTile.Width + 2);
-	float v = (1.0f + (localPos | targetSurface->TileTransform.ProjLocalToV)) / (targetSurface->AtlasTile.Height + 2);
-	return FVector2(u, v);
 }

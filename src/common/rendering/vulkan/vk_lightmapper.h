@@ -95,9 +95,9 @@ struct LightInfo
 	float Padding3;
 };
 
-struct SelectedSurface
+struct SelectedTile
 {
-	LevelMeshSurface* Surface = nullptr;
+	LightmapTile* Tile = nullptr;
 	int X = -1;
 	int Y = -1;
 	bool Rendered = false;
@@ -126,13 +126,13 @@ public:
 	~VkLightmapper();
 
 	void BeginFrame();
-	void Raytrace(const TArray<LevelMeshSurface*>& surfaces);
+	void Raytrace(const TArray<LightmapTile*>& surfaces);
 	void SetLevelMesh(LevelMesh* level);
 
 private:
 	void ReleaseResources();
 
-	void SelectSurfaces(const TArray<LevelMeshSurface*>& surfaces);
+	void SelectTiles(const TArray<LightmapTile*>& surfaces);
 	void UploadUniforms();
 	void Render();
 	void Resolve();
@@ -165,8 +165,8 @@ private:
 
 	bool useRayQuery = true;
 
-	TArray<SelectedSurface> selectedSurfaces;
-	TArray<TArray<SelectedSurface*>> copylists;
+	TArray<SelectedTile> selectedTiles;
+	TArray<TArray<SelectedTile*>> copylists;
 	TArray<LevelMeshLight> templightlist;
 
 	struct

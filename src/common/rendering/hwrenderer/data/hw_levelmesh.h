@@ -7,12 +7,13 @@
 #include "flatvertices.h"
 #include "hw_levelmeshlight.h"
 #include "hw_levelmeshportal.h"
+#include "hw_lightmaptile.h"
 #include "hw_levemeshsurface.h"
 #include "hw_materialstate.h"
 #include "hw_surfaceuniforms.h"
 #include <memory>
 
-struct LevelMeshSurfaceStats;
+struct LevelMeshTileStats;
 
 struct LevelSubmeshDrawRange
 {
@@ -48,19 +49,21 @@ public:
 
 	// Lightmap atlas
 	int LMTextureCount = 0;
-	int LMTextureSize = 0;
+	int LMTextureSize = 1024;
 	TArray<uint16_t> LMTextureData;
 
 	uint16_t LightmapSampleDistance = 16;
 
+	TArray<LightmapTile> LightmapTiles;
+
 	uint32_t AtlasPixelCount() const { return uint32_t(LMTextureCount * LMTextureSize * LMTextureSize); }
 
 	void UpdateCollision();
-	void GatherSurfacePixelStats(LevelMeshSurfaceStats& stats);
+	void GatherTilePixelStats(LevelMeshTileStats& stats);
 	void BuildTileSurfaceLists();
 
 private:
-	FVector2 ToUV(const FVector3& vert, const LevelMeshSurface* targetSurface);
+	FVector2 ToUV(const FVector3& vert, const LightmapTile* tile);
 };
 
 class LevelMesh
@@ -76,7 +79,7 @@ public:
 
 	LevelMeshSurface* Trace(const FVector3& start, FVector3 direction, float maxDist);
 
-	LevelMeshSurfaceStats GatherSurfacePixelStats();
+	LevelMeshTileStats GatherTilePixelStats();
 
 	// Map defaults
 	FVector3 SunDirection = FVector3(0.0f, 0.0f, -1.0f);
@@ -85,12 +88,12 @@ public:
 	TArray<LevelMeshPortal> Portals;
 };
 
-struct LevelMeshSurfaceStats
+struct LevelMeshTileStats
 {
 	struct Stats
 	{
-		uint32_t total = 0, dirty = 0, sky = 0;
+		uint32_t total = 0, dirty = 0;
 	};
 
-	Stats surfaces, pixels;
+	Stats tiles, pixels;
 };

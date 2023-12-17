@@ -139,7 +139,7 @@ public:
 	virtual bool IsPoly() { return false; }
 	virtual bool CompileNextShader() { return true; }
 	virtual void SetLevelMesh(LevelMesh *mesh) { }
-	virtual void UpdateLightmaps(const TArray<LevelMeshSurface*>& surfaces) {}
+	virtual void UpdateLightmaps(const TArray<LightmapTile*>& tiles) {}
 
 	virtual DCanvas* GetCanvas() { return nullptr; }
 

@@ -31,10 +31,10 @@ struct SurfaceInfo
 {
 	FVector3 Normal;
 	float Sky;
-	float SamplingDistance;
 	uint32_t PortalIndex;
 	int32_t TextureIndex;
 	float Alpha;
+	float Padding;
 };
 
 struct PortalInfo

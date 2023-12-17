@@ -640,7 +640,6 @@ void VkLevelMeshUploader::UploadSurfaces()
 			SurfaceInfo info;
 			info.Normal = FVector3(surface->Plane.X, surface->Plane.Z, surface->Plane.Y);
 			info.PortalIndex = surface->PortalIndex;
-			info.SamplingDistance = (float)surface->SampleDimension;
 			info.Sky = surface->IsSky;
 			info.Alpha = surface->Alpha;
 			if (surface->Texture)

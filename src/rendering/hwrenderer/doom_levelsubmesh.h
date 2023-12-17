@@ -9,6 +9,7 @@
 #include "bounds.h"
 #include <dp_rect_pack.h>
 #include <set>
+#include <map>
 
 typedef dp::rect_pack::RectPacker<int> RectPacker;
 
@@ -60,12 +61,10 @@ private:
 	void SetSubsectorLightmap(DoomLevelMeshSurface* surface);
 	void SetSideLightmap(DoomLevelMeshSurface* surface);
 
-	void SetupLightmapUvs(FLevelLocals& doomMap);
-
 	void CreateIndexes();
 
-	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky, bool translucent);
-	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky = false);
+	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWWall>& list, bool isSky, bool translucent);
+	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWFlat>& list, bool isSky = false);
 
 	static FVector4 ToPlane(const FVector3& pt1, const FVector3& pt2, const FVector3& pt3)
 	{
@@ -100,7 +99,9 @@ private:
 	static PlaneAxis BestAxis(const FVector4& p);
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
-	void SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface);
+	void SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LightmapTile& tile);
+	int AddSurfaceToTile(const DoomLevelMeshSurface& surf, std::map<LightmapTileBinding, int>& bindings);
+	int GetSampleDimension(const DoomLevelMeshSurface& surf);
 
 	static bool IsDegenerate(const FVector3& v0, const FVector3& v1, const FVector3& v2);
 

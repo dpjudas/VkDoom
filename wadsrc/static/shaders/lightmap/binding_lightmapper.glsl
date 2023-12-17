@@ -11,10 +11,10 @@ struct SurfaceInfo
 {
 	vec3 Normal;
 	float Sky;
-	float SamplingDistance;
 	uint PortalIndex;
 	int TextureIndex;
 	float Alpha;
+	float Padding;
 };
 
 struct PortalInfo

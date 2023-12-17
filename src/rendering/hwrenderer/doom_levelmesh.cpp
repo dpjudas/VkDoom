@@ -43,10 +43,10 @@ ADD_STAT(lightmap)
 	}
 
 	uint32_t atlasPixelCount = levelMesh->StaticMesh->AtlasPixelCount();
-	auto stats = levelMesh->GatherSurfacePixelStats();
+	auto stats = levelMesh->GatherTilePixelStats();
 
-	out.Format("Surfaces: %u (sky: %u, awaiting updates: %u)\nSurface pixel area to update: %u\nSurface pixel area: %u\nAtlas pixel area:   %u\nAtlas efficiency: %.4f%%",
-		stats.surfaces.total, stats.surfaces.sky, std::max(stats.surfaces.dirty - stats.surfaces.sky, (uint32_t)0),
+	out.Format("Surfaces: %u (awaiting updates: %u)\nSurface pixel area to update: %u\nSurface pixel area: %u\nAtlas pixel area:   %u\nAtlas efficiency: %.4f%%",
+		stats.tiles.total, stats.tiles.dirty,
 		stats.pixels.dirty,
 		stats.pixels.total,
 		atlasPixelCount,
@@ -67,13 +67,13 @@ CCMD(invalidatelightmap)
 	if (!RequireLightmap()) return;
 
 	int count = 0;
-	for (auto& surface : static_cast<DoomLevelSubmesh*>(level.levelMesh->StaticMesh.get())->Surfaces)
+	for (auto& tile : level.levelMesh->StaticMesh->LightmapTiles)
 	{
-		if (!surface.NeedsUpdate)
+		if (!tile.NeedsUpdate)
 			++count;
-		surface.NeedsUpdate = true;
+		tile.NeedsUpdate = true;
 	}
-	Printf("Marked %d out of %d surfaces for update.\n", count, level.levelMesh->StaticMesh->GetSurfaceCount());
+	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->StaticMesh->LightmapTiles.Size());
 }
 
 void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
@@ -83,10 +83,14 @@ void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
 	auto gameTexture = surface->Texture;
 
 	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", surface->Submesh->GetSurfaceIndex(surface), surface, surface->Type, surface->TypeIndex, surface->ControlSector ? surface->ControlSector->Index() : -1);
-	Printf("    Atlas page: %d, x:%d, y:%d\n", surface->AtlasTile.ArrayIndex, surface->AtlasTile.X, surface->AtlasTile.Y);
-	Printf("    Pixels: %dx%d (area: %d)\n", surface->AtlasTile.Width, surface->AtlasTile.Height, surface->AtlasTile.Area());
-	Printf("    Sample dimension: %d\n", surface->SampleDimension);
-	Printf("    Needs update?: %d\n", surface->NeedsUpdate);
+	if (surface->LightmapTileIndex >= 0)
+	{
+		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
+		Printf("    Atlas page: %d, x:%d, y:%d\n", tile->AtlasLocation.ArrayIndex, tile->AtlasLocation.X, tile->AtlasLocation.Y);
+		Printf("    Pixels: %dx%d (area: %d)\n", tile->AtlasLocation.Width, tile->AtlasLocation.Height, tile->AtlasLocation.Area());
+		Printf("    Sample dimension: %d\n", tile->SampleDimension);
+		Printf("    Needs update?: %d\n", tile->NeedsUpdate);
+	}
 	Printf("    Always update?: %d\n", surface->AlwaysUpdate);
 	Printf("    Sector group: %d\n", surface->SectorGroup);
 	Printf("    Texture: '%s'\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>");
@@ -158,11 +162,6 @@ bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float di
 	FVector3 end = start + direction * dist;
 	auto surface = Trace(start, direction, dist);
 	return surface && surface->IsSky;
-}
-
-void DoomLevelMesh::PackLightmapAtlas()
-{
-	static_cast<DoomLevelSubmesh*>(StaticMesh.get())->PackLightmapAtlas(0);
 }
 
 int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize)
@@ -317,11 +316,16 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 			{
 				const auto& surface = submesh->Surfaces[index];
 				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.TypeIndex, surface.IsSky ? " sky" : "");
-				fprintf(f, "usemtl lightmap%d\n", surface.AtlasTile.ArrayIndex);
 
-				if (surface.AtlasTile.ArrayIndex > highestUsedAtlasPage)
+				if (surface.LightmapTileIndex >= 0)
 				{
-					highestUsedAtlasPage = surface.AtlasTile.ArrayIndex;
+					auto& tile = submesh->LightmapTiles[surface.LightmapTileIndex];
+					fprintf(f, "usemtl lightmap%d\n", tile.AtlasLocation.ArrayIndex);
+
+					if (tile.AtlasLocation.ArrayIndex > highestUsedAtlasPage)
+					{
+						highestUsedAtlasPage = tile.AtlasLocation.ArrayIndex;
+					}
 				}
 			}
 		}

@@ -32,9 +32,9 @@ DoomLevelSubmesh::DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, b
 		LinkSurfaces(doomMap);
 
 		CreateIndexes();
-		SetupLightmapUvs(doomMap);
 		BuildTileSurfaceLists();
 		UpdateCollision();
+		PackLightmapAtlas(0);
 	}
 }
 
@@ -48,7 +48,6 @@ void DoomLevelSubmesh::Update(FLevelLocals& doomMap, int lightmapStartIndex)
 		LinkSurfaces(doomMap);
 
 		CreateIndexes();
-		SetupLightmapUvs(doomMap);
 		BuildTileSurfaceLists();
 		UpdateCollision();
 
@@ -86,6 +85,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 	}
 
 	MeshBuilder state;
+	std::map<LightmapTileBinding, int> bindings;
 
 	// Create surface objects for all sides
 	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
@@ -115,19 +115,19 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		state.EnableTexture(true);
 		state.EnableBrightmap(true);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
-		CreateWallSurface(side, disp, state, result.list, false, true);
+		CreateWallSurface(side, disp, state, bindings, result.list, false, true);
 
 		for (HWWall& portal : result.portals)
 		{
 			Portals.Push(portal);
 		}
 
-		CreateWallSurface(side, disp, state, result.portals, true, false);
+		CreateWallSurface(side, disp, state, bindings, result.portals, true, false);
 
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 		state.SetRenderStyle(STYLE_Translucent);
-		CreateWallSurface(side, disp, state, result.translucent, false, true);
+		CreateWallSurface(side, disp, state, bindings, result.translucent, false, true);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetRenderStyle(STYLE_Normal);
 	}
@@ -154,24 +154,29 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			state.ClearDepthBias();
 			state.EnableTexture(true);
 			state.EnableBrightmap(true);
-			CreateFlatSurface(disp, state, result.list);
+			CreateFlatSurface(disp, state, bindings, result.list);
 
-			CreateFlatSurface(disp, state, result.portals, true);
+			CreateFlatSurface(disp, state, bindings, result.portals, true);
 
 			// final pass: translucent stuff
 			state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 			state.SetRenderStyle(STYLE_Translucent);
-			CreateFlatSurface(disp, state, result.translucentborder);
+			CreateFlatSurface(disp, state, bindings, result.translucentborder);
 			state.SetDepthMask(false);
-			CreateFlatSurface(disp, state, result.translucent);
+			CreateFlatSurface(disp, state, bindings, result.translucent);
 			state.AlphaFunc(Alpha_GEqual, 0.f);
 			state.SetDepthMask(true);
 			state.SetRenderStyle(STYLE_Normal);
 		}
 	}
+
+	for (auto& tile : LightmapTiles)
+	{
+		SetupTileTransform(LMTextureSize, LMTextureSize, tile);
+	}
 }
 
-void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky, bool translucent)
+void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWWall>& list, bool isSky, bool translucent)
 {
 	for (HWWall& wallpart : list)
 	{
@@ -254,11 +259,74 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 		surf.PipelineID = pipelineID;
 		surf.PortalIndex = isSky ? LevelMesh->linePortals[side->linedef->Index()] : 0;
 		surf.IsSky = isSky;
+		surf.Bounds = GetBoundsFromSurface(surf);
+		surf.LightmapTileIndex = AddSurfaceToTile(surf, bindings);
 		Surfaces.Push(surf);
 	}
 }
 
-void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky)
+int DoomLevelSubmesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf, std::map<LightmapTileBinding, int>& bindings)
+{
+	LightmapTileBinding binding;
+	binding.Type = surf.Type;
+	binding.TypeIndex = surf.TypeIndex;
+	binding.ControlSector = surf.ControlSector ? surf.ControlSector->Index() : (int)0xffffffffUL;
+
+	auto it = bindings.find(binding);
+	if (it != bindings.end())
+	{
+		int index = it->second;
+
+		LightmapTile& tile = LightmapTiles[index];
+		tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
+		tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
+		tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
+		tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
+		tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
+		tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
+
+		return index;
+	}
+	else
+	{
+		int index = LightmapTiles.Size();
+
+		LightmapTile tile;
+		tile.Binding = binding;
+		tile.Bounds = surf.Bounds;
+		tile.Plane = surf.Plane;
+		tile.SampleDimension = GetSampleDimension(surf);
+
+		LightmapTiles.Push(tile);
+		bindings[binding] = index;
+		return index;
+	}
+}
+
+int DoomLevelSubmesh::GetSampleDimension(const DoomLevelMeshSurface& surf)
+{
+	uint16_t sampleDimension = 0; // To do: something seems to have gone missing with the sample dimension!
+
+	if (sampleDimension <= 0)
+	{
+		sampleDimension = LightmapSampleDistance;
+	}
+
+	sampleDimension = uint16_t(max(int(roundf(float(sampleDimension) / max(1.0f / 4, float(lm_scale)))), 1));
+
+	// Round to nearest power of two
+	uint32_t n = uint16_t(sampleDimension);
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n = (n + 1) >> 1;
+	sampleDimension = uint16_t(n) ? uint16_t(n) : uint16_t(0xFFFF);
+
+	return sampleDimension;
+}
+
+void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWFlat>& list, bool isSky)
 {
 	for (HWFlat& flatpart : list)
 	{
@@ -355,6 +423,8 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 			surf.Subsector = sub;
 			surf.MeshLocation.StartVertIndex = startVertIndex;
 			surf.MeshLocation.NumVerts = sub->numlines;
+			surf.Bounds = GetBoundsFromSurface(surf);
+			surf.LightmapTileIndex = AddSurfaceToTile(surf, bindings);
 			Surfaces.Push(surf);
 		}
 	}
@@ -553,53 +623,51 @@ bool DoomLevelSubmesh::IsDegenerate(const FVector3 &v0, const FVector3 &v1, cons
 	return crosslengthsqr <= 1.e-6f;
 }
 
-void DoomLevelSubmesh::SetupLightmapUvs(FLevelLocals& doomMap)
-{
-	LMTextureSize = 1024;
-
-	for (auto& surface : Surfaces)
-	{
-		SetupTileTransform(LMTextureSize, LMTextureSize, surface);
-	}
-}
-
 void DoomLevelSubmesh::PackLightmapAtlas(int lightmapStartIndex)
 {
-	std::vector<LevelMeshSurface*> sortedSurfaces;
-	sortedSurfaces.reserve(Surfaces.Size());
+	std::vector<LightmapTile*> sortedTiles;
+	sortedTiles.reserve(LightmapTiles.Size());
 
-	for (auto& surface : Surfaces)
+	for (auto& tile : LightmapTiles)
 	{
-		sortedSurfaces.push_back(&surface);
+		sortedTiles.push_back(&tile);
 	}
 
-	std::sort(sortedSurfaces.begin(), sortedSurfaces.end(), [](LevelMeshSurface* a, LevelMeshSurface* b) { return a->AtlasTile.Height != b->AtlasTile.Height ? a->AtlasTile.Height > b->AtlasTile.Height : a->AtlasTile.Width > b->AtlasTile.Width; });
+	std::sort(sortedTiles.begin(), sortedTiles.end(), [](LightmapTile* a, LightmapTile* b) { return a->AtlasLocation.Height != b->AtlasLocation.Height ? a->AtlasLocation.Height > b->AtlasLocation.Height : a->AtlasLocation.Width > b->AtlasLocation.Width; });
 
 	RectPacker packer(LMTextureSize, LMTextureSize, RectPacker::Spacing(0));
 
-	for (LevelMeshSurface* surf : sortedSurfaces)
+	for (LightmapTile* tile : sortedTiles)
 	{
-		int sampleWidth = surf->AtlasTile.Width;
-		int sampleHeight = surf->AtlasTile.Height;
+		int sampleWidth = tile->AtlasLocation.Width;
+		int sampleHeight = tile->AtlasLocation.Height;
 
 		auto result = packer.insert(sampleWidth, sampleHeight);
 		int x = result.pos.x, y = result.pos.y;
 
-		surf->AtlasTile.X = x;
-		surf->AtlasTile.Y = y;
-		surf->AtlasTile.ArrayIndex = lightmapStartIndex + (int)result.pageIndex;
-
-		// calculate final texture coordinates
-		for (int i = 0; i < (int)surf->MeshLocation.NumVerts; i++)
-		{
-			auto& vertex = Mesh.Vertices[surf->MeshLocation.StartVertIndex + i];
-			vertex.lu = (vertex.lu + x) / (float)LMTextureSize;
-			vertex.lv = (vertex.lv + y) / (float)LMTextureSize;
-			vertex.lindex = (float)surf->AtlasTile.ArrayIndex;
-		}
+		tile->AtlasLocation.X = x;
+		tile->AtlasLocation.Y = y;
+		tile->AtlasLocation.ArrayIndex = lightmapStartIndex + (int)result.pageIndex;
 	}
 
 	LMTextureCount = (int)packer.getNumPages();
+
+	// Calculate final texture coordinates
+	for (auto& surface : Surfaces)
+	{
+		if (surface.LightmapTileIndex >= 0)
+		{
+			const LightmapTile& tile = LightmapTiles[surface.LightmapTileIndex];
+			for (int i = 0; i < surface.MeshLocation.NumVerts; i++)
+			{
+				FVector3 tDelta = Mesh.Vertices[surface.MeshLocation.StartVertIndex + i].fPos() - tile.Transform.TranslateWorldToLocal;
+				auto& vertex = Mesh.Vertices[surface.MeshLocation.StartVertIndex + i];
+				vertex.lu = (tile.AtlasLocation.X + (tDelta | tile.Transform.ProjLocalToU)) / (float)LMTextureSize;
+				vertex.lv = (tile.AtlasLocation.Y + (tDelta | tile.Transform.ProjLocalToV)) / (float)LMTextureSize;
+				vertex.lindex = (float)tile.AtlasLocation.ArrayIndex;
+			}
+		}
+	}
 
 #if 0 // Debug atlas tile locations:
 	uint16_t colors[30] =
@@ -617,21 +685,20 @@ void DoomLevelSubmesh::PackLightmapAtlas(int lightmapStartIndex)
 	};
 	LMTextureData.Resize(LMTextureSize * LMTextureSize * LMTextureCount * 3);
 	uint16_t* pixels = LMTextureData.Data();
-	for (DoomLevelMeshSurface& surf : Surfaces)
+	for (LightmapTile& tile : LightmapTiles)
 	{
-		surf.AlwaysUpdate = false;
-		surf.NeedsUpdate = false;
+		tile.NeedsUpdate = false;
 
-		int index = surf.Side ? surf.Side->Index() : (surf.Subsector && surf.Subsector->sector ? surf.Subsector->sector->Index() : 0);
+		int index = tile.Binding.TypeIndex;
 		uint16_t* color = colors + (index % 10) * 3;
 
-		int x = surf.AtlasTile.X;
-		int y = surf.AtlasTile.Y;
-		int w = surf.AtlasTile.Width;
-		int h = surf.AtlasTile.Height;
+		int x = tile.AtlasLocation.X;
+		int y = tile.AtlasLocation.Y;
+		int w = tile.AtlasLocation.Width;
+		int h = tile.AtlasLocation.Height;
 		for (int yy = y; yy < y + h; yy++)
 		{
-			uint16_t* line = pixels + surf.AtlasTile.ArrayIndex * LMTextureSize * LMTextureSize + yy * LMTextureSize * 3;
+			uint16_t* line = pixels + tile.AtlasLocation.ArrayIndex * LMTextureSize * LMTextureSize + yy * LMTextureSize * 3;
 			for (int xx = x; xx < x + w; xx++)
 			{
 				line[xx * 3] = color[0];
@@ -640,35 +707,31 @@ void DoomLevelSubmesh::PackLightmapAtlas(int lightmapStartIndex)
 			}
 		}
 	}
+	for (DoomLevelMeshSurface& surf : Surfaces)
+	{
+		surf.AlwaysUpdate = false;
+	}
 #endif
 }
 
 BBox DoomLevelSubmesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const
 {
-	constexpr float M_INFINITY = 1e30f; // TODO cleanup
-
-	FVector3 low(M_INFINITY, M_INFINITY, M_INFINITY);
-	FVector3 hi(-M_INFINITY, -M_INFINITY, -M_INFINITY);
-
+	BBox bounds;
+	bounds.Clear();
 	for (int i = int(surface.MeshLocation.StartVertIndex); i < int(surface.MeshLocation.StartVertIndex) + surface.MeshLocation.NumVerts; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			if (Mesh.Vertices[i].fPos()[j] < low[j])
+			if (Mesh.Vertices[i].fPos()[j] < bounds.min[j])
 			{
-				low[j] = Mesh.Vertices[i].fPos()[j];
+				bounds.min[j] = Mesh.Vertices[i].fPos()[j];
 			}
-			if (Mesh.Vertices[i].fPos()[j] > hi[j])
+			if (Mesh.Vertices[i].fPos()[j] > bounds.max[j])
 			{
-				hi[j] = Mesh.Vertices[i].fPos()[j];
+				bounds.max[j] = Mesh.Vertices[i].fPos()[j];
 			}
 		}
 	}
-
-	BBox bounds;
-	bounds.Clear();
-	bounds.min = low;
-	bounds.max = hi;
 	return bounds;
 }
 
@@ -691,41 +754,22 @@ DoomLevelSubmesh::PlaneAxis DoomLevelSubmesh::BestAxis(const FVector4& p)
 	return AXIS_XY;
 }
 
-void DoomLevelSubmesh::SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LevelMeshSurface& surface)
+void DoomLevelSubmesh::SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LightmapTile& tile)
 {
-	BBox bounds = GetBoundsFromSurface(surface);
-	surface.Bounds = bounds;
-
-	if (surface.SampleDimension <= 0)
-	{
-		surface.SampleDimension = LightmapSampleDistance;
-	}
-
-	surface.SampleDimension = uint16_t(max(int(roundf(float(surface.SampleDimension) / max(1.0f / 4, float(lm_scale)))), 1));
-
-	{
-		// Round to nearest power of two
-		uint32_t n = uint16_t(surface.SampleDimension);
-		n |= n >> 1;
-		n |= n >> 2;
-		n |= n >> 4;
-		n |= n >> 8;
-		n = (n + 1) >> 1;
-		surface.SampleDimension = uint16_t(n) ? uint16_t(n) : uint16_t(0xFFFF);
-	}
+	BBox bounds = tile.Bounds;
 
 	// round off dimensions
 	FVector3 roundedSize;
 	for (int i = 0; i < 3; i++)
 	{
-		bounds.min[i] = surface.SampleDimension * (floor(bounds.min[i] / surface.SampleDimension) - 1);
-		bounds.max[i] = surface.SampleDimension * (ceil(bounds.max[i] / surface.SampleDimension) + 1);
-		roundedSize[i] = (bounds.max[i] - bounds.min[i]) / surface.SampleDimension;
+		bounds.min[i] = tile.SampleDimension * (floor(bounds.min[i] / tile.SampleDimension) - 1);
+		bounds.max[i] = tile.SampleDimension * (ceil(bounds.max[i] / tile.SampleDimension) + 1);
+		roundedSize[i] = (bounds.max[i] - bounds.min[i]) / tile.SampleDimension;
 	}
 
 	FVector3 tCoords[2] = { FVector3(0.0f, 0.0f, 0.0f), FVector3(0.0f, 0.0f, 0.0f) };
 
-	PlaneAxis axis = BestAxis(surface.Plane);
+	PlaneAxis axis = BestAxis(tile.Plane);
 
 	int width;
 	int height;
@@ -735,22 +779,22 @@ void DoomLevelSubmesh::SetupTileTransform(int lightMapTextureWidth, int lightMap
 	case AXIS_YZ:
 		width = (int)roundedSize.Y;
 		height = (int)roundedSize.Z;
-		tCoords[0].Y = 1.0f / surface.SampleDimension;
-		tCoords[1].Z = 1.0f / surface.SampleDimension;
+		tCoords[0].Y = 1.0f / tile.SampleDimension;
+		tCoords[1].Z = 1.0f / tile.SampleDimension;
 		break;
 
 	case AXIS_XZ:
 		width = (int)roundedSize.X;
 		height = (int)roundedSize.Z;
-		tCoords[0].X = 1.0f / surface.SampleDimension;
-		tCoords[1].Z = 1.0f / surface.SampleDimension;
+		tCoords[0].X = 1.0f / tile.SampleDimension;
+		tCoords[1].Z = 1.0f / tile.SampleDimension;
 		break;
 
 	case AXIS_XY:
 		width = (int)roundedSize.X;
 		height = (int)roundedSize.Y;
-		tCoords[0].X = 1.0f / surface.SampleDimension;
-		tCoords[1].Y = 1.0f / surface.SampleDimension;
+		tCoords[0].X = 1.0f / tile.SampleDimension;
+		tCoords[1].Y = 1.0f / tile.SampleDimension;
 		break;
 	}
 
@@ -768,18 +812,10 @@ void DoomLevelSubmesh::SetupTileTransform(int lightMapTextureWidth, int lightMap
 		height = (lightMapTextureHeight - 2);
 	}
 
-	surface.TileTransform.TranslateWorldToLocal = bounds.min;
-	surface.TileTransform.ProjLocalToU = tCoords[0];
-	surface.TileTransform.ProjLocalToV = tCoords[1];
+	tile.Transform.TranslateWorldToLocal = bounds.min;
+	tile.Transform.ProjLocalToU = tCoords[0];
+	tile.Transform.ProjLocalToV = tCoords[1];
 
-	for (int i = 0; i < surface.MeshLocation.NumVerts; i++)
-	{
-		FVector3 tDelta = Mesh.Vertices[surface.MeshLocation.StartVertIndex + i].fPos() - surface.TileTransform.TranslateWorldToLocal;
-
-		Mesh.Vertices[surface.MeshLocation.StartVertIndex + i].lu = (tDelta | surface.TileTransform.ProjLocalToU);
-		Mesh.Vertices[surface.MeshLocation.StartVertIndex + i].lv = (tDelta | surface.TileTransform.ProjLocalToV);
-	}
-
-	surface.AtlasTile.Width = width;
-	surface.AtlasTile.Height = height;
+	tile.AtlasLocation.Width = width;
+	tile.AtlasLocation.Height = height;
 }

@@ -9,6 +9,7 @@
 
 class LevelSubmesh;
 class FGameTexture;
+struct LevelMeshSurface;
 
 struct LevelMeshSurface
 {
@@ -22,21 +23,10 @@ struct LevelMeshSurface
 		unsigned int NumElements = 0;
 	} MeshLocation;
 
+	BBox Bounds;
 	FVector4 Plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
+	int LightmapTileIndex = -1;
 
-	// Surface location in lightmap texture
-	struct
-	{
-		int X = 0;
-		int Y = 0;
-		int Width = 0;
-		int Height = 0;
-		int ArrayIndex = 0;
-		uint32_t Area() const { return Width * Height; }
-	} AtlasTile;
-
-	// True if the surface needs to be rendered into the lightmap texture before it can be used
-	bool NeedsUpdate = true;
 	bool AlwaysUpdate = false;
 
 	FGameTexture* Texture = nullptr;
@@ -46,20 +36,6 @@ struct LevelMeshSurface
 	int PortalIndex = 0;
 	int SectorGroup = 0;
 
-	BBox Bounds;
-	uint16_t SampleDimension = 0;
-
-	// Calculate world coordinates to UV coordinates
-	struct
-	{
-		FVector3 TranslateWorldToLocal = { 0.0f, 0.0f, 0.0f };
-		FVector3 ProjLocalToU = { 0.0f, 0.0f, 0.0f };
-		FVector3 ProjLocalToV = { 0.0f, 0.0f, 0.0f };
-	} TileTransform;
-
-	// Surfaces that are visible within the lightmap tile
-	TArray<LevelMeshSurface*> TileSurfaces;
-
 	// Light list location in the lightmapper GPU buffers
 	struct
 	{
@@ -67,11 +43,4 @@ struct LevelMeshSurface
 		int Count = 0;
 		int ResetCounter = -1;
 	} LightList;
-};
-
-struct LevelMeshSmoothingGroup
-{
-	FVector4 plane = FVector4(0, 0, 1, 0);
-	int sectorGroup = 0;
-	std::vector<LevelMeshSurface*> surfaces;
 };

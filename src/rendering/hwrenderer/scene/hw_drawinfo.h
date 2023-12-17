@@ -153,7 +153,7 @@ struct HWDrawInfo
 	TArray<HUDSprite> hudsprites;	// These may just be stored by value.
 	TArray<AActor*> Coronas;
 	TArray<Fogball> Fogballs;
-	TArray<LevelMeshSurface*> VisibleSurfaces;
+	TArray<LightmapTile*> VisibleTiles;
 	uint64_t LastFrameTime = 0;
 
 	TArray<MissingTextureInfo> MissingUpperTextures;
@@ -232,18 +232,22 @@ public:
 			return;
 		}
 
+		if (surface->LightmapTileIndex < 0)
+			return;
+
+		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
 		if (lm_always_update || surface->AlwaysUpdate)
 		{
-			surface->NeedsUpdate = true;
+			tile->NeedsUpdate = true;
 		}
-		else if (VisibleSurfaces.Size() >= unsigned(lm_max_updates))
+		else if (VisibleTiles.Size() >= unsigned(lm_max_updates))
 		{
 			return;
 		}
 
-		if (surface->NeedsUpdate && !surface->PortalIndex && !surface->IsSky)
+		if (tile->NeedsUpdate)
 		{
-			VisibleSurfaces.Push(surface);
+			VisibleTiles.Push(tile);
 		}
 	}
 
