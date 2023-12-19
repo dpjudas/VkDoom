@@ -31,7 +31,7 @@ DoomLevelSubmesh::DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, b
 		CreateStaticSurfaces(doomMap);
 		LinkSurfaces(doomMap);
 
-		CreateIndexes();
+		SortIndexes();
 		BuildTileSurfaceLists();
 		UpdateCollision();
 		PackLightmapAtlas(0);
@@ -47,7 +47,7 @@ void DoomLevelSubmesh::Update(FLevelLocals& doomMap, int lightmapStartIndex)
 		CreateDynamicSurfaces(doomMap);
 		LinkSurfaces(doomMap);
 
-		CreateIndexes();
+		SortIndexes();
 		BuildTileSurfaceLists();
 		UpdateCollision();
 
@@ -212,6 +212,7 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 
 		int pipelineID = 0;
 		int startVertIndex = Mesh.Vertices.Size();
+		int startElementIndex = Mesh.Indexes.Size();
 		for (auto& it : state.mSortedLists)
 		{
 			const MeshApplyState& applyState = it.first;
@@ -229,13 +230,15 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 					Mesh.Vertices.Push(state.mVertices[i]);
 					Mesh.UniformIndexes.Push(uniformsIndex);
 				}
-			}
-			for (MeshDrawCommand& command : it.second.mIndexedDraws)
-			{
-				for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
+
+				if (command.DrawType == DT_TriangleFan)
 				{
-					Mesh.Vertices.Push(state.mVertices[state.mIndexes[i]]);
-					Mesh.UniformIndexes.Push(uniformsIndex);
+					for (int i = 2, count = command.Count; i < count; i++)
+					{
+						Mesh.Indexes.Push(startVertIndex);
+						Mesh.Indexes.Push(startVertIndex + i - 1);
+						Mesh.Indexes.Push(startVertIndex + i);
+					}
 				}
 			}
 		}
@@ -253,7 +256,9 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 		surf.SectorGroup = LevelMesh->sectorGroup[side->sector->Index()];
 		surf.Alpha = float(side->linedef->alpha);
 		surf.MeshLocation.StartVertIndex = startVertIndex;
+		surf.MeshLocation.StartElementIndex = startElementIndex;
 		surf.MeshLocation.NumVerts = Mesh.Vertices.Size() - startVertIndex;
+		surf.MeshLocation.NumElements = Mesh.Indexes.Size() - startElementIndex;
 		surf.Plane = ToPlane(Mesh.Vertices[startVertIndex + 3].fPos(), Mesh.Vertices[startVertIndex + 2].fPos(), Mesh.Vertices[startVertIndex + 1].fPos(), Mesh.Vertices[startVertIndex].fPos());
 		surf.Texture = wallpart.texture;
 		surf.PipelineID = pipelineID;
@@ -399,7 +404,11 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 
 		for (subsector_t* sub : flatpart.section->subsectors)
 		{
+			if (sub->numlines < 3)
+				continue;
+
 			int startVertIndex = Mesh.Vertices.Size();
+			int startElementIndex = Mesh.Indexes.Size();
 
 			for (int i = 0, end = sub->numlines; i < end; i++)
 			{
@@ -419,10 +428,31 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 				Mesh.UniformIndexes.Push(uniformsIndex);
 			}
 
+			if (flatpart.ceiling)
+			{
+				for (int i = 2, count = sub->numlines; i < count; i++)
+				{
+					Mesh.Indexes.Push(startVertIndex);
+					Mesh.Indexes.Push(startVertIndex + i - 1);
+					Mesh.Indexes.Push(startVertIndex + i);
+				}
+			}
+			else
+			{
+				for (int i = 2, count = sub->numlines; i < count; i++)
+				{
+					Mesh.Indexes.Push(startVertIndex + i);
+					Mesh.Indexes.Push(startVertIndex + i - 1);
+					Mesh.Indexes.Push(startVertIndex);
+				}
+			}
+
 			surf.TypeIndex = sub->Index();
 			surf.Subsector = sub;
 			surf.MeshLocation.StartVertIndex = startVertIndex;
+			surf.MeshLocation.StartElementIndex = startElementIndex;
 			surf.MeshLocation.NumVerts = sub->numlines;
+			surf.MeshLocation.NumElements = (sub->numlines - 2) * 3;
 			surf.Bounds = GetBoundsFromSurface(surf);
 			surf.LightmapTileIndex = AddSurfaceToTile(surf, bindings);
 			Surfaces.Push(surf);
@@ -455,9 +485,9 @@ void DoomLevelSubmesh::CreateDynamicSurfaces(FLevelLocals& doomMap)
 #endif
 }
 
-void DoomLevelSubmesh::CreateIndexes()
+void DoomLevelSubmesh::SortIndexes()
 {
-	// Order indexes by pipeline
+	// Order surfaces by pipeline
 	std::unordered_map<int64_t, TArray<int>> pipelineSurfaces;
 	for (size_t i = 0; i < Surfaces.Size(); i++)
 	{
@@ -465,76 +495,40 @@ void DoomLevelSubmesh::CreateIndexes()
 		pipelineSurfaces[(int64_t(s->PipelineID) << 32) | int64_t(s->IsSky)].Push(i);
 	}
 
+	// Create reorder surface indexes by pipeline and create a draw range for each
+	TArray<uint32_t> sortedIndexes;
 	for (const auto& it : pipelineSurfaces)
 	{
 		LevelSubmeshDrawRange range;
 		range.PipelineID = it.first >> 32;
-		range.Start = Mesh.Indexes.Size();
+		range.Start = sortedIndexes.Size();
+
+		// Move indexes to new array
 		for (unsigned int i : it.second)
 		{
 			DoomLevelMeshSurface& s = Surfaces[i];
-			int numVerts = s.MeshLocation.NumVerts;
-			unsigned int pos = s.MeshLocation.StartVertIndex;
-			FFlatVertex* verts = &Mesh.Vertices[pos];
 
-			s.MeshLocation.StartElementIndex = Mesh.Indexes.Size();
-			s.MeshLocation.NumElements = 0;
+			unsigned int start = s.MeshLocation.StartElementIndex;
+			unsigned int count = s.MeshLocation.NumElements;
 
-			if (s.Type == ST_CEILING)
+			s.MeshLocation.StartElementIndex = sortedIndexes.Size();
+
+			for (unsigned int j = 0; j < count; j++)
 			{
-				for (int j = 2; j < numVerts; j++)
-				{
-					if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
-					{
-						Mesh.Indexes.Push(pos);
-						Mesh.Indexes.Push(pos + j - 1);
-						Mesh.Indexes.Push(pos + j);
-						Mesh.SurfaceIndexes.Push((int)i);
-						s.MeshLocation.NumElements += 3;
-					}
-				}
-			}
-			else if (s.Type == ST_FLOOR)
-			{
-				for (int j = 2; j < numVerts; j++)
-				{
-					if (!IsDegenerate(verts[0].fPos(), verts[j - 1].fPos(), verts[j].fPos()))
-					{
-						Mesh.Indexes.Push(pos + j);
-						Mesh.Indexes.Push(pos + j - 1);
-						Mesh.Indexes.Push(pos);
-						Mesh.SurfaceIndexes.Push((int)i);
-						s.MeshLocation.NumElements += 3;
-					}
-				}
-			}
-			else if (s.Type == ST_MIDDLESIDE || s.Type == ST_UPPERSIDE || s.Type == ST_LOWERSIDE)
-			{
-				if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[1].fPos()))
-				{
-					Mesh.Indexes.Push(pos + 0);
-					Mesh.Indexes.Push(pos + 1);
-					Mesh.Indexes.Push(pos + 2);
-					Mesh.SurfaceIndexes.Push((int)i);
-					s.MeshLocation.NumElements += 3;
-				}
-				if (!IsDegenerate(verts[0].fPos(), verts[2].fPos(), verts[3].fPos()))
-				{
-					Mesh.Indexes.Push(pos + 0);
-					Mesh.Indexes.Push(pos + 2);
-					Mesh.Indexes.Push(pos + 3);
-					Mesh.SurfaceIndexes.Push((int)i);
-					s.MeshLocation.NumElements += 3;
-				}
+				sortedIndexes.Push(Mesh.Indexes[start + j]);
+				Mesh.SurfaceIndexes.Push((int)i);
 			}
 		}
-		range.Count = Mesh.Indexes.Size() - range.Start;
+
+		range.Count = sortedIndexes.Size() - range.Start;
 
 		if ((it.first & 1) == 0)
 			DrawList.Push(range);
 		else
 			PortalList.Push(range);
 	}
+
+	Mesh.Indexes.Swap(sortedIndexes);
 }
 
 void DoomLevelSubmesh::LinkSurfaces(FLevelLocals& doomMap)
