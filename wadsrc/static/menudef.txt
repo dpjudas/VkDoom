@@ -980,7 +980,6 @@ OptionMenu "VideoOptions" protected
 	}
 	Option "$DSPLYMNU_VSYNC",					"vid_vsync", "OnOff"
 	Slider "$VIDMNU_MAXFPS",					"vid_maxfps", 35, 500, 1
-	Option "$GLPREFMNU_RENDERQUALITY",			gl_seamless,					"Precision"
 	StaticText " "
 
 	Slider "$DSPLYMNU_GAMMA",					"vid_gamma",					0.75, 3.0, 0.05, 2
