@@ -910,14 +910,14 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 	}
 
 	texcoord srclightuv[4];
-	if (surface && surface->Type != ST_NONE && surface->MeshLocation.NumVerts >= 4)
+	if (surface && surface->LightmapTileIndex >= 0)
 	{
-		FFlatVertex* vertices = &surface->Submesh->Mesh.Vertices[surface->MeshLocation.StartVertIndex];
-		srclightuv[0] = { vertices[0].lu, vertices[0].lv };
-		srclightuv[1] = { vertices[1].lu, vertices[1].lv };
-		srclightuv[2] = { vertices[2].lu, vertices[2].lv };
-		srclightuv[3] = { vertices[3].lu, vertices[3].lv };
-		lindex = vertices[0].lindex;
+		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
+		srclightuv[0] = { tile->WallUV[0].X, tile->WallUV[0].Y };
+		srclightuv[1] = { tile->WallUV[1].X, tile->WallUV[1].Y };
+		srclightuv[2] = { tile->WallUV[2].X, tile->WallUV[2].Y };
+		srclightuv[3] = { tile->WallUV[3].X, tile->WallUV[3].Y };
+		lindex = (float)tile->AtlasLocation.ArrayIndex;
 	}
 	else
 	{
@@ -1672,15 +1672,15 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 		type = RENDERWALL_FFBLOCK;
 		CheckTexturePosition(&tci);
 
-		texcoord srclightuv[4];
-		if (surface && surface->Type != ST_NONE)
+		texcoord srclightuv[4];	
+		if (surface && surface->LightmapTileIndex >= 0)
 		{
-			FFlatVertex* vertices = &surface->Submesh->Mesh.Vertices[surface->MeshLocation.StartVertIndex];
-			srclightuv[0] = { vertices[0].lu, vertices[0].lv };
-			srclightuv[1] = { vertices[1].lu, vertices[1].lv };
-			srclightuv[2] = { vertices[2].lu, vertices[2].lv };
-			srclightuv[3] = { vertices[3].lu, vertices[3].lv };
-			lindex = vertices[0].lindex;
+			LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
+			srclightuv[0] = { tile->WallUV[0].X, tile->WallUV[0].Y };
+			srclightuv[1] = { tile->WallUV[1].X, tile->WallUV[1].Y };
+			srclightuv[2] = { tile->WallUV[2].X, tile->WallUV[2].Y };
+			srclightuv[3] = { tile->WallUV[3].X, tile->WallUV[3].Y };
+			lindex = (float)tile->AtlasLocation.ArrayIndex;
 		}
 		else
 		{

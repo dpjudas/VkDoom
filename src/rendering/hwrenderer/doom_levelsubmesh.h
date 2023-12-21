@@ -44,7 +44,7 @@ public:
 
 	// Used by Maploader
 	void LinkSurfaces(FLevelLocals& doomMap);
-	void PackLightmapAtlas(int lightmapStartIndex);
+	void PackLightmapAtlas(FLevelLocals& doomMap, int lightmapStartIndex);
 
 	TArray<DoomLevelMeshSurface> Surfaces;
 

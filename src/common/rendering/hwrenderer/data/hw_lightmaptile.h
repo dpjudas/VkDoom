@@ -54,11 +54,22 @@ struct LightmapTile
 	// True if the tile needs to be rendered into the lightmap texture before it can be used
 	bool NeedsUpdate = true;
 
+	// Lightmap UV coordinates used by HWWall
+	FVector2 WallUV[4];
+
 	FVector2 ToUV(const FVector3& vert) const
 	{
 		FVector3 localPos = vert - Transform.TranslateWorldToLocal;
 		float u = (1.0f + (localPos | Transform.ProjLocalToU)) / (AtlasLocation.Width + 2);
 		float v = (1.0f + (localPos | Transform.ProjLocalToV)) / (AtlasLocation.Height + 2);
+		return FVector2(u, v);
+	}
+
+	FVector2 ToUV(const FVector3& vert, float textureSize) const
+	{
+		FVector3 localPos = vert - Transform.TranslateWorldToLocal;
+		float u = (AtlasLocation.X + (localPos | Transform.ProjLocalToU)) / textureSize;
+		float v = (AtlasLocation.Y + (localPos | Transform.ProjLocalToV)) / textureSize;
 		return FVector2(u, v);
 	}
 };
