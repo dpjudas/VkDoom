@@ -124,12 +124,14 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 
 		CreateWallSurface(side, disp, state, bindings, result.portals, true, false);
 
+		/*
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 		state.SetRenderStyle(STYLE_Translucent);
 		CreateWallSurface(side, disp, state, bindings, result.translucent, false, true);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetRenderStyle(STYLE_Normal);
+		*/
 	}
 
 	// Create surfaces for all flats
