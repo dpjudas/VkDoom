@@ -369,6 +369,9 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 			flatpart.DrawFlat(&disp, state, false);
 		}
 
+		VSMatrix textureMatrix;
+		textureMatrix.loadIdentity();
+
 		int pipelineID = 0;
 		int uniformsIndex = 0;
 		bool foundDraw = false;
@@ -378,6 +381,7 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 
 			pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
 			uniformsIndex = Mesh.Uniforms.Size();
+			textureMatrix = applyState.textureMatrix;
 			Mesh.Uniforms.Push(applyState.surfaceUniforms);
 			Mesh.Materials.Push(applyState.material);
 
@@ -423,12 +427,15 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 			{
 				auto& vt = sub->firstline[end - 1 - i].v1;
 
+				FVector3 pt((float)vt->fX(), (float)vt->fY(), isSky ? skyZ : (float)plane.ZatPoint(vt));
+				FVector4 uv = textureMatrix * FVector4(pt.X * (1.0f / 64.0f), pt.Y * (-1.0f / 64.0f), 0.0f, 1.0f);
+
 				FFlatVertex ffv;
-				ffv.x = (float)vt->fX();
-				ffv.y = (float)vt->fY();
-				ffv.z = isSky ? skyZ : (float)plane.ZatPoint(vt);
-				ffv.u = (float)vt->fX() / 64.f;
-				ffv.v = -(float)vt->fY() / 64.f;
+				ffv.x = pt.X;
+				ffv.y = pt.Y;
+				ffv.z = pt.Z;
+				ffv.u = uv.X;
+				ffv.v = uv.Y;
 				ffv.lu = 0.0f;
 				ffv.lv = 0.0f;
 				ffv.lindex = -1.0f;
