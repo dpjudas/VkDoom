@@ -103,8 +103,6 @@ private:
 	int AddSurfaceToTile(const DoomLevelMeshSurface& surf, std::map<LightmapTileBinding, int>& bindings);
 	int GetSampleDimension(const DoomLevelMeshSurface& surf);
 
-	static bool IsDegenerate(const FVector3& v0, const FVector3& v1, const FVector3& v2);
-
 	static FVector2 ToFVector2(const DVector2& v) { return FVector2((float)v.X, (float)v.Y); }
 	static FVector3 ToFVector3(const DVector3& v) { return FVector3((float)v.X, (float)v.Y, (float)v.Z); }
 	static FVector4 ToFVector4(const DVector4& v) { return FVector4((float)v.X, (float)v.Y, (float)v.Z, (float)v.W); }

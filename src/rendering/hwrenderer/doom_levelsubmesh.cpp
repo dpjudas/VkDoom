@@ -16,9 +16,6 @@
 #include "hwrenderer/scene/hw_flatdispatcher.h"
 #include "common/rendering/hwrenderer/data/hw_meshbuilder.h"
 
-VSMatrix GetPlaneTextureRotationMatrix(FGameTexture* gltexture, const sector_t* sector, int plane);
-void GetTexCoordInfo(FGameTexture* tex, FTexCoordInfo* tci, side_t* side, int texpos);
-
 EXTERN_CVAR(Float, lm_scale);
 
 DoomLevelSubmesh::DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, bool staticMesh) : LevelMesh(mesh), StaticMesh(staticMesh)
@@ -619,22 +616,6 @@ void DoomLevelSubmesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 			}
 		}
 	}
-}
-
-bool DoomLevelSubmesh::IsDegenerate(const FVector3 &v0, const FVector3 &v1, const FVector3 &v2)
-{
-	// A degenerate triangle has a zero cross product for two of its sides.
-	float ax = v1.X - v0.X;
-	float ay = v1.Y - v0.Y;
-	float az = v1.Z - v0.Z;
-	float bx = v2.X - v0.X;
-	float by = v2.Y - v0.Y;
-	float bz = v2.Z - v0.Z;
-	float crossx = ay * bz - az * by;
-	float crossy = az * bx - ax * bz;
-	float crossz = ax * by - ay * bx;
-	float crosslengthsqr = crossx * crossx + crossy * crossy + crossz * crossz;
-	return crosslengthsqr <= 1.e-6f;
 }
 
 void DoomLevelSubmesh::PackLightmapAtlas(FLevelLocals& doomMap, int lightmapStartIndex)
