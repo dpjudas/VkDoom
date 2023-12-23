@@ -113,7 +113,8 @@ bool FGenericStartScreen::DoProgress(int advance)
 		{ // Time to draw another notch.
 			ClearBlock(StartupBitmap, bcolor, (320 - 100) * 2, 480 * 2 - 30, notch_pos, 4 * 2);
 			NotchPos = notch_pos;
-			StartupTexture->CleanHardwareData(true);
+			if (StartupTexture)
+				StartupTexture->CleanHardwareData(true);
 		}
 	}
 	return FStartScreen::DoProgress(advance);
