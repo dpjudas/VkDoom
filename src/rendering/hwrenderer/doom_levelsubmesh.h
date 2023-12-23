@@ -42,14 +42,8 @@ public:
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
 	int GetSurfaceCount() override { return Surfaces.Size(); }
 
-	// Used by Maploader
-	void LinkSurfaces(FLevelLocals& doomMap);
-	void PackLightmapAtlas(FLevelLocals& doomMap, int lightmapStartIndex);
-
 	TArray<DoomLevelMeshSurface> Surfaces;
-
 	TArray<std::unique_ptr<DoomLevelMeshSurface*[]>> PolyLMSurfaces;
-
 	TArray<HWWall> Portals;
 
 private:
@@ -66,28 +60,8 @@ private:
 	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWWall>& list, bool isSky, bool translucent);
 	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWFlat>& list, bool isSky = false);
 
-	static FVector4 ToPlane(const FVector3& pt1, const FVector3& pt2, const FVector3& pt3)
-	{
-		FVector3 n = ((pt2 - pt1) ^ (pt3 - pt2)).Unit();
-		float d = pt1 | n;
-		return FVector4(n.X, n.Y, n.Z, d);
-	}
-
-	static FVector4 ToPlane(const FVector3& pt1, const FVector3& pt2, const FVector3& pt3, const FVector3& pt4)
-	{
-		if (pt1.ApproximatelyEquals(pt3))
-		{
-			return ToPlane(pt1, pt2, pt4);
-		}
-		else if (pt1.ApproximatelyEquals(pt2) || pt2.ApproximatelyEquals(pt3))
-		{
-			return ToPlane(pt1, pt3, pt4);
-		}
-
-		return ToPlane(pt1, pt2, pt3);
-	}
-
-	// Lightmapper
+	void LinkSurfaces(FLevelLocals& doomMap);
+	void PackLightmapAtlas(FLevelLocals& doomMap, int lightmapStartIndex);
 
 	enum PlaneAxis
 	{
@@ -102,10 +76,6 @@ private:
 	void SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LightmapTile& tile);
 	int AddSurfaceToTile(const DoomLevelMeshSurface& surf, std::map<LightmapTileBinding, int>& bindings);
 	int GetSampleDimension(const DoomLevelMeshSurface& surf);
-
-	static FVector2 ToFVector2(const DVector2& v) { return FVector2((float)v.X, (float)v.Y); }
-	static FVector3 ToFVector3(const DVector3& v) { return FVector3((float)v.X, (float)v.Y, (float)v.Z); }
-	static FVector4 ToFVector4(const DVector4& v) { return FVector4((float)v.X, (float)v.Y, (float)v.Z, (float)v.W); }
 
 	DoomLevelMesh* LevelMesh = nullptr;
 	bool StaticMesh = true;
