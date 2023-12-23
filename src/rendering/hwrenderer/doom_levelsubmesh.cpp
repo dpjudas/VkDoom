@@ -101,7 +101,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 		sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
 
 		HWMeshHelper result;
-		HWWallDispatcher disp(&doomMap, &result, ELightMode::ZDoomSoftware);
+		HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
 		HWWall wall;
 		wall.sub = sub;
 		wall.Process(&disp, state, seg, front, back);
@@ -142,7 +142,7 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			int sectionIndex = doomMap.sections.SectionIndex(&section);
 
 			HWFlatMeshHelper result;
-			HWFlatDispatcher disp(&doomMap, &result, ELightMode::ZDoomSoftware);
+			HWFlatDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
 
 			HWFlat flat;
 			flat.section = &section;
