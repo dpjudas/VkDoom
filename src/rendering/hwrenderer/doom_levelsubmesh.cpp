@@ -190,7 +190,7 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 			wallpart.RenderWall(state, HWWall::RWF_BLANK);
 			wallpart.vertcount = 0;
 
-			wallpart.LevelMeshInfo.Type = ST_UPPERSIDE;
+			wallpart.LevelMeshInfo.Type = ST_NONE;
 			wallpart.LevelMeshInfo.ControlSector = nullptr;
 
 			state.SetEffect(EFF_NONE);
