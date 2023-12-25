@@ -54,9 +54,6 @@ struct LightmapTile
 	// True if the tile needs to be rendered into the lightmap texture before it can be used
 	bool NeedsUpdate = true;
 
-	// Lightmap UV coordinates used by HWWall
-	FVector2 WallUV[4];
-
 	FVector2 ToUV(const FVector3& vert) const
 	{
 		FVector3 localPos = vert - Transform.TranslateWorldToLocal;

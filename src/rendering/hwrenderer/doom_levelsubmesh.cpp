@@ -664,51 +664,6 @@ void DoomLevelSubmesh::PackLightmapAtlas(FLevelLocals& doomMap, int lightmapStar
 		}
 	}
 
-	// Calculate HWWall lightmap UV coordinates for the immediate hwrenderer
-	for (LightmapTile* tile : sortedTiles)
-	{
-		uint32_t type = tile->Binding.Type;
-		if (type != ST_LOWERSIDE && type != ST_MIDDLESIDE && type != ST_UPPERSIDE)
-			continue;
-
-		side_t* frontside = &doomMap.sides[tile->Binding.TypeIndex];
-		side_t* backside = frontside->linedef->sidedef[0] == frontside ? frontside->linedef->sidedef[1] : frontside->linedef->sidedef[0];
-		sector_t* frontsector = frontside->sector;
-		sector_t* backsector = backside ? backside->sector : frontsector;
-
-		FVector2 v1 = FVector2(frontside->V1()->fPos());
-		FVector2 v2 = FVector2(frontside->V2()->fPos());
-		secplane_t* top;
-		secplane_t* bottom;
-
-		if (tile->Binding.ControlSector != 0xffffffff)
-		{
-			sector_t* controlsector = &doomMap.sectors[tile->Binding.ControlSector];
-			top = &controlsector->GetSecPlane(sector_t::ceiling);
-			bottom = &controlsector->GetSecPlane(sector_t::floor);
-		}
-		else if (type == ST_MIDDLESIDE)
-		{
-			top = &frontsector->GetSecPlane(sector_t::ceiling);
-			bottom = &frontsector->GetSecPlane(sector_t::floor);
-		}
-		else if (type == ST_LOWERSIDE)
-		{
-			top = &backsector->GetSecPlane(sector_t::floor);
-			bottom = &frontsector->GetSecPlane(sector_t::floor);
-		}
-		else // if (type == ST_UPPERSIDE)
-		{
-			top = &frontsector->GetSecPlane(sector_t::ceiling);
-			bottom = &backsector->GetSecPlane(sector_t::ceiling);
-		}
-
-		tile->WallUV[0] = tile->ToUV(FVector3(v1, bottom->ZatPoint(v1)), (float)LMTextureSize);
-		tile->WallUV[1] = tile->ToUV(FVector3(v1, top->ZatPoint(v1)), (float)LMTextureSize);
-		tile->WallUV[2] = tile->ToUV(FVector3(v2, top->ZatPoint(v2)), (float)LMTextureSize);
-		tile->WallUV[3] = tile->ToUV(FVector3(v2, bottom->ZatPoint(v2)), (float)LMTextureSize);
-	}
-
 #if 0 // Debug atlas tile locations:
 	float colors[30] =
 	{

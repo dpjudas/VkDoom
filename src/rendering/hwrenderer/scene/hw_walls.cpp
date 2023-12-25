@@ -767,10 +767,6 @@ void HWWall::SplitWall(HWWallDispatcher *di, FRenderState& state, sector_t * fro
 					(maplightbottomleft-copyWall1.ztop[0])*(copyWall1.tcs[LOLFT].v-copyWall1.tcs[UPLFT].v)/(zbottom[0]-copyWall1.ztop[0]);
 				tcs[UPRGT].v=copyWall1.tcs[LORGT].v=copyWall1.tcs[UPRGT].v+ 
 					(maplightbottomright-copyWall1.ztop[1])*(copyWall1.tcs[LORGT].v-copyWall1.tcs[UPRGT].v)/(zbottom[1]-copyWall1.ztop[1]);
-				lightuv[UPLFT].v=copyWall1.lightuv[LOLFT].v=copyWall1.lightuv[UPLFT].v+ 
-					(maplightbottomleft-copyWall1.ztop[0])*(copyWall1.lightuv[LOLFT].v-copyWall1.lightuv[UPLFT].v)/(zbottom[0]-copyWall1.ztop[0]);
-				lightuv[UPRGT].v=copyWall1.lightuv[LORGT].v=copyWall1.lightuv[UPRGT].v+ 
-					(maplightbottomright-copyWall1.ztop[1])*(copyWall1.lightuv[LORGT].v-copyWall1.lightuv[UPRGT].v)/(zbottom[1]-copyWall1.ztop[1]);
 				copyWall1.Put3DWall(di, state, &lightlist[i], translucent);
 			}
 			if (ztop[0]==zbottom[0] && ztop[1]==zbottom[1]) 
@@ -909,25 +905,6 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 		texlength = 0;
 	}
 
-	texcoord srclightuv[4];
-	if (surface && surface->LightmapTileIndex >= 0)
-	{
-		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
-		srclightuv[0] = { tile->WallUV[0].X, tile->WallUV[0].Y };
-		srclightuv[1] = { tile->WallUV[1].X, tile->WallUV[1].Y };
-		srclightuv[2] = { tile->WallUV[2].X, tile->WallUV[2].Y };
-		srclightuv[3] = { tile->WallUV[3].X, tile->WallUV[3].Y };
-		lindex = (float)tile->AtlasLocation.ArrayIndex;
-	}
-	else
-	{
-		srclightuv[0] = { 0.0f, 0.0f };
-		srclightuv[1] = { 0.0f, 0.0f };
-		srclightuv[2] = { 0.0f, 0.0f };
-		srclightuv[3] = { 0.0f, 0.0f };
-		lindex = -1.0f;
-	}
-
 	//
 	//
 	// set up coordinates for the left side of the polygon
@@ -944,9 +921,6 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 			tcs[UPLFT].v = tci->FloatToTexV(-ztop[0] + texturetop);
 			tcs[LOLFT].v = tci->FloatToTexV(-zbottom[0] + texturetop);
 		}
-
-		lightuv[UPLFT].v = srclightuv[UPLFT].v;
-		lightuv[LOLFT].v = srclightuv[LOLFT].v;
 	}
 	else
 	{
@@ -967,9 +941,6 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 		{
 			tcs[LOLFT].v = tcs[UPLFT].v = tci->FloatToTexV(-ztop[0] + texturetop);
 		}
-
-		lightuv[UPLFT].v = srclightuv[UPLFT].v + inter_x * (srclightuv[UPRGT].v - srclightuv[UPLFT].v);
-		lightuv[LOLFT].v = srclightuv[LOLFT].v + inter_x * (srclightuv[LORGT].v - srclightuv[LOLFT].v);
 	}
 
 	//
@@ -988,9 +959,6 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 			tcs[UPRGT].v = tci->FloatToTexV(-ztop[1] + texturetop + skew);
 			tcs[LORGT].v = tci->FloatToTexV(-zbottom[1] + texturetop + skew);
 		}
-
-		lightuv[UPRGT].v = srclightuv[UPRGT].v;
-		lightuv[LORGT].v = srclightuv[LORGT].v;
 	}
 	else
 	{
@@ -1010,18 +978,10 @@ bool HWWall::SetWallCoordinates(seg_t * seg, FTexCoordInfo *tci, float textureto
 		{
 			tcs[LORGT].v = tcs[UPRGT].v = tci->FloatToTexV(-ztop[1] + texturetop + skew);
 		}
-
-		lightuv[UPRGT].v = srclightuv[UPRGT].v + inter_x * (srclightuv[UPRGT].v - srclightuv[UPLFT].v);
-		lightuv[LORGT].v = srclightuv[LORGT].v + inter_x * (srclightuv[LORGT].v - srclightuv[LOLFT].v);
 	}
 
 	tcs[UPLFT].u = tcs[LOLFT].u = l_ul + texlength * glseg.fracleft;
 	tcs[UPRGT].u = tcs[LORGT].u = l_ul + texlength * glseg.fracright;
-
-	lightuv[UPLFT].u = srclightuv[UPLFT].u + (srclightuv[UPRGT].u - srclightuv[UPLFT].u) * glseg.fracleft;
-	lightuv[LOLFT].u = srclightuv[LOLFT].u + (srclightuv[LORGT].u - srclightuv[LOLFT].u) * glseg.fracleft;
-	lightuv[UPRGT].u = srclightuv[UPLFT].u + (srclightuv[UPRGT].u - srclightuv[UPLFT].u) * glseg.fracright;
-	lightuv[LORGT].u = srclightuv[LOLFT].u + (srclightuv[LORGT].u - srclightuv[LOLFT].u) * glseg.fracright;
 
 	if (texture != NULL)
 	{
@@ -1671,35 +1631,6 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 		tcs[LORGT].v = tci.FloatToTexV(to - ff_bottomright);
 		type = RENDERWALL_FFBLOCK;
 		CheckTexturePosition(&tci);
-
-		texcoord srclightuv[4];	
-		if (surface && surface->LightmapTileIndex >= 0)
-		{
-			LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
-			srclightuv[0] = { tile->WallUV[0].X, tile->WallUV[0].Y };
-			srclightuv[1] = { tile->WallUV[1].X, tile->WallUV[1].Y };
-			srclightuv[2] = { tile->WallUV[2].X, tile->WallUV[2].Y };
-			srclightuv[3] = { tile->WallUV[3].X, tile->WallUV[3].Y };
-			lindex = (float)tile->AtlasLocation.ArrayIndex;
-		}
-		else
-		{
-			srclightuv[0] = { 0.0f, 0.0f };
-			srclightuv[1] = { 0.0f, 0.0f };
-			srclightuv[2] = { 0.0f, 0.0f };
-			srclightuv[3] = { 0.0f, 0.0f };
-			lindex = -1.0f;
-		}
-
-		lightuv[UPLFT].u = srclightuv[UPLFT].u + (srclightuv[UPRGT].u - srclightuv[UPLFT].u) * glseg.fracleft;
-		lightuv[LOLFT].u = srclightuv[LOLFT].u + (srclightuv[LORGT].u - srclightuv[LOLFT].u) * glseg.fracleft;
-		lightuv[UPRGT].u = srclightuv[UPLFT].u + (srclightuv[UPRGT].u - srclightuv[UPLFT].u) * glseg.fracright;
-		lightuv[LORGT].u = srclightuv[LOLFT].u + (srclightuv[LORGT].u - srclightuv[LOLFT].u) * glseg.fracright;
-
-		lightuv[UPLFT].v = srclightuv[UPLFT].v;
-		lightuv[UPRGT].v = srclightuv[UPRGT].v;
-		lightuv[LOLFT].v = srclightuv[LOLFT].v;
-		lightuv[LORGT].v = srclightuv[LORGT].v;
 	}
 
 	ztop[0] = ff_topleft;
