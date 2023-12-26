@@ -11,7 +11,7 @@
 #include <map>
 
 class VulkanRenderDevice;
-class GraphicsPipelineBuilder;
+class ColorBlendAttachmentBuilder;
 class VkPPShader;
 class VkPPRenderPassKey;
 class VkPPRenderPassSetup;
@@ -95,7 +95,7 @@ public:
 	int UseVertexData;
 };
 
-GraphicsPipelineBuilder& BlendMode(GraphicsPipelineBuilder& builder, const FRenderStyle& style);
+ColorBlendAttachmentBuilder& BlendMode(ColorBlendAttachmentBuilder& builder, const FRenderStyle& style);
 
 class VkRenderPassManager
 {

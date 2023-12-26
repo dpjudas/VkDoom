@@ -920,6 +920,63 @@ std::unique_ptr<VulkanFramebuffer> FramebufferBuilder::Create(VulkanDevice* devi
 
 /////////////////////////////////////////////////////////////////////////////
 
+
+ColorBlendAttachmentBuilder::ColorBlendAttachmentBuilder()
+{
+	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.blendEnable = VK_FALSE;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+}
+
+ColorBlendAttachmentBuilder& ColorBlendAttachmentBuilder::ColorWriteMask(VkColorComponentFlags mask)
+{
+	colorBlendAttachment.colorWriteMask = mask;
+	return *this;
+}
+
+ColorBlendAttachmentBuilder& ColorBlendAttachmentBuilder::AdditiveBlendMode()
+{
+	colorBlendAttachment.blendEnable = VK_TRUE;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+	return *this;
+}
+
+ColorBlendAttachmentBuilder& ColorBlendAttachmentBuilder::AlphaBlendMode()
+{
+	colorBlendAttachment.blendEnable = VK_TRUE;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+	return *this;
+}
+
+ColorBlendAttachmentBuilder& ColorBlendAttachmentBuilder::BlendMode(VkBlendOp op, VkBlendFactor src, VkBlendFactor dst)
+{
+	colorBlendAttachment.blendEnable = VK_TRUE;
+	colorBlendAttachment.srcColorBlendFactor = src;
+	colorBlendAttachment.dstColorBlendFactor = dst;
+	colorBlendAttachment.colorBlendOp = op;
+	colorBlendAttachment.srcAlphaBlendFactor = src;
+	colorBlendAttachment.dstAlphaBlendFactor = dst;
+	colorBlendAttachment.alphaBlendOp = op;
+	return *this;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 GraphicsPipelineBuilder::GraphicsPipelineBuilder()
 {
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -980,20 +1037,9 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder()
 	multisampling.alphaToCoverageEnable = VK_FALSE;
 	multisampling.alphaToOneEnable = VK_FALSE;
 
-	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachment.blendEnable = VK_FALSE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlending.logicOpEnable = VK_FALSE;
 	colorBlending.logicOp = VK_LOGIC_OP_COPY;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendAttachment;
 	colorBlending.blendConstants[0] = 0.0f;
 	colorBlending.blendConstants[1] = 0.0f;
 	colorBlending.blendConstants[2] = 0.0f;
@@ -1114,53 +1160,9 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::DepthBias(bool enable, float b
 	return *this;
 }
 
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::ColorWriteMask(VkColorComponentFlags mask)
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddColorBlendAttachment(VkPipelineColorBlendAttachmentState state)
 {
-	colorBlendAttachment.colorWriteMask = mask;
-	return *this;
-}
-
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::AdditiveBlendMode()
-{
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-	return *this;
-}
-
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::AlphaBlendMode()
-{
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-	return *this;
-}
-
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::BlendMode(VkBlendOp op, VkBlendFactor src, VkBlendFactor dst)
-{
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = src;
-	colorBlendAttachment.dstColorBlendFactor = dst;
-	colorBlendAttachment.colorBlendOp = op;
-	colorBlendAttachment.srcAlphaBlendFactor = src;
-	colorBlendAttachment.dstAlphaBlendFactor = dst;
-	colorBlendAttachment.alphaBlendOp = op;
-	return *this;
-}
-
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::SubpassColorAttachmentCount(int count)
-{
-	colorBlendAttachments.resize(count, colorBlendAttachment);
-	colorBlending.pAttachments = colorBlendAttachments.data();
-	colorBlending.attachmentCount = (uint32_t)colorBlendAttachments.size();
+	colorBlendAttachments.push_back(state);
 	return *this;
 }
 
@@ -1229,6 +1231,11 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddDynamicState(VkDynamicState
 
 std::unique_ptr<VulkanPipeline> GraphicsPipelineBuilder::Create(VulkanDevice* device)
 {
+	if (colorBlendAttachments.empty())
+		colorBlendAttachments.push_back(ColorBlendAttachmentBuilder().Create());
+	colorBlending.pAttachments = colorBlendAttachments.data();
+	colorBlending.attachmentCount = (uint32_t)colorBlendAttachments.size();
+
 	VkPipeline pipeline = 0;
 	VkResult result = vkCreateGraphicsPipelines(device->device, cache ? cache->cache : VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
 	CheckVulkanError(result, "Could not create graphics pipeline");
@@ -1825,7 +1832,8 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		// Check if all required features are there
 		if (info.Features.Features.samplerAnisotropy != VK_TRUE ||
 			info.Features.Features.fragmentStoresAndAtomics != VK_TRUE ||
-			info.Features.Features.multiDrawIndirect != VK_TRUE)
+			info.Features.Features.multiDrawIndirect != VK_TRUE ||
+			info.Features.Features.independentBlend != VK_TRUE)
 			continue;
 
 		VulkanCompatibleDevice dev;
@@ -1849,6 +1857,7 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		enabledFeatures.Features.depthClamp = deviceFeatures.Features.depthClamp;
 		enabledFeatures.Features.shaderClipDistance = deviceFeatures.Features.shaderClipDistance;
 		enabledFeatures.Features.multiDrawIndirect = deviceFeatures.Features.multiDrawIndirect;
+		enabledFeatures.Features.independentBlend = deviceFeatures.Features.independentBlend;
 		enabledFeatures.BufferDeviceAddress.bufferDeviceAddress = deviceFeatures.BufferDeviceAddress.bufferDeviceAddress;
 		enabledFeatures.AccelerationStructure.accelerationStructure = deviceFeatures.AccelerationStructure.accelerationStructure;
 		enabledFeatures.RayQuery.rayQuery = deviceFeatures.RayQuery.rayQuery;

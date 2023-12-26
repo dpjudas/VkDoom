@@ -350,6 +350,22 @@ private:
 	const char* debugName = nullptr;
 };
 
+class ColorBlendAttachmentBuilder
+{
+public:
+	ColorBlendAttachmentBuilder();
+
+	ColorBlendAttachmentBuilder& ColorWriteMask(VkColorComponentFlags mask);
+	ColorBlendAttachmentBuilder& AdditiveBlendMode();
+	ColorBlendAttachmentBuilder& AlphaBlendMode();
+	ColorBlendAttachmentBuilder& BlendMode(VkBlendOp op, VkBlendFactor src, VkBlendFactor dst);
+
+	VkPipelineColorBlendAttachmentState Create() { return colorBlendAttachment; }
+
+private:
+	VkPipelineColorBlendAttachmentState colorBlendAttachment = { };
+};
+
 class GraphicsPipelineBuilder
 {
 public:
@@ -369,13 +385,9 @@ public:
 	GraphicsPipelineBuilder& DepthFunc(VkCompareOp func);
 	GraphicsPipelineBuilder& DepthClampEnable(bool value);
 	GraphicsPipelineBuilder& DepthBias(bool enable, float biasConstantFactor, float biasClamp, float biasSlopeFactor);
-	GraphicsPipelineBuilder& ColorWriteMask(VkColorComponentFlags mask);
 	GraphicsPipelineBuilder& Stencil(VkStencilOp failOp, VkStencilOp passOp, VkStencilOp depthFailOp, VkCompareOp compareOp, uint32_t compareMask, uint32_t writeMask, uint32_t reference);
 
-	GraphicsPipelineBuilder& AdditiveBlendMode();
-	GraphicsPipelineBuilder& AlphaBlendMode();
-	GraphicsPipelineBuilder& BlendMode(VkBlendOp op, VkBlendFactor src, VkBlendFactor dst);
-	GraphicsPipelineBuilder& SubpassColorAttachmentCount(int count);
+	GraphicsPipelineBuilder& AddColorBlendAttachment(VkPipelineColorBlendAttachmentState state);
 
 	GraphicsPipelineBuilder& AddVertexShader(VulkanShader *shader);
 	GraphicsPipelineBuilder& AddFragmentShader(VulkanShader *shader);
@@ -398,7 +410,6 @@ private:
 	VkPipelineViewportStateCreateInfo viewportState = { };
 	VkPipelineRasterizationStateCreateInfo rasterizer = { };
 	VkPipelineMultisampleStateCreateInfo multisampling = { };
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = { };
 	VkPipelineColorBlendStateCreateInfo colorBlending = { };
 	VkPipelineDepthStencilStateCreateInfo depthStencil = { };
 	VkPipelineDynamicStateCreateInfo dynamicState = {};

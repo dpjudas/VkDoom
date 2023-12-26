@@ -306,10 +306,15 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	// main.vp addresses this by patching up gl_Position.z, which has the side effect of flipping the sign of the front face calculations.
 	builder.Cull(key.CullMode == Cull_None ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT, key.CullMode == Cull_CW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE);
 
-	builder.ColorWriteMask((VkColorComponentFlags)key.ColorMask);
 	builder.Stencil(VK_STENCIL_OP_KEEP, op2vk[key.StencilPassOp], VK_STENCIL_OP_KEEP, VK_COMPARE_OP_EQUAL, 0xffffffff, 0xffffffff, 0);
-	BlendMode(builder, key.RenderStyle);
-	builder.SubpassColorAttachmentCount(PassKey.DrawBuffers);
+
+	ColorBlendAttachmentBuilder blendbuilder;
+	blendbuilder.ColorWriteMask((VkColorComponentFlags)key.ColorMask);
+	BlendMode(blendbuilder, key.RenderStyle);
+
+	for (int i = 0; i < PassKey.DrawBuffers; i++)
+		builder.AddColorBlendAttachment(blendbuilder.Create());
+
 	builder.RasterizationSamples((VkSampleCountFlagBits)PassKey.Samples);
 
 	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.NumTextureLayers, key.ShaderKey.UseLevelMesh));
@@ -321,7 +326,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 
 /////////////////////////////////////////////////////////////////////////////
 
-GraphicsPipelineBuilder& BlendMode(GraphicsPipelineBuilder& builder, const FRenderStyle& style)
+ColorBlendAttachmentBuilder& BlendMode(ColorBlendAttachmentBuilder& builder, const FRenderStyle& style)
 {
 	// Just in case Vulkan doesn't do this optimization itself
 	if (style.BlendOp == STYLEOP_Add && style.SrcAlpha == STYLEALPHA_One && style.DestAlpha == STYLEALPHA_Zero && style.Flags == 0)
