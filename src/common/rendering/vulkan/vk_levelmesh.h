@@ -93,9 +93,11 @@ private:
 	void CreateBuffers();
 	void CreateStaticBLAS();
 	void CreateDynamicBLAS();
+	void CreateTLASInstanceBuffer();
 	void CreateTopLevelAS();
+
 	void UploadMeshes(bool dynamicOnly);
-	void UpdateDynamicBLAS();
+	void UploadTLASInstanceBuffer();
 	void UpdateTopLevelAS();
 
 	BLAS CreateBLAS(LevelSubmesh *submesh, bool preferFastBuild, int vertexOffset, int indexOffset);

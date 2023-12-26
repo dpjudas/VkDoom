@@ -40,7 +40,6 @@ void VkLevelMesh::SetLevelMesh(LevelMesh* mesh)
 	if (!mesh)
 		mesh = &NullMesh;
 
-	Reset();
 	Mesh = mesh;
 	CreateVulkanObjects();
 }
@@ -63,31 +62,96 @@ void VkLevelMesh::Reset()
 	deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
 	deletelist->Add(std::move(DynamicBLAS.AccelStruct));
 	deletelist->Add(std::move(TopLevelAS.TransferBuffer));
-	deletelist->Add(std::move(TopLevelAS.ScratchBuffer));
 	deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
+	deletelist->Add(std::move(TopLevelAS.ScratchBuffer));
 	deletelist->Add(std::move(TopLevelAS.AccelStructBuffer));
 	deletelist->Add(std::move(TopLevelAS.AccelStruct));
 }
 
 void VkLevelMesh::CreateVulkanObjects()
 {
+	Reset();
 	CreateBuffers();
 	UploadMeshes(false);
+
 	if (useRayQuery)
 	{
+		// Wait for uploads to finish
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
 		CreateStaticBLAS();
 		CreateDynamicBLAS();
+		CreateTLASInstanceBuffer();
+
+		UploadTLASInstanceBuffer();
+
+		// Wait for bottom level builds to finish before using it as input to a toplevel accel structure. Also wait for the instance buffer upload to complete.
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
+
 		CreateTopLevelAS();
+
+		// Finish building the accel struct before using it from the shaders
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	}
+	else
+	{
+		// Uploads must finish before we can read from the shaders
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
 }
 
 void VkLevelMesh::BeginFrame()
 {
 	UploadMeshes(true);
+
 	if (useRayQuery)
 	{
-		UpdateDynamicBLAS();
+		// Wait for uploads to finish
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+		// Create a new dynamic BLAS
+
+		// To do: we should reuse the buffers. However this requires we know when the command buffers are completely done with them first.
+		auto deletelist = fb->GetCommands()->DrawDeleteList.get();
+		deletelist->Add(std::move(DynamicBLAS.ScratchBuffer));
+		deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
+		deletelist->Add(std::move(DynamicBLAS.AccelStruct));
+		deletelist->Add(std::move(TopLevelAS.TransferBuffer));
+		deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
+
+		DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->Mesh.Vertices.Size(), Mesh->StaticMesh->Mesh.Indexes.Size());
+
+		CreateTLASInstanceBuffer();
+		UploadTLASInstanceBuffer();
+
+		// Wait for bottom level builds to finish before using it as input to a toplevel accel structure. Also wait for the instance buffer upload to complete.
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
+
 		UpdateTopLevelAS();
+
+		// Finish building the accel struct before using it from the shaders
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	}
+	else
+	{
+		// Uploads must finish before we can read from the shaders
+		PipelineBarrier()
+			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
 }
 
@@ -249,11 +313,6 @@ VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(LevelSubmesh* submesh, bool preferFast
 
 	fb->GetCommands()->GetTransferCommands()->buildAccelerationStructures(1, &buildInfo, rangeInfos);
 
-	// Finish building before using it as input to a toplevel accel structure
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
-		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
-
 	return blas;
 }
 
@@ -267,30 +326,8 @@ void VkLevelMesh::CreateDynamicBLAS()
 	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->Mesh.Vertices.Size(), Mesh->StaticMesh->Mesh.Indexes.Size());
 }
 
-void VkLevelMesh::CreateTopLevelAS()
+void VkLevelMesh::CreateTLASInstanceBuffer()
 {
-	auto deletelist = fb->GetCommands()->DrawDeleteList.get();
-	deletelist->Add(std::move(TopLevelAS.TransferBuffer));
-	deletelist->Add(std::move(TopLevelAS.ScratchBuffer));
-	deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
-	deletelist->Add(std::move(TopLevelAS.AccelStructBuffer));
-	deletelist->Add(std::move(TopLevelAS.AccelStruct));
-
-	VkAccelerationStructureInstanceKHR instances[2] = {};
-	instances[0].transform.matrix[0][0] = 1.0f;
-	instances[0].transform.matrix[1][1] = 1.0f;
-	instances[0].transform.matrix[2][2] = 1.0f;
-	instances[0].mask = 0xff;
-	instances[0].flags = 0;
-	instances[0].accelerationStructureReference = StaticBLAS.AccelStruct->GetDeviceAddress();
-
-	instances[1].transform.matrix[0][0] = 1.0f;
-	instances[1].transform.matrix[1][1] = 1.0f;
-	instances[1].transform.matrix[2][2] = 1.0f;
-	instances[1].mask = 0xff;
-	instances[1].flags = 0;
-	instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
-
 	TopLevelAS.TransferBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
 		.Size(sizeof(VkAccelerationStructureInstanceKHR) * 2)
@@ -302,18 +339,10 @@ void VkLevelMesh::CreateTopLevelAS()
 		.Size(sizeof(VkAccelerationStructureInstanceKHR) * 2)
 		.DebugName("TopLevelAS.InstanceBuffer")
 		.Create(fb->GetDevice());
+}
 
-	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * 2);
-	memcpy(data, instances, sizeof(VkAccelerationStructureInstanceKHR) * 2);
-	TopLevelAS.TransferBuffer->Unmap();
-
-	fb->GetCommands()->GetTransferCommands()->copyBuffer(TopLevelAS.TransferBuffer.get(), TopLevelAS.InstanceBuffer.get());
-
-	// Finish transfering before using it as input
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
-		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
-
+void VkLevelMesh::CreateTopLevelAS()
+{
 	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
 	VkAccelerationStructureGeometryKHR accelStructTLDesc = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
 	VkAccelerationStructureGeometryKHR* geometries[] = { &accelStructTLDesc };
@@ -360,53 +389,10 @@ void VkLevelMesh::CreateTopLevelAS()
 	rangeInfo.primitiveCount = 2;
 
 	fb->GetCommands()->GetTransferCommands()->buildAccelerationStructures(1, &buildInfo, rangeInfos);
-
-	// Finish building the accel struct before using as input in a fragment shader
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_SHADER_READ_BIT)
-		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-}
-
-void VkLevelMesh::UpdateDynamicBLAS()
-{
-	// To do: should we reuse the buffers?
-
-	auto deletelist = fb->GetCommands()->DrawDeleteList.get();
-	deletelist->Add(std::move(DynamicBLAS.ScratchBuffer));
-	deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
-	deletelist->Add(std::move(DynamicBLAS.AccelStruct));
-
-	DynamicBLAS = CreateBLAS(Mesh->DynamicMesh.get(), true, Mesh->StaticMesh->Mesh.Vertices.Size(), Mesh->StaticMesh->Mesh.Indexes.Size());
 }
 
 void VkLevelMesh::UpdateTopLevelAS()
 {
-	VkAccelerationStructureInstanceKHR instances[2] = {};
-	instances[0].transform.matrix[0][0] = 1.0f;
-	instances[0].transform.matrix[1][1] = 1.0f;
-	instances[0].transform.matrix[2][2] = 1.0f;
-	instances[0].mask = 0xff;
-	instances[0].flags = 0;
-	instances[0].accelerationStructureReference = StaticBLAS.AccelStruct->GetDeviceAddress();
-
-	instances[1].transform.matrix[0][0] = 1.0f;
-	instances[1].transform.matrix[1][1] = 1.0f;
-	instances[1].transform.matrix[2][2] = 1.0f;
-	instances[1].mask = 0xff;
-	instances[1].flags = 0;
-	instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
-
-	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * 2);
-	memcpy(data, instances, sizeof(VkAccelerationStructureInstanceKHR) * 2);
-	TopLevelAS.TransferBuffer->Unmap();
-
-	fb->GetCommands()->GetTransferCommands()->copyBuffer(TopLevelAS.TransferBuffer.get(), TopLevelAS.InstanceBuffer.get());
-
-	// Finish transfering before using it as input
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
-		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
-
 	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
 	VkAccelerationStructureGeometryKHR accelStructTLDesc = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
 	VkAccelerationStructureGeometryKHR* geometries[] = { &accelStructTLDesc };
@@ -429,11 +415,30 @@ void VkLevelMesh::UpdateTopLevelAS()
 	rangeInfo.primitiveCount = 2;
 
 	fb->GetCommands()->GetTransferCommands()->buildAccelerationStructures(1, &buildInfo, rangeInfos);
+}
 
-	// Finish building the accel struct before using as input in a fragment shader
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, VK_ACCESS_SHADER_READ_BIT)
-		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+void VkLevelMesh::UploadTLASInstanceBuffer()
+{
+	VkAccelerationStructureInstanceKHR instances[2] = {};
+	instances[0].transform.matrix[0][0] = 1.0f;
+	instances[0].transform.matrix[1][1] = 1.0f;
+	instances[0].transform.matrix[2][2] = 1.0f;
+	instances[0].mask = 0xff;
+	instances[0].flags = 0;
+	instances[0].accelerationStructureReference = StaticBLAS.AccelStruct->GetDeviceAddress();
+
+	instances[1].transform.matrix[0][0] = 1.0f;
+	instances[1].transform.matrix[1][1] = 1.0f;
+	instances[1].transform.matrix[2][2] = 1.0f;
+	instances[1].mask = 0xff;
+	instances[1].flags = 0;
+	instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
+
+	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * 2);
+	memcpy(data, instances, sizeof(VkAccelerationStructureInstanceKHR) * 2);
+	TopLevelAS.TransferBuffer->Unmap();
+
+	fb->GetCommands()->GetTransferCommands()->copyBuffer(TopLevelAS.TransferBuffer.get(), TopLevelAS.InstanceBuffer.get());
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -486,12 +491,7 @@ void VkLevelMeshUploader::EndTransfer(size_t transferBufferSize)
 	assert(datapos == transferBufferSize);
 
 	transferBuffer->Unmap();
-
 	Mesh->fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
-
-	PipelineBarrier()
-		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, Mesh->useRayQuery ? VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR : VK_ACCESS_SHADER_READ_BIT)
-		.Execute(Mesh->fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, Mesh->useRayQuery ? VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void VkLevelMeshUploader::UploadNodes()

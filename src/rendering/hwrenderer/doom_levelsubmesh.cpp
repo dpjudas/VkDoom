@@ -31,7 +31,8 @@ DoomLevelSubmesh::DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, b
 		SortIndexes();
 		BuildTileSurfaceLists();
 		UpdateCollision();
-		PackLightmapAtlas(doomMap, 0);
+		if (doomMap.lightmaps)
+			PackLightmapAtlas(doomMap, 0);
 	}
 }
 
@@ -268,7 +269,7 @@ void DoomLevelSubmesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, M
 		surf.PortalIndex = isSky ? LevelMesh->linePortals[side->linedef->Index()] : 0;
 		surf.IsSky = isSky;
 		surf.Bounds = GetBoundsFromSurface(surf);
-		surf.LightmapTileIndex = AddSurfaceToTile(surf, bindings);
+		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, bindings) : -1;
 		Surfaces.Push(surf);
 	}
 }
@@ -467,7 +468,7 @@ void DoomLevelSubmesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& st
 			surf.MeshLocation.NumVerts = sub->numlines;
 			surf.MeshLocation.NumElements = (sub->numlines - 2) * 3;
 			surf.Bounds = GetBoundsFromSurface(surf);
-			surf.LightmapTileIndex = AddSurfaceToTile(surf, bindings);
+			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, bindings) : -1;
 			Surfaces.Push(surf);
 		}
 	}

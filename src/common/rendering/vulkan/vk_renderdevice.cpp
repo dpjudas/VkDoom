@@ -482,7 +482,7 @@ void VulkanRenderDevice::BeginFrame()
 		levelMeshChanged = false;
 		mLevelMesh->SetLevelMesh(levelMesh);
 
-		if (levelMesh && levelMesh->StaticMesh->GetSurfaceCount() > 0)
+		if (levelMesh && levelMesh->StaticMesh->LMTextureCount > 0)
 		{
 			GetTextureManager()->CreateLightmap(levelMesh->StaticMesh->LMTextureSize, levelMesh->StaticMesh->LMTextureCount, std::move(levelMesh->StaticMesh->LMTextureData));
 			GetLightmapper()->SetLevelMesh(levelMesh);
@@ -491,12 +491,12 @@ void VulkanRenderDevice::BeginFrame()
 
 	SetViewportRects(nullptr);
 	mCommands->BeginFrame();
+	mLevelMesh->BeginFrame();
 	mTextureManager->BeginFrame();
 	mScreenBuffers->BeginFrame(screen->mScreenViewport.width, screen->mScreenViewport.height, screen->mSceneViewport.width, screen->mSceneViewport.height);
 	mSaveBuffers->BeginFrame(SAVEPICWIDTH, SAVEPICHEIGHT, SAVEPICWIDTH, SAVEPICHEIGHT);
 	mRenderState->BeginFrame();
 	mDescriptorSetManager->BeginFrame();
-	mLevelMesh->BeginFrame();
 	mLightmapper->BeginFrame();
 }
 
