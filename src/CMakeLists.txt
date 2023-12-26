@@ -324,6 +324,8 @@ if (HAVE_VULKAN)
 	list( APPEND PROJECT_LIBRARIES "zvulkan" )
 endif()
 
+list( APPEND PROJECT_LIBRARIES "zwidget" )
+
 # ZMUSIC
 
 if( MSVC )
@@ -587,6 +589,7 @@ file( GLOB HEADER_FILES
 	common/models/*.h
 	common/textures/*.h
 	common/startscreen/*.h
+	common/widgets/*.h
 	common/textures/hires/hqnx/*.h
 	common/textures/hires/hqnx_asm/*.h
 	common/textures/hires/xbr/*.h
@@ -975,6 +978,7 @@ set (PCH_SOURCES
 	common/startscreen/startscreen_strife.cpp
 	common/startscreen/startscreen_generic.cpp
 	common/startscreen/endoom.cpp
+	common/widgets/launcherwindow.cpp
 	common/fonts/singlelumpfont.cpp
 	common/fonts/singlepicfont.cpp
 	common/fonts/specialfont.cpp
@@ -1250,6 +1254,7 @@ include_directories(
 	common/fonts
 	common/objects
 	common/startscreen
+	common/widgets
 	common/rendering
 	common/rendering/hwrenderer/data
 	common/scripting/vm
@@ -1280,6 +1285,7 @@ include_directories(
 	scripting/zscript
 	rendering
 	../libraries/ZVulkan/include
+	../libraries/ZWidget/include
 	../libraries/dp_rect_pack
 	${SYSTEM_SOURCES_DIR}
 )
@@ -1440,6 +1446,8 @@ source_group("Common\\Fonts" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/co
 source_group("Common\\File System" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/filesystem/.+")
 source_group("Common\\File System\\Include" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/filesystem/include/.+")
 source_group("Common\\File System\\Source" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/filesystem/source/.+")
+source_group("Common\\Startscreen" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/startscreen/.+")
+source_group("Common\\Widgets" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/widgets/.+")
 source_group("Common\\Scripting" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/scripting/.+")
 source_group("Common\\Scripting\\Interface" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/scripting/interface/.+")
 source_group("Common\\Scripting\\Frontend" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/common/scripting/frontend/.+" FILES ${CMAKE_CURRENT_BINARY_DIR}/zcc-parse.c ${CMAKE_CURRENT_BINARY_DIR}/zcc-parse.h)
