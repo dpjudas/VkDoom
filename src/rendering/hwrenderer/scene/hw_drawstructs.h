@@ -32,7 +32,7 @@ struct HWDecal;
 struct FSection;
 enum area_t : int;
 class HWDrawContext;
-class DoomLevelMeshSurface;
+struct DoomLevelMeshSurface;
 struct HWFlatDispatcher;
 
 enum HWRenderStyle

@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include <cstring>
 #include "vectors.h"
 #include "common/utility/matrix.h"
 
