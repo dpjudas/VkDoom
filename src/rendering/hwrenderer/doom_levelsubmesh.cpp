@@ -15,6 +15,7 @@
 #include "hwrenderer/scene/hw_walldispatcher.h"
 #include "hwrenderer/scene/hw_flatdispatcher.h"
 #include "common/rendering/hwrenderer/data/hw_meshbuilder.h"
+#include <unordered_map>
 
 EXTERN_CVAR(Float, lm_scale);
 
