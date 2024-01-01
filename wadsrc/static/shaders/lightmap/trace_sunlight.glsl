@@ -13,7 +13,7 @@ vec3 TraceSunLight(vec3 origin, vec3 normal, int surfaceIndex)
 
 	const float minDistance = 0.01;
 	vec3 incoming = vec3(0.0);
-	const float dist = 32768.0;
+	const float dist = 65536.0;
 
 #if defined(USE_SOFTSHADOWS)
 
