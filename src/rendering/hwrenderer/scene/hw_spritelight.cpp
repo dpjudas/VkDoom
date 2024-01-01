@@ -94,7 +94,7 @@ public:
 		}
 		else
 		{
-			bool traceResult = level.levelMesh->TraceSky(FVector3(x, y, z), level.SunDirection, 10000.0f);
+			bool traceResult = level.levelMesh->TraceSky(FVector3(x, y, z), level.SunDirection, 65536.0f);
 			Actor->StaticLightsTraceCache.Bits |= ((uint64_t)traceResult) << CurrentBit;
 			CurrentBit++;
 			return traceResult;
