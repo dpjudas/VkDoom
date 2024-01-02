@@ -228,7 +228,7 @@ void HWFlat::DrawSubsectors(HWFlatDispatcher *di, FRenderState &state)
 
 void HWFlat::DrawOtherPlanes(HWDrawInfo *di, FRenderState &state)
 {
-    state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, 0, -1);
+    state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, NO_TRANSLATION, -1);
     
     // Draw the subsectors assigned to it due to missing textures
     auto pNode = (renderflags&SSRF_RENDERFLOOR) ?
@@ -260,7 +260,7 @@ void HWFlat::DrawFloodPlanes(HWDrawInfo *di, FRenderState &state)
 	// This requires a stencil because the projected plane interferes with
 	// the depth buffer
 
-	state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, 0, -1);
+	state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, NO_TRANSLATION, -1);
 
 	// Draw the subsectors assigned to it due to missing textures
 	auto pNode = (renderflags&SSRF_RENDERFLOOR) ?
@@ -350,7 +350,7 @@ void HWFlat::DrawFlat(HWFlatDispatcher *di, FRenderState &state, bool translucen
 	{
 		if (sector->special != GLSector_Skybox)
 		{
-			state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, 0, -1);
+			state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, NO_TRANSLATION, -1);
 			bool texmatrix = SetPlaneTextureRotation(state, &plane, texture);
 			DrawSubsectors(di, state);
 			if (texmatrix)
@@ -358,7 +358,7 @@ void HWFlat::DrawFlat(HWFlatDispatcher *di, FRenderState &state, bool translucen
 		}
 		else if (!hacktype)
 		{
-			state.SetMaterial(texture, UF_Texture, 0, CLAMP_XY, 0, -1);
+			state.SetMaterial(texture, UF_Texture, 0, CLAMP_XY, NO_TRANSLATION, -1);
 			state.SetLightIndex(dynlightindex);
 			state.Draw(DT_TriangleStrip,iboindex, 4);
 			flatvertices += 4;
@@ -379,7 +379,7 @@ void HWFlat::DrawFlat(HWFlatDispatcher *di, FRenderState &state, bool translucen
 		{
 			if (!texture->GetTranslucency()) state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
 			else state.AlphaFunc(Alpha_GEqual, 0.f);
-			state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, 0, -1);
+			state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, NO_TRANSLATION, -1);
 			bool texmatrix = SetPlaneTextureRotation(state, &plane, texture);
 			DrawSubsectors(di, state);
 			if (texmatrix)

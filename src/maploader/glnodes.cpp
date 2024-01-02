@@ -209,7 +209,7 @@ bool MapLoader::LoadGLVertexes(FileReader &lump)
 	auto gllen=lump.GetLength();
 	if (gllen < 4)
 		return false;
-	auto gldata = glbuf.data();
+	auto gldata = glbuf.bytes();
 
 	if (*(int *)gldata == gNd5) 
 	{
@@ -294,7 +294,7 @@ bool MapLoader::LoadGLSegs(FileReader &lump)
 		segs.Alloc(numsegs);
 		memset(&segs[0],0,sizeof(seg_t)*numsegs);
 			
-		glseg_t * ml = (glseg_t*)data.data();
+		auto ml = (const glseg_t*)data.data();
 		for(i = 0; i < numsegs; i++)
 		{		
 			// check for gl-vertices
@@ -324,21 +324,21 @@ bool MapLoader::LoadGLSegs(FileReader &lump)
 				ldef = &Level->lines[lineidx];
 				segs[i].linedef = ldef;	
 					
-				ml->side=LittleShort(ml->side);
-				if (ml->side > 1) 
+				auto side=LittleShort(ml->side);
+				if (side > 1) 
 					return false;
-				segs[i].sidedef = ldef->sidedef[ml->side];
-				if (ldef->sidedef[ml->side] != nullptr)
+				segs[i].sidedef = ldef->sidedef[side];
+				if (ldef->sidedef[side] != nullptr)
 				{
-					segs[i].frontsector = ldef->sidedef[ml->side]->sector;
+					segs[i].frontsector = ldef->sidedef[side]->sector;
 				}
 				else
 				{
 					segs[i].frontsector = nullptr;
 				}
-				if (ldef->flags & ML_TWOSIDED && ldef->sidedef[ml->side^1] != nullptr)
+				if (ldef->flags & ML_TWOSIDED && ldef->sidedef[side^1] != nullptr)
 				{
-					segs[i].backsector = ldef->sidedef[ml->side^1]->sector;
+					segs[i].backsector = ldef->sidedef[side^1]->sector;
 				}
 				else
 				{
@@ -365,7 +365,7 @@ bool MapLoader::LoadGLSegs(FileReader &lump)
 		segs.Alloc(numsegs);
 		memset(&segs[0],0,sizeof(seg_t)*numsegs);
 			
-		glseg3_t * ml = (glseg3_t*)(data.data() + (format5? 0:4));
+		const glseg3_t * ml = (const glseg3_t*)(data.bytes() + (format5? 0:4));
 		for(i = 0; i < numsegs; i++)
 		{							// check for gl-vertices
 			const unsigned v1idx = checkGLVertex3(LittleLong(ml->v1));
@@ -395,21 +395,21 @@ bool MapLoader::LoadGLSegs(FileReader &lump)
 				segs[i].linedef = ldef;
 	
 					
-				ml->side=LittleShort(ml->side);
-				if (ml->side > 1)
+				auto side=LittleShort(ml->side);
+				if (side > 1)
 					return false;
-				segs[i].sidedef = ldef->sidedef[ml->side];
-				if (ldef->sidedef[ml->side] != nullptr)
+				segs[i].sidedef = ldef->sidedef[side];
+				if (ldef->sidedef[side] != nullptr)
 				{
-					segs[i].frontsector = ldef->sidedef[ml->side]->sector;
+					segs[i].frontsector = ldef->sidedef[side]->sector;
 				}
 				else
 				{
 					segs[i].frontsector = nullptr;
 				}
-				if (ldef->flags & ML_TWOSIDED && ldef->sidedef[ml->side^1] != nullptr)
+				if (ldef->flags & ML_TWOSIDED && ldef->sidedef[side^1] != nullptr)
 				{
-					segs[i].backsector = ldef->sidedef[ml->side^1]->sector;
+					segs[i].backsector = ldef->sidedef[side^1]->sector;
 				}
 				else
 				{
@@ -456,7 +456,7 @@ bool MapLoader::LoadGLSubsectors(FileReader &lump)
 	
 	if (!format5 && memcmp(datab.data(), "gNd3", 4))
 	{
-		mapsubsector_t * data = (mapsubsector_t*) datab.data();
+		auto data = (const mapsubsector_t*) datab.data();
 		numsubsectors /= sizeof(mapsubsector_t);
 		Level->subsectors.Alloc(numsubsectors);
 		auto &subsectors = Level->subsectors;
@@ -478,7 +478,7 @@ bool MapLoader::LoadGLSubsectors(FileReader &lump)
 	}
 	else
 	{
-		gl3_mapsubsector_t * data = (gl3_mapsubsector_t*) (datab.data()+(format5? 0:4));
+		auto data = (const gl3_mapsubsector_t*) (datab.bytes()+(format5? 0:4));
 		numsubsectors /= sizeof(gl3_mapsubsector_t);
 		Level->subsectors.Alloc(numsubsectors);
 		auto &subsectors = Level->subsectors;
@@ -780,7 +780,7 @@ static int FindGLNodesInFile(FResourceFile * f, const char * label)
 
 	FString glheader;
 	bool mustcheck=false;
-	uint32_t numentries = f->LumpCount();
+	uint32_t numentries = f->EntryCount();
 
 	glheader.Format("GL_%.8s", label);
 	if (glheader.Len()>8)
@@ -793,13 +793,13 @@ static int FindGLNodesInFile(FResourceFile * f, const char * label)
 	{
 		for(uint32_t i=0;i<numentries-4;i++)
 		{
-			if (!strnicmp(f->GetLump(i)->getName(), glheader.GetChars(), 8))
+			if (!strnicmp(f->getName(i), glheader.GetChars(), 8))
 			{
 				if (mustcheck)
 				{
 					char check[16]={0};
-					auto fr = f->GetLump(i)->GetReader();
-					fr->Read(check, 16);
+					auto fr = f->GetEntryReader(i, false);
+					fr.Read(check, 16);
 					if (MatchHeader(label, check)) return i;
 				}
 				else return i;
@@ -900,13 +900,13 @@ bool MapLoader::LoadGLNodes(MapData * map)
 			result=true;
 			for(unsigned i=0; i<4;i++)
 			{
-				if (strnicmp(f_gwa->GetLump(li+i+1)->getName(), check[i], 8))
+				if (strnicmp(f_gwa->getName(li + i + 1), check[i], 8))
 				{
 					result=false;
 					break;
 				}
 				else
-					gwalumps[i] = f_gwa->GetLump(li+i+1)->NewReader();
+					gwalumps[i] = f_gwa->GetEntryReader(li + i + 1);
 			}
 			if (result) result = DoLoadGLNodes(gwalumps);
 		}

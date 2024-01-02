@@ -549,6 +549,12 @@ public:
 		SetMaterial(mat, clampmode, translation, overrideshader);
 	}
 
+	void SetMaterial(FGameTexture* tex, EUpscaleFlags upscalemask, int scaleflags, int clampmode, FTranslationID translation, int overrideshader)
+	{
+		SetMaterial(tex, upscalemask, scaleflags, clampmode, translation.index(), overrideshader);
+	}
+
+
 	void SetClipSplit(float bottom, float top)
 	{
 		mSurfaceUniforms.uClipSplit.X = bottom;

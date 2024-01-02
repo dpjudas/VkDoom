@@ -152,9 +152,12 @@ static PClassActor* FindInfoName(int index, bool mustexist = false)
 static FSoundID DehFindSound(int index,bool mustexist = false)
 {
 	if (index < 0) return NO_SOUND;
-	if (index < (int) SoundMap.Size()) return SoundMap[index];
-	FStringf name("~dsdhacked/#%d", index);
-	if (dsdhacked && !mustexist) return soundEngine->FindSoundTentative(name.GetChars());
+	if (index < (int) SoundMap.Size() && SoundMap[index].isvalid()) return SoundMap[index];
+	if (dsdhacked && !mustexist)
+	{
+		FStringf name("~dsdhacked/#%d", index);
+		return soundEngine->FindSoundTentative(name.GetChars());
+	}
 	return NO_SOUND;
 }
 
@@ -1387,7 +1390,7 @@ static int PatchThing (int thingy)
 			if (val > 8 || val < 0) val = 0;
 			unsigned color = bloodcolor[val];
 			info->BloodColor = color;
-			info->BloodTranslation = val == 0? 0 : TRANSLATION(TRANSLATION_Blood, CreateBloodTranslation(color));
+			info->BloodTranslation = val == 0? NO_TRANSLATION : CreateBloodTranslation(color);
 		}
 		else if (linelen == 10 && stricmp(Line1, "MBF21 Bits") == 0)
 		{
@@ -1476,7 +1479,7 @@ static int PatchThing (int thingy)
 			}
 			else if (stricmp (Line1 + linelen - 6, " sound") == 0)
 			{
-				FSoundID snd = DehFindSound(val - 1);
+				FSoundID snd = DehFindSound(val - 1, false);
 				
 				if (snd == NO_SOUND) // This won't trigger for dsdhacked patches!
 				{
@@ -3255,7 +3258,7 @@ static bool DoDehPatch()
 		dversion = 3;
 	}
 
-	if (!LoadDehSupp ())
+	if (StateMap.Size() == 0 && !LoadDehSupp ()) // only load this once.
 	{
 		Printf ("Could not load DEH support data\n");
 		UnloadDehSupp ();
@@ -3277,7 +3280,6 @@ static bool DoDehPatch()
 		}
 	} while (cont);
 
-	UnloadDehSupp ();
 	PatchName = "";
 	delete[] PatchFile;
 	if (!batchrun) Printf ("Patch installed\n");
@@ -3289,43 +3291,34 @@ static inline bool CompareLabel (const char *want, const uint8_t *have)
 	return *(uint32_t *)want == *(uint32_t *)have;
 }
 
-static int DehUseCount;
-
 static void UnloadDehSupp ()
 {
-	if (--DehUseCount <= 0)
-	{
-		VMDisassemblyDumper disasmdump(VMDisassemblyDumper::Append);
+	VMDisassemblyDumper disasmdump(VMDisassemblyDumper::Append);
 
-		// Handle MBF params here, before the required arrays are cleared
-		for (unsigned int i=0; i < MBFParamStates.Size(); i++)
-		{
-			SetDehParams(MBFParamStates[i].state, MBFParamStates[i].pointer, disasmdump, &MBFParamStates[i]);
-		}
-		stateargs.Clear();
-		MBFParamStates.Clear();
-		MBFParamStates.ShrinkToFit();
-		MBFCodePointers.Clear();
-		MBFCodePointers.ShrinkToFit();
-		// OrgSprNames and StateMap are not freed here, because if you load a second
-		// dehacked patch through some means other than including it
-		// in the first patch, it won't see the state/sprite information
-		// that was altered by the first. So we need to keep the
-		// StateMap around until all patches have been applied.
-		DehUseCount = 0;
-		Actions.Reset();
-		OrgHeights.Reset();
-		CodePConv.Reset();
-		SoundMap.Reset();
-		InfoNames.Reset();
-		BitNames.Reset();
-		StyleNames.Reset();
-		AmmoNames.Reset();
-		UnchangedSpriteNames.Reset();
+	// Handle MBF params here, before the required arrays are cleared
+	for (unsigned int i=0; i < MBFParamStates.Size(); i++)
+	{
+		SetDehParams(MBFParamStates[i].state, MBFParamStates[i].pointer, disasmdump, &MBFParamStates[i]);
 	}
+	stateargs.Clear();
+	MBFParamStates.Clear();
+	MBFParamStates.ShrinkToFit();
+	MBFCodePointers.Clear();
+	MBFCodePointers.ShrinkToFit();
+	OrgSprNames.Reset();
+	StateMap.Reset();
+	Actions.Reset();
+	OrgHeights.Reset();
+	CodePConv.Reset();
+	SoundMap.Reset();
+	InfoNames.Reset();
+	BitNames.Reset();
+	StyleNames.Reset();
+	AmmoNames.Reset();
+	UnchangedSpriteNames.Reset();
 }
 
-static bool LoadDehSupp ()
+bool LoadDehSupp ()
 {
 	try
 	{
@@ -3344,12 +3337,6 @@ static bool LoadDehSupp ()
 			return false;
 		}
 		bool gotnames = false;
-
-
-		if (++DehUseCount > 1)
-		{
-			return true;
-		}
 
 		if (EnglishStrings.CountUsed() == 0)
 			EnglishStrings = GStrings.GetDefaultStrings();
@@ -3503,6 +3490,7 @@ static bool LoadDehSupp ()
 					// This mapping is mainly for P_SetSafeFlash.
 					for (int i = 0; i < s.StateSpan; i++)
 					{
+						assert(FState::StaticFindStateOwner(s.State + i));
 						dehExtStates.Insert(dehcount, s.State + i);
 						s.State[i].DehIndex = dehcount;
 						dehcount++;
@@ -3736,9 +3724,7 @@ void FinishDehPatch ()
 			}
 		}
 	}
-	// Now that all Dehacked patches have been processed, it's okay to free StateMap.
-	StateMap.Reset();
-	OrgSprNames.Reset();
+	UnloadDehSupp();
 	TouchedActors.Reset();
 	EnglishStrings.Clear();
 	GStrings.SetOverrideStrings(DehStrings);
@@ -3980,10 +3966,9 @@ bool CheckTranslucent(AActor* a)
 	return !(a->renderflags & RF_ZDOOMTRANS) && a->Alpha < 1 - FLT_EPSILON;
 }
 
-constexpr int t0 = 0;
-constexpr int t1 = TRANSLATION(TRANSLATION_Standard, 0);
-constexpr int t2 = TRANSLATION(TRANSLATION_Standard, 1);
-constexpr int t3 = TRANSLATION(TRANSLATION_Standard, 2);
+constexpr FTranslationID t1 = TRANSLATION(TRANSLATION_Standard, 0);
+constexpr FTranslationID t2 = TRANSLATION(TRANSLATION_Standard, 1);
+constexpr FTranslationID t3 = TRANSLATION(TRANSLATION_Standard, 2);
 
 void SetTranslation1(AActor* a)
 {
@@ -3994,7 +3979,7 @@ void SetTranslation1(AActor* a)
 void ClearTranslation1(AActor* a)
 {
 	if (a->Translation == t3 || a->Translation == t2) a->Translation = t2;
-	else a->Translation = t0;
+	else a->Translation = NO_TRANSLATION;
 }
 
 bool CheckTranslation1(AActor* a)
@@ -4011,7 +3996,7 @@ void SetTranslation2(AActor* a)
 void ClearTranslation2(AActor* a)
 {
 	if (a->Translation == t3 || a->Translation == t1) a->Translation = t1;
-	else a->Translation = t0;
+	else a->Translation = NO_TRANSLATION;
 }
 
 bool CheckTranslation2(AActor* a)

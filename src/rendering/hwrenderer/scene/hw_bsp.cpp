@@ -600,6 +600,21 @@ void HWDrawInfo::RenderThings(subsector_t * sub, sector_t * sector, FRenderState
 void HWDrawInfo::RenderParticles(subsector_t *sub, sector_t *front, FRenderState& state)
 {
 	SetupSprite.Clock();
+	for (uint32_t i = 0; i < sub->sprites.Size(); i++)
+	{
+		DVisualThinker *sp = sub->sprites[i];
+		if (!sp || sp->ObjectFlags & OF_EuthanizeMe)
+			continue;
+		if (mClipPortal)
+		{
+			int clipres = mClipPortal->ClipPoint(sp->PT.Pos.XY());
+			if (clipres == PClip_InFront) continue;
+		}
+		if (!sp->spr)
+			sp->spr = new HWSprite();
+		
+		sp->spr->ProcessParticle(this, state, &sp->PT, front);
+	}
 	for (int i = Level->ParticlesInSubsec[sub->Index()]; i != NO_PARTICLE; i = Level->Particles[i].snext)
 	{
 		if (mClipPortal)
@@ -672,7 +687,7 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 	}
 
 	// [RH] Add particles
-	if (gl_render_things && Level->ParticlesInSubsec[sub->Index()] != NO_PARTICLE)
+	if (gl_render_things && (sub->sprites.Size() > 0 || Level->ParticlesInSubsec[sub->Index()] != NO_PARTICLE))
 	{
 		if (multithread)
 		{

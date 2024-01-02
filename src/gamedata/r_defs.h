@@ -39,6 +39,7 @@
 #include "fcolormap.h"
 #include "r_sky.h"
 #include "p_terrain.h"
+#include "p_effect.h"
 
 #include "hwrenderer/data/buffers.h"
 #include "hwrenderer/data/hw_levelmesh.h"
@@ -668,6 +669,7 @@ struct sector_t
 		float GlowHeight;
 		FTextureID Texture;
 		TextureManipulation TextureFx;
+		FTextureID skytexture[2];
 		uint16_t LightmapSampleDistance;
 	};
 
@@ -692,10 +694,10 @@ struct sector_t
 
 	int		special;					// map-defined sector special type
 
-	int			sky;						// MBF sky transfer info.
+	int			skytransfer;						// MBF sky transfer info.
 	int 		validcount;					// if == validcount, already checked
 
-	uint32_t bottommap, midmap, topmap;		// killough 4/4/98: dynamic colormaps
+	uint32_t selfmap, bottommap, midmap, topmap;		// killough 4/4/98: dynamic colormaps
 											// [RH] these can also be blend values if
 											//		the alpha mask is non-zero
 
@@ -827,7 +829,6 @@ public:
 
 	int CheckSpriteGlow(int lightlevel, const DVector3 &pos);
 	bool GetWallGlow(float *topglowcolor, float *bottomglowcolor);
-
 
 	void SetXOffset(int pos, double o)
 	{
@@ -1672,7 +1673,7 @@ struct subsector_t
 	int Index() const { return subsectornum; }
 									// 2: has one-sided walls
 	FPortalCoverage	portalcoverage[2];
-
+	TArray<DVisualThinker *> sprites;
 	TArrayView<DoomLevelMeshSurface*> surface[2]; // all mesh surfaces belonging to this subsector
 };
 

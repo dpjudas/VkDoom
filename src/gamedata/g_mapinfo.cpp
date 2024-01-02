@@ -255,6 +255,7 @@ void level_info_t::Reset()
 	LevelName = "";
 	AuthorName = "";
 	FadeTable = "COLORMAP";
+	CustomColorMap = "COLORMAP";
 	WallHorizLight = -8;
 	WallVertLight = +8;
 	F1Pic = "";
@@ -1155,6 +1156,12 @@ DEFINE_MAP_OPTION(fadetable, true)
 	parse.ParseLumpOrTextureName(info->FadeTable);
 }
 
+DEFINE_MAP_OPTION(colormap, true)
+{
+	parse.ParseAssign();
+	parse.ParseLumpOrTextureName(info->CustomColorMap);
+}
+
 DEFINE_MAP_OPTION(evenlighting, true)
 {
 	info->WallVertLight = info->WallHorizLight = 0;
@@ -1200,6 +1207,11 @@ DEFINE_MAP_OPTION(gravity, true)
 	parse.ParseAssign();
 	parse.sc.MustGetFloat();
 	info->gravity = parse.sc.Float;
+}
+
+DEFINE_MAP_OPTION(nogravity, true)
+{
+	info->gravity = DBL_MAX;
 }
 
 DEFINE_MAP_OPTION(aircontrol, true)
@@ -2610,6 +2622,56 @@ void G_ParseMapInfo (FString basemapinfo)
 	int lump, lastlump = 0;
 	level_info_t gamedefaults;
 
+	int flags1 = 0, flags2 = 0;
+	if (gameinfo.gametype == GAME_Doom)
+	{
+		int comp = fileSystem.CheckNumForName("COMPLVL");
+		if (comp >= 0)
+		{
+			auto complvl = fileSystem.ReadFile(comp);
+			auto data = complvl.GetString();
+			int length = fileSystem.FileLength(comp);
+			if (length == 7 && !strnicmp("vanilla", data, 7))
+			{
+				flags1 = 
+					COMPATF_SHORTTEX | COMPATF_STAIRINDEX | COMPATF_USEBLOCKING | COMPATF_NODOORLIGHT | COMPATF_SPRITESORT |
+					COMPATF_TRACE | COMPATF_MISSILECLIP | COMPATF_SOUNDTARGET | COMPATF_DEHHEALTH | COMPATF_CROSSDROPOFF |
+					COMPATF_LIGHT | COMPATF_MASKEDMIDTEX |
+					COMPATF_LIMITPAIN | COMPATF_INVISIBILITY | COMPATF_VILEGHOSTS;
+
+				flags2 =
+					COMPATF2_FLOORMOVE | COMPATF2_EXPLODE1 | COMPATF2_NOMBF21 | COMPATF2_POINTONLINE;
+			}
+			else if (length == 4 && !strnicmp("boom", data, 4))
+			{
+				flags1 =
+					COMPATF_TRACE | COMPATF_SOUNDTARGET | COMPATF_BOOMSCROLL | COMPATF_MISSILECLIP | COMPATF_MASKEDMIDTEX |
+					COMPATF_INVISIBILITY;
+
+				flags2 =
+					COMPATF2_EXPLODE1 | COMPATF2_NOMBF21 | COMPATF2_POINTONLINE;
+			}
+			else if (length == 3 && !strnicmp("mbf", data, 3))
+			{
+				flags1 =
+					COMPATF_TRACE | COMPATF_SOUNDTARGET | COMPATF_BOOMSCROLL | COMPATF_MISSILECLIP | COMPATF_MUSHROOM |
+					COMPATF_MBFMONSTERMOVE | COMPATF_NOBLOCKFRIENDS | COMPATF_MASKEDMIDTEX | COMPATF_INVISIBILITY;
+
+				flags2 =
+					COMPATF2_EXPLODE1 | COMPATF2_AVOID_HAZARDS | COMPATF2_STAYONLIFT | COMPATF2_NOMBF21 | COMPATF2_POINTONLINE;
+			}
+			else if (length == 5 && !strnicmp("mbf21", data, 5))
+			{
+				flags1 =
+					COMPATF_TRACE | COMPATF_SOUNDTARGET | COMPATF_BOOMSCROLL | COMPATF_MISSILECLIP | COMPATF_MUSHROOM |
+					COMPATF_MASKEDMIDTEX | COMPATF_INVISIBILITY;
+
+				flags2 =
+					COMPATF2_EXPLODE1 | COMPATF2_AVOID_HAZARDS | COMPATF2_STAYONLIFT | COMPATF2_POINTONLINE;
+			}
+		}
+	}
+
 	// Parse the default MAPINFO for the current game. This lump *MUST* come from zdoom.pk3.
 	if (basemapinfo.IsNotEmpty())
 	{
@@ -2623,7 +2685,11 @@ void G_ParseMapInfo (FString basemapinfo)
 		}
 		parse.ParseMapInfo(baselump, gamedefaults, defaultinfo);
 	}
-
+	gamedefaults.compatflags |= flags1;
+	gamedefaults.compatmask |= flags1;
+	gamedefaults.compatflags2 |= flags2;
+	gamedefaults.compatmask2 |= flags2;
+	
 	static const char *mapinfonames[] = { "MAPINFO", "ZMAPINFO", "UMAPINFO", NULL };
 	int nindex;
 

@@ -146,7 +146,7 @@ CUSTOM_CVAR(Bool, gl_notexturefill, false, CVAR_NOINITCALL)
 	}
 }
 
-CUSTOM_CVAR(Int, gl_maplightmode, -1, CVAR_NOINITCALL) // this is just for testing. -1 means 'inactive'
+CUSTOM_CVAR(Int, gl_maplightmode, -1, CVAR_NOINITCALL | CVAR_CHEAT) // this is just for testing. -1 means 'inactive'
 {
 	if (self > 5 || self < -1) self = -1;
 }
@@ -1826,13 +1826,17 @@ void FLevelLocals::Init()
 			flags |= LEVEL_HASFADETABLE;
 		}
 	}
+
+
+	globalcolormap = R_ColormapNumForName(info->CustomColorMap.GetChars());
 	airsupply = info->airsupply*TICRATE;
 	outsidefog = info->outsidefog;
 	WallVertLight = info->WallVertLight*2;
 	WallHorizLight = info->WallHorizLight*2;
 	if (info->gravity != 0.f)
 	{
-		gravity = info->gravity * 35/TICRATE;
+		if (info->gravity == DBL_MAX) gravity = 0;
+		else gravity = info->gravity * 35/TICRATE;
 	}
 	if (info->aircontrol != 0.f)
 	{
@@ -2006,32 +2010,28 @@ void G_ReadSnapshots(FResourceFile *resf)
 
 	G_ClearSnapshots();
 
-	for (unsigned j = 0; j < resf->LumpCount(); j++)
+	for (unsigned j = 0; j < resf->EntryCount(); j++)
 	{
-		auto resl = resf->GetLump(j);
-		if (resl != nullptr)
+		auto name = resf->getName(j);
+		auto ptr = strstr(name, ".map.json");
+		if (ptr != nullptr)
 		{
-			auto name = resl->getName();
-			auto ptr = strstr(name, ".map.json");
+			ptrdiff_t maplen = ptr - name;
+			FString mapname(name, (size_t)maplen);
+			i = FindLevelInfo(mapname.GetChars());
+			if (i != nullptr)
+			{
+				i->Snapshot = resf->GetRawData(j);
+			}
+		}
+		else
+		{
+			auto ptr = strstr(name, ".mapd.json");
 			if (ptr != nullptr)
 			{
 				ptrdiff_t maplen = ptr - name;
 				FString mapname(name, (size_t)maplen);
-				i = FindLevelInfo(mapname.GetChars());
-				if (i != nullptr)
-				{
-					i->Snapshot = resl->GetRawData();
-				}
-			}
-			else
-			{
-				auto ptr = strstr(name, ".mapd.json");
-				if (ptr != nullptr)
-				{
-					ptrdiff_t maplen = ptr - name;
-					FString mapname(name, (size_t)maplen);
-					TheDefaultLevelInfo.Snapshot = resl->GetRawData();
-				}
+				TheDefaultLevelInfo.Snapshot = resf->GetRawData(j);
 			}
 		}
 	}

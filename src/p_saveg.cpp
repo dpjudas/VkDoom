@@ -303,11 +303,12 @@ FSerializer &Serialize(FSerializer &arc, const char *key, sector_t &p, sector_t 
 			//("bottommap", p.bottommap)
 			//("midmap", p.midmap)
 			//("topmap", p.topmap)
+			//("selfmap", p.selfmap) // todo: if this becomes changeable we need a colormap serializer.
 			("damageamount", p.damageamount, def->damageamount)
 			("damageinterval", p.damageinterval, def->damageinterval)
 			("leakydamage", p.leakydamage, def->leakydamage)
 			("damagetype", p.damagetype, def->damagetype)
-			("sky", p.sky, def->sky)
+			("sky", p.skytransfer, def->skytransfer)
 			("moreflags", p.MoreFlags, def->MoreFlags)
 			("flags", p.Flags, def->Flags)
 			.Array("portals", p.Portals, def->Portals, 2, true)
@@ -957,6 +958,9 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 	}
 	arc("saveversion", SaveVersion);
 
+	// this sets up some static data needed further down which means it must be done first.
+	StaticSerializeTranslations(arc);
+
 	if (arc.isReading())
 	{
 		Thinkers.DestroyAllThinkers();
@@ -1039,7 +1043,6 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 	arc("polyobjs", Polyobjects);
 	SerializeSubsectors(arc, "subsectors");
 	StatusBar->SerializeMessages(arc);
-	StaticSerializeTranslations(arc);
 	canvasTextureInfo.Serialize(arc);
 	SerializePlayers(arc, hubload);
 	SerializeSounds(arc);
@@ -1071,6 +1074,8 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 		automap->UpdateShowAllLines();
 
 	}
+	// clean up the static data we allocated
+	StaticClearSerializeTranslationsData();
 
 }
 

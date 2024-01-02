@@ -208,7 +208,10 @@ CVAR (Float,	m_forward,		1.f,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)
 CVAR (Float,	m_side,			2.f,	CVAR_GLOBALCONFIG|CVAR_ARCHIVE)
  
 int 			turnheld;								// for accelerative turning 
- 
+
+EXTERN_CVAR (Bool, invertmouse)
+EXTERN_CVAR (Bool, invertmousex)
+
 // mouse values are used once 
 float 			mousex;
 float 			mousey; 		
@@ -1035,9 +1038,23 @@ bool G_Responder (event_t *ev)
 		break;
 
 	// [RH] mouse buttons are sent as key up/down events
-	case EV_Mouse: 
-		mousex = ev->x;
-		mousey = ev->y;
+	case EV_Mouse:
+        if(invertmousex)
+        {
+		   mousex = -ev->x;
+        }
+        else
+        {
+            mousex = ev->x;
+        }
+        if(invertmouse)
+        {
+            mousey = -ev->y;
+        }
+        else
+        {
+            mousey = ev->y;
+        }
 		break;
 	}
 
@@ -1964,8 +1981,12 @@ void C_SerializeCVars(FSerializer& arc, const char* label, uint32_t filter)
 }
 
 
+void SetupLoadingCVars();
+void FinishLoadingCVars();
+
 void G_DoLoadGame ()
 {
+	SetupLoadingCVars();
 	bool hidecon;
 
 	if (gameaction != ga_autoloadgame)
@@ -1981,8 +2002,8 @@ void G_DoLoadGame ()
 		LoadGameError("TXT_COULDNOTREAD");
 		return;
 	}
-	auto info = resfile->FindLump("info.json");
-	if (info == nullptr)
+	auto info = resfile->FindEntry("info.json");
+	if (info < 0)
 	{
 		LoadGameError("TXT_NOINFOJSON");
 		return;
@@ -1990,9 +2011,9 @@ void G_DoLoadGame ()
 
 	SaveVersion = 0;
 
-	void *data = info->Lock();
+	auto data = resfile->Read(info);
 	FSerializer arc;
-	if (!arc.OpenReader((const char *)data, info->LumpSize))
+	if (!arc.OpenReader(data.string(), data.size()))
 	{
 		LoadGameError("TXT_FAILEDTOREADSG");
 		return;
@@ -2059,15 +2080,15 @@ void G_DoLoadGame ()
 	// we are done with info.json.
 	arc.Close();
 
-	info = resfile->FindLump("globals.json");
-	if (info == nullptr)
+	info = resfile->FindEntry("globals.json");
+	if (info < 0)
 	{
 		LoadGameError("TXT_NOGLOBALSJSON");
 		return;
 	}
 
-	data = info->Lock();
-	if (!arc.OpenReader((const char *)data, info->LumpSize))
+	data = resfile->Read(info);
+	if (!arc.OpenReader(data.string(), data.size()))
 	{
 		LoadGameError("TXT_SGINFOERR");
 		return;
@@ -2108,6 +2129,7 @@ void G_DoLoadGame ()
 	// load a base level
 	bool demoplaybacksave = demoplayback;
 	G_InitNew(map.GetChars(), false);
+	FinishLoadingCVars();
 	demoplayback = demoplaybacksave;
 	savegamerestore = false;
 
@@ -2408,7 +2430,7 @@ void G_DoSaveGame (bool okForQuicksave, bool forceQuicksave, FString filename, c
 	}
 
 	auto picdata = savepic.GetBuffer();
-	FCompressedBuffer bufpng = { picdata->Size(), picdata->Size(), FileSys::METHOD_STORED, 0, static_cast<unsigned int>(crc32(0, &(*picdata)[0], picdata->Size())), (char*)&(*picdata)[0] };
+	FCompressedBuffer bufpng = { picdata->size(), picdata->size(), FileSys::METHOD_STORED, 0, static_cast<unsigned int>(crc32(0, &(*picdata)[0], picdata->size())), (char*)&(*picdata)[0] };
 
 	savegame_content.Push(bufpng);
 	savegame_filenames.Push("savepic.png");

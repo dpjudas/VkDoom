@@ -386,7 +386,7 @@ public:
 	FRenderStyle RenderStyle;
 	int OverrideShader;
 
-	int translation;
+	FTranslationID translation;
 	int index;
 	float depth;
 	int vertexindex;
@@ -400,6 +400,7 @@ public:
 	float vt,vb;
 	float x1,y1,z1;
 	float x2,y2,z2;
+	float offx, offy;
 	float trans;
 	int dynlightindex;
 
@@ -420,6 +421,7 @@ public:
 	void PutSprite(HWDrawInfo *di, FRenderState& state, bool translucent);
 	void Process(HWDrawInfo *di, FRenderState& state, AActor* thing,sector_t * sector, area_t in_area, int thruportal = false, bool isSpriteShadow = false);
 	void ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t *particle, sector_t *sector);//, int shade, int fakeside)
+	void AdjustVisualThinker(HWDrawInfo *di, DVisualThinker *spr, sector_t *sector);
 
 	void DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent);
 };

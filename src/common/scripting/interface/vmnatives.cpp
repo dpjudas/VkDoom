@@ -668,7 +668,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(FFont, GetBottomAlignOffset, GetBottomAlignOffset)
 	ACTION_RETURN_FLOAT(GetBottomAlignOffset(self, code));
 }
 
-static int StringWidth(FFont *font, const FString &str, bool localize)
+static int StringWidth(FFont *font, const FString &str, int localize)
 {
 	const char *txt = (localize && str[0] == '$') ? GStrings(&str[1]) : str.GetChars();
 	return font->StringWidth(txt);
@@ -682,7 +682,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(FFont, StringWidth, StringWidth)
 	ACTION_RETURN_INT(StringWidth(self, str, localize));
 }
 
-static int GetMaxAscender(FFont* font, const FString& str, bool localize)
+static int GetMaxAscender(FFont* font, const FString& str, int localize)
 {
 	const char* txt = (localize && str[0] == '$') ? GStrings(&str[1]) : str.GetChars();
 	return font->GetMaxAscender(txt);
@@ -696,7 +696,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(FFont, GetMaxAscender, GetMaxAscender)
 	ACTION_RETURN_INT(GetMaxAscender(self, str, localize));
 }
 
-static int CanPrint(FFont *font, const FString &str, bool localize)
+static int CanPrint(FFont *font, const FString &str, int localize)
 {
 	const char *txt = (localize && str[0] == '$') ? GStrings(&str[1]) : str.GetChars();
 	return font->CanPrint(txt);
@@ -1370,5 +1370,40 @@ DEFINE_ACTION_FUNCTION_NATIVE(DObject, FindFunction, FindFunctionPointer)
 	PARAM_NAME(fn);
 
 	ACTION_RETURN_POINTER(FindFunctionPointer(cls, fn.GetIndex()));
+}
+
+FTranslationID R_FindCustomTranslation(FName name);
+
+static int ZFindTranslation(int intname)
+{
+	return R_FindCustomTranslation(ENamedName(intname)).index();
+}
+
+static int MakeTransID(int g, int s)
+{
+	return TRANSLATION(g, s).index();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(_Translation, GetID, ZFindTranslation)
+{
+	PARAM_PROLOGUE;
+	PARAM_INT(t);
+	ACTION_RETURN_INT(ZFindTranslation(t));
+}
+
+// same as above for the compiler which needs a class to look this up.
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, BuiltinFindTranslation, ZFindTranslation)
+{
+	PARAM_PROLOGUE;
+	PARAM_INT(t);
+	ACTION_RETURN_INT(ZFindTranslation(t));
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(_Translation, MakeID, MakeTransID)
+{
+	PARAM_PROLOGUE;
+	PARAM_INT(g);
+	PARAM_INT(t);
+	ACTION_RETURN_INT(MakeTransID(g, t));
 }
 

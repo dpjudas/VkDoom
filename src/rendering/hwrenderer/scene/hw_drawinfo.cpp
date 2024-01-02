@@ -530,7 +530,7 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 	HWSkyInfo skyinfo;
 	if (portaltype == PORTALTYPE_SKY)
 	{
-		skyinfo.init(this, wall.frontsector->sky, wall.Colormap.FadeColor);
+		skyinfo.init(this, wall.frontsector, sector_t::ceiling, wall.frontsector->skytransfer, wall.Colormap.FadeColor);
 		wall.sky = &skyinfo;
 		wall.PutPortal(&ddi, state, portaltype, portalplane);
 	}

@@ -1,5 +1,4 @@
 /*
-/*
 ** serializer.cpp
 ** Savegame wrapper around RapidJSON
 **
@@ -57,6 +56,7 @@
 #include "texturemanager.h"
 #include "base64.h"
 #include "vm.h"
+#include "i_interface.h"
 
 using namespace FileSys;
 
@@ -1199,6 +1199,28 @@ FSerializer &Serialize(FSerializer &arc, const char *key, FTextureID &value, FTe
 
 //==========================================================================
 //
+//
+//
+//==========================================================================
+
+FSerializer& Serialize(FSerializer& arc, const char* key, FTranslationID& value, FTranslationID* defval)
+{
+	int v = value.index();
+	int* defv = (int*)defval;
+	Serialize(arc, key, v, defv);
+	
+	if (arc.isReading())
+	{
+		// allow games to alter the loaded value to handle dynamic lists.
+		if (sysCallbacks.RemapTranslation) value = sysCallbacks.RemapTranslation(FTranslationID::fromInt(v));
+		else value = FTranslationID::fromInt(v);
+	}
+		
+	return arc;
+}
+
+//==========================================================================
+//
 // This never uses defval and instead uses 'null' as default
 // because object pointers cannot be safely defaulted to anything else.
 //
@@ -1733,6 +1755,19 @@ void SerializeFunctionPointer(FSerializer &arc, const char *key, FunctionPointer
 			p = nullptr;
 		}
 	}
+}
+
+bool FSerializer::ReadOptionalInt(const char * key, int &into)
+{
+	if(!isReading()) return false;
+
+	auto val = r->FindKey(key);
+	if(val && val->IsInt())
+	{
+		into = val->GetInt();
+		return true;
+	}
+	return false;
 }
 
 #include "renderstyle.h"

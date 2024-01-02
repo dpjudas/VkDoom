@@ -218,7 +218,7 @@ class Actor : Thinker native
 	native Inventory Inv;
 	native uint8 smokecounter;
 	native uint8 FriendPlayer;
-	native uint Translation;
+	native TranslationID Translation;
 	native sound AttackSound;
 	native sound DeathSound;
 	native sound SeeSound;
@@ -253,7 +253,7 @@ class Actor : Thinker native
 	native double StealthAlpha;
 	native int WoundHealth;		// Health needed to enter wound state
 	native readonly color BloodColor;
-	native readonly int BloodTranslation;
+	native readonly TranslationID BloodTranslation;
 	native int RenderHidden;
 	native int RenderRequired;
 	native int FriendlySeeBlocks;
@@ -1277,6 +1277,12 @@ class Actor : Thinker native
 	native bool A_AttachLightDef(Name lightid, Name lightdef);
 	native bool A_AttachLight(Name lightid, int type, Color lightcolor, int radius1, int radius2, int flags = 0, Vector3 ofs = (0,0,0), double param = 0, double spoti = 10, double spoto = 25, double spotp = 0);
 	native bool A_RemoveLight(Name lightid);
+
+	native version("4.12") void SetAnimation(Name animName, double framerate = -1, int startFrame = -1, int loopFrame= -1, int interpolateTics = -1, int flags = 0);
+	native version("4.12") ui void SetAnimationUI(Name animName, double framerate = -1, int startFrame = -1, int loopFrame = -1, int interpolateTics = -1, int flags = 0);
+
+	native version("4.12") void SetAnimationFrameRate(double framerate);
+	native version("4.12") ui void SetAnimationFrameRateUI(double framerate);
 
 	int ACS_NamedExecute(name script, int mapnum=0, int arg1=0, int arg2=0, int arg3=0)
 	{

@@ -403,6 +403,7 @@ void HWDrawList::SortWallIntoWall(HWDrawInfo *di, FRenderState& state, SortNode 
 //==========================================================================
 EXTERN_CVAR(Int, gl_billboard_mode)
 EXTERN_CVAR(Bool, gl_billboard_faces_camera)
+EXTERN_CVAR(Bool, hw_force_cambbpref)
 EXTERN_CVAR(Bool, gl_billboard_particles)
 
 inline double CalcIntersectionVertex(HWSprite *s, HWWall * w2)
@@ -446,7 +447,10 @@ void HWDrawList::SortSpriteIntoWall(HWDrawInfo *di, SortNode * head,SortNode * s
 		const bool drawWithXYBillboard = ((ss->particle && gl_billboard_particles) || (!(ss->actor && ss->actor->renderflags & RF_FORCEYBILLBOARD)
 			&& (gl_billboard_mode == 1 || (ss->actor && ss->actor->renderflags & RF_FORCEXYBILLBOARD))));
 
-		const bool drawBillboardFacingCamera = gl_billboard_faces_camera;
+		const bool drawBillboardFacingCamera = hw_force_cambbpref ? gl_billboard_faces_camera :
+			(gl_billboard_faces_camera && (ss->actor && !(ss->actor->renderflags2 & RF2_BILLBOARDNOFACECAMERA)))
+			|| (ss->actor && ss->actor->renderflags2 & RF2_BILLBOARDFACECAMERA);
+
 		// [Nash] has +ROLLSPRITE
 		const bool rotated = (ss->actor != nullptr && ss->actor->renderflags & (RF_ROLLSPRITE | RF_WALLSPRITE | RF_FLATSPRITE));
 
