@@ -1,6 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <stdint.h>
+#include <limits.h> 
+#include <string.h>
 #include "core/rect.h"
 
 /*
