@@ -40,8 +40,14 @@ float FogSphereDensity(vec3 rayOrigin, vec3 rayDirection, vec3 sphereCenter, flo
 	return (i2 - i1) * (3.0f / 4.0f);
 }
 
+// Approximate sRGB/linear conversion
+vec3 ToLinear(vec3 c) { return pow(c, vec3(2.2)); }
+vec3 FromLinear(vec3 c) { return pow(c, vec3(1.0 / 2.2)); }
+
 vec4 ProcessFogBalls(vec4 light)
 {
+	light.rgb = ToLinear(light.rgb);
+
 	vec3 rayOrigin = uCameraPos.xyz;
 	float dbuffer = distance(pixelpos.xyz, uCameraPos.xyz);
 	vec3 rayDirection = normalize(pixelpos.xyz - uCameraPos.xyz);
@@ -59,5 +65,5 @@ vec4 ProcessFogBalls(vec4 light)
 		light.rgb = mix(light.rgb, fogcolor * density, alpha);
 	}
 
-	return light;
+	return vec4(FromLinear(light.rgb), light.a);
 }
