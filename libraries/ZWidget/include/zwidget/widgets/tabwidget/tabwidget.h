@@ -20,6 +20,11 @@ public:
 	int AddTab(Widget* page, const std::string& label);
 	int AddTab(Widget* page, const std::shared_ptr<Image>& icon, const std::string& label);
 
+	void SetTabText(int index, const std::string& text);
+	void SetTabText(Widget* page, const std::string& text);
+	void SetTabIcon(int index, const std::shared_ptr<Image>& icon);
+	void SetTabIcon(Widget* page, const std::shared_ptr<Image>& icon);
+
 	int GetCurrentIndex() const;
 	Widget* GetCurrentWidget() const;
 
@@ -49,6 +54,9 @@ public:
 
 	int AddTab(const std::string& label);
 	int AddTab(const std::shared_ptr<Image>& icon, const std::string& label);
+
+	void SetTabText(int index, const std::string& text);
+	void SetTabIcon(int index, const std::shared_ptr<Image>& icon);
 
 	int GetCurrentIndex() const;
 	void SetCurrentIndex(int pageIndex);
