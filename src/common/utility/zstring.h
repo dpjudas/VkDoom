@@ -125,7 +125,7 @@ public:
 
 	// Copy constructors
 	FString (const FString &other) { AttachToOther (other); }
-	FString (FString &&other) : Chars(other.Chars) { other.ResetToNull(); }
+	FString (FString &&other) noexcept : Chars(other.Chars) { other.ResetToNull(); }
 	FString (const char *copyStr);
 	FString (const char *copyStr, size_t copyLen);
 	FString (char oneChar);
@@ -179,7 +179,7 @@ public:
 	const char &operator[] (unsigned long long index) const { return Chars[index]; }
 
 	FString &operator = (const FString &other);
-	FString &operator = (FString &&other);
+	FString &operator = (FString &&other) noexcept;
 	FString &operator = (const char *copyStr);
 
 	FString operator + (const FString &tail) const;

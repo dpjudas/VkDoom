@@ -49,6 +49,7 @@
 #include "fs_findfile.h"
 #include "findfile.h"
 #include "i_interface.h"
+#include "gstrings.h"
 
 EXTERN_CVAR(Bool, queryiwad);
 EXTERN_CVAR(String, defaultiwad);
@@ -56,6 +57,7 @@ EXTERN_CVAR(Bool, disableautoload)
 EXTERN_CVAR(Bool, autoloadlights)
 EXTERN_CVAR(Bool, autoloadbrightmaps)
 EXTERN_CVAR(Bool, autoloadwidescreen)
+EXTERN_CVAR(String, language)
 
 //==========================================================================
 //
@@ -308,15 +310,20 @@ FIWadManager::FIWadManager(const char *firstfn, const char *optfn)
 	std::vector<std::string> fns;
 	fns.push_back(firstfn);
 	if (optfn) fns.push_back(optfn);
+	FileSys::LumpFilterInfo lfi;
+	GetReserved(lfi);
 
-	if (check.InitMultipleFiles(fns, nullptr, nullptr))
+	if (check.InitMultipleFiles(fns, &lfi, nullptr))
 	{
+		// this is for the IWAD picker. As we have a filesystem open here that contains the base files, it is the easiest place to load the strings early.
+		GStrings.LoadStrings(check, language);
 		int num = check.CheckNumForName("IWADINFO");
 		if (num >= 0)
 		{
 			auto data = check.ReadFile(num);
-			ParseIWadInfo("IWADINFO", data.GetString(), (int)data.GetSize());
+			ParseIWadInfo("IWADINFO", data.string(), (int)data.size());
 		}
+
 	}
 }
 
@@ -399,7 +406,7 @@ int FIWadManager::CheckIWADInfo(const char* fn)
 
 				FIWADInfo result;
 				auto data = check.ReadFile(num);
-				ParseIWadInfo(fn, data.GetString(), (int)data.GetSize(), &result);
+				ParseIWadInfo(fn, data.string(), (int)data.size(), &result);
 
 				for (unsigned i = 0, count = mIWadInfos.Size(); i < count; ++i)
 				{

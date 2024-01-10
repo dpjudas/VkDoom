@@ -57,7 +57,7 @@ public:
 		sft.xScale = height;
 		sft.yScale = height;
 		sft.flags = SFT_DOWNWARD_Y;
-		sft.font = sft_loadmem(lumpdata.GetBytes(), lumpdata.GetSize());
+		sft.font = sft_loadmem(lumpdata.data(), lumpdata.size());
 		if (!sft.font)
 			I_FatalError("Could not load truetype font file");
 

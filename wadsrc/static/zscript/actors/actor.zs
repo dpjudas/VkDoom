@@ -89,7 +89,6 @@ class Actor : Thinker native
 	const DEFMORPHTICS = 40 * TICRATE;
 	const MELEEDELTA = 20;
 
-
 	// flags are not defined here, the native fields for those get synthesized from the internal tables.
 	
 	// for some comments on these fields, see their native representations in actor.h.
@@ -511,6 +510,23 @@ class Actor : Thinker native
 		return true;
 	}
 
+	// [AA] Called by inventory items in CallTryPickup to see if this actor needs 
+	// to process them in some way before they're received. Gets called before 
+	// the item's TryPickup, allowing fully customized handling of all items.
+	virtual bool CanReceive(Inventory item)
+	{
+		return true;
+	}
+
+	// [AA] Called by inventory items at the end of CallTryPickup to let actors
+	// do something with the items they've received. 'Item' might be null for
+	// items that disappear on pickup.
+	virtual void HasReceived(Inventory item) {}
+
+  // Called in TryMove if the mover ran into another Actor. This isn't called on players
+	// if they're currently predicting. Guarantees collisions unlike CanCollideWith.
+	virtual void CollidedWith(Actor other, bool passive) {}
+
 	// Called by PIT_CheckThing to check if two actors actually can collide.
 	virtual bool CanCollideWith(Actor other, bool passive)
 	{
@@ -540,13 +556,13 @@ class Actor : Thinker native
 	// This is called before a missile gets exploded.
 	virtual int SpecialMissileHit (Actor victim)
 	{
-		return -1;
+		return MHIT_DEFAULT;
 	}
 
 	// This is called when a missile bounces off something.
 	virtual int SpecialBounceHit(Actor bounceMobj, Line bounceLine, SecPlane bouncePlane)
 	{
-		return -1;
+		return MHIT_DEFAULT;
 	}
 
 	// Called when the player presses 'use' and an actor is found, except if the

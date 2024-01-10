@@ -610,10 +610,10 @@ void HWDrawInfo::RenderParticles(subsector_t *sub, sector_t *front, FRenderState
 			int clipres = mClipPortal->ClipPoint(sp->PT.Pos.XY());
 			if (clipres == PClip_InFront) continue;
 		}
-		if (!sp->spr)
-			sp->spr = new HWSprite();
 		
-		sp->spr->ProcessParticle(this, state, &sp->PT, front);
+		assert(sp->spr);
+
+		sp->spr->ProcessParticle(this, state, &sp->PT, front, sp);
 	}
 	for (int i = Level->ParticlesInSubsec[sub->Index()]; i != NO_PARTICLE; i = Level->Particles[i].snext)
 	{
@@ -624,7 +624,7 @@ void HWDrawInfo::RenderParticles(subsector_t *sub, sector_t *front, FRenderState
 		}
 
 		HWSprite sprite;
-		sprite.ProcessParticle(this, state, &Level->Particles[i], front);
+		sprite.ProcessParticle(this, state, &Level->Particles[i], front, nullptr);
 	}
 	SetupSprite.Unclock();
 }

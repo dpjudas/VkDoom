@@ -84,6 +84,7 @@
 #include "texturemanager.h"
 #include "hw_vertexbuilder.h"
 #include "version.h"
+#include "fs_decompress.h"
 
 #include "common/utility/halffloat.h"
 
@@ -741,7 +742,7 @@ bool MapLoader::LoadExtendedNodes (FileReader &dalump, uint32_t id)
 		if (compressed)
 		{
 			FileReader zip;
-			if (zip.OpenDecompressor(dalump, -1, FileSys::METHOD_ZLIB, false, true))
+			if (OpenDecompressor(zip, dalump, -1, FileSys::METHOD_ZLIB, FileSys::DCF_EXCEPTIONS))
 			{
 				LoadZNodes(zip, type);
 				return true;
@@ -1171,7 +1172,6 @@ bool MapLoader::LoadNodes (MapData * map)
 	int 		k;
 	nodetype	*mn;
 	node_t* 	no;
-	uint16_t*		used;
 	int			lumplen = map->Size(ML_NODES);
 	int			maxss = map->Size(ML_SSECTORS) / sizeof(subsectortype);
 
@@ -1184,8 +1184,8 @@ bool MapLoader::LoadNodes (MapData * map)
 	
 	auto &nodes = Level->nodes;
 	nodes.Alloc(numnodes);		
-	used = (uint16_t *)alloca (sizeof(uint16_t)*numnodes);
-	memset (used, 0, sizeof(uint16_t)*numnodes);
+	TArray<uint16_t> used(numnodes, true);
+	memset (used.data(), 0, sizeof(uint16_t) * numnodes);
 
 	auto mnp = map->Read(ML_NODES);
 	mn = (nodetype*)(mnp.Data() + nodetype::NF_LUMPOFFSET);
@@ -3021,7 +3021,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		return false;
 
 	FileReader fr;
-	if (!fr.OpenDecompressor(map->Reader(ML_LIGHTMAP), -1, FileSys::METHOD_ZLIB, false))
+	if (!OpenDecompressor(fr, map->Reader(ML_LIGHTMAP), -1, FileSys::METHOD_ZLIB))
 		return false;
 
 	int version = fr.ReadInt32();

@@ -137,7 +137,7 @@ bool IQMModel::Load(const char* path, int lumpnum, const char* buffer, int lengt
 		}
 
 		reader.SeekTo(ofs_anims);
-		for(int i = 0; i < Anims.Size(); i++)
+		for(unsigned i = 0; i < Anims.Size(); i++)
 		{
 			IQMAnim& anim = Anims[i];
 			anim.Name = reader.ReadName(text);
@@ -274,7 +274,7 @@ void IQMModel::LoadGeometry()
 	try
 	{
 		auto lumpdata = fileSystem.ReadFile(mLumpNum);
-		IQMFileReader reader(lumpdata.GetMem(), (int)lumpdata.GetSize());
+		IQMFileReader reader(lumpdata.data(), (int)lumpdata.size());
 
 		Vertices.Resize(NumVertices);
 		for (IQMVertexArray& vertexArray : VertexArrays)

@@ -753,7 +753,6 @@ FCompressedBuffer FSerializer::GetCompressedOutput()
 	EndObject();
 	buff.filename = nullptr;
 	buff.mSize = (unsigned)w->mOutString.GetSize();
-	buff.mZipFlags = 0;
 	buff.mCRC32 = crc32(0, (const Bytef*)w->mOutString.GetString(), buff.mSize);
 
 	uint8_t *compressbuf = new uint8_t[buff.mSize+1];
@@ -762,9 +761,9 @@ FCompressedBuffer FSerializer::GetCompressedOutput()
 	int err;
 
 	stream.next_in = (Bytef *)w->mOutString.GetString();
-	stream.avail_in = buff.mSize;
+	stream.avail_in = (unsigned)buff.mSize;
 	stream.next_out = (Bytef*)compressbuf;
-	stream.avail_out = buff.mSize;
+	stream.avail_out = (unsigned)buff.mSize;
 	stream.zalloc = (alloc_func)0;
 	stream.zfree = (free_func)0;
 	stream.opaque = (voidpf)0;

@@ -475,11 +475,10 @@ bool HWSprite::CalculateVertices(HWDrawInfo *di, FVector3 *v, DVector3 *vp)
 		// want those calculations here. Credit to PhantomBeta for this.
 		if (offx || offy)
 		{
-			FAngle zero = FAngle::fromDeg(0);
 			FQuaternion quat = FQuaternion::FromAngles(FAngle::fromDeg(270) - di->Viewpoint.HWAngles.Yaw, di->Viewpoint.HWAngles.Pitch, FAngle::fromDeg(0));
 			FVector3 sideVec = quat * FVector3(0, 1, 0);
 			FVector3 upVec = quat * FVector3(0, 0, 1);
-			FVector3 res = sideVec * offx + upVec * offy;
+			FVector3 res = sideVec * -offx + upVec * offy;
 			mat.Translate(res.X, res.Z, res.Y);
 		}
 
@@ -829,13 +828,23 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 	{
 		return;
 	}
-
 	// Some added checks if the camera actor is not supposed to be seen. It can happen that some portal setup has this actor in view in which case it may not be skipped here
 	if (viewmaster == camera && !vp.showviewer)
 	{
+		if (vp.noviewer || (viewmaster->player && viewmaster->player->crossingPortal)) return;
 		DVector3 vieworigin = viewmaster->Pos();
 		if (thruportal == 1) vieworigin += di->Level->Displacements.getOffset(viewmaster->Sector->PortalGroup, sector->PortalGroup);
 		if (fabs(vieworigin.X - vp.ActorPos.X) < 2 && fabs(vieworigin.Y - vp.ActorPos.Y) < 2) return;
+
+		// Necessary in order to prevent sprite pop-ins with viewpos and models. 
+		auto* sec = viewmaster->Sector;
+		if (sec && !sec->PortalBlocksMovement(sector_t::ceiling))
+		{
+			double zh = sec->GetPortalPlaneZ(sector_t::ceiling);
+			double top = (viewmaster->player ? max<double>(viewmaster->player->viewz, viewmaster->Top()) + 1 : viewmaster->Top());
+			if (viewmaster->Z() < zh && top >= zh)
+				return;
+		}
 	}
 	// Thing is invisible if close to the camera.
 	if (viewmaster->renderflags & RF_MAYBEINVISIBLE)
@@ -917,7 +926,6 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 	{
 		return;
 	}
-
 	if (!modelframe)
 	{
 		bool mirror = false;
@@ -1302,13 +1310,12 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 //
 //==========================================================================
 
-void HWSprite::ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t *particle, sector_t *sector)//, int shade, int fakeside)
+void HWSprite::ProcessParticle(HWDrawInfo *di, FRenderState& state, particle_t *particle, sector_t *sector, DVisualThinker *spr)//, int shade, int fakeside)
 {
 	if (!particle || particle->alpha <= 0)
 		return;
 
-	DVisualThinker *spr = particle->sprite;
-	if (spr && spr->Texture.isNull())
+	if (spr && spr->PT.texture.isNull())
 		return;
 
 	lightlevel = hw_ClampLight(spr ? spr->GetLightLevel(sector) : sector->GetSpriteLight());
@@ -1323,13 +1330,13 @@ void HWSprite::ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t 
 	index = 0;
 	actor = nullptr;
 	this->particle = particle;
-	fullbright = particle->bright;
+	fullbright = particle->flags & SPF_FULLBRIGHT;
 
 	if (di->isFullbrightScene()) 
 	{
 		Colormap.Clear();
 	}
-	else if (!particle->bright)
+	else if (!(particle->flags & SPF_FULLBRIGHT))
 	{
 		TArray<lightlist_t> & lightlist=sector->e->XFloor.lightlist;
 		double lightbottom;
@@ -1372,12 +1379,19 @@ void HWSprite::ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t 
 	ThingColor.a = 255;
 	const auto& vp = di->Viewpoint;
 
+	double timefrac = vp.TicFrac;
+	if (paused || (di->Level->isFrozen() && !(particle->flags & SPF_NOTIMEFREEZE)))
+		timefrac = 0.;
+
 	if (spr)
+	{
 		AdjustVisualThinker(di, spr, sector);
+	}
 	else
 	{
-		bool has_texture = !particle->texture.isNull();
-
+		bool has_texture = particle->texture.isValid();
+		bool custom_animated_texture = (particle->flags & SPF_LOCAL_ANIM) && particle->animData.ok;
+		
 		int particle_style = has_texture ? 2 : gl_particles_style; // Treat custom texture the same as smooth particles
 
 		// [BB] Load the texture for round or smooth particles
@@ -1390,27 +1404,36 @@ void HWSprite::ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t 
 			}
 			else if (particle_style == 2)
 			{
-				lump = has_texture ? particle->texture : TexMan.glPart;
+				if(custom_animated_texture)
+				{
+					lump = TexAnim.UpdateStandaloneAnimation(particle->animData, di->Level->maptime + timefrac);
+				}
+				else if(has_texture)
+				{
+					lump = particle->texture;
+				}
+				else
+				{
+					lump = TexMan.glPart;
+				}
 			}
-			else lump.SetNull();
+			else
+			{
+				lump.SetNull();
+			}
 
-		if (lump.isValid())
-		{
-			translation = NO_TRANSLATION;
-			//auto tex = TexMan.GetGameTexture(lump, false);
+			if (lump.isValid())
+			{
+				translation = NO_TRANSLATION;
 
-				ul = 0;
-				ur = 1;
-				vt = 0;
-				vb = 1;
-				texture = TexMan.GetGameTexture(lump, true);
+				ul = vt = 0;
+				ur = vb = 1;
+
+				texture = TexMan.GetGameTexture(lump, !custom_animated_texture);
 			}
 		}
 
-		
-		double timefrac = vp.TicFrac;
-		if (paused || di->Level->isFrozen())
-			timefrac = 0.;
+
 		float xvf = (particle->Vel.X) * timefrac;
 		float yvf = (particle->Vel.Y) * timefrac;
 		float zvf = (particle->Vel.Z) * timefrac;
@@ -1466,11 +1489,21 @@ void HWSprite::ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t 
 void HWSprite::AdjustVisualThinker(HWDrawInfo* di, DVisualThinker* spr, sector_t* sector)
 {
 	translation = spr->Translation;
-	texture = TexMan.GetGameTexture(spr->Texture, true);
 
 	const auto& vp = di->Viewpoint;
 	double timefrac = vp.TicFrac;
-	if (paused || spr->isFrozen() || spr->bDontInterpolate)
+
+	if (paused || spr->isFrozen())
+		timefrac = 0.;
+	
+	bool custom_anim = ((spr->PT.flags & SPF_LOCAL_ANIM) && spr->PT.animData.ok);
+
+	texture = TexMan.GetGameTexture(
+			custom_anim
+			? TexAnim.UpdateStandaloneAnimation(spr->PT.animData, di->Level->maptime + timefrac)
+			: spr->PT.texture, !custom_anim);
+
+	if (spr->bDontInterpolate)
 		timefrac = 0.;
 
 	FVector3 interp = spr->InterpolatedPosition(timefrac);
@@ -1481,7 +1514,7 @@ void HWSprite::AdjustVisualThinker(HWDrawInfo* di, DVisualThinker* spr, sector_t
 	offx = (float)spr->Offset.X;
 	offy = (float)spr->Offset.Y;
 
-	if (spr->Flags & SPF_ROLL)
+	if (spr->PT.flags & SPF_ROLL)
 		Angles.Roll = TAngle<double>::fromDeg(spr->InterpolatedRoll(timefrac));
 
 	auto& spi = texture->GetSpritePositioning(0);

@@ -49,6 +49,7 @@
 #include "vm.h"
 #include "i_system.h"
 #include "s_music.h"
+#include "i_music.h"
 
 using namespace FileSys;
 
@@ -134,6 +135,7 @@ enum SICommands
 	SI_Registered,
 	SI_ArchivePath,
 	SI_MusicVolume,
+	SI_Replaygain,
 	SI_MidiDevice,
 	SI_IfDoom,
 	SI_IfHeretic,
@@ -222,6 +224,7 @@ static const char *SICommandStrings[] =
 	"$registered",
 	"$archivepath",
 	"$musicvolume",
+	"$replaygain",
 	"$mididevice",
 	"$ifdoom",
 	"$ifheretic",
@@ -1031,9 +1034,16 @@ static void S_AddSNDINFO (int lump)
 
 			case SI_MusicVolume: {
 				sc.MustGetString();
-				FName musname (sc.String);
-				sc.MustGetFloat();
-				MusicVolumes[musname] = (float)sc.Float;
+				int lumpnum = mus_cb.FindMusic(sc.String);
+				if (!sc.CheckFloat())
+				{
+					sc.MustGetString();
+					char* p;
+					double f = strtod(sc.String, &p);
+					if (!stricmp(p, "db")) sc.Float = dBToAmplitude((float)sc.Float);
+					else sc.ScriptError("Bad value for music volume: %s", sc.String);
+				}
+				if (lumpnum >= 0) MusicVolumes[lumpnum] = (float)sc.Float;
 				}
 				break;
 
@@ -1067,7 +1077,7 @@ static void S_AddSNDINFO (int lump)
 
 			case SI_MidiDevice: {
 				sc.MustGetString();
-				FName nm = sc.String;
+				int lumpnum = mus_cb.FindMusic(sc.String);
 				FScanner::SavedPos save = sc.SavePos();
 				
 				sc.SetCMode(true);
@@ -1099,7 +1109,7 @@ static void S_AddSNDINFO (int lump)
 					sc.RestorePos(save);
 					sc.MustGetString();
 				}
-				MidiDevices[nm] = devset;
+				if (lumpnum >= 0) MidiDevices[lumpnum] = devset;
 				}
 				break;
 

@@ -316,15 +316,7 @@ unsigned FSavegameManagerBase::ExtractSaveData(int index)
 		auto pic = resf->FindEntry("savepic.png");
 		if (pic >= 0)
 		{
-			FileReader picreader;
-
-			picreader.OpenMemoryArray([=](std::vector<uint8_t>& array)
-				{
-					auto rd = resf->GetEntryReader(pic, false);
-					array.resize(resf->Length(pic));
-					rd.Read(array.data(), array.size());
-					return true;
-				});
+			FileReader picreader = resf->GetEntryReader(pic, FileSys::READER_NEW, FileSys::READERFLAG_SEEKABLE);
 			PNGHandle *png = M_VerifyPNG(picreader);
 			if (png != nullptr)
 			{

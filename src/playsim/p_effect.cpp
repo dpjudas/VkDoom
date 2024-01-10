@@ -51,6 +51,8 @@
 #include "g_game.h"
 #include "serializer_doom.h"
 
+#include "hwrenderer/scene/hw_drawstructs.h"
+
 #ifdef _MSC_VER
 #pragma warning(disable: 6011) // dereference null pointer in thinker iterator
 #endif
@@ -222,10 +224,9 @@ void P_FindParticleSubsectors (FLevelLocals *Level)
 	DVisualThinker* sp;
 	while (sp = it.Next())
 	{
-		if (sp->sub == nullptr)
-			sp->sub = Level->PointInRenderSubsector(sp->Pos);
+		if (!sp->PT.subsector) sp->PT.subsector = Level->PointInRenderSubsector(sp->PT.Pos);
 
-		sp->sub->sprites.Push(sp);
+		sp->PT.subsector->sprites.Push(sp);
 	}
 	// End VisualThinker hitching. Now onto the particles. 
 	if (Level->ParticlesInSubsec.Size() < Level->subsectors.Size())
@@ -296,6 +297,11 @@ void P_ThinkParticles (FLevelLocals *Level)
 		i = particle->tnext;
 		if (Level->isFrozen() && !(particle->flags &SPF_NOTIMEFREEZE))
 		{
+			if(particle->flags & SPF_LOCAL_ANIM)
+			{
+				particle->animData.SwitchTic++;
+			}
+
 			prev = particle;
 			continue;
 		}
@@ -365,14 +371,13 @@ void P_SpawnParticle(FLevelLocals *Level, const DVector3 &pos, const DVector3 &v
 	if (particle)
 	{
 		particle->Pos = pos;
-		particle->Vel = vel;
-		particle->Acc = accel;
+		particle->Vel = FVector3(vel);
+		particle->Acc = FVector3(accel);
 		particle->color = ParticleColor(color);
 		particle->alpha = float(startalpha);
 		if (fadestep < 0) particle->fadestep = FADEFROMTTL(lifetime);
 		else particle->fadestep = float(fadestep);
 		particle->ttl = lifetime;
-		particle->bright = !!(flags & SPF_FULLBRIGHT);
 		particle->size = size;
 		particle->sizestep = sizestep;
 		particle->texture = texture;
@@ -381,6 +386,10 @@ void P_SpawnParticle(FLevelLocals *Level, const DVector3 &pos, const DVector3 &v
 		particle->RollVel = rollvel;
 		particle->RollAcc = rollacc;
 		particle->flags = flags;
+		if(flags & SPF_LOCAL_ANIM)
+		{
+			TexAnim.InitStandaloneAnimation(particle->animData, texture, Level->maptime);
+		}
 	}
 }
 
@@ -431,10 +440,10 @@ static void MakeFountain (AActor *actor, int color1, int color2)
 
 		particle->Pos = actor->Vec3Angle(out, an, actor->Height + 1);
 		if (out < actor->radius/8)
-			particle->Vel.Z += 10./3;
+			particle->Vel.Z += 10.f/3;
 		else
 			particle->Vel.Z += 3;
-		particle->Acc.Z -= 1./11;
+		particle->Acc.Z -= 1.f/11;
 		if (M_Random() < 30) {
 			particle->size = 4;
 			particle->color = color2;
@@ -473,8 +482,8 @@ void P_RunEffect (AActor *actor, int effects)
 			speed = (M_Random () - 128) * (1./200);
 			particle->Vel.X += speed * an.Cos();
 			particle->Vel.Y += speed * an.Sin();
-			particle->Vel.Z -= 1./36;
-			particle->Acc.Z -= 1./20;
+			particle->Vel.Z -= 1.f/36;
+			particle->Acc.Z -= 1.f/20;
 			particle->color = yellow;
 			particle->size = 2;
 		}
@@ -491,8 +500,8 @@ void P_RunEffect (AActor *actor, int effects)
 				speed = (M_Random () - 128) * (1./200);
 				particle->Vel.X += speed * an.Cos();
 				particle->Vel.Y += speed * an.Sin();
-				particle->Vel.Z += 1. / 80;
-				particle->Acc.Z += 1. / 40;
+				particle->Vel.Z += 1.f / 80;
+				particle->Acc.Z += 1.f / 40;
 				if (M_Random () & 7)
 					particle->color = grey2;
 				else
@@ -634,7 +643,7 @@ void P_DrawSplash2 (FLevelLocals *Level, int count, const DVector3 &pos, DAngle 
 		p->size = 4;
 		p->color = M_Random() & 0x80 ? color1 : color2;
 		p->Vel.Z = M_Random() * zvel;
-		p->Acc.Z = -1 / 22.;
+		p->Acc.Z = -1 / 22.f;
 		if (kind) 
 		{
 			an = angle + DAngle::fromDeg((M_Random() - 128) * (180 / 256.));
@@ -787,10 +796,13 @@ void P_DrawRailTrail(AActor *source, TArray<SPortalHit> &portalhits, int color1,
 			p->ttl = spiralduration;
 			p->fadestep = FADEFROMTTL(spiralduration);
 			p->size = 3;
-			p->bright = fullbright;
+			if(fullbright)
+			{
+				p->flags |= SPF_FULLBRIGHT;
+			}
 
 			tempvec = DMatrix3x3(trail[segment].dir, deg) * trail[segment].extend;
-			p->Vel = tempvec * drift / 16.;
+			p->Vel = FVector3(tempvec * drift / 16.);
 			p->Pos = tempvec + pos;
 			pos += trail[segment].dir * stepsize;
 			deg += DAngle::fromDeg(r_rail_spiralsparsity * 14);
@@ -870,7 +882,10 @@ void P_DrawRailTrail(AActor *source, TArray<SPortalHit> &portalhits, int color1,
 				p->Acc.Z -= 1./4096;
 			pos += trail[segment].dir * stepsize;
 			lencount -= stepsize;
-			p->bright = fullbright;
+			if(fullbright)
+			{
+				p->flags |= SPF_FULLBRIGHT;
+			}
 
 			if (color2 == -1)
 			{
@@ -994,20 +1009,22 @@ void P_DisconnectEffect (AActor *actor)
 void DVisualThinker::Construct()
 {
 	PT = {};
-	PT.sprite = this;
-	Pos = Vel = { 0,0,0 };
+	PT.Pos = { 0,0,0 };
+	PT.Vel = { 0,0,0 };
 	Offset = { 0,0 };
 	Scale = { 1,1 };
-	Roll = 0.0;
-	Alpha = 1.0;
+	PT.Roll = 0.0;
+	PT.alpha = 1.0;
 	LightLevel = -1;
-	Texture = FTextureID();
-	Style = STYLE_Normal;
-	Flags = 0;
+	PT.texture = FTextureID();
+	PT.style = STYLE_Normal;
+	PT.flags = 0;
 	Translation = NO_TRANSLATION;
-	sub = nullptr;
+	PT.subsector = nullptr;
 	cursector = nullptr;
-	scolor = 0xffffff;
+	PT.color = 0xffffff;
+	spr = new HWSprite();
+	AnimatedTexture.SetNull();
 }
 
 DVisualThinker::DVisualThinker()
@@ -1015,16 +1032,14 @@ DVisualThinker::DVisualThinker()
 	Construct();
 }
 
-void DVisualThinker::CallPostBeginPlay()
-{
-	PT.texture = Texture;
-	Super::CallPostBeginPlay();
-}
-
 void DVisualThinker::OnDestroy()
 {
 	PT.alpha = 0.0; // stops all rendering.
-	if (spr) delete spr;
+	if(spr)
+	{
+		delete spr;
+		spr = nullptr;
+	}
 	Super::OnDestroy();
 }
 
@@ -1063,16 +1078,12 @@ DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, SpawnVisualThinker, SpawnVisualThink
 
 void DVisualThinker::UpdateSpriteInfo()
 {
-	PT.color = scolor;
-	PT.Pos = Pos;
-	PT.Vel = Vel;
-	PT.Roll = Roll;
-	PT.alpha = Alpha;
-	PT.texture = Texture;
 	PT.style = ERenderStyle(GetRenderStyle());
-	PT.flags = Flags;
-	PT.subsector = sub;
-	PT.sprite = this;
+	if((PT.flags & SPF_LOCAL_ANIM) && PT.texture != AnimatedTexture)
+	{
+		AnimatedTexture = PT.texture;
+		TexAnim.InitStandaloneAnimation(PT.animData, PT.texture, Level->maptime);
+	}
 }
 
 // This runs just like Actor's, make sure to call Super.Tick() in ZScript.
@@ -1082,8 +1093,8 @@ void DVisualThinker::Tick()
 		return;
 
 	// There won't be a standard particle for this, it's only for graphics.
-	if (!Texture.isValid()) 
-	{	
+	if (!PT.texture.isValid())
+	{
 		Printf("No valid texture, destroyed");
 		Destroy();
 		return;
@@ -1091,36 +1102,38 @@ void DVisualThinker::Tick()
 
 	if (isFrozen())
 	{	// needed here because it won't retroactively update like actors do.
+		PT.subsector = Level->PointInRenderSubsector(PT.Pos);
+		cursector = PT.subsector->sector;
 		UpdateSpriteInfo(); 
 		return;
 	}
-	Prev = Pos;
-	PrevRoll = Roll;
+	Prev = PT.Pos;
+	PrevRoll = PT.Roll;
 	// Handle crossing a line portal
-	DVector2 newxy = Level->GetPortalOffsetPosition(Pos.X, Pos.Y, Vel.X, Vel.Y);
-	Pos.X = newxy.X;
-	Pos.Y = newxy.Y;
-	Pos.Z += Vel.Z;
+	DVector2 newxy = Level->GetPortalOffsetPosition(PT.Pos.X, PT.Pos.Y, PT.Vel.X, PT.Vel.Y);
+	PT.Pos.X = newxy.X;
+	PT.Pos.Y = newxy.Y;
+	PT.Pos.Z += PT.Vel.Z;
 
-	sub = Level->PointInRenderSubsector(Pos);
-	cursector = sub->sector;
+	PT.subsector = Level->PointInRenderSubsector(PT.Pos);
+	cursector = PT.subsector->sector;
 	// Handle crossing a sector portal.
 	if (!cursector->PortalBlocksMovement(sector_t::ceiling))
 	{
-		if (Pos.Z > cursector->GetPortalPlaneZ(sector_t::ceiling))
+		if (PT.Pos.Z > cursector->GetPortalPlaneZ(sector_t::ceiling))
 		{
-			Pos += cursector->GetPortalDisplacement(sector_t::ceiling);
-			sub = nullptr;
-			cursector = nullptr;
+			PT.Pos += cursector->GetPortalDisplacement(sector_t::ceiling);
+			PT.subsector = Level->PointInRenderSubsector(PT.Pos);
+			cursector = PT.subsector->sector;
 		}
 	}
 	else if (!cursector->PortalBlocksMovement(sector_t::floor))
 	{
-		if (Pos.Z < cursector->GetPortalPlaneZ(sector_t::floor))
+		if (PT.Pos.Z < cursector->GetPortalPlaneZ(sector_t::floor))
 		{
-			Pos += cursector->GetPortalDisplacement(sector_t::floor);
-			sub = nullptr;
-			cursector = nullptr;
+			PT.Pos += cursector->GetPortalDisplacement(sector_t::floor);
+			PT.subsector = Level->PointInRenderSubsector(PT.Pos);
+			cursector = PT.subsector->sector;
 		}
 	}
 	UpdateSpriteInfo();
@@ -1143,18 +1156,18 @@ int DVisualThinker::GetLightLevel(sector_t* rendersector) const
 
 FVector3 DVisualThinker::InterpolatedPosition(double ticFrac) const
 {
-	if (bDontInterpolate) return FVector3(Pos);
+	if (bDontInterpolate) return FVector3(PT.Pos);
 
-	DVector3 proc = Prev + (ticFrac * (Pos - Prev));
+	DVector3 proc = Prev + (ticFrac * (PT.Pos - Prev));
 	return FVector3(proc);
 
 }
 
 float DVisualThinker::InterpolatedRoll(double ticFrac) const
 {
-	if (bDontInterpolate) return Roll;
+	if (bDontInterpolate) return PT.Roll;
 
-	return float(PrevRoll + (Roll - PrevRoll) * ticFrac);
+	return float(PrevRoll + (PT.Roll - PrevRoll) * ticFrac);
 }
 
 
@@ -1177,7 +1190,13 @@ void DVisualThinker::SetTranslation(FName trname)
 	// silently ignore if the name does not exist, this would create some insane message spam otherwise.
 }
 
-DEFINE_ACTION_FUNCTION(DVisualThinker, SetTranslation)
+void SetTranslation(DVisualThinker * self, int i_trans)
+{
+	FName trans {ENamedName(i_trans)};
+	self->SetTranslation(trans);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DVisualThinker, SetTranslation, SetTranslation)
 {
 	PARAM_SELF_PROLOGUE(DVisualThinker);
 	PARAM_NAME(trans);
@@ -1185,33 +1204,42 @@ DEFINE_ACTION_FUNCTION(DVisualThinker, SetTranslation)
 	return 0;
 }
 
-bool DVisualThinker::isFrozen()
+static int IsFrozen(DVisualThinker * self)
 {
-	return (Level->isFrozen() && !(Flags & SPF_NOTIMEFREEZE));
+	return (self->Level->isFrozen() && !(self->PT.flags & SPF_NOTIMEFREEZE));
 }
 
-DEFINE_ACTION_FUNCTION(DVisualThinker, IsFrozen)
+bool DVisualThinker::isFrozen()
+{
+	return IsFrozen(this);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DVisualThinker, IsFrozen, IsFrozen)
 {
 	PARAM_SELF_PROLOGUE(DVisualThinker);
 	ACTION_RETURN_BOOL(self->isFrozen());
 }
 
-DEFINE_ACTION_FUNCTION(DVisualThinker, SetRenderStyle)
+static void SetRenderStyle(DVisualThinker *self, int mode)
+{
+	if(mode >= 0 && mode < STYLE_Count)
+	{
+		self->PT.style = ERenderStyle(mode);
+	}
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DVisualThinker, SetRenderStyle, SetRenderStyle)
 {
 	PARAM_SELF_PROLOGUE(DVisualThinker);
 	PARAM_INT(mode);
 
-	self->Style = ERenderStyle(mode);
+	self->PT.style = ERenderStyle(mode);
 	return 0;
 }
 
 int DVisualThinker::GetRenderStyle()
 {
-	for (unsigned i = 0; i < STYLE_Count; i++)
-	{
-		if (Style == LegacyRenderStyles[i]) return i;
-	}
-	return -1;
+	return PT.style;
 }
 
 void DVisualThinker::Serialize(FSerializer& arc)
@@ -1219,42 +1247,43 @@ void DVisualThinker::Serialize(FSerializer& arc)
 	Super::Serialize(arc);
 
 	arc
-		("pos", Pos)
-		("vel", Vel)
+		("pos", PT.Pos)
+		("vel", PT.Vel)
 		("prev", Prev)
 		("scale", Scale)
-		("roll", Roll)
+		("roll", PT.Roll)
 		("prevroll", PrevRoll)
 		("offset", Offset)
-		("alpha", Alpha)
-		("texture", Texture)
-		("style", Style)
+		("alpha", PT.alpha)
+		("texture", PT.texture)
+		("style", *reinterpret_cast<int*>(&PT.style))
 		("translation", Translation)
 		("cursector", cursector)
-		("scolor", scolor)
+		("scolor", PT.color)
 		("flipx", bXFlip)
 		("flipy", bYFlip)
 		("dontinterpolate", bDontInterpolate)
 		("addlightlevel", bAddLightLevel)
 		("lightlevel", LightLevel)
-		("flags", Flags);
+		("flags", PT.flags);
 		
 }
 
 IMPLEMENT_CLASS(DVisualThinker, false, false);
-DEFINE_FIELD(DVisualThinker, Pos);
-DEFINE_FIELD(DVisualThinker, Vel);
+DEFINE_FIELD_NAMED(DVisualThinker, PT.color, SColor);
+DEFINE_FIELD_NAMED(DVisualThinker, PT.Pos, Pos);
+DEFINE_FIELD_NAMED(DVisualThinker, PT.Vel, Vel);
+DEFINE_FIELD_NAMED(DVisualThinker, PT.Roll, Roll);
+DEFINE_FIELD_NAMED(DVisualThinker, PT.alpha, Alpha);
+DEFINE_FIELD_NAMED(DVisualThinker, PT.texture, Texture);
+DEFINE_FIELD_NAMED(DVisualThinker, PT.flags, Flags);
+
 DEFINE_FIELD(DVisualThinker, Prev);
 DEFINE_FIELD(DVisualThinker, Scale);
 DEFINE_FIELD(DVisualThinker, Offset);
-DEFINE_FIELD(DVisualThinker, Roll);
 DEFINE_FIELD(DVisualThinker, PrevRoll);
-DEFINE_FIELD(DVisualThinker, Alpha);
-DEFINE_FIELD(DVisualThinker, Texture);
 DEFINE_FIELD(DVisualThinker, Translation);
-DEFINE_FIELD(DVisualThinker, Flags);
 DEFINE_FIELD(DVisualThinker, LightLevel);
-DEFINE_FIELD(DVisualThinker, scolor);
 DEFINE_FIELD(DVisualThinker, cursector);
 DEFINE_FIELD(DVisualThinker, bXFlip);
 DEFINE_FIELD(DVisualThinker, bYFlip);

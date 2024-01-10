@@ -116,7 +116,7 @@ void DumpTypeTable()
 		}
 		Printf("\n");
 	}
-	Printf("Used buckets: %d/%lu (%.2f%%) for %d entries\n", used, countof(TypeTable.TypeHash), double(used)/countof(TypeTable.TypeHash)*100, all);
+	Printf("Used buckets: %d/%zu (%.2f%%) for %d entries\n", used, countof(TypeTable.TypeHash), double(used)/countof(TypeTable.TypeHash)*100, all);
 	Printf("Min bucket size: %d\n", min);
 	Printf("Max bucket size: %d\n", max);
 	Printf("Avg bucket size: %.2f\n", double(all) / used);
@@ -2568,7 +2568,7 @@ static void PMapValueWriter(FSerializer &ar, const M *map, const PMap *m)
 					{ // invalid
 						m->ValueType->WriteValue(ar,"invalid",static_cast<const void *>(&p->Value));
 					}
-					else if(p->Key == 0 || p->Key >= TexMan.NumTextures())
+					else if(p->Key == 0 || p->Key >= (unsigned)TexMan.NumTextures())
 					{ // null
 						m->ValueType->WriteValue(ar,"null",static_cast<const void *>(&p->Value));
 					}
@@ -2693,7 +2693,7 @@ static bool PMapValueReader(FSerializer &ar, M *map, const PMap *m)
 						ar.EndObject();
 						return false;
 					}
-					int v = s.ToULong();
+					int v = (int)s.ToULong();
 
 					if (sysCallbacks.RemapTranslation) v = sysCallbacks.RemapTranslation(FTranslationID::fromInt(v)).index();
 

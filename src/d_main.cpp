@@ -428,14 +428,14 @@ CUSTOM_CVAR (Int, dmflags, 0, CVAR_SERVERINFO | CVAR_NOINITCALL)
 
 	if (self & DF_NO_FREELOOK)
 	{
-		Net_WriteByte (DEM_CENTERVIEW);
+		Net_WriteInt8 (DEM_CENTERVIEW);
 	}
 	// If nofov is set, force everybody to the arbitrator's FOV.
 	if ((self & DF_NO_FOV) && consoleplayer == Net_Arbitrator)
 	{
 		float fov;
 
-		Net_WriteByte (DEM_FOV);
+		Net_WriteInt8 (DEM_FOV);
 
 		// If the game is started with DF_NO_FOV set, the arbitrator's
 		// DesiredFOV will not be set when this callback is run, so
@@ -1937,6 +1937,7 @@ void GetReserved(LumpFilterInfo& lfi)
 	lfi.reservedFolders = { "flats/", "textures/", "hires/", "sprites/", "voxels/", "colormaps/", "acs/", "maps/", "voices/", "patches/", "graphics/", "sounds/", "music/",
 	"materials/", "models/", "fonts/", "brightmaps/" };
 	lfi.requiredPrefixes = { "mapinfo", "zmapinfo", "umapinfo", "gameinfo", "sndinfo", "sndseq", "sbarinfo", "menudef", "gldefs", "animdefs", "decorate", "zscript", "iwadinfo", "complvl", "terrain", "maps/" };
+	lfi.blockednames = { "*.bat", "*.exe", "__macosx/*", "*/__macosx/*" };
 }
 
 static FString CheckGameInfo(std::vector<std::string> & pwads)
@@ -1955,7 +1956,7 @@ static FString CheckGameInfo(std::vector<std::string> & pwads)
 			// Found one!
 			auto data = check.ReadFile(num);
 			auto wadname = check.GetResourceFileName(check.GetFileContainer(num));
-			return ParseGameInfo(pwads, wadname, data.GetString(), (int)data.GetSize());
+			return ParseGameInfo(pwads, wadname, data.string(), (int)data.size());
 		}
 	}
 	return "";
@@ -2642,7 +2643,7 @@ void Mlook_ReleaseHandler()
 {
 	if (lookspring)
 	{
-		Net_WriteByte(DEM_CENTERVIEW);
+		Net_WriteInt8(DEM_CENTERVIEW);
 	}
 }
 
@@ -2654,7 +2655,7 @@ int StrTable_GetGender()
 bool StrTable_ValidFilter(const char* str)
 {
 	if (gameinfo.gametype == GAME_Strife && (gameinfo.flags & GI_SHAREWARE) && !stricmp(str, "strifeteaser")) return true;
-	return stricmp(str, GameNames[gameinfo.gametype]) == 0;
+	return gameinfo.gametype == 0 || stricmp(str, GameNames[gameinfo.gametype]) == 0;
 }
 
 bool System_WantGuiCapture()
@@ -3109,6 +3110,12 @@ static int FileSystemPrintf(FSMessageLevel level, const char* fmt, ...)
 
 static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allwads, std::vector<std::string>& pwads)
 {
+	if (!restart)
+	{
+		V_InitScreenSize();
+		// This allocates a dummy framebuffer as a stand-in until V_Init2 is called.
+		V_InitScreen();
+	}
 	SavegameFolder = iwad_info->Autoname;
 	gameinfo.gametype = iwad_info->gametype;
 	gameinfo.flags = iwad_info->flags;
@@ -3160,7 +3167,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 	if (!batchrun) Printf ("W_Init: Init WADfiles.\n");
 
 	LumpFilterInfo lfi;
-	lfi.dotFilter = LumpFilterIWAD.GetChars();
 
 	static const struct { int match; const char* name; } blanket[] =
 	{
@@ -3175,6 +3181,15 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		if (gameinfo.gametype & inf.match) lfi.gameTypeFilter.push_back(inf.name);
 	}
 	lfi.gameTypeFilter.push_back(FStringf("game-%s", GameTypeName()).GetChars());
+
+	lfi.gameTypeFilter.push_back(LumpFilterIWAD.GetChars());
+	// Workaround for old Doom filter names.
+	if (LumpFilterIWAD.Compare("doom.id.doom") == 0)
+	{
+		lfi.gameTypeFilter.push_back("doom.doom");
+	}
+
+
 
 	GetReserved(lfi);
 
@@ -3200,6 +3215,12 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 	allwads.clear();
 	allwads.shrink_to_fit();
 	SetMapxxFlag();
+
+	if (!restart)
+	{
+		// Note: this has to happen after the file system has been initialized (backends may load shaders during initialization)
+		V_Init2();
+	}
 
 	D_GrabCVarDefaults(); //parse DEFCVARS
 	InitPalette();
@@ -3236,8 +3257,8 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		exec = NULL;
 	}
 
-	// [RH] Initialize localizable strings.
-	GStrings.LoadStrings (language);
+	// [RH] Initialize localizable strings. 
+	GStrings.LoadStrings(fileSystem, language);
 
 	V_InitFontColors ();
 
@@ -3260,16 +3281,8 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 	if (!batchrun) Printf ("V_Init: allocate screen.\n");
 	if (!restart)
 	{
-		V_InitScreenSize();
-		// This allocates a dummy framebuffer as a stand-in until V_Init2 is called.
-		V_InitScreen ();
-
-		if (StartScreen != nullptr)
-		{
-			V_Init2();
-			StartScreen->Render();
-		}
-
+		screen->CompileNextShader();
+		if (StartScreen != nullptr) StartScreen->Render();
 	}
 	else
 	{
@@ -3505,7 +3518,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 			return 1337; // special exit
 		}
 
-		if (StartScreen == nullptr) V_Init2();
 		if (StartScreen)
 		{
 			StartScreen->Progress(max_progress);	// advance progress bar to the end.
@@ -3525,7 +3537,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		twod->Begin(screen->GetWidth(), screen->GetHeight());
 		twod->End();
 		UpdateJoystickMenu(NULL);
-		UpdateVRModes();
 		Local_Job_Init();
 
 		v = Args->CheckValue ("-loadgame");
@@ -4018,35 +4029,13 @@ CCMD(fs_dir)
 	}
 }
 
-#ifdef _WIN32
-// For broadest GL compatibility, require user to explicitly enable quad-buffered stereo mode.
-// Setting vr_enable_quadbuffered_stereo does not automatically invoke quad-buffered stereo,
-// but makes it possible for subsequent "vr_mode 7" to invoke quad-buffered stereo
-CUSTOM_CVAR(Bool, vr_enable_quadbuffered, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
+CCMD(type)
 {
-	Printf("You must restart " GAMENAME " to switch quad stereo mode\n");
-}
-#endif
-
-void UpdateVRModes(bool considerQuadBuffered)
-{
-	FOptionValues** pVRModes = OptionValues.CheckKey("VRMode");
-	if (pVRModes == nullptr) return;
-
-	TArray<FOptionValues::Pair>& vals = (*pVRModes)->mValues;
-	TArray<FOptionValues::Pair> filteredValues;
-	int cnt = vals.Size();
-	for (int i = 0; i < cnt; ++i) {
-		auto const& mode = vals[i];
-		if (mode.Value == 7) {  // Quad-buffered stereo
-#ifdef _WIN32
-			if (!vr_enable_quadbuffered) continue;
-#else
-			continue;  // Remove quad-buffered option on Mac and Linux
-#endif
-			if (!considerQuadBuffered) continue;  // Probably no compatible screen mode was found
-		}
-		filteredValues.Push(mode);
+	if (argv.argc() < 2) return;
+	int lump = fileSystem.CheckNumForFullName(argv[1]);
+	if (lump >= 0)
+	{
+		auto data = fileSystem.ReadFile(lump);
+		Printf("%.*s\n", data.size(), data.string());
 	}
-	vals = filteredValues;
 }

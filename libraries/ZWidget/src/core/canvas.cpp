@@ -41,9 +41,10 @@ public:
 class CanvasFont
 {
 public:
-	CanvasFont(const std::string& fontname, double height) : fontname(fontname), height(height)
+	CanvasFont(const std::string& fontname, double height, std::vector<uint8_t> data) : fontname(fontname), height(height)
 	{
-		ttf = std::make_unique<TrueTypeFont>(std::make_shared<TrueTypeFontFileData>(LoadWidgetFontData(fontname)));
+		auto tdata = std::make_shared<TrueTypeFontFileData>(std::move(data));
+		ttf = std::make_unique<TrueTypeFont>(tdata);
 		textmetrics = ttf->GetTextMetrics(height);
 	}
 
@@ -54,6 +55,7 @@ public:
 	CanvasGlyph* getGlyph(uint32_t utfchar)
 	{
 		uint32_t glyphIndex = ttf->GetGlyphIndex(utfchar);
+		if (glyphIndex == 0) return nullptr;
 
 		auto& glyph = glyphs[glyphIndex];
 		if (glyph)
@@ -120,6 +122,52 @@ public:
 	std::unordered_map<uint32_t, std::unique_ptr<CanvasGlyph>> glyphs;
 };
 
+class CanvasFontGroup
+{
+public:
+	struct SingleFont
+	{
+		std::unique_ptr<CanvasFont> font;
+		std::string language;
+	};
+	CanvasFontGroup(const std::string& fontname, double height) : height(height)
+	{
+		auto fontdata = LoadWidgetFontData(fontname);
+		fonts.resize(fontdata.size());
+		for (size_t i = 0; i < fonts.size(); i++)
+		{
+			fonts[i].font = std::make_unique<CanvasFont>(fontname, height, fontdata[i].fontdata);
+			fonts[i].language = fontdata[i].language;
+		}
+	}
+
+	CanvasGlyph* getGlyph(uint32_t utfchar, const char* lang = nullptr)
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			for (auto& fd : fonts)
+			{
+				if (i == 1 || lang == nullptr || *lang == 0 || fd.language.empty() || fd.language == lang)
+				{
+					auto g = fd.font->getGlyph(utfchar);
+					if (g) return g;
+				}
+			}
+		}
+
+		return nullptr;
+	}
+
+	TrueTypeTextMetrics& GetTextMetrics()
+	{
+		return fonts[0].font->textmetrics;
+	}
+
+	double height;
+	std::vector<SingleFont> fonts;
+
+};
+
 class BitmapCanvas : public Canvas
 {
 public:
@@ -172,6 +220,8 @@ public:
 	int getClipMaxX() const;
 	int getClipMaxY() const;
 
+	void setLanguage(const char* lang) { language = lang; }
+
 	std::unique_ptr<CanvasTexture> createTexture(int width, int height, const void* pixels, ImageFormat format = ImageFormat::B8G8R8A8);
 
 	template<typename T>
@@ -179,7 +229,7 @@ public:
 
 	DisplayWindow* window = nullptr;
 
-	std::unique_ptr<CanvasFont> font;
+	std::unique_ptr<CanvasFontGroup> font;
 	std::unique_ptr<CanvasTexture> whiteTexture;
 
 	Point origin;
@@ -191,6 +241,7 @@ public:
 	std::vector<uint32_t> pixels;
 
 	std::unordered_map<std::shared_ptr<Image>, std::unique_ptr<CanvasTexture>> imageTextures;
+	std::string language;
 };
 
 BitmapCanvas::BitmapCanvas(DisplayWindow* window) : window(window)
@@ -198,7 +249,7 @@ BitmapCanvas::BitmapCanvas(DisplayWindow* window) : window(window)
 	uiscale = window->GetDpiScale();
 	uint32_t white = 0xffffffff;
 	whiteTexture = createTexture(1, 1, &white);
-	font = std::make_unique<CanvasFont>("Segoe UI", 13.0*uiscale);
+	font = std::make_unique<CanvasFontGroup>("NotoSans", 13.0 * uiscale);
 }
 
 BitmapCanvas::~BitmapCanvas()
@@ -358,8 +409,8 @@ void BitmapCanvas::drawText(const Point& pos, const Colorf& color, const std::st
 	UTF8Reader reader(text.data(), text.size());
 	while (!reader.is_end())
 	{
-		CanvasGlyph* glyph = font->getGlyph(reader.character());
-		if (!glyph->texture)
+		CanvasGlyph* glyph = font->getGlyph(reader.character(), language.c_str());
+		if (!glyph || !glyph->texture)
 		{
 			glyph = font->getGlyph(32);
 		}
@@ -379,13 +430,13 @@ void BitmapCanvas::drawText(const Point& pos, const Colorf& color, const std::st
 Rect BitmapCanvas::measureText(const std::string& text)
 {
 	double x = 0.0;
-	double y = font->textmetrics.ascender - font->textmetrics.descender;
+	double y = font->GetTextMetrics().ascender - font->GetTextMetrics().descender;
 
 	UTF8Reader reader(text.data(), text.size());
 	while (!reader.is_end())
 	{
-		CanvasGlyph* glyph = font->getGlyph(reader.character());
-		if (!glyph->texture)
+		CanvasGlyph* glyph = font->getGlyph(reader.character(), language.c_str());
+		if (!glyph || !glyph->texture)
 		{
 			glyph = font->getGlyph(32);
 		}
@@ -401,8 +452,9 @@ VerticalTextPosition BitmapCanvas::verticalTextAlign()
 {
 	VerticalTextPosition align;
 	align.top = 0.0f;
-	align.baseline = font->textmetrics.ascender / uiscale;
-	align.bottom = (font->textmetrics.ascender - font->textmetrics.descender) / uiscale;
+	auto tm = font->GetTextMetrics();
+	align.baseline = tm.ascender / uiscale;
+	align.bottom = (tm.ascender - tm.descender) / uiscale;
 	return align;
 }
 

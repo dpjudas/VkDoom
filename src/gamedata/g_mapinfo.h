@@ -351,6 +351,7 @@ struct level_info_t
 
 	uint32_t	vkdflags;
 
+	FString		LightningSound = "world/thunder";
 	FString		Music;
 	FString		LevelName;
 	FString		AuthorName;
