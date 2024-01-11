@@ -4,6 +4,7 @@
 #include "../../core/widget.h"
 #include <functional>
 #include <string>
+#include <vector>
 
 class TabBar;
 class TabBarTab;
