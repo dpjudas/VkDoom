@@ -8,7 +8,7 @@
 #include "hw_levelmeshlight.h"
 #include "hw_levelmeshportal.h"
 #include "hw_lightmaptile.h"
-#include "hw_levemeshsurface.h"
+#include "hw_levelmeshsurface.h"
 #include "hw_materialstate.h"
 #include "hw_surfaceuniforms.h"
 #include <memory>
