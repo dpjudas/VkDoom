@@ -154,7 +154,12 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 {
-	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->Update(doomMap, static_cast<DoomLevelSubmesh*>(StaticMesh.get())->LMTextureCount);
+	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->Update(doomMap);
+	if (doomMap.lightmaps)
+	{
+		DynamicMesh->SetupTileTransforms();
+		DynamicMesh->PackLightmapAtlas(StaticMesh->LMTextureCount);
+	}
 }
 
 bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float dist)

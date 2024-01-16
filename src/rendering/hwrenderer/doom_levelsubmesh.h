@@ -7,11 +7,8 @@
 #include "vectors.h"
 #include "r_defs.h"
 #include "bounds.h"
-#include <dp_rect_pack.h>
 #include <set>
 #include <map>
-
-typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct FLevelLocals;
 struct FPolyObj;
@@ -36,7 +33,7 @@ class DoomLevelSubmesh : public LevelSubmesh
 public:
 	DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, bool staticMesh);
 
-	void Update(FLevelLocals& doomMap, int lightmapStartIndex);
+	void Update(FLevelLocals& doomMap);
 
 	LevelMeshSurface* GetSurface(int index) override { return &Surfaces[index]; }
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
@@ -61,19 +58,9 @@ private:
 	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWFlat>& list, bool isSky = false);
 
 	void LinkSurfaces(FLevelLocals& doomMap);
-	void PackLightmapAtlas(FLevelLocals& doomMap, int lightmapStartIndex);
 
-	enum PlaneAxis
-	{
-		AXIS_YZ = 0,
-		AXIS_XZ,
-		AXIS_XY
-	};
-
-	static PlaneAxis BestAxis(const FVector4& p);
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
-	void SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LightmapTile& tile);
 	int AddSurfaceToTile(const DoomLevelMeshSurface& surf, std::map<LightmapTileBinding, int>& bindings);
 	int GetSampleDimension(const DoomLevelMeshSurface& surf);
 

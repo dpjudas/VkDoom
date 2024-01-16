@@ -13,6 +13,9 @@
 #include "hw_surfaceuniforms.h"
 #include <memory>
 
+#include <dp_rect_pack.h>
+typedef dp::rect_pack::RectPacker<int> RectPacker;
+
 struct LevelMeshTileStats;
 
 struct LevelSubmeshDrawRange
@@ -61,9 +64,8 @@ public:
 	void UpdateCollision();
 	void GatherTilePixelStats(LevelMeshTileStats& stats);
 	void BuildTileSurfaceLists();
-
-private:
-	FVector2 ToUV(const FVector3& vert, const LightmapTile* tile);
+	void SetupTileTransforms();
+	void PackLightmapAtlas(int lightmapStartIndex);
 };
 
 class LevelMesh

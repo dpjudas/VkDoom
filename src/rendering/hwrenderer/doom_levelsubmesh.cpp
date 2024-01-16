@@ -7,7 +7,6 @@
 #include "c_dispatch.h"
 #include "g_levellocals.h"
 #include "a_dynlight.h"
-#include "halffloat.h"
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
@@ -32,12 +31,10 @@ DoomLevelSubmesh::DoomLevelSubmesh(DoomLevelMesh* mesh, FLevelLocals& doomMap, b
 		SortIndexes();
 		BuildTileSurfaceLists();
 		UpdateCollision();
-		if (doomMap.lightmaps)
-			PackLightmapAtlas(doomMap, 0);
 	}
 }
 
-void DoomLevelSubmesh::Update(FLevelLocals& doomMap, int lightmapStartIndex)
+void DoomLevelSubmesh::Update(FLevelLocals& doomMap)
 {
 	if (!StaticMesh)
 	{
@@ -49,9 +46,6 @@ void DoomLevelSubmesh::Update(FLevelLocals& doomMap, int lightmapStartIndex)
 		SortIndexes();
 		BuildTileSurfaceLists();
 		UpdateCollision();
-
-		if (doomMap.lightmaps)
-			PackLightmapAtlas(doomMap, lightmapStartIndex);
 	}
 }
 
@@ -169,11 +163,6 @@ void DoomLevelSubmesh::CreateStaticSurfaces(FLevelLocals& doomMap)
 			state.SetDepthMask(true);
 			state.SetRenderStyle(STYLE_Normal);
 		}
-	}
-
-	for (auto& tile : LightmapTiles)
-	{
-		SetupTileTransform(LMTextureSize, LMTextureSize, tile);
 	}
 }
 
@@ -620,98 +609,6 @@ void DoomLevelSubmesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 	}
 }
 
-void DoomLevelSubmesh::PackLightmapAtlas(FLevelLocals& doomMap, int lightmapStartIndex)
-{
-	std::vector<LightmapTile*> sortedTiles;
-	sortedTiles.reserve(LightmapTiles.Size());
-
-	for (auto& tile : LightmapTiles)
-	{
-		sortedTiles.push_back(&tile);
-	}
-
-	std::sort(sortedTiles.begin(), sortedTiles.end(), [](LightmapTile* a, LightmapTile* b) { return a->AtlasLocation.Height != b->AtlasLocation.Height ? a->AtlasLocation.Height > b->AtlasLocation.Height : a->AtlasLocation.Width > b->AtlasLocation.Width; });
-
-	RectPacker packer(LMTextureSize, LMTextureSize, RectPacker::Spacing(0));
-
-	for (LightmapTile* tile : sortedTiles)
-	{
-		int sampleWidth = tile->AtlasLocation.Width;
-		int sampleHeight = tile->AtlasLocation.Height;
-
-		auto result = packer.insert(sampleWidth, sampleHeight);
-		int x = result.pos.x, y = result.pos.y;
-
-		tile->AtlasLocation.X = x;
-		tile->AtlasLocation.Y = y;
-		tile->AtlasLocation.ArrayIndex = lightmapStartIndex + (int)result.pageIndex;
-	}
-
-	LMTextureCount = (int)packer.getNumPages();
-
-	// Calculate final texture coordinates
-	for (auto& surface : Surfaces)
-	{
-		if (surface.LightmapTileIndex >= 0)
-		{
-			const LightmapTile& tile = LightmapTiles[surface.LightmapTileIndex];
-			for (int i = 0; i < surface.MeshLocation.NumVerts; i++)
-			{
-				auto& vertex = Mesh.Vertices[surface.MeshLocation.StartVertIndex + i];
-				FVector2 uv = tile.ToUV(vertex.fPos(), (float)LMTextureSize);
-				vertex.lu = uv.X;
-				vertex.lv = uv.Y;
-				vertex.lindex = (float)tile.AtlasLocation.ArrayIndex;
-			}
-		}
-	}
-
-#if 0 // Debug atlas tile locations:
-	float colors[30] =
-	{
-		1.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f,
-		1.0f, 1.0f, 0.0f,
-		0.0f, 1.0f, 1.0f,
-		1.0f, 0.0f, 1.0f,
-		0.5f, 0.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,
-		0.5f, 0.5f, 0.0f,
-		0.0f, 0.5f, 0.5f,
-		0.5f, 0.0f, 0.5f
-	};
-	LMTextureData.Resize(LMTextureSize * LMTextureSize * LMTextureCount * 3);
-	uint16_t* pixels = LMTextureData.Data();
-	for (LightmapTile& tile : LightmapTiles)
-	{
-		tile.NeedsUpdate = false;
-
-		int index = tile.Binding.TypeIndex;
-		float* color = colors + (index % 10) * 3;
-
-		int x = tile.AtlasLocation.X;
-		int y = tile.AtlasLocation.Y;
-		int w = tile.AtlasLocation.Width;
-		int h = tile.AtlasLocation.Height;
-		for (int yy = y; yy < y + h; yy++)
-		{
-			uint16_t* line = pixels + tile.AtlasLocation.ArrayIndex * LMTextureSize * LMTextureSize + yy * LMTextureSize * 3;
-			for (int xx = x; xx < x + w; xx++)
-			{
-				float gray = (yy - y) / (float)h;
-				line[xx * 3] = floatToHalf(color[0] * gray);
-				line[xx * 3 + 1] = floatToHalf(color[1] * gray);
-				line[xx * 3 + 2] = floatToHalf(color[2] * gray);
-			}
-		}
-	}
-	for (DoomLevelMeshSurface& surf : Surfaces)
-	{
-		surf.AlwaysUpdate = false;
-	}
-#endif
-}
-
 BBox DoomLevelSubmesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const
 {
 	BBox bounds;
@@ -727,89 +624,4 @@ BBox DoomLevelSubmesh::GetBoundsFromSurface(const LevelMeshSurface& surface) con
 		bounds.max.Z = std::max(bounds.max.Z, v.Z);
 	}
 	return bounds;
-}
-
-DoomLevelSubmesh::PlaneAxis DoomLevelSubmesh::BestAxis(const FVector4& p)
-{
-	float na = fabs(float(p.X));
-	float nb = fabs(float(p.Y));
-	float nc = fabs(float(p.Z));
-
-	// figure out what axis the plane lies on
-	if (na >= nb && na >= nc)
-	{
-		return AXIS_YZ;
-	}
-	else if (nb >= na && nb >= nc)
-	{
-		return AXIS_XZ;
-	}
-
-	return AXIS_XY;
-}
-
-void DoomLevelSubmesh::SetupTileTransform(int lightMapTextureWidth, int lightMapTextureHeight, LightmapTile& tile)
-{
-	BBox bounds = tile.Bounds;
-
-	// round off dimensions
-	FVector3 roundedSize;
-	for (int i = 0; i < 3; i++)
-	{
-		bounds.min[i] = tile.SampleDimension * (floor(bounds.min[i] / tile.SampleDimension) - 1);
-		bounds.max[i] = tile.SampleDimension * (ceil(bounds.max[i] / tile.SampleDimension) + 1);
-		roundedSize[i] = (bounds.max[i] - bounds.min[i]) / tile.SampleDimension;
-	}
-
-	FVector3 tCoords[2] = { FVector3(0.0f, 0.0f, 0.0f), FVector3(0.0f, 0.0f, 0.0f) };
-
-	PlaneAxis axis = BestAxis(tile.Plane);
-
-	int width;
-	int height;
-	switch (axis)
-	{
-	default:
-	case AXIS_YZ:
-		width = (int)roundedSize.Y;
-		height = (int)roundedSize.Z;
-		tCoords[0].Y = 1.0f / tile.SampleDimension;
-		tCoords[1].Z = 1.0f / tile.SampleDimension;
-		break;
-
-	case AXIS_XZ:
-		width = (int)roundedSize.X;
-		height = (int)roundedSize.Z;
-		tCoords[0].X = 1.0f / tile.SampleDimension;
-		tCoords[1].Z = 1.0f / tile.SampleDimension;
-		break;
-
-	case AXIS_XY:
-		width = (int)roundedSize.X;
-		height = (int)roundedSize.Y;
-		tCoords[0].X = 1.0f / tile.SampleDimension;
-		tCoords[1].Y = 1.0f / tile.SampleDimension;
-		break;
-	}
-
-	// clamp width
-	if (width > lightMapTextureWidth - 2)
-	{
-		tCoords[0] *= ((float)(lightMapTextureWidth - 2) / (float)width);
-		width = (lightMapTextureWidth - 2);
-	}
-
-	// clamp height
-	if (height > lightMapTextureHeight - 2)
-	{
-		tCoords[1] *= ((float)(lightMapTextureHeight - 2) / (float)height);
-		height = (lightMapTextureHeight - 2);
-	}
-
-	tile.Transform.TranslateWorldToLocal = bounds.min;
-	tile.Transform.ProjLocalToU = tCoords[0];
-	tile.Transform.ProjLocalToV = tCoords[1];
-
-	tile.AtlasLocation.Width = width;
-	tile.AtlasLocation.Height = height;
 }

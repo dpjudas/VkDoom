@@ -69,4 +69,96 @@ struct LightmapTile
 		float v = (AtlasLocation.Y + (localPos | Transform.ProjLocalToV)) / textureSize;
 		return FVector2(u, v);
 	}
+
+	enum PlaneAxis
+	{
+		AXIS_YZ = 0,
+		AXIS_XZ,
+		AXIS_XY
+	};
+
+	static PlaneAxis BestAxis(const FVector4& p)
+	{
+		float na = fabs(float(p.X));
+		float nb = fabs(float(p.Y));
+		float nc = fabs(float(p.Z));
+
+		// figure out what axis the plane lies on
+		if (na >= nb && na >= nc)
+		{
+			return AXIS_YZ;
+		}
+		else if (nb >= na && nb >= nc)
+		{
+			return AXIS_XZ;
+		}
+
+		return AXIS_XY;
+	}
+
+	void SetupTileTransform(int textureSize)
+	{
+		BBox bounds = Bounds;
+
+		// round off dimensions
+		FVector3 roundedSize;
+		for (int i = 0; i < 3; i++)
+		{
+			bounds.min[i] = SampleDimension * (floor(bounds.min[i] / SampleDimension) - 1);
+			bounds.max[i] = SampleDimension * (ceil(bounds.max[i] / SampleDimension) + 1);
+			roundedSize[i] = (bounds.max[i] - bounds.min[i]) / SampleDimension;
+		}
+
+		FVector3 tCoords[2] = { FVector3(0.0f, 0.0f, 0.0f), FVector3(0.0f, 0.0f, 0.0f) };
+
+		PlaneAxis axis = BestAxis(Plane);
+
+		int width;
+		int height;
+		switch (axis)
+		{
+		default:
+		case AXIS_YZ:
+			width = (int)roundedSize.Y;
+			height = (int)roundedSize.Z;
+			tCoords[0].Y = 1.0f / SampleDimension;
+			tCoords[1].Z = 1.0f / SampleDimension;
+			break;
+
+		case AXIS_XZ:
+			width = (int)roundedSize.X;
+			height = (int)roundedSize.Z;
+			tCoords[0].X = 1.0f / SampleDimension;
+			tCoords[1].Z = 1.0f / SampleDimension;
+			break;
+
+		case AXIS_XY:
+			width = (int)roundedSize.X;
+			height = (int)roundedSize.Y;
+			tCoords[0].X = 1.0f / SampleDimension;
+			tCoords[1].Y = 1.0f / SampleDimension;
+			break;
+		}
+
+		// clamp width
+		if (width > textureSize - 2)
+		{
+			tCoords[0] *= ((float)(textureSize - 2) / (float)width);
+			width = (textureSize - 2);
+		}
+
+		// clamp height
+		if (height > textureSize - 2)
+		{
+			tCoords[1] *= ((float)(textureSize - 2) / (float)height);
+			height = (textureSize - 2);
+		}
+
+		Transform.TranslateWorldToLocal = bounds.min;
+		Transform.ProjLocalToU = tCoords[0];
+		Transform.ProjLocalToV = tCoords[1];
+
+		AtlasLocation.Width = width;
+		AtlasLocation.Height = height;
+	}
 };
