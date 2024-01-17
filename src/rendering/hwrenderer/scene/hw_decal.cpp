@@ -349,6 +349,28 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 	float tlolft = ztop[0] != zbottom[0] ? (dv[LL].z - zbottom[0]) / (ztop[0] - zbottom[0]) : 0.0f;
 	float tlorgt = ztop[1] != zbottom[1] ? (dv[LR].z - zbottom[1]) / (ztop[1] - zbottom[1]) : 0.0f;
 
+	if (surface && surface->LightmapTileIndex >= 0)
+	{
+		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
+		FVector2 lolft = tile->ToUV(FVector3(glseg.x1, glseg.y1, zbottom[0]), surface->Submesh->LMTextureSize);
+		FVector2 uplft = tile->ToUV(FVector3(glseg.x1, glseg.y1, ztop[0]), surface->Submesh->LMTextureSize);
+		FVector2 uprgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, ztop[1]), surface->Submesh->LMTextureSize);
+		FVector2 lorgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, zbottom[1]), surface->Submesh->LMTextureSize);
+		lightuv[LOLFT] = { lolft.X, lolft.Y };
+		lightuv[UPLFT] = { uplft.X, uplft.Y };
+		lightuv[UPRGT] = { uprgt.X, uprgt.Y };
+		lightuv[LORGT] = { lorgt.X, lorgt.Y };
+		lindex = (float)tile->AtlasLocation.ArrayIndex;
+	}
+	else
+	{
+		lightuv[LOLFT] = { 0.0f, 0.0f };
+		lightuv[UPLFT] = { 0.0f, 0.0f };
+		lightuv[UPRGT] = { 0.0f, 0.0f };
+		lightuv[LORGT] = { 0.0f, 0.0f };
+		lindex = -1.0f;
+	}
+
 	dv[LL].lu = mix(lightuv[LOLFT].u, lightuv[LORGT].u, tleft);
 	dv[LR].lu = mix(lightuv[LOLFT].u, lightuv[LORGT].u, tright);
 	dv[UL].lu = mix(lightuv[UPLFT].u, lightuv[UPRGT].u, tleft);
