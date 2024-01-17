@@ -429,7 +429,7 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 
 		for (i = 0; i < 4; i++)
 		{
-			FVector2 lightmapuv = tile->ToUV(FVector3(dv[LL].x, dv[LL].y, dv[LL].z), surface->Submesh->LMTextureSize);
+			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), surface->Submesh->LMTextureSize);
 			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, lightmapuv.X, lightmapuv.Y, lightmapindex);
 		}
 	}
