@@ -64,9 +64,12 @@ struct LightmapTile
 
 	FVector2 ToUV(const FVector3& vert, float textureSize) const
 	{
+		// Clamp in case the wall moved outside the tile (happens if a lift moves with a static lightmap on it)
 		FVector3 localPos = vert - Transform.TranslateWorldToLocal;
-		float u = (AtlasLocation.X + (localPos | Transform.ProjLocalToU)) / textureSize;
-		float v = (AtlasLocation.Y + (localPos | Transform.ProjLocalToV)) / textureSize;
+		float u = std::max(std::min(localPos | Transform.ProjLocalToU, (float)AtlasLocation.Width), 0.0f);
+		float v = std::max(std::min(localPos | Transform.ProjLocalToV, (float)AtlasLocation.Height), 0.0f);
+		u = (AtlasLocation.X + u) / textureSize;
+		v = (AtlasLocation.Y + v) / textureSize;
 		return FVector2(u, v);
 	}
 
