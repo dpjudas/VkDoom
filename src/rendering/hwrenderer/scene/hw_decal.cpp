@@ -335,51 +335,6 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 	dv[LR].u = dv[UR].u = righttex / decalscale;
 	dv[LL].v = dv[LR].v = 1.f;
 
-	// lightmap texture index
-	for (i = 0; i < 4; i++)
-	{
-		dv[i].lindex = lindex;
-	}
-
-	// lightmap texture coordinates
-	float tleft = left / linelength;
-	float tright = right / linelength;
-	float tuplft = ztop[0] != zbottom[0] ? (dv[UL].z - zbottom[0]) / (ztop[0] - zbottom[0]) : 0.0f;
-	float tuprgt = ztop[1] != zbottom[1] ? (dv[UR].z - zbottom[1]) / (ztop[1] - zbottom[1]) : 0.0f;
-	float tlolft = ztop[0] != zbottom[0] ? (dv[LL].z - zbottom[0]) / (ztop[0] - zbottom[0]) : 0.0f;
-	float tlorgt = ztop[1] != zbottom[1] ? (dv[LR].z - zbottom[1]) / (ztop[1] - zbottom[1]) : 0.0f;
-
-	if (surface && surface->LightmapTileIndex >= 0)
-	{
-		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
-		FVector2 lolft = tile->ToUV(FVector3(glseg.x1, glseg.y1, zbottom[0]), surface->Submesh->LMTextureSize);
-		FVector2 uplft = tile->ToUV(FVector3(glseg.x1, glseg.y1, ztop[0]), surface->Submesh->LMTextureSize);
-		FVector2 uprgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, ztop[1]), surface->Submesh->LMTextureSize);
-		FVector2 lorgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, zbottom[1]), surface->Submesh->LMTextureSize);
-		lightuv[LOLFT] = { lolft.X, lolft.Y };
-		lightuv[UPLFT] = { uplft.X, uplft.Y };
-		lightuv[UPRGT] = { uprgt.X, uprgt.Y };
-		lightuv[LORGT] = { lorgt.X, lorgt.Y };
-		lindex = (float)tile->AtlasLocation.ArrayIndex;
-	}
-	else
-	{
-		lightuv[LOLFT] = { 0.0f, 0.0f };
-		lightuv[UPLFT] = { 0.0f, 0.0f };
-		lightuv[UPRGT] = { 0.0f, 0.0f };
-		lightuv[LORGT] = { 0.0f, 0.0f };
-		lindex = -1.0f;
-	}
-
-	dv[LL].lu = mix(lightuv[LOLFT].u, lightuv[LORGT].u, tleft);
-	dv[LR].lu = mix(lightuv[LOLFT].u, lightuv[LORGT].u, tright);
-	dv[UL].lu = mix(lightuv[UPLFT].u, lightuv[UPRGT].u, tleft);
-	dv[UR].lu = mix(lightuv[UPLFT].u, lightuv[UPRGT].u, tright);
-
-	dv[LL].lv = mix(lightuv[LOLFT].v, lightuv[UPLFT].v, tlolft);
-	dv[LR].lv = mix(lightuv[LORGT].v, lightuv[UPRGT].v, tlorgt);
-	dv[UL].lv = mix(lightuv[LOLFT].v, lightuv[UPLFT].v, tuplft);
-	dv[UR].lv = mix(lightuv[LORGT].v, lightuv[UPRGT].v, tuprgt);
 
 	// now clip to the top plane
 	float vzt = (ztop[UL] - ztop[LL]) / linelength;
@@ -398,8 +353,6 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 		float t1 = (dv[UR].z - topright) / (dv[UR].z - dv[LR].z);
 		dv[UL].v = t0 * dv[LL].v;
 		dv[UR].v = t1 * dv[LR].v;
-		dv[UL].lv = mix(dv[UL].lv, dv[LL].lv, t0);
-		dv[UR].lv = mix(dv[UR].lv, dv[LR].lv, t1);
 		dv[UL].z = topleft;
 		dv[UR].z = topright;
 	}
@@ -421,8 +374,6 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 		float t1 = (dv[UR].z - bottomright) / (dv[UR].z - dv[LR].z);
 		dv[LL].v = t0 * (dv[LL].v - dv[UL].v) + dv[UL].v;
 		dv[LR].v = t1 * (dv[LR].v - dv[UR].v) + dv[UR].v;
-		dv[LL].lv = mix(dv[UL].lv, dv[LL].lv, t0);
-		dv[LR].lv = mix(dv[UR].lv, dv[LR].lv, t1);
 		dv[LL].z = bottomleft;
 		dv[LR].z = bottomright;
 	}
@@ -470,10 +421,24 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 	
 	auto verts = state.AllocVertices(4);
 	gldecal->vertindex = verts.second;
-	
-	for (i = 0; i < 4; i++)
+
+	if (surface && surface->LightmapTileIndex >= 0)
 	{
-		verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, dv[i].lu, dv[i].lv, dv[i].lindex);
+		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
+		float lightmapindex = (float)tile->AtlasLocation.ArrayIndex;
+
+		for (i = 0; i < 4; i++)
+		{
+			FVector2 lightmapuv = tile->ToUV(FVector3(dv[LL].x, dv[LL].y, dv[LL].z), surface->Submesh->LMTextureSize);
+			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, lightmapuv.X, lightmapuv.Y, lightmapindex);
+		}
+	}
+	else
+	{
+		for (i = 0; i < 4; i++)
+		{
+			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, 0.0f, 0.0f, -1.0f);
+		}
 	}
 }
 

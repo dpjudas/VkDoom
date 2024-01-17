@@ -433,7 +433,6 @@ struct DecalVertex
 {
 	float x, y, z;
 	float u, v;
-	float lu, lv, lindex;
 };
 
 struct HWDecal
