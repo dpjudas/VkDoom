@@ -30,6 +30,8 @@
 #include "version.h"
 #include "cmdlib.h"
 
+extern bool vk_rayquery;
+
 VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 {
 }
@@ -172,7 +174,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump, const char *defines, const VkShaderKey& key)
 {
 	FString definesBlock;
-	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
+	if (vk_rayquery && fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
 	definesBlock << defines;
 	definesBlock << "\n#define MAX_SURFACE_UNIFORMS " << std::to_string(MAX_SURFACE_UNIFORMS).c_str() << "\n";
 	definesBlock << "#define MAX_LIGHT_DATA " << std::to_string(MAX_LIGHT_DATA).c_str() << "\n";
@@ -327,7 +329,7 @@ FString VkShaderManager::GetVersionBlock()
 	versionBlock << "#extension GL_GOOGLE_include_directive : enable\n";
 	versionBlock << "#extension GL_EXT_nonuniform_qualifier : enable\r\n";
 
-	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery)
+	if (vk_rayquery && fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery)
 	{
 		versionBlock << "#extension GL_EXT_ray_query : enable\n";
 	}

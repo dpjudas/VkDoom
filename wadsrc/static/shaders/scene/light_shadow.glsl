@@ -63,9 +63,9 @@ float intersect_triangle_ray(RayBBox ray, int a, out float barycentricB, out flo
 	int start_element = nodes[a].element_index;
 
 	vec3 p[3];
-	p[0] = vertices[elements[start_element]].xyz;
-	p[1] = vertices[elements[start_element + 1]].xyz;
-	p[2] = vertices[elements[start_element + 2]].xyz;
+	p[0] = vertices[elements[start_element]].pos.xyz;
+	p[1] = vertices[elements[start_element + 1]].pos.xyz;
+	p[2] = vertices[elements[start_element + 2]].pos.xyz;
 
 	// Moeller-Trumbore ray-triangle intersection algorithm:
 

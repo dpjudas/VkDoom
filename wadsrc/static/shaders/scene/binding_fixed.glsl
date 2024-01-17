@@ -25,7 +25,14 @@ layout(std430, set = 0, binding = 2) buffer NodeBuffer
 	int nodebufferPadding3;
 	CollisionNode nodes[];
 };
-layout(std430, set = 0, binding = 3) buffer VertexBuffer { vec4 vertices[]; };
+struct SurfaceVertex // Note: this must always match the FFlatVertex struct
+{
+	vec3 pos;
+	float lindex;
+	vec2 uv;
+	vec2 luv;
+};
+layout(std430, set = 0, binding = 3) buffer VertexBuffer { SurfaceVertex vertices[]; };
 layout(std430, set = 0, binding = 4) buffer ElementBuffer { int elements[]; };
 #endif
 #endif
