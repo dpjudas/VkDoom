@@ -96,6 +96,7 @@ enum
 CVAR (Bool, genblockmap, false, CVAR_SERVERINFO|CVAR_GLOBALCONFIG);
 CVAR (Bool, gennodes, false, CVAR_SERVERINFO|CVAR_GLOBALCONFIG);
 CVAR (Bool, genlightmaps, false, CVAR_GLOBALCONFIG);
+CVAR (Bool, ignorelightmaplump, false, CVAR_GLOBALCONFIG);
 
 inline bool P_LoadBuildMap(uint8_t *mapdata, size_t len, FMapThing **things, int *numthings)
 {
@@ -3024,7 +3025,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 
 bool MapLoader::LoadLightmap(MapData* map)
 {
-	if (!Level->lightmaps || !map->Size(ML_LIGHTMAP))
+	if (!Level->lightmaps || !map->Size(ML_LIGHTMAP) || ignorelightmaplump)
 		return false;
 
 	FileReader fr;
