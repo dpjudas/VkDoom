@@ -285,7 +285,7 @@ float TriangleMeshShape::intersect_triangle_ray(TriangleMeshShape *shape, const 
 		shape->vertices[shape->elements[start_element + 2]].fPos()
 	};
 
-	// Moeller–Trumbore ray-triangle intersection algorithm:
+	// Moeller-Trumbore ray-triangle intersection algorithm:
 
 	FVector3 D = ray.end - ray.start;
 
