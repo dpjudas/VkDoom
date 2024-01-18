@@ -7,9 +7,14 @@
 #include "version.h"
 #include "i_interface.h"
 #include "gstrings.h"
+#include "c_cvars.h"
 #include <zwidget/core/resourcedata.h>
 #include <zwidget/window/window.h>
 #include <zwidget/widgets/tabwidget/tabwidget.h>
+
+#if defined(EXTRAARGS)
+CVAR(String, additional_parameters, "", CVAR_ARCHIVE | CVAR_NOSET | CVAR_GLOBALCONFIG);
+#endif
 
 int LauncherWindow::ExecModal(WadStuff* wads, int numwads, int defaultiwad, int* autoloadflags)
 {
@@ -46,6 +51,10 @@ LauncherWindow::LauncherWindow(WadStuff* wads, int numwads, int defaultiwad, int
 
 	UpdateLanguage();
 
+#if defined(EXTRAARGS)
+	PlayGame->SetExtraArgs(static_cast<FString>(additional_parameters).GetChars());
+#endif
+
 	Pages->SetCurrentWidget(PlayGame);
 	PlayGame->SetFocus();
 }
@@ -54,11 +63,15 @@ void LauncherWindow::Start()
 {
 	Settings->Save();
 
+#if defined(EXTRAARGS)
 	std::string extraargs = PlayGame->GetExtraArgs();
-	if (!extraargs.empty())
+	if (extraargs != static_cast<FString>(additional_parameters).GetChars())
 	{
+		additional_parameters = extraargs.c_str();
+
 		// To do: restart the process like the cocoa backend is doing?
 	}
+#endif
 
 	ExecResult = PlayGame->GetSelectedGame();
 	DisplayWindow::ExitLoop();

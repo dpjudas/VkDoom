@@ -815,6 +815,8 @@ int LineEdit::GetCharacterIndex(double mouse_x)
 void LineEdit::UpdateTextClipping()
 {
 	Canvas* canvas = GetCanvas();
+	if (!canvas)
+		return;
 
 	Size text_size = GetVisualTextSize(canvas, clip_start_offset, (int)text.size() - clip_start_offset);
 
