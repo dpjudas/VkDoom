@@ -21,12 +21,12 @@ public:
 protected:
 	void OnPaintFrame(Canvas* canvas) override;
 	void OnPaint(Canvas* canvas) override;
-	bool OnMouseDown(const Point& pos, int key) override;
-	bool OnMouseUp(const Point& pos, int key) override;
+	bool OnMouseDown(const Point& pos, InputKey key) override;
+	bool OnMouseUp(const Point& pos, InputKey key) override;
 	void OnMouseMove(const Point& pos) override;
 	void OnMouseLeave() override;
-	void OnKeyDown(EInputKey key) override;
-	void OnKeyUp(EInputKey key) override;
+	void OnKeyDown(InputKey key) override;
+	void OnKeyUp(InputKey key) override;
 
 private:
 	std::string text;

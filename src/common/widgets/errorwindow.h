@@ -43,8 +43,8 @@ public:
 protected:
 	void OnPaintFrame(Canvas* canvas) override;
 	void OnPaint(Canvas* canvas) override;
-	bool OnMouseWheel(const Point& pos, EInputKey key) override;
-	void OnKeyDown(EInputKey key) override;
+	bool OnMouseWheel(const Point& pos, InputKey key) override;
+	void OnKeyDown(InputKey key) override;
 	void OnGeometryChanged() override;
 
 private:

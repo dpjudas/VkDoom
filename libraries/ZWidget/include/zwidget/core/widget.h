@@ -85,7 +85,7 @@ public:
 	void CaptureMouse();
 	void ReleaseMouseCapture();
 
-	bool GetKeyState(EInputKey key);
+	bool GetKeyState(InputKey key);
 
 	std::string GetClipboardText();
 	void SetClipboardText(const std::string& text);
@@ -114,16 +114,16 @@ public:
 protected:
 	virtual void OnPaintFrame(Canvas* canvas) { }
 	virtual void OnPaint(Canvas* canvas) { }
-	virtual bool OnMouseDown(const Point& pos, int key) { return false; }
-	virtual bool OnMouseDoubleclick(const Point& pos, int key) { return false; }
-	virtual bool OnMouseUp(const Point& pos, int key) { return false; }
-	virtual bool OnMouseWheel(const Point& pos, EInputKey key) { return false; }
+	virtual bool OnMouseDown(const Point& pos, InputKey key) { return false; }
+	virtual bool OnMouseDoubleclick(const Point& pos, InputKey key) { return false; }
+	virtual bool OnMouseUp(const Point& pos, InputKey key) { return false; }
+	virtual bool OnMouseWheel(const Point& pos, InputKey key) { return false; }
 	virtual void OnMouseMove(const Point& pos) { }
 	virtual void OnMouseLeave() { }
 	virtual void OnRawMouseMove(int dx, int dy) { }
 	virtual void OnKeyChar(std::string chars) { }
-	virtual void OnKeyDown(EInputKey key) { }
-	virtual void OnKeyUp(EInputKey key) { }
+	virtual void OnKeyDown(InputKey key) { }
+	virtual void OnKeyUp(InputKey key) { }
 	virtual void OnGeometryChanged() { }
 	virtual void OnClose() { delete this; }
 	virtual void OnSetFocus() { }
@@ -138,14 +138,14 @@ private:
 	// DisplayWindowHost
 	void OnWindowPaint() override;
 	void OnWindowMouseMove(const Point& pos) override;
-	void OnWindowMouseDown(const Point& pos, EInputKey key) override;
-	void OnWindowMouseDoubleclick(const Point& pos, EInputKey key) override;
-	void OnWindowMouseUp(const Point& pos, EInputKey key) override;
-	void OnWindowMouseWheel(const Point& pos, EInputKey key) override;
+	void OnWindowMouseDown(const Point& pos, InputKey key) override;
+	void OnWindowMouseDoubleclick(const Point& pos, InputKey key) override;
+	void OnWindowMouseUp(const Point& pos, InputKey key) override;
+	void OnWindowMouseWheel(const Point& pos, InputKey key) override;
 	void OnWindowRawMouseMove(int dx, int dy) override;
 	void OnWindowKeyChar(std::string chars) override;
-	void OnWindowKeyDown(EInputKey key) override;
-	void OnWindowKeyUp(EInputKey key) override;
+	void OnWindowKeyDown(InputKey key) override;
+	void OnWindowKeyUp(InputKey key) override;
 	void OnWindowGeometryChanged() override;
 	void OnWindowClose() override;
 	void OnWindowActivated() override;

@@ -57,7 +57,7 @@ void PushButton::OnMouseMove(const Point& pos)
 	}
 }
 
-bool PushButton::OnMouseDown(const Point& pos, int key)
+bool PushButton::OnMouseDown(const Point& pos, InputKey key)
 {
 	SetFocus();
 	buttonDown = true;
@@ -65,7 +65,7 @@ bool PushButton::OnMouseDown(const Point& pos, int key)
 	return true;
 }
 
-bool PushButton::OnMouseUp(const Point& pos, int key)
+bool PushButton::OnMouseUp(const Point& pos, InputKey key)
 {
 	if (buttonDown)
 	{
@@ -84,18 +84,18 @@ void PushButton::OnMouseLeave()
 	Update();
 }
 
-void PushButton::OnKeyDown(EInputKey key)
+void PushButton::OnKeyDown(InputKey key)
 {
-	if (key == IK_Space || key == IK_Enter)
+	if (key == InputKey::Space || key == InputKey::Enter)
 	{
 		buttonDown = true;
 		Update();
 	}
 }
 
-void PushButton::OnKeyUp(EInputKey key)
+void PushButton::OnKeyUp(InputKey key)
 {
-	if (key == IK_Space || key == IK_Enter)
+	if (key == InputKey::Space || key == InputKey::Enter)
 	{
 		buttonDown = false;
 		hot = false;

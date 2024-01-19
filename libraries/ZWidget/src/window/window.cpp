@@ -4,41 +4,41 @@
 
 #ifdef WIN32
 
-#include "win32/win32window.h"
+#include "win32/win32displaywindow.h"
 
 std::unique_ptr<DisplayWindow> DisplayWindow::Create(DisplayWindowHost* windowHost)
 {
-	return std::make_unique<Win32Window>(windowHost);
+	return std::make_unique<Win32DisplayWindow>(windowHost);
 }
 
 void DisplayWindow::ProcessEvents()
 {
-	Win32Window::ProcessEvents();
+	Win32DisplayWindow::ProcessEvents();
 }
 
 void DisplayWindow::RunLoop()
 {
-	Win32Window::RunLoop();
+	Win32DisplayWindow::RunLoop();
 }
 
 void DisplayWindow::ExitLoop()
 {
-	Win32Window::ExitLoop();
+	Win32DisplayWindow::ExitLoop();
 }
 
 Size DisplayWindow::GetScreenSize()
 {
-	return Win32Window::GetScreenSize();
+	return Win32DisplayWindow::GetScreenSize();
 }
 
 void* DisplayWindow::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)
 {
-	return Win32Window::StartTimer(timeoutMilliseconds, std::move(onTimer));
+	return Win32DisplayWindow::StartTimer(timeoutMilliseconds, std::move(onTimer));
 }
 
 void DisplayWindow::StopTimer(void* timerID)
 {
-	Win32Window::StopTimer(timerID);
+	Win32DisplayWindow::StopTimer(timerID);
 }
 
 #elif defined(__APPLE__)

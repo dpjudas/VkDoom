@@ -489,11 +489,11 @@ void BitmapCanvas::drawLineUnclipped(const Point& p0, const Point& p1, const Col
 {
 	if (p0.x == p1.x)
 	{
-		drawTile(whiteTexture.get(), (float)((p0.x - 0.5) * uiscale), (float)(p0.y * uiscale), (float)((p1.x + 0.5) * uiscale), (float)(p1.y * uiscale), 0.0f, 0.0f, 1.0f, 1.0f, color);
+		drawTile(whiteTexture.get(), (float)((p0.x - 0.5) * uiscale), (float)(p0.y * uiscale), (float)uiscale, (float)((p1.y - p0.y) * uiscale), 0.0f, 0.0f, 1.0f, 1.0f, color);
 	}
 	else if (p0.y == p1.y)
 	{
-		drawTile(whiteTexture.get(), (float)(p0.x * uiscale), (float)((p0.y - 0.5) * uiscale), (float)(p1.x * uiscale), (float)((p1.y + 0.5) * uiscale), 0.0f, 0.0f, 1.0f, 1.0f, color);
+		drawTile(whiteTexture.get(), (float)(p0.x * uiscale), (float)((p0.y - 0.5) * uiscale), (float)((p1.x - p0.x) * uiscale), (float)uiscale, 0.0f, 0.0f, 1.0f, 1.0f, color);
 	}
 	else
 	{

@@ -11,11 +11,11 @@
 #include <unordered_map>
 #include <zwidget/window/window.h>
 
-class Win32Window : public DisplayWindow
+class Win32DisplayWindow : public DisplayWindow
 {
 public:
-	Win32Window(DisplayWindowHost* windowHost);
-	~Win32Window();
+	Win32DisplayWindow(DisplayWindowHost* windowHost);
+	~Win32DisplayWindow();
 
 	void SetWindowTitle(const std::string& text) override;
 	void SetWindowFrame(const Rect& box) override;
@@ -33,7 +33,7 @@ public:
 	void CaptureMouse() override;
 	void ReleaseMouseCapture() override;
 	void Update() override;
-	bool GetKeyState(EInputKey key) override;
+	bool GetKeyState(InputKey key) override;
 
 	void SetCursor(StandardCursor cursor) override;
 	void UpdateCursor();
@@ -64,8 +64,8 @@ public:
 	static void StopTimer(void* timerID);
 
 	static bool ExitRunLoop;
-	static std::list<Win32Window*> Windows;
-	std::list<Win32Window*>::iterator WindowsIterator;
+	static std::list<Win32DisplayWindow*> Windows;
+	std::list<Win32DisplayWindow*>::iterator WindowsIterator;
 
 	static std::unordered_map<UINT_PTR, std::function<void()>> Timers;
 

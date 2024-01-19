@@ -212,44 +212,44 @@ void LogViewer::OnPaint(Canvas* canvas)
 	}
 }
 
-bool LogViewer::OnMouseWheel(const Point& pos, EInputKey key)
+bool LogViewer::OnMouseWheel(const Point& pos, InputKey key)
 {
-	if (key == IK_MouseWheelUp)
+	if (key == InputKey::MouseWheelUp)
 	{
 		ScrollUp(4);
 	}
-	else if (key == IK_MouseWheelDown)
+	else if (key == InputKey::MouseWheelDown)
 	{
 		ScrollDown(4);
 	}
 	return true;
 }
 
-void LogViewer::OnKeyDown(EInputKey key)
+void LogViewer::OnKeyDown(InputKey key)
 {
-	if (key == IK_Home)
+	if (key == InputKey::Home)
 	{
 		scrollbar->SetPosition(0.0f);
 		Update();
 	}
-	if (key == IK_End)
+	if (key == InputKey::End)
 	{
 		scrollbar->SetPosition(scrollbar->GetMax());
 		Update();
 	}
-	else if (key == IK_PageUp)
+	else if (key == InputKey::PageUp)
 	{
 		ScrollUp(20);
 	}
-	else if (key == IK_PageDown)
+	else if (key == InputKey::PageDown)
 	{
 		ScrollDown(20);
 	}
-	else if (key == IK_Up)
+	else if (key == InputKey::Up)
 	{
 		ScrollUp(4);
 	}
-	else if (key == IK_Down)
+	else if (key == InputKey::Down)
 	{
 		ScrollDown(4);
 	}

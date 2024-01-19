@@ -85,7 +85,7 @@ int TabWidget::GetPageIndex(Widget* pageWidget) const
 	for (size_t i = 0; i < Pages.size(); i++)
 	{
 		if (Pages[i] == pageWidget)
-			return i;
+			return (int)i;
 	}
 	return -1;
 }
@@ -129,7 +129,7 @@ int TabBar::AddTab(const std::shared_ptr<Image>& icon, const std::string& label)
 	tab->SetIcon(icon);
 	tab->SetText(label);
 	tab->OnClick = [=]() { OnTabClicked(tab); };
-	int pageIndex = Tabs.size();
+	int pageIndex = (int)Tabs.size();
 	Tabs.push_back(tab);
 	if (CurrentIndex == -1)
 		SetCurrentIndex(pageIndex);
@@ -182,7 +182,7 @@ int TabBar::GetTabIndex(TabBarTab* tab)
 	for (size_t i = 0; i < Tabs.size(); i++)
 	{
 		if (Tabs[i] == tab)
-			return i;
+			return (int)i;
 	}
 	return -1;
 }
@@ -307,14 +307,14 @@ void TabBarTab::OnMouseMove(const Point& pos)
 	}
 }
 
-bool TabBarTab::OnMouseDown(const Point& pos, int key)
+bool TabBarTab::OnMouseDown(const Point& pos, InputKey key)
 {
 	if (OnClick)
 		OnClick();
 	return true;
 }
 
-bool TabBarTab::OnMouseUp(const Point& pos, int key)
+bool TabBarTab::OnMouseUp(const Point& pos, InputKey key)
 {
 	return true;
 }

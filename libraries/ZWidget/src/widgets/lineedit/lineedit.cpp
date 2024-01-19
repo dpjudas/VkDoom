@@ -301,9 +301,9 @@ void LineEdit::OnMouseMove(const Point& pos)
 	}
 }
 
-bool LineEdit::OnMouseDown(const Point& pos, int key)
+bool LineEdit::OnMouseDown(const Point& pos, InputKey key)
 {
-	if (key == IK_LeftMouse)
+	if (key == InputKey::LeftMouse)
 	{
 		if (HasFocus())
 		{
@@ -321,14 +321,14 @@ bool LineEdit::OnMouseDown(const Point& pos, int key)
 	return true;
 }
 
-bool LineEdit::OnMouseDoubleclick(const Point& pos, int key)
+bool LineEdit::OnMouseDoubleclick(const Point& pos, InputKey key)
 {
 	return true;
 }
 
-bool LineEdit::OnMouseUp(const Point& pos, int key)
+bool LineEdit::OnMouseUp(const Point& pos, InputKey key)
 {
-	if (mouse_selecting && key == IK_LeftMouse)
+	if (mouse_selecting && key == InputKey::LeftMouse)
 	{
 		if (ignore_mouse_events) // This prevents text selection from changing from what was set when focus was gained.
 		{
@@ -412,12 +412,12 @@ void LineEdit::OnKeyChar(std::string chars)
 	}
 }
 
-void LineEdit::OnKeyDown(EInputKey key)
+void LineEdit::OnKeyDown(InputKey key)
 {
 	if (FuncIgnoreKeyDown && FuncIgnoreKeyDown(key))
 		return;
 
-	if (key == IK_Enter)
+	if (key == InputKey::Enter)
 	{
 		if (FuncEnterPressed)
 			FuncEnterPressed();
@@ -430,12 +430,12 @@ void LineEdit::OnKeyDown(EInputKey key)
 		timer->Start(500); // don't blink cursor when moving or typing.
 	}
 
-	if (key == IK_Enter || key == IK_Escape || key == IK_Tab)
+	if (key == InputKey::Enter || key == InputKey::Escape || key == InputKey::Tab)
 	{
 		// Do not consume these.
 		return;
 	}
-	else if (key == IK_A && GetKeyState(IK_Ctrl))
+	else if (key == InputKey::A && GetKeyState(InputKey::Ctrl))
 	{
 		// select all
 		SetTextSelection(0, (int)text.size());
@@ -443,7 +443,7 @@ void LineEdit::OnKeyDown(EInputKey key)
 		UpdateTextClipping();
 		Update();
 	}
-	else if (key == IK_C && GetKeyState(IK_Ctrl))
+	else if (key == InputKey::C && GetKeyState(InputKey::Ctrl))
 	{
 		if (!password_mode)	// Do not allow copying the password to clipboard
 		{
@@ -456,54 +456,54 @@ void LineEdit::OnKeyDown(EInputKey key)
 		// Do not consume messages on read only component (only allow CTRL-A and CTRL-C)
 		return;
 	}
-	else if (key == IK_Left)
+	else if (key == InputKey::Left)
 	{
-		Move(-1, GetKeyState(IK_Ctrl), GetKeyState(IK_Shift));
+		Move(-1, GetKeyState(InputKey::Ctrl), GetKeyState(InputKey::Shift));
 	}
-	else if (key == IK_Right)
+	else if (key == InputKey::Right)
 	{
-		Move(1, GetKeyState(IK_Ctrl), GetKeyState(IK_Shift));
+		Move(1, GetKeyState(InputKey::Ctrl), GetKeyState(InputKey::Shift));
 	}
-	else if (key == IK_Backspace)
+	else if (key == InputKey::Backspace)
 	{
 		Backspace();
 		UpdateTextClipping();
 	}
-	else if (key == IK_Delete)
+	else if (key == InputKey::Delete)
 	{
 		Del();
 		UpdateTextClipping();
 	}
-	else if (key == IK_Home)
+	else if (key == InputKey::Home)
 	{
 		SetSelectionStart(cursor_pos);
 		cursor_pos = 0;
-		if (GetKeyState(IK_Shift))
+		if (GetKeyState(InputKey::Shift))
 			SetSelectionLength(-selection_start);
 		else
 			SetTextSelection(0, 0);
 		UpdateTextClipping();
 		Update();
 	}
-	else if (key == IK_End)
+	else if (key == InputKey::End)
 	{
 		SetSelectionStart(cursor_pos);
 		cursor_pos = (int)text.size();
-		if (GetKeyState(IK_Shift))
+		if (GetKeyState(InputKey::Shift))
 			SetSelectionLength((int)text.size() - selection_start);
 		else
 			SetTextSelection(0, 0);
 		UpdateTextClipping();
 		Update();
 	}
-	else if (key == IK_X && GetKeyState(IK_Ctrl))
+	else if (key == InputKey::X && GetKeyState(InputKey::Ctrl))
 	{
 		std::string str = GetSelection();
 		DeleteSelectedText();
 		SetClipboardText(str);
 		UpdateTextClipping();
 	}
-	else if (key == IK_V && GetKeyState(IK_Ctrl))
+	else if (key == InputKey::V && GetKeyState(InputKey::Ctrl))
 	{
 		std::string str = GetClipboardText();
 		std::string::const_iterator end_str = std::remove(str.begin(), str.end(), '\n');
@@ -574,7 +574,7 @@ void LineEdit::OnKeyDown(EInputKey key)
 
 		UpdateTextClipping();
 	}
-	else if (GetKeyState(IK_Ctrl) && key == IK_Z)
+	else if (GetKeyState(InputKey::Ctrl) && key == InputKey::Z)
 	{
 		if (!readonly)
 		{
@@ -583,7 +583,7 @@ void LineEdit::OnKeyDown(EInputKey key)
 			SetText(tmp);
 		}
 	}
-	else if (key == IK_Shift)
+	else if (key == InputKey::Shift)
 	{
 		if (selection_start == -1)
 			SetTextSelection(cursor_pos, 0);
@@ -593,7 +593,7 @@ void LineEdit::OnKeyDown(EInputKey key)
 		FuncAfterEditChanged();
 }
 
-void LineEdit::OnKeyUp(EInputKey key)
+void LineEdit::OnKeyUp(InputKey key)
 {
 }
 

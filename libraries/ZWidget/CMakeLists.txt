@@ -64,8 +64,8 @@ set(ZWIDGET_INCLUDES
 )
 
 set(ZWIDGET_WIN32_SOURCES
-	src/window/win32/win32window.cpp
-	src/window/win32/win32window.h
+	src/window/win32/win32displaywindow.cpp
+	src/window/win32/win32displaywindow.h
 )
 
 set(ZWIDGET_COCOA_SOURCES

@@ -1,5 +1,5 @@
 
-#include "win32window.h"
+#include "win32displaywindow.h"
 #include <windowsx.h>
 #include <stdexcept>
 #include <cmath>
@@ -56,7 +56,7 @@ static std::wstring to_utf16(const std::string& str)
 	return result;
 }
 
-Win32Window::Win32Window(DisplayWindowHost* windowHost) : WindowHost(windowHost)
+Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost) : WindowHost(windowHost)
 {
 	Windows.push_front(this);
 	WindowsIterator = Windows.begin();
@@ -66,7 +66,7 @@ Win32Window::Win32Window(DisplayWindowHost* windowHost) : WindowHost(windowHost)
 	classdesc.hInstance = GetModuleHandle(0);
 	classdesc.style = CS_VREDRAW | CS_HREDRAW | CS_DBLCLKS;
 	classdesc.lpszClassName = L"ZWidgetWindow";
-	classdesc.lpfnWndProc = &Win32Window::WndProc;
+	classdesc.lpfnWndProc = &Win32DisplayWindow::WndProc;
 	RegisterClassEx(&classdesc);
 
 	// Microsoft logic at its finest:
@@ -86,7 +86,7 @@ Win32Window::Win32Window(DisplayWindowHost* windowHost) : WindowHost(windowHost)
 	*/
 }
 
-Win32Window::~Win32Window()
+Win32DisplayWindow::~Win32DisplayWindow()
 {
 	if (WindowHandle)
 	{
@@ -97,36 +97,36 @@ Win32Window::~Win32Window()
 	Windows.erase(WindowsIterator);
 }
 
-void Win32Window::SetWindowTitle(const std::string& text)
+void Win32DisplayWindow::SetWindowTitle(const std::string& text)
 {
 	SetWindowText(WindowHandle, to_utf16(text).c_str());
 }
 
-void Win32Window::SetBorderColor(uint32_t bgra8)
+void Win32DisplayWindow::SetBorderColor(uint32_t bgra8)
 {
 	bgra8 = bgra8 & 0x00ffffff;
 	DwmSetWindowAttribute(WindowHandle, 34/*DWMWA_BORDER_COLOR*/, &bgra8, sizeof(uint32_t));
 }
 
-void Win32Window::SetCaptionColor(uint32_t bgra8)
+void Win32DisplayWindow::SetCaptionColor(uint32_t bgra8)
 {
 	bgra8 = bgra8 & 0x00ffffff;
 	DwmSetWindowAttribute(WindowHandle, 35/*DWMWA_CAPTION_COLOR*/, &bgra8, sizeof(uint32_t));
 }
 
-void Win32Window::SetCaptionTextColor(uint32_t bgra8)
+void Win32DisplayWindow::SetCaptionTextColor(uint32_t bgra8)
 {
 	bgra8 = bgra8 & 0x00ffffff;
 	DwmSetWindowAttribute(WindowHandle, 36/*DWMWA_TEXT_COLOR*/, &bgra8, sizeof(uint32_t));
 }
 
-void Win32Window::SetWindowFrame(const Rect& box)
+void Win32DisplayWindow::SetWindowFrame(const Rect& box)
 {
 	double dpiscale = GetDpiScale();
 	SetWindowPos(WindowHandle, nullptr, (int)std::round(box.x * dpiscale), (int)std::round(box.y * dpiscale), (int)std::round(box.width * dpiscale), (int)std::round(box.height * dpiscale), SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
-void Win32Window::SetClientFrame(const Rect& box)
+void Win32DisplayWindow::SetClientFrame(const Rect& box)
 {
 	double dpiscale = GetDpiScale();
 
@@ -143,12 +143,12 @@ void Win32Window::SetClientFrame(const Rect& box)
 	SetWindowPos(WindowHandle, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
-void Win32Window::Show()
+void Win32DisplayWindow::Show()
 {
 	ShowWindow(WindowHandle, SW_SHOW);
 }
 
-void Win32Window::ShowFullscreen()
+void Win32DisplayWindow::ShowFullscreen()
 {
 	HDC screenDC = GetDC(0);
 	int width = GetDeviceCaps(screenDC, HORZRES);
@@ -160,36 +160,36 @@ void Win32Window::ShowFullscreen()
 	Fullscreen = true;
 }
 
-void Win32Window::ShowMaximized()
+void Win32DisplayWindow::ShowMaximized()
 {
 	ShowWindow(WindowHandle, SW_SHOWMAXIMIZED);
 }
 
-void Win32Window::ShowMinimized()
+void Win32DisplayWindow::ShowMinimized()
 {
 	ShowWindow(WindowHandle, SW_SHOWMINIMIZED);
 }
 
-void Win32Window::ShowNormal()
+void Win32DisplayWindow::ShowNormal()
 {
 	ShowWindow(WindowHandle, SW_NORMAL);
 }
 
-void Win32Window::Hide()
+void Win32DisplayWindow::Hide()
 {
 	ShowWindow(WindowHandle, SW_HIDE);
 }
 
-void Win32Window::Activate()
+void Win32DisplayWindow::Activate()
 {
 	SetFocus(WindowHandle);
 }
 
-void Win32Window::ShowCursor(bool enable)
+void Win32DisplayWindow::ShowCursor(bool enable)
 {
 }
 
-void Win32Window::LockCursor()
+void Win32DisplayWindow::LockCursor()
 {
 	if (!MouseLocked)
 	{
@@ -199,7 +199,7 @@ void Win32Window::LockCursor()
 	}
 }
 
-void Win32Window::UnlockCursor()
+void Win32DisplayWindow::UnlockCursor()
 {
 	if (MouseLocked)
 	{
@@ -209,27 +209,27 @@ void Win32Window::UnlockCursor()
 	}
 }
 
-void Win32Window::CaptureMouse()
+void Win32DisplayWindow::CaptureMouse()
 {
 	SetCapture(WindowHandle);
 }
 
-void Win32Window::ReleaseMouseCapture()
+void Win32DisplayWindow::ReleaseMouseCapture()
 {
 	ReleaseCapture();
 }
 
-void Win32Window::Update()
+void Win32DisplayWindow::Update()
 {
 	InvalidateRect(WindowHandle, nullptr, FALSE);
 }
 
-bool Win32Window::GetKeyState(EInputKey key)
+bool Win32DisplayWindow::GetKeyState(InputKey key)
 {
 	return ::GetKeyState((int)key) & 0x8000; // High bit (0x8000) means key is down, Low bit (0x0001) means key is sticky on (like Caps Lock, Num Lock, etc.)
 }
 
-void Win32Window::SetCursor(StandardCursor cursor)
+void Win32DisplayWindow::SetCursor(StandardCursor cursor)
 {
 	if (cursor != CurrentCursor)
 	{
@@ -238,7 +238,7 @@ void Win32Window::SetCursor(StandardCursor cursor)
 	}
 }
 
-Rect Win32Window::GetWindowFrame() const
+Rect Win32DisplayWindow::GetWindowFrame() const
 {
 	RECT box = {};
 	GetWindowRect(WindowHandle, &box);
@@ -246,7 +246,7 @@ Rect Win32Window::GetWindowFrame() const
 	return Rect(box.left / dpiscale, box.top / dpiscale, box.right / dpiscale, box.bottom / dpiscale);
 }
 
-Size Win32Window::GetClientSize() const
+Size Win32DisplayWindow::GetClientSize() const
 {
 	RECT box = {};
 	GetClientRect(WindowHandle, &box);
@@ -254,26 +254,26 @@ Size Win32Window::GetClientSize() const
 	return Size(box.right / dpiscale, box.bottom / dpiscale);
 }
 
-int Win32Window::GetPixelWidth() const
+int Win32DisplayWindow::GetPixelWidth() const
 {
 	RECT box = {};
 	GetClientRect(WindowHandle, &box);
 	return box.right;
 }
 
-int Win32Window::GetPixelHeight() const
+int Win32DisplayWindow::GetPixelHeight() const
 {
 	RECT box = {};
 	GetClientRect(WindowHandle, &box);
 	return box.bottom;
 }
 
-double Win32Window::GetDpiScale() const
+double Win32DisplayWindow::GetDpiScale() const
 {
 	return GetDpiForWindow(WindowHandle) / 96.0;
 }
 
-std::string Win32Window::GetClipboardText()
+std::string Win32DisplayWindow::GetClipboardText()
 {
 	BOOL result = OpenClipboard(WindowHandle);
 	if (result == FALSE)
@@ -299,7 +299,7 @@ std::string Win32Window::GetClipboardText()
 	return str;
 }
 
-void Win32Window::SetClipboardText(const std::string& text)
+void Win32DisplayWindow::SetClipboardText(const std::string& text)
 {
 	std::wstring text16 = to_utf16(text);
 
@@ -314,7 +314,7 @@ void Win32Window::SetClipboardText(const std::string& text)
 		throw std::runtime_error("Unable to empty clipboard");
 	}
 
-	unsigned int length = (text16.length() + 1) * sizeof(std::wstring::value_type);
+	unsigned int length = (unsigned int)((text16.length() + 1) * sizeof(std::wstring::value_type));
 	HANDLE handle = GlobalAlloc(GMEM_MOVEABLE, length);
 	if (handle == 0)
 	{
@@ -344,7 +344,7 @@ void Win32Window::SetClipboardText(const std::string& text)
 	CloseClipboard();
 }
 
-void Win32Window::PresentBitmap(int width, int height, const uint32_t* pixels)
+void Win32DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pixels)
 {
 	BITMAPV5HEADER header = {};
 	header.bV5Size = sizeof(BITMAPV5HEADER);
@@ -368,7 +368,7 @@ void Win32Window::PresentBitmap(int width, int height, const uint32_t* pixels)
 	}
 }
 
-LRESULT Win32Window::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam)
+LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	LPARAM result = 0;
 	if (DwmDefWindowProc(WindowHandle, msg, wparam, lparam, &result))
@@ -437,39 +437,39 @@ LRESULT Win32Window::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 	}
 	else if (msg == WM_LBUTTONDOWN)
 	{
-		WindowHost->OnWindowMouseDown(GetLParamPos(lparam), IK_LeftMouse);
+		WindowHost->OnWindowMouseDown(GetLParamPos(lparam), InputKey::LeftMouse);
 	}
 	else if (msg == WM_LBUTTONDBLCLK)
 	{
-		WindowHost->OnWindowMouseDoubleclick(GetLParamPos(lparam), IK_LeftMouse);
+		WindowHost->OnWindowMouseDoubleclick(GetLParamPos(lparam), InputKey::LeftMouse);
 	}
 	else if (msg == WM_LBUTTONUP)
 	{
-		WindowHost->OnWindowMouseUp(GetLParamPos(lparam), IK_LeftMouse);
+		WindowHost->OnWindowMouseUp(GetLParamPos(lparam), InputKey::LeftMouse);
 	}
 	else if (msg == WM_MBUTTONDOWN)
 	{
-		WindowHost->OnWindowMouseDown(GetLParamPos(lparam), IK_MiddleMouse);
+		WindowHost->OnWindowMouseDown(GetLParamPos(lparam), InputKey::MiddleMouse);
 	}
 	else if (msg == WM_MBUTTONDBLCLK)
 	{
-		WindowHost->OnWindowMouseDoubleclick(GetLParamPos(lparam), IK_MiddleMouse);
+		WindowHost->OnWindowMouseDoubleclick(GetLParamPos(lparam), InputKey::MiddleMouse);
 	}
 	else if (msg == WM_MBUTTONUP)
 	{
-		WindowHost->OnWindowMouseUp(GetLParamPos(lparam), IK_MiddleMouse);
+		WindowHost->OnWindowMouseUp(GetLParamPos(lparam), InputKey::MiddleMouse);
 	}
 	else if (msg == WM_RBUTTONDOWN)
 	{
-		WindowHost->OnWindowMouseDown(GetLParamPos(lparam), IK_RightMouse);
+		WindowHost->OnWindowMouseDown(GetLParamPos(lparam), InputKey::RightMouse);
 	}
 	else if (msg == WM_RBUTTONDBLCLK)
 	{
-		WindowHost->OnWindowMouseDoubleclick(GetLParamPos(lparam), IK_RightMouse);
+		WindowHost->OnWindowMouseDoubleclick(GetLParamPos(lparam), InputKey::RightMouse);
 	}
 	else if (msg == WM_RBUTTONUP)
 	{
-		WindowHost->OnWindowMouseUp(GetLParamPos(lparam), IK_RightMouse);
+		WindowHost->OnWindowMouseUp(GetLParamPos(lparam), InputKey::RightMouse);
 	}
 	else if (msg == WM_MOUSEWHEEL)
 	{
@@ -482,7 +482,7 @@ LRESULT Win32Window::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 		pos.y = GET_Y_LPARAM(lparam);
 		ScreenToClient(WindowHandle, &pos);
 
-		WindowHost->OnWindowMouseWheel(Point(pos.x / dpiscale, pos.y / dpiscale), delta < 0.0 ? IK_MouseWheelDown : IK_MouseWheelUp);
+		WindowHost->OnWindowMouseWheel(Point(pos.x / dpiscale, pos.y / dpiscale), delta < 0.0 ? InputKey::MouseWheelDown : InputKey::MouseWheelUp);
 	}
 	else if (msg == WM_CHAR)
 	{
@@ -491,11 +491,11 @@ LRESULT Win32Window::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 	}
 	else if (msg == WM_KEYDOWN)
 	{
-		WindowHost->OnWindowKeyDown((EInputKey)wparam);
+		WindowHost->OnWindowKeyDown((InputKey)wparam);
 	}
 	else if (msg == WM_KEYUP)
 	{
-		WindowHost->OnWindowKeyUp((EInputKey)wparam);
+		WindowHost->OnWindowKeyUp((InputKey)wparam);
 	}
 	else if (msg == WM_SETFOCUS)
 	{
@@ -530,7 +530,7 @@ LRESULT Win32Window::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 	return DefWindowProc(WindowHandle, msg, wparam, lparam);
 }
 
-void Win32Window::UpdateCursor()
+void Win32DisplayWindow::UpdateCursor()
 {
 	LPCWSTR cursor = IDC_ARROW;
 	switch (CurrentCursor)
@@ -554,25 +554,25 @@ void Win32Window::UpdateCursor()
 	::SetCursor((HCURSOR)LoadImage(0, cursor, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_DEFAULTSIZE, LR_SHARED));
 }
 
-Point Win32Window::GetLParamPos(LPARAM lparam) const
+Point Win32DisplayWindow::GetLParamPos(LPARAM lparam) const
 {
 	double dpiscale = GetDpiScale();
 	return Point(GET_X_LPARAM(lparam) / dpiscale, GET_Y_LPARAM(lparam) / dpiscale);
 }
 
-LRESULT Win32Window::WndProc(HWND windowhandle, UINT msg, WPARAM wparam, LPARAM lparam)
+LRESULT Win32DisplayWindow::WndProc(HWND windowhandle, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	if (msg == WM_CREATE)
 	{
 		CREATESTRUCT* createstruct = (CREATESTRUCT*)lparam;
-		Win32Window* viewport = (Win32Window*)createstruct->lpCreateParams;
+		Win32DisplayWindow* viewport = (Win32DisplayWindow*)createstruct->lpCreateParams;
 		viewport->WindowHandle = windowhandle;
 		SetWindowLongPtr(windowhandle, GWLP_USERDATA, (LONG_PTR)viewport);
 		return viewport->OnWindowMessage(msg, wparam, lparam);
 	}
 	else
 	{
-		Win32Window* viewport = (Win32Window*)GetWindowLongPtr(windowhandle, GWLP_USERDATA);
+		Win32DisplayWindow* viewport = (Win32DisplayWindow*)GetWindowLongPtr(windowhandle, GWLP_USERDATA);
 		if (viewport)
 		{
 			LRESULT result = viewport->OnWindowMessage(msg, wparam, lparam);
@@ -590,7 +590,7 @@ LRESULT Win32Window::WndProc(HWND windowhandle, UINT msg, WPARAM wparam, LPARAM 
 	}
 }
 
-void Win32Window::ProcessEvents()
+void Win32DisplayWindow::ProcessEvents()
 {
 	while (true)
 	{
@@ -602,7 +602,7 @@ void Win32Window::ProcessEvents()
 	}
 }
 
-void Win32Window::RunLoop()
+void Win32DisplayWindow::RunLoop()
 {
 	while (!ExitRunLoop && !Windows.empty())
 	{
@@ -615,12 +615,12 @@ void Win32Window::RunLoop()
 	ExitRunLoop = false;
 }
 
-void Win32Window::ExitLoop()
+void Win32DisplayWindow::ExitLoop()
 {
 	ExitRunLoop = true;
 }
 
-Size Win32Window::GetScreenSize()
+Size Win32DisplayWindow::GetScreenSize()
 {
 	HDC screenDC = GetDC(0);
 	int screenWidth = GetDeviceCaps(screenDC, HORZRES);
@@ -633,14 +633,14 @@ Size Win32Window::GetScreenSize()
 
 static void CALLBACK Win32TimerCallback(HWND handle, UINT message, UINT_PTR timerID, DWORD timestamp)
 {
-	auto it = Win32Window::Timers.find(timerID);
-	if (it != Win32Window::Timers.end())
+	auto it = Win32DisplayWindow::Timers.find(timerID);
+	if (it != Win32DisplayWindow::Timers.end())
 	{
 		it->second();
 	}
 }
 
-void* Win32Window::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)
+void* Win32DisplayWindow::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)
 {
 	UINT_PTR result = SetTimer(0, 0, timeoutMilliseconds, Win32TimerCallback);
 	if (result == 0)
@@ -649,7 +649,7 @@ void* Win32Window::StartTimer(int timeoutMilliseconds, std::function<void()> onT
 	return (void*)result;
 }
 
-void Win32Window::StopTimer(void* timerID)
+void Win32DisplayWindow::StopTimer(void* timerID)
 {
 	auto it = Timers.find((UINT_PTR)timerID);
 	if (it != Timers.end())
@@ -659,7 +659,7 @@ void Win32Window::StopTimer(void* timerID)
 	}
 }
 
-std::list<Win32Window*> Win32Window::Windows;
-bool Win32Window::ExitRunLoop;
+std::list<Win32DisplayWindow*> Win32DisplayWindow::Windows;
+bool Win32DisplayWindow::ExitRunLoop;
 
-std::unordered_map<UINT_PTR, std::function<void()>> Win32Window::Timers;
+std::unordered_map<UINT_PTR, std::function<void()>> Win32DisplayWindow::Timers;

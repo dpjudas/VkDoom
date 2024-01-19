@@ -316,7 +316,7 @@ void Widget::Paint(Canvas* canvas)
 	canvas->popClip();
 }
 
-bool Widget::GetKeyState(EInputKey key)
+bool Widget::GetKeyState(InputKey key)
 {
 	Widget* window = Window();
 	return window ? window->DispWindow->GetKeyState(key) : false;
@@ -568,7 +568,7 @@ void Widget::OnWindowMouseMove(const Point& pos)
 	}
 }
 
-void Widget::OnWindowMouseDown(const Point& pos, EInputKey key)
+void Widget::OnWindowMouseDown(const Point& pos, InputKey key)
 {
 	if (CaptureWidget)
 	{
@@ -589,7 +589,7 @@ void Widget::OnWindowMouseDown(const Point& pos, EInputKey key)
 	}
 }
 
-void Widget::OnWindowMouseDoubleclick(const Point& pos, EInputKey key)
+void Widget::OnWindowMouseDoubleclick(const Point& pos, InputKey key)
 {
 	if (CaptureWidget)
 	{
@@ -610,7 +610,7 @@ void Widget::OnWindowMouseDoubleclick(const Point& pos, EInputKey key)
 	}
 }
 
-void Widget::OnWindowMouseUp(const Point& pos, EInputKey key)
+void Widget::OnWindowMouseUp(const Point& pos, InputKey key)
 {
 	if (CaptureWidget)
 	{
@@ -631,7 +631,7 @@ void Widget::OnWindowMouseUp(const Point& pos, EInputKey key)
 	}
 }
 
-void Widget::OnWindowMouseWheel(const Point& pos, EInputKey key)
+void Widget::OnWindowMouseWheel(const Point& pos, InputKey key)
 {
 	if (CaptureWidget)
 	{
@@ -670,13 +670,13 @@ void Widget::OnWindowKeyChar(std::string chars)
 		FocusWidget->OnKeyChar(chars);
 }
 
-void Widget::OnWindowKeyDown(EInputKey key)
+void Widget::OnWindowKeyDown(InputKey key)
 {
 	if (FocusWidget)
 		FocusWidget->OnKeyDown(key);
 }
 
-void Widget::OnWindowKeyUp(EInputKey key)
+void Widget::OnWindowKeyUp(InputKey key)
 {
 	if (FocusWidget)
 		FocusWidget->OnKeyUp(key);
