@@ -1,5 +1,6 @@
 
 #include <zwidget/core/resourcedata.h>
+#include <zwidget/core/theme.h>
 #include "filesystem.h"
 #include "printf.h"
 #include "zstring.h"
@@ -16,6 +17,8 @@ void InitWidgetResources(const char* filename)
 	WidgetResources = FResourceFile::OpenResourceFile(filename);
 	if (!WidgetResources)
 		I_FatalError("Unable to open %s", filename);
+
+	WidgetTheme::SetTheme(std::make_unique<DarkWidgetTheme>());
 }
 
 void CloseWidgetResources()
