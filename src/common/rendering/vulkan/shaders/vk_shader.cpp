@@ -220,6 +220,10 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (key.SWLightBanded) definesBlock << "#define SWLIGHT_BANDED\n";
 	if (key.FogBalls) definesBlock << "#define FOGBALLS\n";
 
+	// Backwards compatibility with shaders that rape and pillage... uhm, I mean abused uFogEnabled to detect 2D rendering!
+	if (key.Simple2D) definesBlock << "#define uFogEnabled -3\n";
+	else definesBlock << "#define uFogEnabled 0\n";
+
 	FString layoutBlock;
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_frag.glsl").GetChars() << "\n";
