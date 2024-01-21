@@ -47,6 +47,7 @@ public:
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
 	FRenderState* RenderState() override;
 
+	bool IsRayQueryEnabled() const { return mUseRayQuery; }
 	bool IsVulkan() override { return true; }
 
 	void Update() override;
@@ -119,6 +120,7 @@ private:
 	VkRenderBuffers *mActiveRenderBuffers = nullptr;
 
 	bool mVSync = false;
+	bool mUseRayQuery = false;
 
 	LevelMesh* levelMesh = nullptr;
 	bool levelMeshChanged = true;

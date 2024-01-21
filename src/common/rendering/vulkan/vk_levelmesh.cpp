@@ -28,11 +28,9 @@
 #include "hw_material.h"
 #include "texturemanager.h"
 
-EXTERN_CVAR(Bool, vk_rayquery);
-
 VkLevelMesh::VkLevelMesh(VulkanRenderDevice* fb) : fb(fb)
 {
-	useRayQuery = vk_rayquery && fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery;
+	useRayQuery = fb->IsRayQueryEnabled();
 
 	SetLevelMesh(nullptr);
 }

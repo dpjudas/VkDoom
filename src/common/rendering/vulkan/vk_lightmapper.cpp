@@ -11,8 +11,6 @@
 
 #define USE_DRAWINDIRECT
 
-extern bool vk_rayquery;
-
 static int lastSurfaceCount;
 static glcycle_t lightmapRaytraceLast;
 
@@ -35,7 +33,7 @@ CVAR(Bool, lm_blur, true, 0);
 
 VkLightmapper::VkLightmapper(VulkanRenderDevice* fb) : fb(fb)
 {
-	useRayQuery = vk_rayquery && fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && fb->GetDevice()->PhysicalDevice.Features.RayQuery.rayQuery;
+	useRayQuery = fb->IsRayQueryEnabled();
 
 	templightlist.Resize(128);
 

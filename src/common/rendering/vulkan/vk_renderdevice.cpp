@@ -138,8 +138,7 @@ void VulkanPrintLog(const char* typestr, const std::string& msg)
 VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::shared_ptr<VulkanSurface> surface) : SystemBaseFrameBuffer(hMonitor, fullscreen)
 {
 	VulkanDeviceBuilder builder;
-	if (vk_rayquery)
-		builder.OptionalRayQuery();
+	builder.OptionalRayQuery();
 	builder.RequireExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 	builder.Surface(surface);
 	builder.SelectDevice(vk_device);
@@ -154,6 +153,8 @@ VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::sha
 	{
 		I_FatalError("This GPU does not support the minimum requirements of this application");
 	}
+
+	mUseRayQuery = vk_rayquery && mDevice->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && mDevice->PhysicalDevice.Features.RayQuery.rayQuery;
 }
 
 VulkanRenderDevice::~VulkanRenderDevice()
