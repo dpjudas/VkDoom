@@ -28,7 +28,7 @@
 #include "hw_material.h"
 #include "texturemanager.h"
 
-extern bool vk_rayquery;
+EXTERN_CVAR(Bool, vk_rayquery);
 
 VkLevelMesh::VkLevelMesh(VulkanRenderDevice* fb) : fb(fb)
 {
