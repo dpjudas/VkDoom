@@ -1915,6 +1915,12 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		if (sortA != sortB)
 			return sortA < sortB;
 
+		// Any driver that is emulating vulkan (i.e. via Direct3D 12) should only be chosen as the last option within each GPU type
+		sortA = a.Device->Properties.LayeredDriver.underlyingAPI;
+		sortB = b.Device->Properties.LayeredDriver.underlyingAPI;
+		if (sortA != sortB)
+			return sortA < sortB;
+
 		// Then sort by the device's unique ID so that vk_device uses a consistent order
 		int sortUUID = memcmp(a.Device->Properties.Properties.pipelineCacheUUID, b.Device->Properties.Properties.pipelineCacheUUID, VK_UUID_SIZE);
 		return sortUUID < 0;
