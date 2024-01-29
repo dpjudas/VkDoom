@@ -7,14 +7,11 @@
 #include "textureid.h"
 #include "textures.h"
 
-class LevelSubmesh;
 class FGameTexture;
 struct LevelMeshSurface;
 
 struct LevelMeshSurface
 {
-	LevelSubmesh* Submesh = nullptr;
-
 	struct
 	{
 		unsigned int StartVertIndex = 0;

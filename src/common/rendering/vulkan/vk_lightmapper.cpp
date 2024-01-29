@@ -180,10 +180,6 @@ void VkLightmapper::Render()
 	viewport.height = (float)bakeImageSize;
 	cmdbuffer->setViewport(0, 1, &viewport);
 
-	int dynamicSurfaceIndexOffset = mesh->StaticMesh->GetSurfaceCount();
-	int dynamicFirstIndexOffset = mesh->StaticMesh->Mesh.Indexes.Size();
-	LevelSubmesh* staticMesh = mesh->StaticMesh.get();
-
 	for (int i = 0, count = selectedTiles.Size(); i < count; i++)
 	{
 		auto& selectedTile = selectedTiles[i];
@@ -202,17 +198,10 @@ void VkLightmapper::Render()
 		bool buffersFull = false;
 
 		// Paint all surfaces visible in the tile
-		for (LevelMeshSurface* surface : targetTile->Surfaces)
+		for (int surfaceIndex : targetTile->Surfaces)
 		{
-			int surfaceIndexOffset = 0;
-			int firstIndexOffset = 0;
-			if (surface->Submesh != staticMesh)
-			{
-				surfaceIndexOffset = dynamicSurfaceIndexOffset;
-				firstIndexOffset = dynamicFirstIndexOffset;
-			}
-
-			pc.SurfaceIndex = surfaceIndexOffset + surface->Submesh->GetSurfaceIndex(surface);
+			LevelMeshSurface* surface = mesh->GetSurface(surfaceIndex);
+			pc.SurfaceIndex = surfaceIndex;
 
 			if (surface->LightList.ResetCounter != lights.ResetCounter)
 			{
@@ -254,7 +243,7 @@ void VkLightmapper::Render()
 			VkDrawIndexedIndirectCommand cmd;
 			cmd.indexCount = surface->MeshLocation.NumElements;
 			cmd.instanceCount = 1;
-			cmd.firstIndex = firstIndexOffset + surface->MeshLocation.StartElementIndex;
+			cmd.firstIndex = surface->MeshLocation.StartElementIndex;
 			cmd.vertexOffset = 0;
 			cmd.firstInstance = drawindexed.Pos;
 			drawindexed.Constants[drawindexed.Pos] = pc;

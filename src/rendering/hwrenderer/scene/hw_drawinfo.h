@@ -10,6 +10,7 @@
 #include "hw_weapon.h"
 #include "hw_drawlist.h"
 #include "hw_renderstate.h"
+#include "g_levellocals.h"
 
 EXTERN_CVAR(Bool, lm_always_update);
 EXTERN_CVAR(Int, lm_max_updates);
@@ -235,7 +236,7 @@ public:
 		if (surface->LightmapTileIndex < 0)
 			return;
 
-		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
+		LightmapTile* tile = &Level->levelMesh->LightmapTiles[surface->LightmapTileIndex];
 		if (lm_always_update || surface->AlwaysUpdate)
 		{
 			tile->NeedsUpdate = true;

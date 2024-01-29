@@ -893,7 +893,6 @@ set (PCH_SOURCES
 	rendering/hwrenderer/hw_vertexbuilder.cpp
 	rendering/hwrenderer/doom_aabbtree.cpp
 	rendering/hwrenderer/doom_levelmesh.cpp
-	rendering/hwrenderer/doom_levelsubmesh.cpp
 	rendering/hwrenderer/hw_models.cpp
 	rendering/hwrenderer/hw_precache.cpp
 	rendering/hwrenderer/scene/hw_lighting.cpp

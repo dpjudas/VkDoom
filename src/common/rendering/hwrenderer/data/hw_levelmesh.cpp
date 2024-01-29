@@ -7,6 +7,31 @@ LevelMesh::LevelMesh()
 	// Default portal
 	LevelMeshPortal portal;
 	Portals.Push(portal);
+
+	AddEmptyMesh();
+	UpdateCollision();
+}
+
+void LevelMesh::AddEmptyMesh()
+{
+	// Default empty mesh (we can't make it completely empty since vulkan doesn't like that)
+	float minval = -100001.0f;
+	float maxval = -100000.0f;
+	Mesh.Vertices.Push({ minval, minval, minval });
+	Mesh.Vertices.Push({ maxval, minval, minval });
+	Mesh.Vertices.Push({ maxval, maxval, minval });
+	Mesh.Vertices.Push({ minval, minval, minval });
+	Mesh.Vertices.Push({ minval, maxval, minval });
+	Mesh.Vertices.Push({ maxval, maxval, minval });
+	Mesh.Vertices.Push({ minval, minval, maxval });
+	Mesh.Vertices.Push({ maxval, minval, maxval });
+	Mesh.Vertices.Push({ maxval, maxval, maxval });
+	Mesh.Vertices.Push({ minval, minval, maxval });
+	Mesh.Vertices.Push({ minval, maxval, maxval });
+	Mesh.Vertices.Push({ maxval, maxval, maxval });
+
+	for (int i = 0; i < 3 * 4; i++)
+		Mesh.Indexes.Push(i);
 }
 
 LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, float maxDist)
@@ -21,18 +46,14 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 	{
 		FVector3 end = origin + direction * maxDist;
 
-		TraceHit hit0 = TriangleMeshShape::find_first_hit(StaticMesh->Collision.get(), origin, end);
-		TraceHit hit1 = TriangleMeshShape::find_first_hit(DynamicMesh->Collision.get(), origin, end);
-
-		LevelSubmesh* hitmesh = hit0.fraction < hit1.fraction ? StaticMesh.get() : DynamicMesh.get();
-		TraceHit hit = hit0.fraction < hit1.fraction ? hit0 : hit1;
+		TraceHit hit = TriangleMeshShape::find_first_hit(Collision.get(), origin, end);
 
 		if (hit.triangle < 0)
 		{
 			return nullptr;
 		}
 
-		hitSurface = hitmesh->GetSurface(hitmesh->Mesh.SurfaceIndexes[hit.triangle]);
+		hitSurface = GetSurface(Mesh.SurfaceIndexes[hit.triangle]);
 
 		int portal = hitSurface->PortalIndex;
 		if (!portal)
@@ -59,44 +80,6 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 {
 	LevelMeshTileStats stats;
-	StaticMesh->GatherTilePixelStats(stats);
-	DynamicMesh->GatherTilePixelStats(stats);
-	return stats;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-LevelSubmesh::LevelSubmesh()
-{
-	// Default empty mesh (we can't make it completely empty since vulkan doesn't like that)
-	float minval = -100001.0f;
-	float maxval = -100000.0f;
-	Mesh.Vertices.Push({ minval, minval, minval });
-	Mesh.Vertices.Push({ maxval, minval, minval });
-	Mesh.Vertices.Push({ maxval, maxval, minval });
-	Mesh.Vertices.Push({ minval, minval, minval });
-	Mesh.Vertices.Push({ minval, maxval, minval });
-	Mesh.Vertices.Push({ maxval, maxval, minval });
-	Mesh.Vertices.Push({ minval, minval, maxval });
-	Mesh.Vertices.Push({ maxval, minval, maxval });
-	Mesh.Vertices.Push({ maxval, maxval, maxval });
-	Mesh.Vertices.Push({ minval, minval, maxval });
-	Mesh.Vertices.Push({ minval, maxval, maxval });
-	Mesh.Vertices.Push({ maxval, maxval, maxval });
-
-	for (int i = 0; i < 3 * 4; i++)
-		Mesh.Indexes.Push(i);
-
-	UpdateCollision();
-}
-
-void LevelSubmesh::UpdateCollision()
-{
-	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Indexes.Data(), Mesh.Indexes.Size());
-}
-
-void LevelSubmesh::GatherTilePixelStats(LevelMeshTileStats& stats)
-{
 	int count = GetSurfaceCount();
 	for (const LightmapTile& tile : LightmapTiles)
 	{
@@ -111,6 +94,12 @@ void LevelSubmesh::GatherTilePixelStats(LevelMeshTileStats& stats)
 		}
 	}
 	stats.tiles.total += LightmapTiles.Size();
+	return stats;
+}
+
+void LevelMesh::UpdateCollision()
+{
+	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Indexes.Data(), Mesh.Indexes.Size());
 }
 
 struct LevelMeshPlaneGroup
@@ -120,7 +109,7 @@ struct LevelMeshPlaneGroup
 	std::vector<LevelMeshSurface*> surfaces;
 };
 
-void LevelSubmesh::BuildTileSurfaceLists()
+void LevelMesh::BuildTileSurfaceLists()
 {
 	// Plane group surface is to be rendered with
 	TArray<LevelMeshPlaneGroup> PlaneGroups;
@@ -184,12 +173,12 @@ void LevelSubmesh::BuildTileSurfaceLists()
 			if (surface != targetSurface && (maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
 				continue; // Bounding box not visible
 
-			tile->Surfaces.Push(surface);
+			tile->Surfaces.Push(GetSurfaceIndex(surface));
 		}
 	}
 }
 
-void LevelSubmesh::SetupTileTransforms()
+void LevelMesh::SetupTileTransforms()
 {
 	for (auto& tile : LightmapTiles)
 	{
@@ -197,7 +186,7 @@ void LevelSubmesh::SetupTileTransforms()
 	}
 }
 
-void LevelSubmesh::PackLightmapAtlas(int lightmapStartIndex)
+void LevelMesh::PackLightmapAtlas(int lightmapStartIndex)
 {
 	std::vector<LightmapTile*> sortedTiles;
 	sortedTiles.reserve(LightmapTiles.Size());

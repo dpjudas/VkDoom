@@ -45,7 +45,7 @@ struct LightmapTile
 	LightmapTileBinding Binding;
 
 	// Surfaces that are visible within the lightmap tile
-	TArray<LevelMeshSurface*> Surfaces;
+	TArray<int> Surfaces;
 
 	BBox Bounds;
 	uint16_t SampleDimension = 0;

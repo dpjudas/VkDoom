@@ -424,12 +424,12 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 
 	if (surface && surface->LightmapTileIndex >= 0)
 	{
-		LightmapTile* tile = &surface->Submesh->LightmapTiles[surface->LightmapTileIndex];
+		LightmapTile* tile = &di->Level->levelMesh->LightmapTiles[surface->LightmapTileIndex];
 		float lightmapindex = (float)tile->AtlasLocation.ArrayIndex;
 
 		for (i = 0; i < 4; i++)
 		{
-			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), surface->Submesh->LMTextureSize);
+			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->LMTextureSize);
 			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, lightmapuv.X, lightmapuv.Y, lightmapindex);
 		}
 	}

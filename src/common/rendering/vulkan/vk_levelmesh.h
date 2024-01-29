@@ -50,7 +50,6 @@ struct SubmeshBufferRange
 
 struct SubmeshBufferLocation
 {
-	LevelSubmesh* Submesh = nullptr;
 	SubmeshBufferRange Vertex;
 	SubmeshBufferRange Index;
 	SubmeshBufferRange Node;
@@ -94,20 +93,13 @@ private:
 	void CreateStaticBLAS();
 	void CreateDynamicBLAS();
 	void CreateTLASInstanceBuffer();
-	void CreateTopLevelAS();
+	void CreateTopLevelAS(int instanceCount);
 
 	void UploadMeshes(bool dynamicOnly);
 	void UploadTLASInstanceBuffer();
-	void UpdateTopLevelAS();
+	void UpdateTopLevelAS(int instanceCount);
 
-	BLAS CreateBLAS(LevelSubmesh *submesh, bool preferFastBuild, int vertexOffset, int indexOffset);
-
-	int GetMaxVertexBufferSize();
-	int GetMaxIndexBufferSize();
-	int GetMaxNodeBufferSize();
-	int GetMaxSurfaceBufferSize();
-	int GetMaxUniformsBufferSize();
-	int GetMaxSurfaceIndexBufferSize();
+	BLAS CreateBLAS(bool preferFastBuild, int indexOffset, int indexCount);
 
 	VulkanRenderDevice* fb = nullptr;
 
@@ -168,7 +160,6 @@ private:
 	void UploadUniforms();
 	void UploadPortals();
 	void UpdateSizes();
-	void UpdateLocations();
 	size_t GetTransferSize();
 
 	VkLevelMesh* Mesh;
