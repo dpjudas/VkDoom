@@ -42,21 +42,10 @@ struct PortalInfo
 	VSMatrix transformation;
 };
 
-struct SubmeshBufferRange
+struct MeshBufferRange
 {
 	int Offset = 0;
 	int Size = 0;
-};
-
-struct SubmeshBufferLocation
-{
-	SubmeshBufferRange Vertex;
-	SubmeshBufferRange Index;
-	SubmeshBufferRange Node;
-	SubmeshBufferRange SurfaceIndex;
-	SubmeshBufferRange Surface;
-	SubmeshBufferRange UniformIndexes;
-	SubmeshBufferRange Uniforms;
 };
 
 class VkLevelMesh
@@ -108,6 +97,18 @@ private:
 	LevelMesh NullMesh;
 	LevelMesh* Mesh = nullptr;
 
+	struct
+	{
+		TArray<MeshBufferRange> Vertex;
+		TArray<MeshBufferRange> Index;
+		TArray<MeshBufferRange> Node;
+		TArray<MeshBufferRange> SurfaceIndex;
+		TArray<MeshBufferRange> Surface;
+		TArray<MeshBufferRange> UniformIndexes;
+		TArray<MeshBufferRange> Uniforms;
+		TArray<MeshBufferRange> Portals;
+	} Locations;
+
 	std::unique_ptr<VulkanBuffer> VertexBuffer;
 	std::unique_ptr<VulkanBuffer> UniformIndexBuffer;
 	std::unique_ptr<VulkanBuffer> IndexBuffer;
@@ -146,26 +147,23 @@ class VkLevelMeshUploader
 public:
 	VkLevelMeshUploader(VkLevelMesh* mesh);
 
-	void Upload(bool dynamicOnly);
+	void Upload();
 
 private:
 	void BeginTransfer(size_t transferBufferSize);
 	void EndTransfer(size_t transferBufferSize);
+	size_t GetTransferSize();
+	void ClearRanges();
+
 	void UploadNodes();
-	void UploadVertices();
-	void UploadUniformIndexes();
-	void UploadIndexes();
-	void UploadSurfaceIndexes();
 	void UploadSurfaces();
 	void UploadUniforms();
 	void UploadPortals();
-	void UpdateSizes();
-	size_t GetTransferSize();
 
-	VkLevelMesh* Mesh;
-	TArray<SubmeshBufferLocation> locations;
-	unsigned int start = 0;
-	unsigned int end = 0;
+	template<typename T>
+	void UploadRanges(const TArray<MeshBufferRange>& ranges, const T* srcbuffer, VulkanBuffer* destbuffer);
+
+	VkLevelMesh* Mesh = nullptr;
 	uint8_t* data = nullptr;
 	size_t datapos = 0;
 	VulkanCommandBuffer* cmdbuffer = nullptr;
