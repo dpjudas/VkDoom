@@ -13,7 +13,6 @@
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_walldispatcher.h"
 #include "hwrenderer/scene/hw_flatdispatcher.h"
-#include "common/rendering/hwrenderer/data/hw_meshbuilder.h"
 #include <unordered_map>
 
 static bool RequireLevelMesh()
@@ -282,22 +281,11 @@ FLightNode* DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* dooms
 
 void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 {
-	// We can't use side->segs since it is null.
-	TArray<std::pair<subsector_t*, seg_t*>> sideSegs(doomMap.sides.Size(), true);
-	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
-	{
-		subsector_t* sub = &doomMap.subsectors[i];
-		sector_t* sector = sub->sector;
-		for (int i = 0, count = sub->numlines; i < count; i++)
-		{
-			seg_t* seg = sub->firstline + i;
-			if (seg->sidedef)
-				sideSegs[seg->sidedef->Index()] = { sub, seg };
-		}
-	}
-
-	MeshBuilder state;
-	std::map<LightmapTileBinding, int> bindings;
+	bindings.clear();
+	Sides.clear();
+	Flats.clear();
+	Sides.resize(doomMap.sides.size());
+	Flats.resize(doomMap.sectors.Size());
 
 	// Create surface objects for all sides
 	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
@@ -307,43 +295,7 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 		if (isPolyLine)
 			continue;
 
-		subsector_t* sub = sideSegs[i].first;
-		seg_t* seg = sideSegs[i].second;
-		if (!seg)
-			continue;
-
-		sector_t* front = side->sector;
-		sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
-
-		HWMeshHelper result;
-		HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
-		HWWall wall;
-		wall.sub = sub;
-		wall.Process(&disp, state, seg, front, back);
-
-		// Part 1: solid geometry. This is set up so that there are no transparent parts
-		state.SetDepthFunc(DF_LEqual);
-		state.ClearDepthBias();
-		state.EnableTexture(true);
-		state.EnableBrightmap(true);
-		state.AlphaFunc(Alpha_GEqual, 0.f);
-		CreateWallSurface(side, disp, state, bindings, result.list, false, true);
-
-		for (HWWall& portal : result.portals)
-		{
-			WallPortals.Push(portal);
-		}
-
-		CreateWallSurface(side, disp, state, bindings, result.portals, true, false);
-
-		/*
-		// final pass: translucent stuff
-		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
-		state.SetRenderStyle(STYLE_Translucent);
-		CreateWallSurface(side, disp, state, bindings, result.translucent, false, true);
-		state.AlphaFunc(Alpha_GEqual, 0.f);
-		state.SetRenderStyle(STYLE_Normal);
-		*/
+		UpdateSide(doomMap, i);
 	}
 
 	// Create surfaces for all flats
@@ -352,40 +304,87 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 		sector_t* sector = &doomMap.sectors[i];
 		if (sector->subsectors[0]->flags & SSECF_POLYORG)
 			continue;
-		for (FSection& section : doomMap.sections.SectionsForSector(i))
-		{
-			int sectionIndex = doomMap.sections.SectionIndex(&section);
-
-			HWFlatMeshHelper result;
-			HWFlatDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
-
-			HWFlat flat;
-			flat.section = &section;
-			flat.ProcessSector(&disp, state, sector);
-
-			// Part 1: solid geometry. This is set up so that there are no transparent parts
-			state.SetDepthFunc(DF_LEqual);
-			state.ClearDepthBias();
-			state.EnableTexture(true);
-			state.EnableBrightmap(true);
-			CreateFlatSurface(disp, state, bindings, result.list);
-
-			CreateFlatSurface(disp, state, bindings, result.portals, true);
-
-			// final pass: translucent stuff
-			state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
-			state.SetRenderStyle(STYLE_Translucent);
-			CreateFlatSurface(disp, state, bindings, result.translucentborder);
-			state.SetDepthMask(false);
-			CreateFlatSurface(disp, state, bindings, result.translucent);
-			state.AlphaFunc(Alpha_GEqual, 0.f);
-			state.SetDepthMask(true);
-			state.SetRenderStyle(STYLE_Normal);
-		}
+		UpdateFlat(doomMap, i);
 	}
 }
 
-void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWWall>& list, bool isSky, bool translucent)
+void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	side_t* side = &doomMap.sides[sideIndex];
+	seg_t* seg = side->segs[0];
+	if (!seg)
+		return;
+
+	subsector_t* sub = seg->Subsector;
+
+	sector_t* front = side->sector;
+	sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+
+	HWMeshHelper result;
+	HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
+	HWWall wall;
+	wall.sub = sub;
+	wall.Process(&disp, state, seg, front, back);
+
+	// Part 1: solid geometry. This is set up so that there are no transparent parts
+	state.SetDepthFunc(DF_LEqual);
+	state.ClearDepthBias();
+	state.EnableTexture(true);
+	state.EnableBrightmap(true);
+	state.AlphaFunc(Alpha_GEqual, 0.f);
+	CreateWallSurface(side, disp, state, result.list, false, true);
+
+	for (HWWall& portal : result.portals)
+	{
+		WallPortals.Push(portal);
+	}
+
+	CreateWallSurface(side, disp, state, result.portals, true, false);
+
+	/*
+	// final pass: translucent stuff
+	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
+	state.SetRenderStyle(STYLE_Translucent);
+	CreateWallSurface(side, disp, state, result.translucent, false, true);
+	state.AlphaFunc(Alpha_GEqual, 0.f);
+	state.SetRenderStyle(STYLE_Normal);
+	*/
+}
+
+void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
+{
+	sector_t* sector = &doomMap.sectors[sectorIndex];
+	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
+	{
+		HWFlatMeshHelper result;
+		HWFlatDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
+
+		HWFlat flat;
+		flat.section = &section;
+		flat.ProcessSector(&disp, state, sector);
+
+		// Part 1: solid geometry. This is set up so that there are no transparent parts
+		state.SetDepthFunc(DF_LEqual);
+		state.ClearDepthBias();
+		state.EnableTexture(true);
+		state.EnableBrightmap(true);
+		CreateFlatSurface(disp, state, result.list);
+
+		CreateFlatSurface(disp, state, result.portals, true);
+
+		// final pass: translucent stuff
+		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
+		state.SetRenderStyle(STYLE_Translucent);
+		CreateFlatSurface(disp, state, result.translucentborder);
+		state.SetDepthMask(false);
+		CreateFlatSurface(disp, state, result.translucent);
+		state.AlphaFunc(Alpha_GEqual, 0.f);
+		state.SetDepthMask(true);
+		state.SetRenderStyle(STYLE_Normal);
+	}
+}
+
+void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky, bool translucent)
 {
 	for (HWWall& wallpart : list)
 	{
@@ -477,12 +476,12 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		surf.PortalIndex = isSky ? linePortals[side->linedef->Index()] : 0;
 		surf.IsSky = isSky;
 		surf.Bounds = GetBoundsFromSurface(surf);
-		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, bindings) : -1;
+		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf) : -1;
 		Surfaces.Push(surf);
 	}
 }
 
-int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf, std::map<LightmapTileBinding, int>& bindings)
+int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf)
 {
 	if (surf.IsSky)
 		return -1;
@@ -546,7 +545,7 @@ int DoomLevelMesh::GetSampleDimension(const DoomLevelMeshSurface& surf)
 	return sampleDimension;
 }
 
-void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, std::map<LightmapTileBinding, int>& bindings, TArray<HWFlat>& list, bool isSky)
+void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky)
 {
 	for (HWFlat& flatpart : list)
 	{
@@ -675,7 +674,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			surf.MeshLocation.NumVerts = sub->numlines;
 			surf.MeshLocation.NumElements = (sub->numlines - 2) * 3;
 			surf.Bounds = GetBoundsFromSurface(surf);
-			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, bindings) : -1;
+			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf) : -1;
 			Surfaces.Push(surf);
 		}
 	}
