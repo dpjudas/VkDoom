@@ -528,6 +528,7 @@ void VkRenderState::WaitForStreamBuffers()
 	mApplyCount = 0;
 	mRSBuffers->SurfaceUniformsBuffer->Reset();
 	mRSBuffers->MatrixBuffer->Reset();
+	mMatricesChanged = true;
 }
 
 int VkRenderState::SetViewpoint(const HWViewpointUniforms& vp)
@@ -764,6 +765,7 @@ void VkRenderState::EndFrame()
 {
 	mRSBuffers->MatrixBuffer->Reset();
 	mRSBuffers->SurfaceUniformsBuffer->Reset();
+	mMatricesChanged = true;
 }
 
 void VkRenderState::EnableDrawBuffers(int count, bool apply)
