@@ -269,6 +269,7 @@ TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 			result.primitiveWeights.y = hit.c;
 			result.primitiveWeights.z = 1.0 - hit.b - hit.c;
 			result.primitiveIndex = hit.triangle;
+			return result;
 		}
 	}
 

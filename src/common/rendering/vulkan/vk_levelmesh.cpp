@@ -522,7 +522,7 @@ void VkLevelMeshUploader::UploadNodes()
 		CollisionNode* nodes = (CollisionNode*)(data + datapos);
 		for (int i = 0, count = range.Size; i < count; i++)
 		{
-			const auto& node = srcnodes[i];
+			const auto& node = srcnodes[range.Offset + i];
 			CollisionNode info;
 			info.center = SwapYZ(node.aabb.Center);
 			info.extents = SwapYZ(node.aabb.Extents);
