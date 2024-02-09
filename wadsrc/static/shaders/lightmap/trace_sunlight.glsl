@@ -69,7 +69,7 @@ vec4 TraceSunRay(vec3 origin, float tmin, vec3 dir, float tmax, vec4 rayColor)
 		if (tmax <= tmin)
 			return vec4(0.0);
 
-		// Move through the portal
+		// Move through the portal, if any
 		TransformRay(surface.PortalIndex, origin, dir);
 	}
 	return vec4(0.0);

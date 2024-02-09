@@ -26,7 +26,7 @@ void main()
 #endif
 
 	vec3 normal = surfaces[SurfaceIndex].Normal;
-	vec3 origin = worldpos + normal * 0.1;
+	vec3 origin = worldpos + normal * 0.01;
 
 #if defined(USE_SUNLIGHT)
 	vec3 incoming = TraceSunLight(origin, normal, SurfaceIndex);

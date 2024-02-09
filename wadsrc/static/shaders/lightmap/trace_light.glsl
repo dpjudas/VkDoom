@@ -81,7 +81,7 @@ vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor)
 		origin += dir * result.t;
 		tmax -= result.t;
 
-		// Move through the portal
+		// Move through the portal, if any
 		TransformRay(surface.PortalIndex, origin, dir);
 	}
 	return vec4(0.0);
