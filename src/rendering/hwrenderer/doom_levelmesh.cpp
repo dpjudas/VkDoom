@@ -198,7 +198,9 @@ bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float di
 
 int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize)
 {
-	FLightNode* node = GetSurfaceLightNode(static_cast<const DoomLevelMeshSurface*>(surface));
+	std::pair<FLightNode*, int> nodePortalGroup = GetSurfaceLightNode(static_cast<const DoomLevelMeshSurface*>(surface));
+	FLightNode* node = nodePortalGroup.first;
+	int portalgroup = nodePortalGroup.second;
 	if (!node)
 		return 0;
 
@@ -208,7 +210,7 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 		FDynamicLight* light = node->lightsource;
 		if (light && light->Trace())
 		{
-			DVector3 pos = light->Pos; //light->PosRelative(portalgroup);
+			DVector3 pos = light->PosRelative(portalgroup);
 
 			LevelMeshLight& meshlight = list[listpos++];
 			meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
@@ -251,12 +253,14 @@ int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLi
 	return listpos;
 }
 
-FLightNode* DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf)
+std::pair<FLightNode*, int> DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf)
 {
 	FLightNode* node = nullptr;
+	int portalgroup = 0;
 	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
 	{
 		node = doomsurf->Subsector->section->lighthead;
+		portalgroup = doomsurf->Subsector->sector->PortalGroup;
 	}
 	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
 	{
@@ -265,18 +269,21 @@ FLightNode* DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* dooms
 		{
 			subsector_t* subsector = level.PointInRenderSubsector((doomsurf->Side->V1()->fPos() + doomsurf->Side->V2()->fPos()) * 0.5);
 			node = subsector->section->lighthead;
+			portalgroup = subsector->sector->PortalGroup;
 		}
 		else if (!doomsurf->ControlSector)
 		{
 			node = doomsurf->Side->lighthead;
+			portalgroup = doomsurf->Side->sector->PortalGroup;
 		}
 		else // 3d floor needs light from the sidedef on the other side
 		{
 			int otherside = doomsurf->Side->linedef->sidedef[0] == doomsurf->Side ? 1 : 0;
 			node = doomsurf->Side->linedef->sidedef[otherside]->lighthead;
+			portalgroup = doomsurf->Side->linedef->sidedef[otherside]->sector->PortalGroup;
 		}
 	}
-	return node;
+	return { node, portalgroup };
 }
 
 void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
@@ -1021,9 +1028,10 @@ void DoomLevelMesh::CreatePortals(FLevelLocals& doomMap)
 			auto d = sector->GetPortalDisplacement(plane);
 			if (!d.isZero())
 			{
+				// Note: Y and Z is swapped in the shader due to how the hwrenderer was implemented
 				VSMatrix transformation;
 				transformation.loadIdentity();
-				transformation.translate((float)d.X, (float)d.Y, 0.0f);
+				transformation.translate((float)d.X, 0.0f, (float)d.Y);
 
 				int targetSectorGroup = 0;
 				auto portalDestination = sector->GetPortal(plane)->mDestination;
@@ -1089,8 +1097,9 @@ void DoomLevelMesh::CreatePortals(FLevelLocals& doomMap)
 				z = tz - sz;
 			}
 
-			transformation.rotate((float)sourceLine->getPortalAngleDiff().Degrees(), 0.0f, 0.0f, 1.0f);
-			transformation.translate((float)(targetXYZ.X - sourceXYZ.X), (float)(targetXYZ.Y - sourceXYZ.Y), (float)z);
+			// Note: Y and Z is swapped in the shader due to how the hwrenderer was implemented
+			transformation.rotate((float)sourceLine->getPortalAngleDiff().Degrees(), 0.0f, 1.0f, 0.0f);
+			transformation.translate((float)(targetXYZ.X - sourceXYZ.X), (float)z, (float)(targetXYZ.Y - sourceXYZ.Y));
 
 			int targetSectorGroup = 0;
 			if (auto sector = targetLine->frontsector ? targetLine->frontsector : targetLine->backsector)

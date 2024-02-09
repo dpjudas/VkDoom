@@ -630,7 +630,7 @@ void VkLevelMeshUploader::UploadPortals()
 
 		size_t copysize = range.Size * sizeof(PortalInfo);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->PortalBuffer.get(), range.Offset * sizeof(PortalInfo), 0, copysize);
+			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->PortalBuffer.get(), datapos, range.Offset * sizeof(PortalInfo), copysize);
 		datapos += copysize;
 	}
 }

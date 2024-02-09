@@ -87,7 +87,7 @@ private:
 	int GetSampleDimension(const DoomLevelMeshSurface& surf);
 
 	void CreatePortals(FLevelLocals& doomMap);
-	FLightNode* GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf);
+	std::pair<FLightNode*, int> GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf);
 
 	TArray<SideSurfaceRange> Sides;
 	TArray<FlatSurfaceRange> Flats;

@@ -20,14 +20,19 @@ float TraceAmbientOcclusion(vec3 origin, vec3 normal)
 		vec3 H = normalize(vec3(Xi.x * 2.0f - 1.0f, Xi.y * 2.0f - 1.0f, 1.5 - length(Xi)));
 		vec3 L = H.x * tangent + H.y * bitangent + H.z * N;
 
-		float hitDistance;
-		int primitiveID = TraceFirstHitTriangleT(origin, minDistance, L, aoDistance, hitDistance);
-		if (primitiveID != -1)
+		TraceResult result = TraceFirstHit(origin, minDistance, L, aoDistance);
+
+		// Ignore surfaces with textures, skies or portals
+		if (result.primitiveIndex != -1)
 		{
-			SurfaceInfo surface = surfaces[surfaceIndices[primitiveID]];
-			if (surface.Sky == 0.0)
+			SurfaceInfo surface = GetSurface(result.primitiveIndex);
+			if (surface.Sky == 0.0 && surface.TextureIndex == 0 && surface.PortalIndex == 0)
 			{
-				ambience += clamp(hitDistance / aoDistance, 0.0, 1.0);
+				ambience += clamp(result.t / aoDistance, 0.0, 1.0);
+			}
+			else
+			{
+				ambience += 1.0;
 			}
 		}
 		else

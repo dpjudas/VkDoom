@@ -1,8 +1,17 @@
 
+struct TraceResult
+{
+	float t;
+	vec3 primitiveWeights;
+	int primitiveIndex;
+};
+
 #if defined(USE_RAYQUERY)
 
-int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax, out float t, out vec3 primitiveWeights)
+TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 {
+	TraceResult result;
+
 	rayQueryEXT rayQuery;
 	rayQueryInitializeEXT(rayQuery, acc, gl_RayFlagsCullBackFacingTrianglesEXT, 0xFF, origin, tmin, dir, tmax);
 
@@ -16,18 +25,20 @@ int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax,
 
 	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT)
 	{
-		t = rayQueryGetIntersectionTEXT(rayQuery, true);
+		result.t = rayQueryGetIntersectionTEXT(rayQuery, true);
 
-		primitiveWeights.xy = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
-		primitiveWeights.z = 1.0 - primitiveWeights.x - primitiveWeights.y;
+		result.primitiveWeights.xy = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
+		result.primitiveWeights.z = 1.0 - result.primitiveWeights.x - result.primitiveWeights.y;
 
-		return rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+		result.primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
 	}
 	else
 	{
-		t = tmax;
-		return -1;
+		result.t = tmax;
+		result.primitiveIndex = -1;
 	}
+
+	return result;
 }
 
 /*
@@ -234,8 +245,10 @@ TraceHit find_first_hit(RayBBox ray)
 	return hit;
 }
 
-int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax, out float tparam, out vec3 primitiveWeights)
+TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 {
+	TraceResult result;
+
 	// Perform segmented tracing to keep the ray AABB box smaller
 	vec3 ray_start = origin;
 	vec3 ray_end = origin + dir * tmax;
@@ -251,16 +264,17 @@ int TraceFirstHitTriangleNoPortal(vec3 origin, float tmin, vec3 dir, float tmax,
 		TraceHit hit = find_first_hit(ray);
 		if (hit.fraction < 1.0)
 		{
-			tparam = hit.fraction = segstart * (1.0 - hit.fraction) + segend * hit.fraction;
-			primitiveWeights.x = hit.b;
-			primitiveWeights.y = hit.c;
-			primitiveWeights.z = 1.0 - hit.b - hit.c;
-			return hit.triangle;
+			result.t = mix(segstart, segend, hit.fraction);
+			result.primitiveWeights.x = hit.b;
+			result.primitiveWeights.y = hit.c;
+			result.primitiveWeights.z = 1.0 - hit.b - hit.c;
+			result.primitiveIndex = hit.triangle;
 		}
 	}
 
-	tparam = tracedist;
-	return -1;
+	result.t = tracedist;
+	result.primitiveIndex = -1;
+	return result;
 }
 
 #endif
