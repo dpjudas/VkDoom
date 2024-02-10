@@ -39,12 +39,12 @@ public:
 	};
 
 	int VertexFormat = 0;
-	int NumTextureLayers = 0;
+	int Padding0 = 0;
 
 	VkShaderKey ShaderKey;
 	FRenderStyle RenderStyle;
 
-	int Padding = 0; // for 64 bit alignment
+	int Padding1 = 0; // for 64 bit alignment
 
 	bool operator<(const VkPipelineKey &other) const { return memcmp(this, &other, sizeof(VkPipelineKey)) < 0; }
 	bool operator==(const VkPipelineKey &other) const { return memcmp(this, &other, sizeof(VkPipelineKey)) == 0; }
@@ -108,7 +108,7 @@ public:
 	VkRenderPassSetup *GetRenderPass(const VkRenderPassKey &key);
 	int GetVertexFormat(const std::vector<size_t>& bufferStrides, const std::vector<FVertexBufferAttribute>& attrs);
 	VkVertexFormat *GetVertexFormat(int index);
-	VulkanPipelineLayout* GetPipelineLayout(int numLayers, bool levelmesh);
+	VulkanPipelineLayout* GetPipelineLayout(bool levelmesh);
 
 	VkPPRenderPassSetup* GetPPRenderPass(const VkPPRenderPassKey& key);
 
@@ -118,7 +118,7 @@ private:
 	VulkanRenderDevice* fb = nullptr;
 
 	std::map<VkRenderPassKey, std::unique_ptr<VkRenderPassSetup>> RenderPassSetup;
-	std::vector<std::unique_ptr<VulkanPipelineLayout>> PipelineLayouts[2];
+	std::unique_ptr<VulkanPipelineLayout> PipelineLayouts[2];
 	std::vector<VkVertexFormat> VertexFormats;
 
 	std::map<VkPPRenderPassKey, std::unique_ptr<VkPPRenderPassSetup>> PPRenderPassSetup;

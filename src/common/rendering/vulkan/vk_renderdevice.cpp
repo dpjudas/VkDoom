@@ -633,8 +633,6 @@ int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, c
 	pipelineKey.VertexFormat = levelVertexFormatIndex;
 	pipelineKey.RenderStyle = applyData.RenderStyle;
 	pipelineKey.DepthFunc = applyData.DepthFunc;
-	pipelineKey.NumTextureLayers = material.mMaterial ? material.mMaterial->NumLayers() : 0;
-	pipelineKey.NumTextureLayers = max(pipelineKey.NumTextureLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS);// Always force minimum 8 textures as the shader requires it
 	if (applyData.SpecialEffect > EFF_NONE)
 	{
 		pipelineKey.ShaderKey.SpecialEffect = applyData.SpecialEffect;

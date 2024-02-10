@@ -10,8 +10,6 @@
 #include <list>
 #include <map>
 
-#define SHADER_MIN_REQUIRED_TEXTURE_LAYERS 11
-
 class ShaderIncludeResult;
 class VulkanRenderDevice;
 class VulkanDevice;
