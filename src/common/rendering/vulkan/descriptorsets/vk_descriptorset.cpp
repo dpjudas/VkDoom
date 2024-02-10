@@ -130,77 +130,11 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 	for (auto mat : Materials)
 		mat->DeleteDescriptors();
 
-	auto deleteList = fb->GetCommands()->DrawDeleteList.get();
-	for (auto& desc : Texture.Pools)
-	{
-		deleteList->Add(std::move(desc));
-	}
-	deleteList->Add(std::move(Texture.NullSet));
-
-	Texture.Pools.clear();
-	Texture.SetsLeft = 0;
-	Texture.DescriptorsLeft = 0;
-
 	Bindless.Writer = WriteDescriptors();
 	Bindless.NextIndex = 0;
 
 	// Slot zero always needs to be the null texture
 	AddBindlessTextureIndex(fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
-}
-
-VulkanDescriptorSet* VkDescriptorSetManager::GetNullTextureSet()
-{
-	if (!Texture.NullSet)
-	{
-		Texture.NullSet = AllocateTextureSet(SHADER_MIN_REQUIRED_TEXTURE_LAYERS);
-
-		WriteDescriptors update;
-		for (int i = 0; i < SHADER_MIN_REQUIRED_TEXTURE_LAYERS; i++)
-		{
-			update.AddCombinedImageSampler(Texture.NullSet.get(), i, fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		}
-		update.Execute(fb->GetDevice());
-	}
-
-	return Texture.NullSet.get();
-}
-
-std::unique_ptr<VulkanDescriptorSet> VkDescriptorSetManager::AllocateTextureSet(int numLayers)
-{
-	if (Texture.SetsLeft == 0 || Texture.DescriptorsLeft < numLayers)
-	{
-		Texture.SetsLeft = 1000;
-		Texture.DescriptorsLeft = 2000;
-
-		Texture.Pools.push_back(DescriptorPoolBuilder()
-			.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Texture.DescriptorsLeft)
-			.MaxSets(Texture.SetsLeft)
-			.DebugName("VkDescriptorSetManager.Texture.Pool")
-			.Create(fb->GetDevice()));
-	}
-
-	Texture.SetsLeft--;
-	Texture.DescriptorsLeft -= numLayers;
-	return Texture.Pools.back()->allocate(GetTextureLayout(numLayers));
-}
-
-VulkanDescriptorSetLayout* VkDescriptorSetManager::GetTextureLayout(int numLayers)
-{
-	if (Texture.Layouts.size() < (size_t)numLayers)
-		Texture.Layouts.resize(numLayers);
-
-	auto& layout = Texture.Layouts[numLayers - 1];
-	if (layout)
-		return layout.get();
-
-	DescriptorSetLayoutBuilder builder;
-	for (int i = 0; i < numLayers; i++)
-	{
-		builder.AddBinding(i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-	}
-	builder.DebugName("VkDescriptorSetManager.Texture.SetLayout");
-	layout = builder.Create(fb->GetDevice());
-	return layout.get();
 }
 
 void VkDescriptorSetManager::AddMaterial(VkMaterial* texture)

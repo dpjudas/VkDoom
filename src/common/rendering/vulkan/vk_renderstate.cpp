@@ -205,7 +205,6 @@ void VkRenderState::Apply(int dt)
 	ApplyPushConstants();
 	ApplyVertexBuffers();
 	ApplyBufferSets();
-	ApplyMaterial();
 	mNeedApply = false;
 
 	drawcalls.Unclock();
@@ -404,10 +403,22 @@ void VkRenderState::ApplySurfaceUniforms()
 	else
 		mSurfaceUniforms.timer = 0.0f;
 
-	if (mMaterial.mMaterial)
+	if (mMaterial.mChanged)
 	{
-		auto source = mMaterial.mMaterial->Source();
-		mSurfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+		if (mMaterial.mMaterial)
+		{
+			auto source = mMaterial.mMaterial->Source();
+			if (source->isHardwareCanvas())
+				static_cast<FCanvasTexture*>(source->GetTexture())->NeedUpdate();
+
+			mSurfaceUniforms.uTextureIndex = static_cast<VkMaterial*>(mMaterial.mMaterial)->GetBindlessIndex(mMaterial);
+			mSurfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+		}
+		else
+		{
+			mSurfaceUniforms.uTextureIndex = 0;
+		}
+		mMaterial.mChanged = false;
 	}
 
 	if (!mRSBuffers->SurfaceUniformsBuffer->Write(mSurfaceUniforms))
@@ -481,24 +492,6 @@ void VkRenderState::ApplyVertexBuffers()
 	}
 }
 
-void VkRenderState::ApplyMaterial()
-{
-	if (mMaterial.mChanged)
-	{
-		auto descriptors = fb->GetDescriptorSetManager();
-		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.NumTextureLayers, mPipelineKey.ShaderKey.UseLevelMesh);
-
-		if (mMaterial.mMaterial && mMaterial.mMaterial->Source()->isHardwareCanvas())
-			static_cast<FCanvasTexture*>(mMaterial.mMaterial->Source()->GetTexture())->NeedUpdate();
-
-		VulkanDescriptorSet* descriptorset = mMaterial.mMaterial ? static_cast<VkMaterial*>(mMaterial.mMaterial)->GetDescriptorSet(mMaterial) : descriptors->GetNullTextureSet();
-
-		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
-		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptorset);
-		mMaterial.mChanged = false;
-	}
-}
-
 void VkRenderState::ApplyBufferSets()
 {
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
@@ -513,6 +506,7 @@ void VkRenderState::ApplyBufferSets()
 		uint32_t offsets[5] = { mViewpointOffset, matrixOffset, surfaceUniformsOffset, lightsOffset, fogballsOffset };
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetRSBufferSet(), 5, offsets);
+		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());
 
 		mLastViewpointOffset = mViewpointOffset;
 		mLastMatricesOffset = matrixOffset;

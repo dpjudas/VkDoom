@@ -84,7 +84,6 @@ protected:
 	void ApplyPushConstants();
 	void ApplyBufferSets();
 	void ApplyVertexBuffers();
-	void ApplyMaterial();
 
 	void BeginRenderPass(VulkanCommandBuffer *cmdbuffer);
 	void WaitForStreamBuffers();

@@ -26,16 +26,12 @@ public:
 	VulkanDescriptorSetLayout* GetLevelMeshLayout() { return LevelMesh.Layout.get(); }
 	VulkanDescriptorSetLayout* GetRSBufferLayout() { return RSBuffer.Layout.get(); }
 	VulkanDescriptorSetLayout* GetFixedLayout() { return Fixed.Layout.get(); }
-	VulkanDescriptorSetLayout* GetTextureLayout(int numLayers);
 	VulkanDescriptorSetLayout* GetBindlessLayout() { return Bindless.Layout.get(); }
 
 	VulkanDescriptorSet* GetLevelMeshSet() { return LevelMesh.Set.get(); }
 	VulkanDescriptorSet* GetRSBufferSet() { return RSBuffer.Set.get(); }
 	VulkanDescriptorSet* GetFixedSet() { return Fixed.Set.get(); }
-	VulkanDescriptorSet* GetNullTextureSet();
 	VulkanDescriptorSet* GetBindlessSet() { return Bindless.Set.get(); }
-
-	std::unique_ptr<VulkanDescriptorSet> AllocateTextureSet(int numLayers);
 
 	VulkanDescriptorSet* GetInput(VkPPRenderPassSetup* passSetup, const TArray<PPTextureInput>& textures, bool bindShadowMapBuffers);
 
@@ -88,15 +84,6 @@ private:
 		WriteDescriptors Writer;
 		int NextIndex = 0;
 	} Bindless;
-
-	struct
-	{
-		std::vector<std::unique_ptr<VulkanDescriptorSetLayout>> Layouts;
-		int SetsLeft = 0;
-		int DescriptorsLeft = 0;
-		std::vector<std::unique_ptr<VulkanDescriptorPool>> Pools;
-		std::unique_ptr<VulkanDescriptorSet> NullSet;
-	} Texture;
 
 	struct
 	{

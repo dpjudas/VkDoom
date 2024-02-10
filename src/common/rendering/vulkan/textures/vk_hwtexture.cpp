@@ -315,20 +315,7 @@ VkMaterial::~VkMaterial()
 
 void VkMaterial::DeleteDescriptors()
 {
-	if (fb)
-	{
-		auto deleteList = fb->GetCommands()->DrawDeleteList.get();
-		for (auto& it : mDescriptorSets)
-		{
-			deleteList->Add(std::move(it.descriptor));
-		}
-		mDescriptorSets.clear();
-	}
-}
-
-VulkanDescriptorSet* VkMaterial::GetDescriptorSet(const FMaterialState& state)
-{
-	return GetDescriptorEntry(state).descriptor.get();
+	mDescriptorSets.clear();
 }
 
 int VkMaterial::GetBindlessIndex(const FMaterialState& state)
@@ -347,24 +334,16 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 
 	for (auto& set : mDescriptorSets)
 	{
-		if (set.descriptor && set.clampmode == clampmode && set.remap == translationp) return set;
+		if (set.clampmode == clampmode && set.remap == translationp) return set;
 	}
 
 	int numLayers = NumLayers();
-
 	auto descriptors = fb->GetDescriptorSetManager();
-	auto descriptor = descriptors->AllocateTextureSet(max(numLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS));
-
-	descriptor->SetDebugName("VkHardwareTexture.mDescriptorSets");
-
 	auto* sampler = fb->GetSamplerManager()->Get(clampmode);
 
-	WriteDescriptors update;
 	MaterialLayerInfo *layer;
 	auto systex = static_cast<VkHardwareTexture*>(GetLayer(0, state.mTranslation, &layer));
 	auto systeximage = systex->GetImage(layer->layerTexture, state.mTranslation, layer->scaleFlags);
-	update.AddCombinedImageSampler(descriptor.get(), 0, systeximage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(0), clampmode), systeximage->Layout);
-
 	int bindlessIndex = descriptors->AddBindlessTextureIndex(systeximage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(0), clampmode));
 
 	if (!(layer->scaleFlags & CTF_Indexed))
@@ -373,8 +352,6 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, 0, &layer));
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
-			update.AddCombinedImageSampler(descriptor.get(), i, syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode), syslayerimage->Layout);
-
 			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 	}
@@ -384,20 +361,11 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, translation, &layer));
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
-			update.AddCombinedImageSampler(descriptor.get(), i, syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode), syslayerimage->Layout);
-
 			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 		numLayers = 3;
 	}
 
-	auto dummyImage = fb->GetTextureManager()->GetNullTextureView();
-	for (int i = numLayers; i < SHADER_MIN_REQUIRED_TEXTURE_LAYERS; i++)
-	{
-		update.AddCombinedImageSampler(descriptor.get(), i, dummyImage, sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	}
-
-	update.Execute(fb->GetDevice());
-	mDescriptorSets.emplace_back(clampmode, translationp, std::move(descriptor), bindlessIndex);
+	mDescriptorSets.emplace_back(clampmode, translationp, bindlessIndex);
 	return mDescriptorSets.back();
 }
