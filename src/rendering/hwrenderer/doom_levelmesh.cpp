@@ -391,11 +391,11 @@ void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	}
 }
 
-void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isSky, bool translucent)
+void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent)
 {
 	for (HWWall& wallpart : list)
 	{
-		if (isSky)
+		if (isPortal)
 		{
 			state.SetEffect(EFF_PORTAL);
 			state.EnableTexture(false);
@@ -480,8 +480,8 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		surf.Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
 		surf.Texture = wallpart.texture;
 		surf.PipelineID = pipelineID;
-		surf.PortalIndex = isSky ? linePortals[side->linedef->Index()] : 0;
-		surf.IsSky = isSky;
+		surf.PortalIndex = isPortal ? linePortals[side->linedef->Index()] : 0;
+		surf.IsSky = isPortal ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
 		surf.Bounds = GetBoundsFromSurface(surf);
 		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf) : -1;
 		Surfaces.Push(surf);
