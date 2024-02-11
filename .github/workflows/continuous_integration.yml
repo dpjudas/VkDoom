@@ -133,7 +133,13 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: Visual Studio 2022 Release
-        path: build
+        path: build/vkdoom-prerelease
+
+    - name: Zip artifacts
+      shell: bash
+      run: |
+        cd build
+        zip -r vkdoom-prerelease.zip vkdoom-prerelease
 
     - name: Update nightly release
       uses: pyTooling/Actions/releaser@r0
@@ -141,4 +147,4 @@ jobs:
         tag: nightly
         rm: true
         token: ${{ secrets.GITHUB_TOKEN }}
-        files: build/*.*
+        files: build/vkdoom-prerelease.zip
