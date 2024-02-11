@@ -126,3 +126,12 @@ jobs:
       run: |
         git status
         ls -lR build
+
+    - name: Update Latest successful build
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master' && runner.os == 'Windows'
+      uses: eine/tip@master
+      with:
+        tag: nightly
+        rm: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+        files: build/package/*.*
