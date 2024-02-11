@@ -43,8 +43,6 @@ layout(set = 0, binding = 2) buffer SurfaceBuffer { SurfaceInfo surfaces[]; };
 layout(set = 0, binding = 3) buffer LightBuffer { LightInfo lights[]; };
 layout(set = 0, binding = 4) buffer PortalBuffer { PortalInfo portals[]; };
 
-#if defined(USE_DRAWINDIRECT)
-
 struct LightmapRaytracePC
 {
 	uint LightStart;
@@ -64,25 +62,3 @@ struct LightmapRaytracePC
 };
 
 layout(std430, set = 0, binding = 5) buffer ConstantsBuffer { LightmapRaytracePC constants[]; };
-
-#else
-
-layout(push_constant) uniform LightmapRaytracePC
-{
-	uint LightStart;
-	uint LightEnd;
-	int SurfaceIndex;
-	int PushPadding1;
-	vec3 WorldToLocal;
-	float TextureSize;
-	vec3 ProjLocalToU;
-	float PushPadding2;
-	vec3 ProjLocalToV;
-	float PushPadding3;
-	float TileX;
-	float TileY;
-	float TileWidth;
-	float TileHeight;
-};
-
-#endif

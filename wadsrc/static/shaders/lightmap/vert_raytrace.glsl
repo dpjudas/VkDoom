@@ -4,13 +4,10 @@
 layout(location = 0) in vec3 aPosition;
 layout(location = 0) out vec3 worldpos;
 
-#if defined(USE_DRAWINDIRECT)
 layout(location = 1) out flat int InstanceIndex;
-#endif
 
 void main()
 {
-#if defined(USE_DRAWINDIRECT)
 	vec3 WorldToLocal = constants[gl_InstanceIndex].WorldToLocal;
 	float TextureSize = constants[gl_InstanceIndex].TextureSize;
 	vec3 ProjLocalToU = constants[gl_InstanceIndex].ProjLocalToU;
@@ -20,7 +17,6 @@ void main()
 	float TileWidth = constants[gl_InstanceIndex].TileWidth;
 	float TileHeight = constants[gl_InstanceIndex].TileHeight;
 	InstanceIndex = gl_InstanceIndex;
-#endif
 
 	worldpos = aPosition;
 

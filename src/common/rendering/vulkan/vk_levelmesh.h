@@ -119,14 +119,6 @@ private:
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
 
-	TArray<FFlatVertex> Vertices;
-	static const int MaxDynamicVertices = 100'000;
-	static const int MaxDynamicIndexes = 100'000;
-	static const int MaxDynamicSurfaces = 100'000;
-	static const int MaxDynamicUniforms = 100'000;
-	static const int MaxDynamicSurfaceIndexes = 25'000;
-	static const int MaxDynamicNodes = 10'000;
-
 	BLAS StaticBLAS;
 	BLAS DynamicBLAS;
 

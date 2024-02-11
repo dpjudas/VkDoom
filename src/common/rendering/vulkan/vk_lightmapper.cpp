@@ -9,8 +9,6 @@
 #include "filesystem.h"
 #include "cmdlib.h"
 
-#define USE_DRAWINDIRECT
-
 static int lastSurfaceCount;
 static glcycle_t lightmapRaytraceLast;
 
@@ -239,7 +237,6 @@ void VkLightmapper::Render()
 			pc.LightStart = surface->LightList.Pos;
 			pc.LightEnd = pc.LightStart + surface->LightList.Count;
 
-#ifdef USE_DRAWINDIRECT
 			VkDrawIndexedIndirectCommand cmd;
 			cmd.indexCount = surface->MeshLocation.NumElements;
 			cmd.instanceCount = 1;
@@ -256,10 +253,6 @@ void VkLightmapper::Render()
 				buffersFull = true;
 				break;
 			}
-#else
-			cmdbuffer->pushConstants(raytrace.pipelineLayout.get(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(LightmapRaytracePC), &pc);
-			cmdbuffer->drawIndexed(surface->numElements, 1, surface->startElementIndex, 0, 0);
-#endif
 		}
 
 		if (buffersFull)
@@ -275,9 +268,7 @@ void VkLightmapper::Render()
 		selectedTile.Rendered = true;
 	}
 
-#ifdef USE_DRAWINDIRECT
 	cmdbuffer->drawIndexedIndirect(drawindexed.CommandsBuffer->buffer, 0, drawindexed.Pos, sizeof(VkDrawIndexedIndirectCommand));
-#endif
 
 	cmdbuffer->endRenderPass();
 
@@ -542,10 +533,6 @@ void VkLightmapper::CreateShaders()
 		traceprefix += "#extension GL_EXT_ray_query : require\r\n";
 		traceprefix += "#define USE_RAYQUERY\r\n";
 	}
-#ifdef USE_DRAWINDIRECT
-	prefix += "#define USE_DRAWINDIRECT\r\n";
-	traceprefix += "#define USE_DRAWINDIRECT\r\n";
-#endif
 
 	auto onIncludeLocal = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); };
 	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
@@ -693,9 +680,7 @@ void VkLightmapper::CreateRaytracePipeline()
 		.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-#ifdef USE_DRAWINDIRECT
 		.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-#endif
 		.DebugName("raytrace.descriptorSetLayout0")
 		.Create(fb->GetDevice());
 
@@ -722,9 +707,6 @@ void VkLightmapper::CreateRaytracePipeline()
 		.AddSetLayout(raytrace.descriptorSetLayout0.get())
 		.AddSetLayout(raytrace.descriptorSetLayout1.get())
 		.AddSetLayout(fb->GetDescriptorSetManager()->GetBindlessLayout())
-#ifndef USE_DRAWINDIRECT
-		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(LightmapRaytracePC))
-#endif
 		.DebugName("raytrace.pipelineLayout")
 		.Create(fb->GetDevice());
 
@@ -821,9 +803,7 @@ void VkLightmapper::UpdateAccelStructDescriptors()
 		.AddBuffer(raytrace.descriptorSet0.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceBuffer())
 		.AddBuffer(raytrace.descriptorSet0.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lights.Buffer.get())
 		.AddBuffer(raytrace.descriptorSet0.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetPortalBuffer())
-#ifdef USE_DRAWINDIRECT
 		.AddBuffer(raytrace.descriptorSet0.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawindexed.ConstantsBuffer.get(), 0, drawindexed.BufferSize * sizeof(LightmapRaytracePC))
-#endif
 		.Execute(fb->GetDevice());
 }
 

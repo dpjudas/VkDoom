@@ -8,22 +8,16 @@
 #include <shaders/lightmap/trace_light.glsl>
 #include <shaders/lightmap/trace_ambient_occlusion.glsl>
 
-#if defined(USE_DRAWINDIRECT)
-
+layout(location = 0) centroid in vec3 worldpos;
 layout(location = 1) in flat int InstanceIndex;
 
-#endif
-
-layout(location = 0) centroid in vec3 worldpos;
 layout(location = 0) out vec4 fragcolor;
 
 void main()
 {
-#if defined(USE_DRAWINDIRECT)
 	uint LightStart = constants[InstanceIndex].LightStart;
 	uint LightEnd = constants[InstanceIndex].LightEnd;
 	int SurfaceIndex = constants[InstanceIndex].SurfaceIndex;
-#endif
 
 	vec3 normal = surfaces[SurfaceIndex].Normal;
 	vec3 origin = worldpos + normal * 0.01;
