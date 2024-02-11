@@ -20,11 +20,6 @@ jobs:
           extra_options: -DCMAKE_TOOLCHAIN_FILE=build/vcpkg/scripts/buildsystems/vcpkg.cmake
           build_type: Debug
 
-        - name: Visual Studio 2019
-          os: windows-2019
-          extra_options: -DCMAKE_TOOLCHAIN_FILE=build/vcpkg/scripts/buildsystems/vcpkg.cmake
-          build_type: Release
-
         - name: macOS
           os: macos-12
           deps_cmdline: brew install libvpx webp
@@ -127,11 +122,27 @@ jobs:
         git status
         ls -lR build
 
-    - name: Update Latest successful build
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master' && runner.os == 'Windows'
-      uses: eine/tip@master
+  deploy:
+    name: Update Latest successful build
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: Visual Studio 2022 Release
+        path: build
+
+    - name: List Directory
+      if: always()
+      shell: bash
+      run: |
+        ls -lR .
+
+    - uses: pyTooling/Actions/releaser@r0
       with:
         tag: nightly
         rm: true
         token: ${{ secrets.GITHUB_TOKEN }}
-        files: build/package/*.*
+        files: build/*.*
