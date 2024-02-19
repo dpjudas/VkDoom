@@ -30,3 +30,8 @@ vec4 texture(int index, vec2 p)
 {
 	return texture(textures[uTextureIndex + index], p);
 }
+
+ivec2 textureSize(int index, int lod)
+{
+	return textureSize(textures[uTextureIndex + index], lod);
+}
