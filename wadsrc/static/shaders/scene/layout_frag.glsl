@@ -35,3 +35,8 @@ ivec2 textureSize(int index, int lod)
 {
 	return textureSize(textures[uTextureIndex + index], lod);
 }
+
+vec4 texelFetch(int index, ivec2 P, int lod)
+{
+	return texelFetch(textures[uTextureIndex + index], P, lod);
+}
