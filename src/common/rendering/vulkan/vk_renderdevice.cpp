@@ -78,6 +78,7 @@ static std::vector<VulkanCompatibleDevice> SupportedDevices;
 int vkversion;
 static TArray<FString> memheapnames;
 static TArray<VmaBudget> membudgets;
+static int hwtexturecount;
 
 CUSTOM_CVAR(Bool, vk_debug, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
 {
@@ -110,7 +111,7 @@ CCMD(vk_membudget)
 	{
 		if (membudgets[i].budget != 0)
 		{
-			Printf("#%d %s - %d MB used out of %d MB estimated budget (%d%%)\n",
+			Printf("#%d%s - %d MB used out of %d MB estimated budget (%d%%)\n",
 				i, memheapnames[i].GetChars(),
 				(int)(membudgets[i].usage / (1024 * 1024)),
 				(int)(membudgets[i].budget / (1024 * 1024)),
@@ -123,6 +124,7 @@ CCMD(vk_membudget)
 				(int)(membudgets[i].usage / (1024 * 1024)));
 		}
 	}
+	Printf("%d total hardware textures\n", hwtexturecount);
 }
 
 void I_BuildVKDeviceList(FOptionValues* opt)
@@ -510,9 +512,10 @@ void VulkanRenderDevice::BeginFrame()
 		for (unsigned int i = 0; i < memheapnames.Size(); i++)
 		{
 			bool deviceLocal = !!(mDevice->PhysicalDevice.Properties.Memory.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT);
-			memheapnames[i] = deviceLocal ? "device local" : "system";
+			memheapnames[i] = deviceLocal ? " (device local)" : "";
 		}
 	}
+	hwtexturecount = mTextureManager->GetHWTextureCount();
 
 	if (levelMeshChanged)
 	{

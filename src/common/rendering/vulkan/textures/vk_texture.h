@@ -37,6 +37,8 @@ public:
 	VulkanImage* GetNullTexture() { return NullTexture.get(); }
 	VulkanImageView* GetNullTextureView() { return NullTextureView.get(); }
 
+	int GetHWTextureCount() { return (int)Textures.size(); }
+
 	VkTextureImage Shadowmap;
 	VkTextureImage Lightmap;
 	int LMTextureSize = 0;
