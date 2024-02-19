@@ -40,6 +40,10 @@ bool VulkanDevice::SupportsExtension(const char* ext) const
 		Instance->EnabledExtensions.find(ext) != Instance->EnabledExtensions.end();
 }
 
+#ifndef VK_KHR_MAINTENANCE4_EXTENSION_NAME
+#define VK_KHR_MAINTENANCE4_EXTENSION_NAME "VK_KHR_maintenance4"
+#endif
+
 void VulkanDevice::CreateAllocator()
 {
 	VmaAllocatorCreateInfo allocinfo = {};
@@ -48,6 +52,16 @@ void VulkanDevice::CreateAllocator()
 		allocinfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
 	if (SupportsExtension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
 		allocinfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+	if (SupportsExtension(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME))
+		allocinfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+	//if (SupportsExtension(VK_KHR_MAINTENANCE4_EXTENSION_NAME))
+	//	allocinfo.flags |= MA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT;
+	if (SupportsExtension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME))
+		allocinfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+	if (SupportsExtension(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
+		allocinfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+	if (SupportsExtension(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
+		allocinfo.flags |= VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT;
 	allocinfo.physicalDevice = PhysicalDevice.Device;
 	allocinfo.device = device;
 	allocinfo.instance = Instance->Instance;
