@@ -34,7 +34,6 @@ public:
 	virtual LevelMeshSurface* GetSurface(int index) { return nullptr; }
 	virtual unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const { return 0xffffffff; }
 	virtual int GetSurfaceCount() { return 0; }
-	virtual int AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize) { return 0; }
 
 	LevelMeshSurface* Trace(const FVector3& start, FVector3 direction, float maxDist);
 
@@ -55,6 +54,10 @@ public:
 		// Surface info
 		TArray<SurfaceUniforms> Uniforms;
 		TArray<FMaterialState> Materials;
+		TArray<int32_t> LightIndexes;
+
+		// Lights
+		TArray<LevelMeshLight> Lights;
 
 		// Index data
 		TArray<uint32_t> Indexes;
@@ -68,6 +71,8 @@ public:
 		int MaxUniforms = 0;
 		int MaxSurfaceIndexes = 0;
 		int MaxNodes = 0;
+		int MaxLights = 0;
+		int MaxLightIndexes = 0;
 	} Mesh;
 
 	std::unique_ptr<TriangleMeshShape> Collision;

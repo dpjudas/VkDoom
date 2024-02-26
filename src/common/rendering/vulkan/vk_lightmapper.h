@@ -79,22 +79,6 @@ struct LightmapBakeImage
 	uint16_t maxY = 0;
 };
 
-struct LightInfo
-{
-	FVector3 Origin;
-	float Padding0;
-	FVector3 RelativeOrigin;
-	float Padding1;
-	float Radius;
-	float Intensity;
-	float InnerAngleCos;
-	float OuterAngleCos;
-	FVector3 SpotDir;
-	float Padding2;
-	FVector3 Color;
-	float Padding3;
-};
-
 struct SelectedTile
 {
 	LightmapTile* Tile = nullptr;
@@ -102,8 +86,6 @@ struct SelectedTile
 	int Y = -1;
 	bool Rendered = false;
 };
-
-static_assert(sizeof(LightInfo) == sizeof(float) * 20);
 
 struct CopyTileInfo
 {
@@ -147,7 +129,6 @@ private:
 	void CreateBlurPipeline();
 	void CreateCopyPipeline();
 	void CreateUniformBuffer();
-	void CreateLightBuffer();
 	void CreateTileBuffer();
 	void CreateDrawIndexedBuffer();
 	void CreateBakeImage();
@@ -179,15 +160,6 @@ private:
 		int NumStructs = 256;
 		VkDeviceSize StructStride = sizeof(Uniforms);
 	} uniforms;
-
-	struct
-	{
-		const int BufferSize = 2 * 1024 * 1024;
-		std::unique_ptr<VulkanBuffer> Buffer;
-		LightInfo* Lights = nullptr;
-		int Pos = 0;
-		int ResetCounter = 0;
-	} lights;
 
 	struct
 	{

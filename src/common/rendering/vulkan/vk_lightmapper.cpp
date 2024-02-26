@@ -38,7 +38,6 @@ VkLightmapper::VkLightmapper(VulkanRenderDevice* fb) : fb(fb)
 	try
 	{
 		CreateUniformBuffer();
-		CreateLightBuffer();
 		CreateTileBuffer();
 		CreateDrawIndexedBuffer();
 
@@ -63,8 +62,6 @@ VkLightmapper::~VkLightmapper()
 
 void VkLightmapper::ReleaseResources()
 {
-	if (lights.Buffer)
-		lights.Buffer->Unmap();
 	if (copytiles.Buffer)
 		copytiles.Buffer->Unmap();
 	if (drawindexed.CommandsBuffer)
@@ -85,8 +82,6 @@ void VkLightmapper::SetLevelMesh(LevelMesh* level)
 
 void VkLightmapper::BeginFrame()
 {
-	lights.Pos = 0;
-	lights.ResetCounter++;
 	drawindexed.Pos = 0;
 }
 
@@ -200,42 +195,8 @@ void VkLightmapper::Render()
 		{
 			LevelMeshSurface* surface = mesh->GetSurface(surfaceIndex);
 			pc.SurfaceIndex = surfaceIndex;
-
-			if (surface->LightList.ResetCounter != lights.ResetCounter)
-			{
-				int lightCount = mesh->AddSurfaceLights(surface, templightlist.Data(), (int)templightlist.Size());
-
-				if (lights.Pos + lightCount > lights.BufferSize)
-				{
-					// Our light buffer is full. Postpone the rest.
-					buffersFull = true;
-					break;
-				}
-
-				surface->LightList.Pos = lights.Pos;
-				surface->LightList.Count = lightCount;
-				surface->LightList.ResetCounter = lights.ResetCounter;
-
-				LightInfo* lightinfo = &lights.Lights[lights.Pos];
-				for (int i = 0; i < lightCount; i++)
-				{
-					const LevelMeshLight* light = &templightlist[i];
-					lightinfo->Origin = SwapYZ(light->Origin);
-					lightinfo->RelativeOrigin = SwapYZ(light->RelativeOrigin);
-					lightinfo->Radius = light->Radius;
-					lightinfo->Intensity = light->Intensity;
-					lightinfo->InnerAngleCos = light->InnerAngleCos;
-					lightinfo->OuterAngleCos = light->OuterAngleCos;
-					lightinfo->SpotDir = SwapYZ(light->SpotDir);
-					lightinfo->Color = light->Color;
-					lightinfo++;
-				}
-
-				lights.Pos += lightCount;
-			}
-
 			pc.LightStart = surface->LightList.Pos;
-			pc.LightEnd = pc.LightStart + surface->LightList.Count;
+			pc.LightEnd = surface->LightList.Pos + surface->LightList.Count;
 
 			VkDrawIndexedIndirectCommand cmd;
 			cmd.indexCount = surface->MeshLocation.NumElements;
@@ -680,7 +641,8 @@ void VkLightmapper::CreateRaytracePipeline()
 		.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+		.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.AddBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 		.DebugName("raytrace.descriptorSetLayout0")
 		.Create(fb->GetDevice());
 
@@ -748,7 +710,7 @@ void VkLightmapper::CreateRaytracePipeline()
 
 	raytrace.descriptorPool0 = DescriptorPoolBuilder()
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1)
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6)
 		.MaxSets(1)
 		.DebugName("raytrace.descriptorPool0")
 		.Create(fb->GetDevice());
@@ -801,9 +763,10 @@ void VkLightmapper::UpdateAccelStructDescriptors()
 		.AddBuffer(raytrace.descriptorSet0.get(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniforms.Buffer.get(), 0, sizeof(Uniforms))
 		.AddBuffer(raytrace.descriptorSet0.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceIndexBuffer())
 		.AddBuffer(raytrace.descriptorSet0.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceBuffer())
-		.AddBuffer(raytrace.descriptorSet0.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lights.Buffer.get())
-		.AddBuffer(raytrace.descriptorSet0.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetPortalBuffer())
-		.AddBuffer(raytrace.descriptorSet0.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawindexed.ConstantsBuffer.get(), 0, drawindexed.BufferSize * sizeof(LightmapRaytracePC))
+		.AddBuffer(raytrace.descriptorSet0.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetLightBuffer())
+		.AddBuffer(raytrace.descriptorSet0.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetLightIndexBuffer())
+		.AddBuffer(raytrace.descriptorSet0.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetPortalBuffer())
+		.AddBuffer(raytrace.descriptorSet0.get(), 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawindexed.ConstantsBuffer.get(), 0, drawindexed.BufferSize * sizeof(LightmapRaytracePC))
 		.Execute(fb->GetDevice());
 }
 
@@ -1073,25 +1036,6 @@ void VkLightmapper::CreateUniformBuffer()
 		.Size(uniforms.NumStructs * uniforms.StructStride)
 		.DebugName("LightmapUniformTransferBuffer")
 		.Create(fb->GetDevice());
-}
-
-void VkLightmapper::CreateLightBuffer()
-{
-	size_t size = sizeof(LightInfo) * lights.BufferSize;
-
-	lights.Buffer = BufferBuilder()
-		.Usage(
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-			VMA_MEMORY_USAGE_UNKNOWN, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
-		.MemoryType(
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-		.Size(size)
-		.DebugName("LightmapLightBuffer")
-		.Create(fb->GetDevice());
-
-	lights.Lights = (LightInfo*)lights.Buffer->Map(0, size);
-	lights.Pos = 0;
 }
 
 void VkLightmapper::CreateTileBuffer()

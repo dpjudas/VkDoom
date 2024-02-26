@@ -289,6 +289,13 @@ public:
 	bool swapped;
 	bool explicitpitch;
 
+	// Locations in the level mesh light list. Ends with index = 0 or all entries used
+	enum { max_levelmesh_entries = 4 };
+	struct
+	{
+		int index;
+		int portalgroup;
+	} levelmesh[max_levelmesh_entries];
 };
 
 

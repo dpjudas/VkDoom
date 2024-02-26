@@ -175,10 +175,101 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	Mesh.MaxUniforms = std::max(Mesh.Uniforms.size() * 2, (size_t)10000);
 	Mesh.MaxSurfaceIndexes = std::max(Mesh.SurfaceIndexes.size() * 2, (size_t)10000);
 	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
+	Mesh.MaxLights = 100'000;
+	Mesh.MaxLightIndexes = 4 * 1024 * 1024;
+}
+
+void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
+{
+	if (Mesh.Lights.Size() != 0)
+		return;
+
+	for (DoomLevelMeshSurface& surface : Surfaces)
+	{
+		surface.LightList.Pos = Mesh.LightIndexes.Size();
+		surface.LightList.Count = 0;
+
+		std::pair<FLightNode*, int> nodePortalGroup = GetSurfaceLightNode(&surface);
+		FLightNode* node = nodePortalGroup.first;
+		int portalgroup = nodePortalGroup.second;
+		if (!node)
+			continue;
+
+		int listpos = 0;
+		while (node)
+		{
+			FDynamicLight* light = node->lightsource;
+			if (light && light->Trace())
+			{
+				int lightindex = GetLightIndex(light, portalgroup);
+				if (lightindex >= 0)
+				{
+					Mesh.LightIndexes.Push(lightindex);
+					surface.LightList.Count++;
+				}
+			}
+			node = node->nextLight;
+		}
+	}
+}
+
+int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
+{
+	int index;
+	for (index = 0; index < FDynamicLight::max_levelmesh_entries && light->levelmesh[index].index != 0; index++)
+	{
+		if (light->levelmesh[index].portalgroup == portalgroup)
+			return light->levelmesh[index].index - 1;
+	}
+	if (index == FDynamicLight::max_levelmesh_entries)
+		return 0;
+
+	DVector3 pos = light->PosRelative(portalgroup);
+
+	LevelMeshLight meshlight;
+	meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
+	meshlight.RelativeOrigin = meshlight.Origin;
+	meshlight.Radius = (float)light->GetRadius();
+	meshlight.Intensity = (float)light->target->Alpha;
+	if (light->IsSpot())
+	{
+		meshlight.InnerAngleCos = (float)light->pSpotInnerAngle->Cos();
+		meshlight.OuterAngleCos = (float)light->pSpotOuterAngle->Cos();
+
+		DAngle negPitch = -*light->pPitch;
+		DAngle Angle = light->target->Angles.Yaw;
+		double xzLen = negPitch.Cos();
+		meshlight.SpotDir.X = float(-Angle.Cos() * xzLen);
+		meshlight.SpotDir.Y = float(-Angle.Sin() * xzLen);
+		meshlight.SpotDir.Z = float(-negPitch.Sin());
+	}
+	else
+	{
+		meshlight.InnerAngleCos = -1.0f;
+		meshlight.OuterAngleCos = -1.0f;
+		meshlight.SpotDir.X = 0.0f;
+		meshlight.SpotDir.Y = 0.0f;
+		meshlight.SpotDir.Z = 0.0f;
+	}
+	meshlight.Color.X = light->GetRed() * (1.0f / 255.0f);
+	meshlight.Color.Y = light->GetGreen() * (1.0f / 255.0f);
+	meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
+
+	if (light->Sector)
+		meshlight.SectorGroup = sectorGroup[light->Sector->Index()];
+	else
+		meshlight.SectorGroup = 0;
+
+	int lightindex = Mesh.Lights.Size();
+	light->levelmesh[index].index = lightindex + 1;
+	light->levelmesh[index].portalgroup = portalgroup;
+	Mesh.Lights.Push(meshlight);
+	return lightindex;
 }
 
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 {
+	CreateLights(doomMap);
 #if 0
 	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->Update(doomMap);
 	if (doomMap.lightmaps)
@@ -194,63 +285,6 @@ bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float di
 	FVector3 end = start + direction * dist;
 	auto surface = Trace(start, direction, dist);
 	return surface && surface->IsSky;
-}
-
-int DoomLevelMesh::AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize)
-{
-	std::pair<FLightNode*, int> nodePortalGroup = GetSurfaceLightNode(static_cast<const DoomLevelMeshSurface*>(surface));
-	FLightNode* node = nodePortalGroup.first;
-	int portalgroup = nodePortalGroup.second;
-	if (!node)
-		return 0;
-
-	int listpos = 0;
-	while (node && listpos < listMaxSize)
-	{
-		FDynamicLight* light = node->lightsource;
-		if (light && light->Trace())
-		{
-			DVector3 pos = light->PosRelative(portalgroup);
-
-			LevelMeshLight& meshlight = list[listpos++];
-			meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
-			meshlight.RelativeOrigin = meshlight.Origin;
-			meshlight.Radius = (float)light->GetRadius();
-			meshlight.Intensity = (float)light->target->Alpha;
-			if (light->IsSpot())
-			{
-				meshlight.InnerAngleCos = (float)light->pSpotInnerAngle->Cos();
-				meshlight.OuterAngleCos = (float)light->pSpotOuterAngle->Cos();
-
-				DAngle negPitch = -*light->pPitch;
-				DAngle Angle = light->target->Angles.Yaw;
-				double xzLen = negPitch.Cos();
-				meshlight.SpotDir.X = float(-Angle.Cos() * xzLen);
-				meshlight.SpotDir.Y = float(-Angle.Sin() * xzLen);
-				meshlight.SpotDir.Z = float(-negPitch.Sin());
-			}
-			else
-			{
-				meshlight.InnerAngleCos = -1.0f;
-				meshlight.OuterAngleCos = -1.0f;
-				meshlight.SpotDir.X = 0.0f;
-				meshlight.SpotDir.Y = 0.0f;
-				meshlight.SpotDir.Z = 0.0f;
-			}
-			meshlight.Color.X = light->GetRed() * (1.0f / 255.0f);
-			meshlight.Color.Y = light->GetGreen() * (1.0f / 255.0f);
-			meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
-
-			if (light->Sector)
-				meshlight.SectorGroup = sectorGroup[light->Sector->Index()];
-			else
-				meshlight.SectorGroup = 0;
-		}
-
-		node = node->nextLight;
-	}
-
-	return listpos;
 }
 
 std::pair<FLightNode*, int> DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf)

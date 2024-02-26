@@ -49,7 +49,6 @@ public:
 	LevelMeshSurface* GetSurface(int index) override { return &Surfaces[index]; }
 	unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const override { return (unsigned int)(ptrdiff_t)(static_cast<const DoomLevelMeshSurface*>(surface) - Surfaces.Data()); }
 	int GetSurfaceCount() override { return Surfaces.Size(); }
-	int AddSurfaceLights(const LevelMeshSurface* surface, LevelMeshLight* list, int listMaxSize) override;
 
 	void BeginFrame(FLevelLocals& doomMap);
 	bool TraceSky(const FVector3& start, FVector3 direction, float dist);
@@ -64,6 +63,8 @@ public:
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 	TArray<int> sectorPortals[2]; // index is sector+plane, value is index into the portal list
 	TArray<int> linePortals; // index is linedef, value is index into the portal list
+
+	void CreateLights(FLevelLocals& doomMap);
 
 private:
 	void CreateSurfaces(FLevelLocals& doomMap);
@@ -88,6 +89,8 @@ private:
 
 	void CreatePortals(FLevelLocals& doomMap);
 	std::pair<FLightNode*, int> GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf);
+
+	int GetLightIndex(FDynamicLight* light, int portalgroup);
 
 	TArray<SideSurfaceRange> Sides;
 	TArray<FlatSurfaceRange> Flats;

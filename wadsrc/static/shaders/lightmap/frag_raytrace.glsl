@@ -30,7 +30,7 @@ void main()
 
 	for (uint j = LightStart; j < LightEnd; j++)
 	{
-		incoming += TraceLight(origin, normal, lights[j], SurfaceIndex);
+		incoming += TraceLight(origin, normal, lights[lightIndexes[j]], SurfaceIndex);
 	}
 
 #if defined(USE_AO)

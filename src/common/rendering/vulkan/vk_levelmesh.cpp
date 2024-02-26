@@ -55,6 +55,8 @@ void VkLevelMesh::Reset()
 	deletelist->Add(std::move(UniformsBuffer));
 	deletelist->Add(std::move(SurfaceIndexBuffer));
 	deletelist->Add(std::move(PortalBuffer));
+	deletelist->Add(std::move(LightBuffer));
+	deletelist->Add(std::move(LightIndexBuffer));
 	deletelist->Add(std::move(StaticBLAS.ScratchBuffer));
 	deletelist->Add(std::move(StaticBLAS.AccelStructBuffer));
 	deletelist->Add(std::move(StaticBLAS.AccelStruct));
@@ -173,6 +175,8 @@ void VkLevelMesh::UploadMeshes(bool dynamicOnly)
 		Locations.UniformIndexes.Push({ 0, (int)Mesh->Mesh.UniformIndexes.Size() });
 		Locations.Uniforms.Push({ 0, (int)Mesh->Mesh.Uniforms.Size() });
 		Locations.Portals.Push({ 0, (int)Mesh->Portals.Size() });
+		Locations.Light.Push({ 0, (int)Mesh->Mesh.Lights.Size() });
+		Locations.LightIndex.Push({ 0, (int)Mesh->Mesh.LightIndexes.Size() });
 	}
 
 	VkLevelMeshUploader uploader(this);
@@ -241,6 +245,18 @@ void VkLevelMesh::CreateBuffers()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 		.Size(Mesh->Portals.Size() * sizeof(PortalInfo))
 		.DebugName("PortalBuffer")
+		.Create(fb->GetDevice());
+
+	LightBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(Mesh->Mesh.MaxLights * sizeof(LightInfo))
+		.DebugName("LightBuffer")
+		.Create(fb->GetDevice());
+
+	LightIndexBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(Mesh->Mesh.MaxLightIndexes * sizeof(int32_t))
+		.DebugName("LightIndexBuffer")
 		.Create(fb->GetDevice());
 }
 
@@ -455,9 +471,11 @@ void VkLevelMeshUploader::Upload()
 	UploadRanges(Mesh->Locations.UniformIndexes, Mesh->Mesh->Mesh.UniformIndexes.Data(), Mesh->UniformIndexBuffer.get());
 	UploadRanges(Mesh->Locations.Index, Mesh->Mesh->Mesh.Indexes.Data(), Mesh->IndexBuffer.get());
 	UploadRanges(Mesh->Locations.SurfaceIndex, Mesh->Mesh->Mesh.SurfaceIndexes.Data(), Mesh->SurfaceIndexBuffer.get());
+	UploadRanges(Mesh->Locations.LightIndex, Mesh->Mesh->Mesh.LightIndexes.Data(), Mesh->LightIndexBuffer.get());
 	UploadSurfaces();
 	UploadUniforms();
 	UploadPortals();
+	UploadLights();
 
 	EndTransfer(transferBufferSize);
 	ClearRanges();
@@ -473,6 +491,8 @@ void VkLevelMeshUploader::ClearRanges()
 	Mesh->Locations.UniformIndexes.clear();
 	Mesh->Locations.Uniforms.clear();
 	Mesh->Locations.Portals.clear();
+	Mesh->Locations.Light.clear();
+	Mesh->Locations.LightIndex.clear();
 }
 
 void VkLevelMeshUploader::BeginTransfer(size_t transferBufferSize)
@@ -635,6 +655,33 @@ void VkLevelMeshUploader::UploadPortals()
 	}
 }
 
+void VkLevelMeshUploader::UploadLights()
+{
+	for (const MeshBufferRange& range : Mesh->Locations.Light)
+	{
+		LightInfo* lights = (LightInfo*)(data + datapos);
+		for (int i = 0, count = range.Size; i < count; i++)
+		{
+			const auto& light = Mesh->Mesh->Mesh.Lights[range.Offset + i];
+			LightInfo info;
+			info.Origin = SwapYZ(light.Origin);
+			info.RelativeOrigin = SwapYZ(light.RelativeOrigin);
+			info.Radius = light.Radius;
+			info.Intensity = light.Intensity;
+			info.InnerAngleCos = light.InnerAngleCos;
+			info.OuterAngleCos = light.OuterAngleCos;
+			info.SpotDir = SwapYZ(light.SpotDir);
+			info.Color = light.Color;
+			*(lights++) = info;
+		}
+
+		size_t copysize = range.Size * sizeof(LightInfo);
+		if (copysize > 0)
+			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->LightBuffer.get(), datapos, range.Offset * sizeof(LightInfo), copysize);
+		datapos += copysize;
+	}
+}
+
 size_t VkLevelMeshUploader::GetTransferSize()
 {
 	// Figure out how much memory we need to transfer it to the GPU
@@ -648,5 +695,7 @@ size_t VkLevelMeshUploader::GetTransferSize()
 	for (const MeshBufferRange& range : Mesh->Locations.Surface) transferBufferSize += range.Size * sizeof(SurfaceInfo);
 	for (const MeshBufferRange& range : Mesh->Locations.Uniforms) transferBufferSize += range.Size * sizeof(SurfaceUniforms);
 	for (const MeshBufferRange& range : Mesh->Locations.Portals) transferBufferSize += range.Size * sizeof(PortalInfo);
+	for (const MeshBufferRange& range : Mesh->Locations.LightIndex) transferBufferSize += range.Size * sizeof(int32_t);
+	for (const MeshBufferRange& range : Mesh->Locations.Light) transferBufferSize += range.Size * sizeof(LightInfo);
 	return transferBufferSize;
 }

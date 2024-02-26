@@ -42,6 +42,24 @@ struct PortalInfo
 	VSMatrix transformation;
 };
 
+struct LightInfo
+{
+	FVector3 Origin;
+	float Padding0;
+	FVector3 RelativeOrigin;
+	float Padding1;
+	float Radius;
+	float Intensity;
+	float InnerAngleCos;
+	float OuterAngleCos;
+	FVector3 SpotDir;
+	float Padding2;
+	FVector3 Color;
+	float Padding3;
+};
+
+static_assert(sizeof(LightInfo) == sizeof(float) * 20);
+
 struct MeshBufferRange
 {
 	int Offset = 0;
@@ -65,6 +83,8 @@ public:
 	VulkanBuffer* GetSurfaceBuffer() { return SurfaceBuffer.get(); }
 	VulkanBuffer* GetUniformsBuffer() { return UniformsBuffer.get(); }
 	VulkanBuffer* GetPortalBuffer() { return PortalBuffer.get(); }
+	VulkanBuffer* GetLightBuffer() { return LightBuffer.get(); }
+	VulkanBuffer* GetLightIndexBuffer() { return LightIndexBuffer.get(); }
 
 	LevelMesh* GetMesh() { return Mesh; }
 
@@ -107,6 +127,8 @@ private:
 		TArray<MeshBufferRange> UniformIndexes;
 		TArray<MeshBufferRange> Uniforms;
 		TArray<MeshBufferRange> Portals;
+		TArray<MeshBufferRange> Light;
+		TArray<MeshBufferRange> LightIndex;
 	} Locations;
 
 	std::unique_ptr<VulkanBuffer> VertexBuffer;
@@ -116,6 +138,8 @@ private:
 	std::unique_ptr<VulkanBuffer> SurfaceBuffer;
 	std::unique_ptr<VulkanBuffer> UniformsBuffer;
 	std::unique_ptr<VulkanBuffer> PortalBuffer;
+	std::unique_ptr<VulkanBuffer> LightBuffer;
+	std::unique_ptr<VulkanBuffer> LightIndexBuffer;
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
 
@@ -151,6 +175,7 @@ private:
 	void UploadSurfaces();
 	void UploadUniforms();
 	void UploadPortals();
+	void UploadLights();
 
 	template<typename T>
 	void UploadRanges(const TArray<MeshBufferRange>& ranges, const T* srcbuffer, VulkanBuffer* destbuffer);
