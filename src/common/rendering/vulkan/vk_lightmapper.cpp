@@ -28,6 +28,7 @@ CVAR(Bool, lm_ao, true, 0);
 CVAR(Bool, lm_softshadows, true, 0);
 CVAR(Bool, lm_sunlight, true, 0);
 CVAR(Bool, lm_blur, true, 0);
+CVAR(Bool, lm_bounce, true, 0);
 
 VkLightmapper::VkLightmapper(VulkanRenderDevice* fb) : fb(fb)
 {
@@ -523,7 +524,7 @@ void VkLightmapper::CreateShaders()
 		.DebugName("VkLightmapper.VertCopy")
 		.Create("VkLightmapper.VertCopy", fb->GetDevice());
 
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < 16; i++)
 	{
 		std::string defines = traceprefix;
 		if (i & 1)
@@ -532,6 +533,8 @@ void VkLightmapper::CreateShaders()
 			defines += "#define USE_AO\n";
 		if (i & 4)
 			defines += "#define USE_SUNLIGHT\n";
+		if (i & 8)
+			defines += "#define USE_BOUNCE\n";
 
 		shaders.fragRaytrace[i] = ShaderBuilder()
 			.Type(ShaderType::Fragment)
@@ -589,6 +592,8 @@ int VkLightmapper::GetRaytracePipelineIndex()
 		index |= 2;
 	if (lm_sunlight && mesh->SunColor != FVector3(0.0f, 0.0f, 0.0f))
 		index |= 4;
+	if (lm_bounce)
+		index |= 8;
 	return index;
 }
 
@@ -688,7 +693,7 @@ void VkLightmapper::CreateRaytracePipeline()
 		.DebugName("raytrace.renderPass")
 		.Create(fb->GetDevice());
 
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < 16; i++)
 	{
 		raytrace.pipeline[i] = GraphicsPipelineBuilder()
 			.Layout(raytrace.pipelineLayout.get())

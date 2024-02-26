@@ -3,15 +3,11 @@
 
 vec4 TraceSunRay(vec3 origin, float tmin, vec3 dir, float tmax, vec4 rayColor);
 
-vec3 TraceSunLight(vec3 origin, vec3 normal, int surfaceIndex)
+vec3 TraceSunLight(vec3 origin, vec3 normal)
 {
-	float angleAttenuation = 1.0f;
-	if (surfaceIndex >= 0)
-	{
-		angleAttenuation = max(dot(normal, SunDir), 0.0);
-		if (angleAttenuation == 0.0)
-			return vec3(0.0);
-	}
+	float angleAttenuation = max(dot(normal, SunDir), 0.0);
+	if (angleAttenuation == 0.0)
+		return vec3(0.0);
 
 	const float minDistance = 0.01;
 	vec3 incoming = vec3(0.0);

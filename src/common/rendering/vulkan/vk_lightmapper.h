@@ -183,7 +183,7 @@ private:
 		std::unique_ptr<VulkanShader> vertRaytrace;
 		std::unique_ptr<VulkanShader> vertScreenquad;
 		std::unique_ptr<VulkanShader> vertCopy;
-		std::unique_ptr<VulkanShader> fragRaytrace[8];
+		std::unique_ptr<VulkanShader> fragRaytrace[16];
 		std::unique_ptr<VulkanShader> fragResolve;
 		std::unique_ptr<VulkanShader> fragBlur[2];
 		std::unique_ptr<VulkanShader> fragCopy;
@@ -194,7 +194,7 @@ private:
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout0;
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout1;
 		std::unique_ptr<VulkanPipelineLayout> pipelineLayout;
-		std::unique_ptr<VulkanPipeline> pipeline[8];
+		std::unique_ptr<VulkanPipeline> pipeline[16];
 		std::unique_ptr<VulkanRenderPass> renderPass;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool0;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool1;
