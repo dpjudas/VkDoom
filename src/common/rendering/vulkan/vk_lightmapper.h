@@ -20,16 +20,16 @@ struct Uniforms
 
 struct LightmapRaytracePC
 {
-	uint32_t LightStart;
-	uint32_t LightEnd;
 	int32_t SurfaceIndex;
-	int32_t PushPadding1;
+	int32_t Padding0;
+	int32_t Padding1;
+	int32_t Padding2;
 	FVector3 WorldToLocal;
 	float TextureSize;
 	FVector3 ProjLocalToU;
-	float PushPadding2;
+	float Padding3;
 	FVector3 ProjLocalToV;
-	float PushPadding3;
+	float Padding4;
 	float TileX;
 	float TileY;
 	float TileWidth;

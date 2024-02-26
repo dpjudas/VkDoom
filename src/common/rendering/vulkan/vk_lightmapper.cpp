@@ -195,8 +195,6 @@ void VkLightmapper::Render()
 		{
 			LevelMeshSurface* surface = mesh->GetSurface(surfaceIndex);
 			pc.SurfaceIndex = surfaceIndex;
-			pc.LightStart = surface->LightList.Pos;
-			pc.LightEnd = surface->LightList.Pos + surface->LightList.Count;
 
 			VkDrawIndexedIndirectCommand cmd;
 			cmd.indexCount = surface->MeshLocation.NumElements;

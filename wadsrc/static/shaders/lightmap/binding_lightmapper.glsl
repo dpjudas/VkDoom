@@ -14,7 +14,11 @@ struct SurfaceInfo
 	uint PortalIndex;
 	int TextureIndex;
 	float Alpha;
-	float Padding;
+	float Padding0;
+	uint LightStart;
+	uint LightEnd;
+	uint Padding1;
+	uint Padding2;
 };
 
 struct PortalInfo
@@ -46,16 +50,16 @@ layout(set = 0, binding = 5) buffer PortalBuffer { PortalInfo portals[]; };
 
 struct LightmapRaytracePC
 {
-	uint LightStart;
-	uint LightEnd;
 	int SurfaceIndex;
-	int PushPadding1;
+	int Padding0;
+	int Padding1;
+	int Padding2;
 	vec3 WorldToLocal;
 	float TextureSize;
 	vec3 ProjLocalToU;
-	float PushPadding2;
+	float Padding3;
 	vec3 ProjLocalToV;
-	float PushPadding3;
+	float Padding4;
 	float TileX;
 	float TileY;
 	float TileWidth;

@@ -595,6 +595,8 @@ void VkLevelMeshUploader::UploadSurfaces()
 			{
 				info.TextureIndex = 0;
 			}
+			info.LightStart = surface->LightList.Pos;
+			info.LightEnd = surface->LightList.Pos + surface->LightList.Count;
 
 			*(surfaces++) = info;
 		}

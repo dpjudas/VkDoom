@@ -15,9 +15,9 @@ layout(location = 0) out vec4 fragcolor;
 
 void main()
 {
-	uint LightStart = constants[InstanceIndex].LightStart;
-	uint LightEnd = constants[InstanceIndex].LightEnd;
 	int SurfaceIndex = constants[InstanceIndex].SurfaceIndex;
+	uint LightStart = surfaces[SurfaceIndex].LightStart;
+	uint LightEnd = surfaces[SurfaceIndex].LightEnd;
 
 	vec3 normal = surfaces[SurfaceIndex].Normal;
 	vec3 origin = worldpos + normal * 0.01;

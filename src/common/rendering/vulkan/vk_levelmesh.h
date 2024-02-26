@@ -34,7 +34,11 @@ struct SurfaceInfo
 	uint32_t PortalIndex;
 	int32_t TextureIndex;
 	float Alpha;
-	float Padding;
+	float Padding0;
+	uint32_t LightStart;
+	uint32_t LightEnd;
+	uint32_t Padding1;
+	uint32_t Padding2;
 };
 
 struct PortalInfo
