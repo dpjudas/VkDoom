@@ -1,6 +1,7 @@
 
+#include <shaders/lightmap/montecarlo.glsl>
+
 vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor);
-vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi);
 
 vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, int surfaceIndex)
 {
@@ -85,19 +86,4 @@ vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor)
 		TransformRay(surface.PortalIndex, origin, dir);
 	}
 	return vec4(0.0);
-}
-
-vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi) 
-{
-    const float goldenAngle = radians(180.0) * (3.0 - sqrt(5.0));
-    float sampleIndexF = float(sampleIndex);
-    float sampleCountF = float(sampleCount);
-    
-    float r = sqrt((sampleIndexF + 0.5) / sampleCountF);  // Assuming index and count are positive
-    float theta = sampleIndexF * goldenAngle + phi;
-    
-    float sine = sin(theta);
-    float cosine = cos(theta);
-    
-    return vec2(cosine, sine) * r;
 }

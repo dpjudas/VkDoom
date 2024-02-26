@@ -1,5 +1,6 @@
 
-vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi);
+#include <shaders/lightmap/montecarlo.glsl>
+
 vec4 TraceSunRay(vec3 origin, float tmin, vec3 dir, float tmax, vec4 rayColor);
 
 vec3 TraceSunLight(vec3 origin, vec3 normal, int surfaceIndex)
