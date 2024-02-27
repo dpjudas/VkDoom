@@ -127,13 +127,13 @@ void LevelMesh::BuildTileSurfaceLists()
 			if (surface->SectorGroup == PlaneGroups[j].sectorGroup)
 			{
 				float direction = PlaneGroups[j].plane.XYZ() | surface->Plane.XYZ();
-				if (direction >= 0.9999f && direction <= 1.001f)
+				if (direction >= 0.999f && direction <= 1.01f)
 				{
 					auto point = (surface->Plane.XYZ() * surface->Plane.W);
 					auto planeDistance = (PlaneGroups[j].plane.XYZ() | point) - PlaneGroups[j].plane.W;
 
 					float dist = std::abs(planeDistance);
-					if (dist <= 0.01f)
+					if (dist <= 0.1f)
 					{
 						planeGroupIndex = (int)j;
 						break;
@@ -198,18 +198,14 @@ void LevelMesh::PackLightmapAtlas(int lightmapStartIndex)
 
 	std::sort(sortedTiles.begin(), sortedTiles.end(), [](LightmapTile* a, LightmapTile* b) { return a->AtlasLocation.Height != b->AtlasLocation.Height ? a->AtlasLocation.Height > b->AtlasLocation.Height : a->AtlasLocation.Width > b->AtlasLocation.Width; });
 
-	RectPacker packer(LMTextureSize, LMTextureSize, RectPacker::Spacing(0));
+	// We do not need to add spacing here as this is already built into the tile size itself.
+	RectPacker packer(LMTextureSize, LMTextureSize, RectPacker::Spacing(0), RectPacker::Padding(0));
 
 	for (LightmapTile* tile : sortedTiles)
 	{
-		int sampleWidth = tile->AtlasLocation.Width;
-		int sampleHeight = tile->AtlasLocation.Height;
-
-		auto result = packer.insert(sampleWidth, sampleHeight);
-		int x = result.pos.x, y = result.pos.y;
-
-		tile->AtlasLocation.X = x;
-		tile->AtlasLocation.Y = y;
+		auto result = packer.insert(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
+		tile->AtlasLocation.X = result.pos.x;
+		tile->AtlasLocation.Y = result.pos.y;
 		tile->AtlasLocation.ArrayIndex = lightmapStartIndex + (int)result.pageIndex;
 	}
 

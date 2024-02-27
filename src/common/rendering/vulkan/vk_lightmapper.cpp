@@ -119,8 +119,8 @@ void VkLightmapper::SelectTiles(const TArray<LightmapTile*>& tiles)
 	bakeImage.maxY = 0;
 	selectedTiles.Clear();
 
-	const int spacing = 5; // Note: the spacing is here to avoid that the resolve sampler finds data from other surface tiles
-	RectPacker packer(bakeImageSize - spacing, bakeImageSize - spacing, RectPacker::Spacing(spacing));
+	// We use a 3 texel spacing between rectangles so that the blur pass will not pick up anything from a neighbour tile.
+	RectPacker packer(bakeImageSize, bakeImageSize, RectPacker::Spacing(3), RectPacker::Padding(3));
 
 	for (int i = 0, count = tiles.Size(); i < count; i++)
 	{
@@ -130,21 +130,25 @@ void VkLightmapper::SelectTiles(const TArray<LightmapTile*>& tiles)
 			continue;
 
 		// Only grab surfaces until our bake texture is full
-		auto result = packer.insert(tile->AtlasLocation.Width + 2, tile->AtlasLocation.Height + 2);
+		auto result = packer.insert(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
 		if (result.pageIndex == 0)
 		{
 			SelectedTile selected;
 			selected.Tile = tile;
-			selected.X = result.pos.x + 1;
-			selected.Y = result.pos.y + 1;
+			selected.X = result.pos.x;
+			selected.Y = result.pos.y;
 			selectedTiles.Push(selected);
 
-			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(selected.X + tile->AtlasLocation.Width + spacing));
-			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(selected.Y + tile->AtlasLocation.Height + spacing));
+			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(result.pos.x + tile->AtlasLocation.Width));
+			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(result.pos.y + tile->AtlasLocation.Height));
 
 			tile->NeedsUpdate = false;
 		}
 	}
+
+	// Include the padding
+	bakeImage.maxX += 3;
+	bakeImage.maxY += 3;
 }
 
 void VkLightmapper::Render()
@@ -155,7 +159,7 @@ void VkLightmapper::Render()
 
 	RenderPassBegin()
 		.RenderPass(raytrace.renderPass.get())
-		.RenderArea(0, 0, bakeImageSize, bakeImageSize)
+		.RenderArea(0, 0, bakeImage.maxX, bakeImage.maxY)
 		.Framebuffer(bakeImage.raytrace.Framebuffer.get())
 		.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
 		.Execute(cmdbuffer);
@@ -878,6 +882,9 @@ void VkLightmapper::CreateBlurPipeline()
 		.Create(fb->GetDevice());
 
 	blur.sampler = SamplerBuilder()
+		.MinFilter(VK_FILTER_NEAREST)
+		.MagFilter(VK_FILTER_NEAREST)
+		.MipmapMode(VK_SAMPLER_MIPMAP_MODE_NEAREST)
 		.DebugName("blur.Sampler")
 		.Create(fb->GetDevice());
 }

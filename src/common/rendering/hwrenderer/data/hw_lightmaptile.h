@@ -57,8 +57,8 @@ struct LightmapTile
 	FVector2 ToUV(const FVector3& vert) const
 	{
 		FVector3 localPos = vert - Transform.TranslateWorldToLocal;
-		float u = (1.0f + (localPos | Transform.ProjLocalToU)) / (AtlasLocation.Width + 2);
-		float v = (1.0f + (localPos | Transform.ProjLocalToV)) / (AtlasLocation.Height + 2);
+		float u = (localPos | Transform.ProjLocalToU) / AtlasLocation.Width;
+		float v = (localPos | Transform.ProjLocalToV) / AtlasLocation.Height;
 		return FVector2(u, v);
 	}
 
@@ -101,63 +101,66 @@ struct LightmapTile
 
 	void SetupTileTransform(int textureSize)
 	{
-		BBox bounds = Bounds;
+		// These calculations align the tile so that there's a one texel border around the actual surface in the tile.
+		// 
+		// This removes sampling artifacts as a linear sampler reads from a 2x2 area.
+		// The tile is also aligned to the grid to keep aliasing artifacts consistent.
 
-		// round off dimensions
-		FVector3 roundedSize;
-		for (int i = 0; i < 3; i++)
-		{
-			bounds.min[i] = SampleDimension * (floor(bounds.min[i] / SampleDimension) - 1);
-			bounds.max[i] = SampleDimension * (ceil(bounds.max[i] / SampleDimension) + 1);
-			roundedSize[i] = (bounds.max[i] - bounds.min[i]) / SampleDimension;
-		}
+		FVector3 uvMin;
+		uvMin.X = std::floor(Bounds.min.X / SampleDimension) - 1.0f;
+		uvMin.Y = std::floor(Bounds.min.Y / SampleDimension) - 1.0f;
+		uvMin.Z = std::floor(Bounds.min.Z / SampleDimension) - 1.0f;
+
+		FVector3 uvMax;
+		uvMax.X = std::floor(Bounds.max.X / SampleDimension) + 2.0f;
+		uvMax.Y = std::floor(Bounds.max.Y / SampleDimension) + 2.0f;
+		uvMax.Z = std::floor(Bounds.max.Z / SampleDimension) + 2.0f;
 
 		FVector3 tCoords[2] = { FVector3(0.0f, 0.0f, 0.0f), FVector3(0.0f, 0.0f, 0.0f) };
-
-		PlaneAxis axis = BestAxis(Plane);
-
-		int width;
-		int height;
-		switch (axis)
+		int width, height;
+		switch (BestAxis(Plane))
 		{
 		default:
 		case AXIS_YZ:
-			width = (int)roundedSize.Y;
-			height = (int)roundedSize.Z;
+			width = (int)(uvMax.Y - uvMin.Y);
+			height = (int)(uvMax.Z - uvMin.Z);
 			tCoords[0].Y = 1.0f / SampleDimension;
 			tCoords[1].Z = 1.0f / SampleDimension;
 			break;
 
 		case AXIS_XZ:
-			width = (int)roundedSize.X;
-			height = (int)roundedSize.Z;
+			width = (int)(uvMax.X - uvMin.X);
+			height = (int)(uvMax.Z - uvMin.Z);
 			tCoords[0].X = 1.0f / SampleDimension;
 			tCoords[1].Z = 1.0f / SampleDimension;
 			break;
 
 		case AXIS_XY:
-			width = (int)roundedSize.X;
-			height = (int)roundedSize.Y;
+			width = (int)(uvMax.X - uvMin.X);
+			height = (int)(uvMax.Y - uvMin.Y);
 			tCoords[0].X = 1.0f / SampleDimension;
 			tCoords[1].Y = 1.0f / SampleDimension;
 			break;
 		}
 
-		// clamp width
-		if (width > textureSize - 2)
+		textureSize -= 6; // Lightmapper needs some padding when baking
+
+		// Tile can never be bigger than the texture.
+		if (width > textureSize)
 		{
-			tCoords[0] *= ((float)(textureSize - 2) / (float)width);
-			width = (textureSize - 2);
+			tCoords[0] *= textureSize / (float)width;
+			width = textureSize;
+		}
+		if (height > textureSize)
+		{
+			tCoords[1] *= textureSize / (float)height;
+			height = textureSize;
 		}
 
-		// clamp height
-		if (height > textureSize - 2)
-		{
-			tCoords[1] *= ((float)(textureSize - 2) / (float)height);
-			height = (textureSize - 2);
-		}
+		Transform.TranslateWorldToLocal.X = uvMin.X * SampleDimension;
+		Transform.TranslateWorldToLocal.Y = uvMin.Y * SampleDimension;
+		Transform.TranslateWorldToLocal.Z = uvMin.Z * SampleDimension;
 
-		Transform.TranslateWorldToLocal = bounds.min;
 		Transform.ProjLocalToU = tCoords[0];
 		Transform.ProjLocalToV = tCoords[1];
 

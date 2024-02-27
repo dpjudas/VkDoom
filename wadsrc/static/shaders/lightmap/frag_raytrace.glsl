@@ -21,7 +21,7 @@ void main()
 	uint LightEnd = surfaces[SurfaceIndex].LightEnd;
 
 	vec3 normal = surfaces[SurfaceIndex].Normal;
-	vec3 origin = worldpos + normal * 0.01;
+	vec3 origin = worldpos;
 
 #if defined(USE_SUNLIGHT)
 	vec3 incoming = TraceSunLight(origin, normal);
