@@ -24,11 +24,11 @@ ADD_STAT(lightmapper)
 CVAR(Int, lm_background_updates, 8, CVAR_NOSAVE);
 CVAR(Int, lm_max_updates, 128, CVAR_NOSAVE);
 CVAR(Float, lm_scale, 1.0, CVAR_NOSAVE);
-CVAR(Bool, lm_ao, true, 0);
-CVAR(Bool, lm_softshadows, true, 0);
-CVAR(Bool, lm_sunlight, true, 0);
-CVAR(Bool, lm_blur, true, 0);
-CVAR(Bool, lm_bounce, true, 0);
+CVAR(Bool, lm_sunlight, true, CVAR_ARCHIVE);
+CVAR(Bool, lm_blur, true, CVAR_ARCHIVE);
+CVAR(Bool, lm_ao, false, CVAR_ARCHIVE);
+CVAR(Bool, lm_softshadows, false, CVAR_ARCHIVE);
+CVAR(Bool, lm_bounce, false, CVAR_ARCHIVE);
 
 VkLightmapper::VkLightmapper(VulkanRenderDevice* fb) : fb(fb)
 {
