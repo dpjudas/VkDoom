@@ -84,8 +84,8 @@ private:
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
-	int AddSurfaceToTile(const DoomLevelMeshSurface& surf);
-	int GetSampleDimension(const DoomLevelMeshSurface& surf);
+	int AddSurfaceToTile(const DoomLevelMeshSurface& surf, uint16_t sampleDimension);
+	int GetSampleDimension(const DoomLevelMeshSurface& surf, uint16_t sampleDimension);
 
 	void CreatePortals(FLevelLocals& doomMap);
 	std::pair<FLightNode*, int> GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf);

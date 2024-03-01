@@ -499,6 +499,20 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		FVector2 v2 = FVector2(side->V2()->fPos());
 		FVector2 N = FVector2(v2.Y - v1.Y, v1.X - v2.X).Unit();
 
+		uint16_t sampleDimension = 0;
+		if (wallpart.LevelMeshInfo.Type == ST_UPPERSIDE)
+		{
+			sampleDimension = side->textures[side_t::top].LightmapSampleDistance;
+		}
+		else if (wallpart.LevelMeshInfo.Type == ST_MIDDLESIDE)
+		{
+			sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+		}
+		else if (wallpart.LevelMeshInfo.Type == ST_LOWERSIDE)
+		{
+			sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
+		}
+
 		DoomLevelMeshSurface surf;
 		surf.Type = wallpart.LevelMeshInfo.Type;
 		surf.ControlSector = wallpart.LevelMeshInfo.ControlSector;
@@ -517,12 +531,12 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		surf.PortalIndex = isPortal ? linePortals[side->linedef->Index()] : 0;
 		surf.IsSky = isPortal ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
 		surf.Bounds = GetBoundsFromSurface(surf);
-		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf) : -1;
+		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, sampleDimension) : -1;
 		Surfaces.Push(surf);
 	}
 }
 
-int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf)
+int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf, uint16_t sampleDimension)
 {
 	if (surf.IsSky)
 		return -1;
@@ -555,7 +569,7 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf)
 		tile.Binding = binding;
 		tile.Bounds = surf.Bounds;
 		tile.Plane = surf.Plane;
-		tile.SampleDimension = GetSampleDimension(surf);
+		tile.SampleDimension = GetSampleDimension(surf, sampleDimension);
 
 		LightmapTiles.Push(tile);
 		bindings[binding] = index;
@@ -563,10 +577,8 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf)
 	}
 }
 
-int DoomLevelMesh::GetSampleDimension(const DoomLevelMeshSurface& surf)
+int DoomLevelMesh::GetSampleDimension(const DoomLevelMeshSurface& surf, uint16_t sampleDimension)
 {
-	uint16_t sampleDimension = 0; // To do: something seems to have gone missing with the sample dimension!
-
 	if (sampleDimension <= 0)
 	{
 		sampleDimension = LightmapSampleDistance;
@@ -640,6 +652,16 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 
 		if (!foundDraw)
 			continue;
+
+		uint16_t sampleDimension = 0;
+		if (flatpart.ceiling)
+		{
+			sampleDimension = flatpart.sector->planes[sector_t::ceiling].LightmapSampleDistance;
+		}
+		else
+		{
+			sampleDimension = flatpart.sector->planes[sector_t::floor].LightmapSampleDistance;
+		}
 
 		DoomLevelMeshSurface surf;
 		surf.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
@@ -715,7 +737,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			surf.MeshLocation.NumVerts = sub->numlines;
 			surf.MeshLocation.NumElements = (sub->numlines - 2) * 3;
 			surf.Bounds = GetBoundsFromSurface(surf);
-			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf) : -1;
+			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, sampleDimension) : -1;
 			Surfaces.Push(surf);
 		}
 	}
