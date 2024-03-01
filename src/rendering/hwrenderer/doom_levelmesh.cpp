@@ -305,16 +305,10 @@ std::pair<FLightNode*, int> DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMe
 			node = subsector->section->lighthead;
 			portalgroup = subsector->sector->PortalGroup;
 		}
-		else if (!doomsurf->ControlSector)
+		else
 		{
 			node = doomsurf->Side->lighthead;
 			portalgroup = doomsurf->Side->sector->PortalGroup;
-		}
-		else // 3d floor needs light from the sidedef on the other side
-		{
-			int otherside = doomsurf->Side->linedef->sidedef[0] == doomsurf->Side ? 1 : 0;
-			node = doomsurf->Side->linedef->sidedef[otherside]->lighthead;
-			portalgroup = doomsurf->Side->linedef->sidedef[otherside]->sector->PortalGroup;
 		}
 	}
 	return { node, portalgroup };
@@ -877,12 +871,13 @@ void DoomLevelMesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 	}
 	else
 	{
-		const auto& ffloors = surface->Side->sector->e->XFloor.ffloors;
+		side_t* backside = surface->Side->linedef->sidedef[surface->Side == surface->Side->linedef->sidedef[0]];
+		const auto& ffloors = backside->sector->e->XFloor.ffloors;
 		for (unsigned int i = 0; i < ffloors.Size(); i++)
 		{
 			if (ffloors[i]->model == surface->ControlSector)
 			{
-				surface->Side->surface[4 + i] = surface;
+				backside->surface[4 + i] = surface;
 			}
 		}
 	}
