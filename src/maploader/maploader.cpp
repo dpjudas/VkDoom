@@ -3122,13 +3122,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		if (it == levelTiles.end())
 		{
 			// ZDRay and HWWall don't always agree on which surfaces are visible.
-			// It is too much work making sure ZDRay only generates surfaces that HWWall wants to use, so just ignore the extra tiles.
-			// Yes this is lazy. No, I don't care. I don't get paid for this and its already boring as fuck.
-#if 0
-			if (errors < 100 && developer >= 1)
-				Printf("Could not find lightmap tile in level mesh (type = %d, index = %d, control sector = %d)\n", entry.type, entry.typeIndex, entry.controlSector);
-			errors++;
-#endif
+			// We can safely ignore the extra tiles.
 			continue;
 		}
 
