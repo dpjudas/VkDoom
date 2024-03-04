@@ -1,5 +1,5 @@
 
-vec4 BeerLambertSimple(vec4 medium, vec4 ray_color);
+vec3 BeerLambertSimple(vec3 medium, float depth, vec3 ray_color);
 
 SurfaceInfo GetSurface(int primitiveIndex)
 {
@@ -15,7 +15,7 @@ vec2 GetSurfaceUV(int primitiveIndex, vec3 primitiveWeights)
 		vertices[elements[index + 0]].uv * primitiveWeights.z;
 }
 
-vec4 BlendTexture(SurfaceInfo surface, vec2 uv, vec4 rayColor)
+vec3 PassRayThroughSurface(SurfaceInfo surface, vec2 uv, vec3 rayColor)
 {
 	if (surface.TextureIndex == 0)
 	{
@@ -24,7 +24,16 @@ vec4 BlendTexture(SurfaceInfo surface, vec2 uv, vec4 rayColor)
 	else
 	{
 		vec4 color = texture(textures[surface.TextureIndex], uv);
-		return BeerLambertSimple(vec4(1.0 - color.rgb, color.a * surface.Alpha), rayColor);
+
+		// To do: currently we do not know the material/renderstyle of the surface.
+		//
+		// This means we can't apply translucency and we can't do something like BeerLambertSimple.
+		// In order to improve this SurfaceInfo needs additional info.
+		//
+		// return BeerLambertSimple(1.0 - color.rgb, color.a * surface.Alpha, rayColor);
+
+		// Assume the renderstyle is basic alpha blend for now.
+		return rayColor * (1.0 - color.a * surface.Alpha);
 	}
 }
 
@@ -35,9 +44,7 @@ void TransformRay(uint portalIndex, inout vec3 origin, inout vec3 dir)
 	dir = (transformationMatrix * vec4(dir, 0.0)).xyz;
 }
 
-vec4 BeerLambertSimple(vec4 medium, vec4 ray_color) // based on Beer-Lambert law
+vec3 BeerLambertSimple(vec3 medium, float depth, vec3 ray_color) // based on Beer-Lambert law
 {
-	float z = medium.w;
-	ray_color.rgb *= exp(-medium.rgb * vec3(z));
-	return ray_color;
+	return ray_color * exp(-medium * depth);
 }

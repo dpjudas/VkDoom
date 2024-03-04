@@ -1,7 +1,7 @@
 
 #include <shaders/lightmap/montecarlo.glsl>
 
-vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor);
+vec3 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec3 rayColor);
 
 vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
 {
@@ -25,7 +25,7 @@ vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
 		float attenuation = distAttenuation * angleAttenuation * spotAttenuation;
 		if (attenuation > 0.0)
 		{
-			vec4 rayColor = vec4(light.Color.rgb * (attenuation * light.Intensity), 1.0);
+			vec3 rayColor = light.Color.rgb * (attenuation * light.Intensity);
 
 #if defined(USE_SOFTSHADOWS)
 
@@ -40,11 +40,11 @@ vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
 				vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * lightsize;
 				vec3 pos = light.Origin + xdir * gridoffset.x + ydir * gridoffset.y;
 
-				incoming.rgb += TracePointLightRay(origin, pos, minDistance, rayColor).rgb / float(step_count);
+				incoming += TracePointLightRay(origin, pos, minDistance, rayColor) / float(step_count);
 			}
 			
 #else
-			incoming.rgb += TracePointLightRay(origin, light.Origin, minDistance, rayColor).rgb;
+			incoming += TracePointLightRay(origin, light.Origin, minDistance, rayColor);
 #endif
 		}
 	}
@@ -52,7 +52,7 @@ vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
 	return incoming;
 }
 
-vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor)
+vec3 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec3 rayColor)
 {
 	vec3 dir = normalize(lightpos - origin);
 	float tmax = distance(origin, lightpos);
@@ -61,18 +61,18 @@ vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor)
 	{
 		TraceResult result = TraceFirstHit(origin, tmin, dir, tmax);
 
-		// We hit nothing. Point light is visible.
+		// Stop if we hit nothing - the point light is visible.
 		if (result.primitiveIndex == -1)
 			return rayColor;
 
 		SurfaceInfo surface = GetSurface(result.primitiveIndex);
 
-		// Blend with surface texture
-		rayColor = BlendTexture(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), rayColor);
+		// Pass through surface texture
+		rayColor = PassRayThroughSurface(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), rayColor);
 
 		// Stop if there is no light left
 		if (rayColor.r + rayColor.g + rayColor.b <= 0.0)
-			return vec4(0.0);
+			return vec3(0.0);
 
 		// Move to surface hit point
 		origin += dir * result.t;
@@ -81,5 +81,5 @@ vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor)
 		// Move through the portal, if any
 		TransformRay(surface.PortalIndex, origin, dir);
 	}
-	return vec4(0.0);
+	return vec3(0.0);
 }
