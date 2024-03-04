@@ -53,12 +53,16 @@ vec4 TraceSunRay(vec3 origin, float tmin, vec3 dir, float tmax, vec4 rayColor)
 
 		SurfaceInfo surface = GetSurface(result.primitiveIndex);
 
+		// Stop if we hit the sky.
+		if (surface.Sky > 0.0)
+			return rayColor;
+
 		// Blend with surface texture
 		rayColor = BlendTexture(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), rayColor);
 
-		// Stop if it isn't a portal, or there is no light left
-		if (surface.PortalIndex == 0 || rayColor.r + rayColor.g + rayColor.b <= 0.0)
-			return rayColor * surface.Sky;
+		// Stop if there is no light left
+		if (rayColor.r + rayColor.g + rayColor.b <= 0.0)
+			return vec4(0.0);
 
 		// Move to surface hit point
 		origin += dir * result.t;

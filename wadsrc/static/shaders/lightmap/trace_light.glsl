@@ -70,8 +70,8 @@ vec4 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec4 rayColor)
 		// Blend with surface texture
 		rayColor = BlendTexture(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), rayColor);
 
-		// Stop if it isn't a portal, or there is no light left
-		if (surface.PortalIndex == 0 || rayColor.r + rayColor.g + rayColor.b <= 0.0)
+		// Stop if there is no light left
+		if (rayColor.r + rayColor.g + rayColor.b <= 0.0)
 			return vec4(0.0);
 
 		// Move to surface hit point
