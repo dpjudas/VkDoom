@@ -57,7 +57,7 @@ struct LightInfo
 	float InnerAngleCos;
 	float OuterAngleCos;
 	FVector3 SpotDir;
-	float Padding2;
+	float SourceRadius;
 	FVector3 Color;
 	float Padding3;
 };

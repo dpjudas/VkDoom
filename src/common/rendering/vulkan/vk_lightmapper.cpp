@@ -27,14 +27,12 @@ CVAR(Float, lm_scale, 1.0, CVAR_NOSAVE);
 CVAR(Bool, lm_sunlight, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_blur, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_ao, false, CVAR_ARCHIVE);
-CVAR(Bool, lm_softshadows, false, CVAR_ARCHIVE);
+CVAR(Bool, lm_softshadows, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_bounce, false, CVAR_ARCHIVE);
 
 VkLightmapper::VkLightmapper(VulkanRenderDevice* fb) : fb(fb)
 {
 	useRayQuery = fb->IsRayQueryEnabled();
-
-	templightlist.Resize(128);
 
 	try
 	{

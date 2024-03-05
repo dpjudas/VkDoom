@@ -148,7 +148,6 @@ private:
 
 	TArray<SelectedTile> selectedTiles;
 	TArray<TArray<SelectedTile*>> copylists;
-	TArray<LevelMeshLight> templightlist;
 
 	struct
 	{

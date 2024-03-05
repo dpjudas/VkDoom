@@ -20,7 +20,7 @@ vec2 lightAttenuation(int i, vec3 normal, vec3 viewdir, float lightcolorA)
 		attenuation *= clamp(dot(normal, lightdir), 0.0, 1.0);
 
 	if (attenuation > 0.0) // Skip shadow map test if possible
-		attenuation *= shadowAttenuation(lightpos, lightcolorA);
+		attenuation *= shadowAttenuation(lightpos, lightcolorA, lightspot2.z);
 
 	if (attenuation <= 0.0)
 		return vec2(0.0);

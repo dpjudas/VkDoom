@@ -26,7 +26,7 @@ vec3 lightContribution(int i, vec3 normal)
 
 	if (attenuation > 0.0) // Skip shadow map test if possible
 	{
-		attenuation *= shadowAttenuation(lightpos, lightcolor.a);
+		attenuation *= shadowAttenuation(lightpos, lightcolor.a, lightspot2.z);
 		return lightcolor.rgb * attenuation;
 	}
 	else

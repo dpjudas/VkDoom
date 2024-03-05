@@ -518,6 +518,7 @@ public:
 		th->Alpha = -1;
 		th->Health = 1;
 		th->FloatbobPhase = -1;
+		th->SourceRadius = -1.0;
 		sc.MustGetToken('{');
 		while (!sc.CheckToken('}'))
 		{
@@ -789,6 +790,10 @@ public:
 			case NAME_FriendlySeeBlocks:
 				CHECK_N(Zd | Zdt)
 				th->friendlyseeblocks = CheckInt(key);
+				break;
+
+			case NAME_SourceRadius:
+				th->SourceRadius = (float)CheckFloat(key);
 				break;
 
 			case NAME_lm_suncolor:

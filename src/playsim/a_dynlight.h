@@ -130,6 +130,7 @@ protected:
 	DAngle m_spotInnerAngle = DAngle::fromDeg(10.0);
 	DAngle m_spotOuterAngle = DAngle::fromDeg(25.0);
 	DAngle m_pitch = nullAngle;
+	double SourceRadius = 5.0;
 	
 	friend FSerializer &Serialize(FSerializer &arc, const char *key, FLightDefaults &value, FLightDefaults *def);
 };
@@ -222,6 +223,7 @@ struct FDynamicLight
 
 	bool IsActive() const { return m_active; }
 	float GetRadius() const { return (IsActive() ? m_currentRadius * 2.f : 0.f); }
+	float GetSourceRadius() const { return (float)(*pSourceRadius); }
 	int GetRed() const { return pArgs[LIGHT_RED]; }
 	int GetGreen() const { return pArgs[LIGHT_GREEN]; }
 	int GetBlue() const { return pArgs[LIGHT_BLUE]; }
@@ -268,6 +270,7 @@ public:
 	const DAngle *pPitch;	// This is to handle pitch overrides through GLDEFS, it can either point to the target's pitch or the light definition.
 	const int *pArgs;
 	const LightFlags *pLightFlags;
+	const double* pSourceRadius;   // Softshadows. Physical size of the light source
 
 	double specialf1;
 	FDynamicLight *next, *prev;

@@ -1351,6 +1351,7 @@ public:
 	int SpawnTime;
 	uint32_t SpawnOrder;
 
+	double SourceRadius = 5.0; // Light source radius
 
 	// ThingIDs
 	void SetTID (int newTID);

@@ -29,18 +29,25 @@ vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
 
 #if defined(USE_SOFTSHADOWS)
 
-			vec3 v = (abs(dir.x) > abs(dir.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-			vec3 xdir = normalize(cross(dir, v));
-			vec3 ydir = cross(dir, xdir);
-
-			float lightsize = 10;
-			int step_count = 10;
-			for (int i = 0; i < step_count; i++)
+			if (light.SourceRadius != 0.0)
 			{
-				vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * lightsize;
-				vec3 pos = light.Origin + xdir * gridoffset.x + ydir * gridoffset.y;
+				vec3 v = (abs(dir.x) > abs(dir.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+				vec3 xdir = normalize(cross(dir, v));
+				vec3 ydir = cross(dir, xdir);
 
-				incoming += TracePointLightRay(origin, pos, minDistance, rayColor) / float(step_count);
+				float lightsize = light.SourceRadius;
+				int step_count = 10;
+				for (int i = 0; i < step_count; i++)
+				{
+					vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * lightsize;
+					vec3 pos = light.Origin + xdir * gridoffset.x + ydir * gridoffset.y;
+
+					incoming += TracePointLightRay(origin, pos, minDistance, rayColor) / float(step_count);
+				}
+			}
+			else
+			{
+				incoming += TracePointLightRay(origin, light.Origin, minDistance, rayColor);
 			}
 			
 #else

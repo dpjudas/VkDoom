@@ -15,4 +15,5 @@ public:
 	FVector3 SpotDir;
 	FVector3 Color;
 	int SectorGroup;
+	float SourceRadius;
 };

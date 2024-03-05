@@ -858,6 +858,9 @@ xx(lm_sampledist_ceiling)
 xx(lm_suncolor)
 xx(lm_dynamic)
 
+// Light keywords
+xx(SourceRadius)
+
 xx(skew_bottom_type)
 xx(skew_middle_type)
 xx(skew_top_type)
