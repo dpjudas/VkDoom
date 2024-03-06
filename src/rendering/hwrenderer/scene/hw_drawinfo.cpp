@@ -791,6 +791,7 @@ void HWDrawInfo::DrawCorona(FRenderState& state, AActor* corona, float coronaFad
 
 	state.SetLightIndex(-1);
 	state.SetRenderStyle(corona->RenderStyle);
+	state.SetTextureMode(TM_NORMAL); // This is needed because the next line doesn't always set the mode...
 	state.SetTextureMode(corona->RenderStyle);
 
 	state.SetMaterial(tex, UF_Sprite, CTF_Expand, CLAMP_XY_NOMIP, 0, 0);
