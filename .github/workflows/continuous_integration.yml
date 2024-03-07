@@ -106,6 +106,7 @@ jobs:
           cp -r vkdoom.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
           cp vkdoom *.pk3 package
+          strip package/vkdoom
         fi
 
     - name: Upload Package
@@ -129,17 +130,24 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     steps:
-    - name: Download artifact
+    - name: Download Windows artifact
       uses: actions/download-artifact@v4
       with:
         name: Visual Studio 2022 Release
-        path: build/vkdoom-prerelease
+        path: build/vkdoom-windows-prerelease
+
+    - name: Download Linux artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: Linux GCC 12 RelWithDebInfo
+        path: build/vkdoom-linux-prerelease
 
     - name: Zip artifacts
       shell: bash
       run: |
         cd build
-        zip -r vkdoom-prerelease.zip vkdoom-prerelease
+        zip -r vkdoom-windows-prerelease.zip vkdoom-windows-prerelease
+        zip -r vkdoom-linux-prerelease.zip vkdoom-linux-prerelease
 
     - name: Update nightly release
       uses: pyTooling/Actions/releaser@r0
@@ -147,4 +155,5 @@ jobs:
         tag: nightly
         rm: true
         token: ${{ secrets.GITHUB_TOKEN }}
-        files: build/vkdoom-prerelease.zip
+        files: build/vkdoom-windows-prerelease.zip build/vkdoom-linux-prerelease.zip
+
