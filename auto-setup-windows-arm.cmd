@@ -82,7 +82,7 @@ cmake -A ARM64 -S .. -B . ^
 cmake --build . --config RelWithDebInfo -- -maxcpucount -verbosity:minimal
 
 rem -- If successful, show the build
-if exist RelWithDebInfo\gzdoom.exe explorer.exe RelWithDebInfo
+if exist RelWithDebInfo\vkdoom.exe explorer.exe RelWithDebInfo
 
 goto :eof
 :nobuild
