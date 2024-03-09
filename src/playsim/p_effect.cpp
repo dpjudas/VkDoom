@@ -306,10 +306,9 @@ void P_ThinkParticles (FLevelLocals *Level)
 			continue;
 		}
 		
-		auto oldtrans = particle->alpha;
 		particle->alpha -= particle->fadestep;
 		particle->size += particle->sizestep;
-		if (particle->alpha <= 0 || oldtrans < particle->alpha || --particle->ttl <= 0 || (particle->size <= 0))
+		if (particle->alpha <= 0 || --particle->ttl <= 0 || (particle->size <= 0))
 		{ // The particle has expired, so free it
 			*particle = {};
 			if (prev)
@@ -375,7 +374,7 @@ void P_SpawnParticle(FLevelLocals *Level, const DVector3 &pos, const DVector3 &v
 		particle->Acc = FVector3(accel);
 		particle->color = ParticleColor(color);
 		particle->alpha = float(startalpha);
-		if (fadestep < 0) particle->fadestep = FADEFROMTTL(lifetime);
+		if (fadestep <= -1.0) particle->fadestep = FADEFROMTTL(lifetime);
 		else particle->fadestep = float(fadestep);
 		particle->ttl = lifetime;
 		particle->size = size;
@@ -1206,7 +1205,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(DVisualThinker, SetTranslation, SetTranslation)
 
 static int IsFrozen(DVisualThinker * self)
 {
-	return (self->Level->isFrozen() && !(self->PT.flags & SPF_NOTIMEFREEZE));
+	return !!(self->Level->isFrozen() && !(self->PT.flags & SPF_NOTIMEFREEZE));
 }
 
 bool DVisualThinker::isFrozen()
@@ -1242,6 +1241,14 @@ int DVisualThinker::GetRenderStyle()
 	return PT.style;
 }
 
+float DVisualThinker::GetOffset(bool y) const // Needed for the renderer.
+{
+	if (y)
+		return (float)(bFlipOffsetY ? Offset.Y : -Offset.Y);
+	else
+		return (float)(bFlipOffsetX ? Offset.X : -Offset.X);
+}
+
 void DVisualThinker::Serialize(FSerializer& arc)
 {
 	Super::Serialize(arc);
@@ -1264,6 +1271,8 @@ void DVisualThinker::Serialize(FSerializer& arc)
 		("flipy", bYFlip)
 		("dontinterpolate", bDontInterpolate)
 		("addlightlevel", bAddLightLevel)
+		("flipoffsetx", bFlipOffsetX)
+		("flipoffsetY", bFlipOffsetY)
 		("lightlevel", LightLevel)
 		("flags", PT.flags);
 		
@@ -1289,3 +1298,5 @@ DEFINE_FIELD(DVisualThinker, bXFlip);
 DEFINE_FIELD(DVisualThinker, bYFlip);
 DEFINE_FIELD(DVisualThinker, bDontInterpolate);
 DEFINE_FIELD(DVisualThinker, bAddLightLevel);
+DEFINE_FIELD(DVisualThinker, bFlipOffsetX);
+DEFINE_FIELD(DVisualThinker, bFlipOffsetY);

@@ -26,6 +26,7 @@ enum EObjectFlags
 	OF_Transient		= 1 << 11,		// Object should not be archived (references to it will be nulled on disk)
 	OF_Spawned			= 1 << 12,      // Thinker was spawned at all (some thinkers get deleted before spawning)
 	OF_Released			= 1 << 13,		// Object was released from the GC system and should not be processed by GC function
+	OF_Networked		= 1 << 14,		// Object has a unique network identifier that makes it synchronizable between all clients.
 };
 
 template<class T> class TObjPtr;
@@ -214,6 +215,9 @@ class TObjPtr
 		mutable DObject *o;
 	};
 public:
+	TObjPtr() = default;
+
+	TObjPtr(T t) : pp(t) {}
 
 	constexpr TObjPtr<T>& operator=(T q) noexcept
 	{

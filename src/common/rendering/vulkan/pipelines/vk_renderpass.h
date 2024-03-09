@@ -15,6 +15,7 @@ class ColorBlendAttachmentBuilder;
 class VkPPShader;
 class VkPPRenderPassKey;
 class VkPPRenderPassSetup;
+class ColorBlendAttachmentBuilder;
 
 class VkPipelineKey
 {

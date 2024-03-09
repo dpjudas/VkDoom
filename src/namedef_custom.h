@@ -12,6 +12,9 @@ xx(BloodSplatter)
 xx(AxeBlood)
 xx(Spray)
 
+// Actor properties
+xx(BobPivot3D)
+
 // Invulnerability types
 xx(Ghost)
 xx(Reflective)
@@ -199,6 +202,7 @@ xx(Cast) // 'damage type' for the cast call
 xx(MapSpot)
 xx(PatrolPoint)
 xx(PatrolSpecial)
+xx(PathNode)
 xx(Communicator)
 xx(PowerScanner)
 
@@ -459,6 +463,7 @@ xx(WBobSpeed)
 xx(WBobFire)
 xx(PlayerClass)
 xx(MonsterClass)
+xx(Morph)
 xx(MorphedMonster)
 xx(Wi_NoAutostartMap)
 

@@ -62,6 +62,7 @@
 #include "fragglescript/t_script.h"
 #include "s_music.h"
 #include "model.h"
+#include "d_net.h"
 
 EXTERN_CVAR(Bool, save_formatted)
 
@@ -653,6 +654,15 @@ void FLevelLocals::SerializePlayers(FSerializer &arc, bool skipload)
 				ReadMultiplePlayers(arc, numPlayers, numPlayersNow, skipload);
 			}
 			arc.EndArray();
+
+			if (!skipload)
+			{
+				for (unsigned int i = 0u; i < MAXPLAYERS; ++i)
+				{
+					if (PlayerInGame(i) && Players[i]->mo != nullptr)
+						NetworkEntityManager::SetClientNetworkEntity(Players[i]);
+				}
+			}
 		}
 		if (!skipload && numPlayersNow > numPlayers)
 		{
@@ -1140,7 +1150,7 @@ void FLevelLocals::UnSnapshotLevel(bool hubLoad)
 				// If this isn't the unmorphed original copy of a player, destroy it, because it's extra.
 				for (i = 0; i < MAXPLAYERS; ++i)
 				{
-					if (PlayerInGame(i) && Players[i]->morphTics && Players[i]->mo->alternative == pawn)
+					if (PlayerInGame(i) && Players[i]->mo->alternative == pawn)
 					{
 						break;
 					}

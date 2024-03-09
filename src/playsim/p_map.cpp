@@ -592,7 +592,7 @@ bool	P_TeleportMove(AActor* thing, const DVector3 &pos, bool telefrag, bool modi
 			thing->CheckSectorTransition(oldsec);
 		}
 	}
-
+	thing->ClearPath();
 	return true;
 }
 
@@ -2536,8 +2536,8 @@ bool P_TryMove(AActor *thing, const DVector2 &pos,
 
 
 	// Check for crossed portals
-	bool portalcrossed;
-	portalcrossed = false;
+	bool portalcrossed, nodecall;
+	nodecall = portalcrossed = false;
 
 	while (true)
 	{
@@ -2582,6 +2582,7 @@ bool P_TryMove(AActor *thing, const DVector2 &pos,
 				thing->Prev += port->mDisplacement;
 				thing->LinkToWorld(&ctx);
 				P_FindFloorCeiling(thing);
+				thing->ClearPath();
 				portalcrossed = true;
 				tm.portalstep = false;
 				tm.pos += port->mDisplacement;
@@ -2611,7 +2612,8 @@ bool P_TryMove(AActor *thing, const DVector2 &pos,
 				P_TranslatePortalVXVY(ld, thing->Vel.X, thing->Vel.Y);
 				P_TranslatePortalAngle(ld, thing->Angles.Yaw);
 				thing->LinkToWorld(&ctx);
-				P_FindFloorCeiling(thing);
+				P_FindFloorCeiling(thing); 
+				thing->ClearPath();
 				thing->ClearInterpolation();
 				portalcrossed = true;
 				tm.portalstep = false;
@@ -2769,7 +2771,7 @@ bool P_TryMove(AActor *thing, const DVector2 &pos,
 		thing->Sector = thing->Level->PointInSector(thing->Pos());
 		thing->PrevPortalGroup = thing->Sector->PortalGroup;
 		thing->LinkToWorld(&ctx);
-
+		thing->ClearPath();
 		P_FindFloorCeiling(thing);
 	}
 
@@ -5573,78 +5575,39 @@ void P_RailAttack(FRailParams *p)
 CVAR(Float, chase_height, -8.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, chase_dist, 90.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
-void P_AimCamera(AActor *t1, DVector3 &campos, DAngle &camangle, sector_t *&CameraSector, bool &unlinked)
+void R_OffsetView(FRenderViewpoint& viewPoint, const DVector3& dir, const double distance)
 {
-	double distance = clamp<double>(chase_dist, 0, 30000);
-	DAngle angle = t1->Angles.Yaw - DAngle::fromDeg(180);
-	DAngle pitch = t1->Angles.Pitch;
-	FTraceResults trace;
-	DVector3 vvec;
-	double sz;
-
-	double pc = pitch.Cos();
-
-	vvec = { pc * angle.Cos(), pc * angle.Sin(), pitch.Sin() };
-	sz = t1->Top() - t1->Floorclip + clamp<double>(chase_height, -1000, 1000);
-
-	if (Trace(t1->PosAtZ(sz), t1->Sector, vvec, distance, 0, 0, NULL, trace) &&
-		trace.Distance > 10)
+	const DAngle baseYaw = dir.Angle();
+	FTraceResults trace = {};
+	if (Trace(viewPoint.Pos, viewPoint.sector, dir, distance, 0u, 0u, nullptr, trace))
 	{
-		// Position camera slightly in front of hit thing
-		campos = t1->PosAtZ(sz) + vvec *(trace.Distance - 5);
+		viewPoint.Pos = trace.HitPos - trace.HitVector * min<double>(5.0, trace.Distance);
+		viewPoint.sector = viewPoint.ViewLevel->PointInRenderSubsector(viewPoint.Pos)->sector;
 	}
 	else
 	{
-		campos = trace.HitPos - trace.HitVector * 1/256.;
+		viewPoint.Pos = trace.HitPos;
+		viewPoint.sector = trace.Sector;
 	}
-	CameraSector = trace.Sector;
-	unlinked = trace.unlinked;
-	camangle = trace.SrcAngleFromTarget - DAngle::fromDeg(180.);
-}
 
-struct ViewPosPortal
-{
-	int counter;
-};
-
-static ETraceStatus VPos_CheckPortal(FTraceResults &res, void *userdata)
-{
-	//[MC] Mirror how third person works.
-	ViewPosPortal *pc = (ViewPosPortal *)userdata;
-
-	if (res.HitType == TRACE_CrossingPortal)
+	viewPoint.Angles.Yaw += deltaangle(baseYaw, trace.SrcAngleFromTarget);
+	// TODO: Why does this even need to be done? Please fix tracers already.
+	if (dir.Z < 0.0)
 	{
-		res.HitType = TRACE_HitNone; // Needed to force the trace to continue appropriately.
-		pc->counter++;
-		return TRACE_Skip;
+		while (!viewPoint.sector->PortalBlocksMovement(sector_t::floor) && viewPoint.Pos.Z < viewPoint.sector->GetPortalPlaneZ(sector_t::floor))
+		{
+			viewPoint.Pos += viewPoint.sector->GetPortalDisplacement(sector_t::floor);
+			viewPoint.sector = viewPoint.sector->GetPortal(sector_t::floor)->mDestination;
+		}
 	}
-	if (res.HitType == TRACE_HitActor)
+	else if (dir.Z > 0.0)
 	{
-		return TRACE_Skip;
+		while (!viewPoint.sector->PortalBlocksMovement(sector_t::ceiling) && viewPoint.Pos.Z > viewPoint.sector->GetPortalPlaneZ(sector_t::ceiling))
+		{
+			viewPoint.Pos += viewPoint.sector->GetPortalDisplacement(sector_t::ceiling);
+			viewPoint.sector = viewPoint.sector->GetPortal(sector_t::ceiling)->mDestination;
+		}
 	}
-	return TRACE_Stop;
-}
-
-// [MC] Used for ViewPos. Uses code borrowed from P_AimCamera.
-void P_AdjustViewPos(AActor *t1, DVector3 orig, DVector3 &campos, sector_t *&CameraSector, bool &unlinked, DViewPosition *VP, FRenderViewpoint *view)
-{
-	FTraceResults trace;
-	ViewPosPortal pc;
-	pc.counter = 0;
-	const DVector3 vvec = campos - orig;
-	const double distance = vvec.Length();
-
-	// Trace handles all of the portal crossing, which is why there is no usage of Vec#Offset(Z).
-	if (Trace(orig, CameraSector, vvec.Unit(), distance, 0, 0, t1, trace, TRACE_ReportPortals, VPos_CheckPortal, &pc) && 
-		trace.Distance > 5)
-		campos = orig + vvec.Unit() * (trace.Distance - 5);
-	else
-		campos = trace.HitPos - trace.HitVector * 1 / 256.;
-	
-
-	if (pc.counter > 2) view->noviewer = true;
-	CameraSector = trace.Sector;
-	unlinked = trace.unlinked;
 }
 
 //==========================================================================
