@@ -405,16 +405,16 @@ void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 		state.ClearDepthBias();
 		state.EnableTexture(true);
 		state.EnableBrightmap(true);
-		CreateFlatSurface(disp, state, result.list);
+		CreateFlatSurface(disp, state, result.list, false, false);
 
-		CreateFlatSurface(disp, state, result.portals, true);
+		CreateFlatSurface(disp, state, result.portals, true, false);
 
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 		state.SetRenderStyle(STYLE_Translucent);
-		CreateFlatSurface(disp, state, result.translucentborder);
+		CreateFlatSurface(disp, state, result.translucentborder, false, true);
 		state.SetDepthMask(false);
-		CreateFlatSurface(disp, state, result.translucent);
+		CreateFlatSurface(disp, state, result.translucent, false, true);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetDepthMask(true);
 		state.SetRenderStyle(STYLE_Normal);
@@ -594,7 +594,7 @@ int DoomLevelMesh::GetSampleDimension(const DoomLevelMeshSurface& surf, uint16_t
 	return sampleDimension;
 }
 
-void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky)
+void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent)
 {
 	for (HWFlat& flatpart : list)
 	{
@@ -620,7 +620,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 				state.AlphaFunc(Alpha_GEqual, 0.f);
 			}
 
-			flatpart.DrawFlat(&disp, state, false);
+			flatpart.DrawFlat(&disp, state, translucent);
 		}
 
 		VSMatrix textureMatrix;
