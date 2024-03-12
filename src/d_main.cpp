@@ -3263,9 +3263,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		exec = NULL;
 	}
 
-	if (!restart)
-		V_Init2();
-
 	// [RH] Initialize localizable strings. 
 	GStrings.LoadStrings(fileSystem, language);
 
