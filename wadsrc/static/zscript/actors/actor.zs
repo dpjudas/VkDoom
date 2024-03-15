@@ -261,7 +261,7 @@ class Actor : Thinker native
 	private native int InventoryID;	// internal counter.
 	native uint freezetics;
 	native Vector2 AutomapOffsets;
-	native Array<PathNode> Path;
+	native double LandingSpeed;
 
 	meta String Obituary;		// Player was killed by this actor
 	meta String HitObituary;		// Player was killed by this actor in melee
@@ -367,6 +367,7 @@ class Actor : Thinker native
 	property ShadowAimFactor: ShadowAimFactor;
 	property ShadowPenaltyFactor: ShadowPenaltyFactor;
 	property AutomapOffsets : AutomapOffsets;
+	property LandingSpeed: LandingSpeed;
 	
 	// need some definition work first
 	//FRenderStyle RenderStyle;
@@ -455,6 +456,7 @@ class Actor : Thinker native
 		RenderHidden 0;
 		RenderRequired 0;
 		FriendlySeeBlocks 10; // 10 (blocks) * 128 (one map unit block)
+		LandingSpeed -8; // landing speed from a jump with normal gravity (squats the player's view)
 	}
 	
 	// Functions
@@ -664,7 +666,7 @@ class Actor : Thinker native
 	// called before and after triggering a teleporter
 	// return false in PreTeleport() to cancel the action early
 	virtual bool PreTeleport( Vector3 destpos, double destangle, int flags ) { return true; }
-	virtual void PostTeleport( Vector3 destpos, double destangle, int flags ) { }
+	virtual void PostTeleport( Vector3 destpos, double destangle, int flags ) {}
 	
 	native virtual bool OkayToSwitchTarget(Actor other);
 	native clearscope static class<Actor> GetReplacement(class<Actor> cls);
@@ -698,7 +700,7 @@ class Actor : Thinker native
 	native void SoundAlert(Actor target, bool splash = false, double maxdist = 0);
 	native void ClearBounce();
 	native TerrainDef GetFloorTerrain();
-	native bool CheckLocalView(int consoleplayer = -1 /* parameter is not used anymore but needed for backward compatibility. */);
+	native bool CheckLocalView(int consoleplayer = -1 /* parameter is not used anymore but needed for backward compatibilityö. */);
 	native bool CheckNoDelay();
 	native bool UpdateWaterLevel (bool splash = true);
 	native bool IsZeroDamage();
@@ -796,72 +798,6 @@ class Actor : Thinker native
 		}
 		movecount = random[TryWalk](0, 15);
 		return true;
-	}
-
-	native void ClearPath();
-	native clearscope bool CanPathfind() const;
-	virtual void ReachedNode(Actor mo)
-	{
-		if (!mo)
-		{
-			if (!goal)
-				return;
-			mo = goal;
-		}
-		
-		let node = PathNode(mo);
-		if (!node || !target || (!bKEEPPATH && CheckSight(target)))
-		{
-			ClearPath();
-			return;
-		}
-
-		int i = Path.Find(node) + 1;
-		int end = Path.Size();
-		
-		for (i; i < end; i++)
-		{
-			PathNode next = Path[i];
-
-			if (!next || next == node)
-				continue;
-
-			// Monsters will never 'reach' AMBUSH flagged nodes. Instead, the engine
-			// indicates they're reached the moment they tele/portal. 
-
-			if (node.bAMBUSH && next.bAMBUSH)
-				continue;
-
-			goal = next;
-			break;
-		}
-
-		if (i >= end)
-			ClearPath();
-		
-	}
-
-	// Return true to mark the node as ineligible for constructing a path along.
-	virtual bool ExcludeNode(PathNode node)
-	{
-		if (!node)	return true;
-
-		// Scale is the size requirements.
-		// STANDSTILL flag is used to require the actor to be bigger instead of smaller.
-		double r = node.Scale.X;
-		double h = node.Scale.Y;
-
-		if (r <= 0.0 && h <= 0.0)
-			return false;
-		
-		// Perfect fit.
-		if (radius == r && height == h)
-			return false; 
-
-		if ((r < radius) || (h < height))
-			return !node.bSTANDSTILL;
-		
-		return false;
 	}
 	
 	native bool TryMove(vector2 newpos, int dropoff, bool missilecheck = false, FCheckPosition tm = null);

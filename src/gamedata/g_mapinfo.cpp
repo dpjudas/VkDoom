@@ -1823,7 +1823,6 @@ MapFlagHandlers[] =
 	{ "disableskyboxao",				MITYPE_CLRFLAG3,	LEVEL3_SKYBOXAO, 0 },
 	{ "avoidmelee",						MITYPE_SETFLAG3,	LEVEL3_AVOIDMELEE, 0 },
 	{ "attenuatelights",				MITYPE_SETFLAG3,	LEVEL3_ATTENUATE, 0 },
-	{ "pathing",						MITYPE_SETFLAG3,	LEVEL3_PATHING, 0 },
 	{ "nousersave",						MITYPE_SETVKDFLAG,	VKDLEVELFLAG_NOUSERSAVE, 0 },
 	{ "noautomap",						MITYPE_SETVKDFLAG,	VKDLEVELFLAG_NOAUTOMAP, 0 },
 	{ "noautosaveonenter",				MITYPE_SETVKDFLAG,	VKDLEVELFLAG_NOAUTOSAVEONENTER, 0 },
