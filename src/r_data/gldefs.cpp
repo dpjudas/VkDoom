@@ -1376,6 +1376,7 @@ class GLDefsParser
 					{
 						if (!mlay.CustomShaderTextures[i])
 						{
+							mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::Default;
 							mlay.CustomShaderTextures[i] = TexMan.FindGameTexture(sc.String, ETextureType::Any, FTextureManager::TEXMAN_TryAny);
 							if (!mlay.CustomShaderTextures[i])
 							{
@@ -1404,15 +1405,18 @@ class GLDefsParser
 								sc.MustGetString();
 								if (sc.Compare("nearest"))
 								{
-									mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::NearestMipLinear;
+									if(okay)
+										mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::NearestMipLinear;
 								}
 								else if (sc.Compare("linear"))
 								{
-									mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::LinearMipLinear;
+									if (okay)
+										mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::LinearMipLinear;
 								}
 								else if (sc.Compare("default"))
 								{
-									mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::Default;
+									if (okay)
+										mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::Default;
 								}
 								else
 								{
