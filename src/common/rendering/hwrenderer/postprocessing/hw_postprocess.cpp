@@ -839,11 +839,11 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 	renderstate->Shader = gl_multisample > 1 ? &CombineMS : &Combine;
 	renderstate->Uniforms.Set(combineUniforms);
 	renderstate->Viewport = screen->mSceneViewport;
+	renderstate->SetInputTexture(0, &Ambient0, PPFilterMode::Linear);
 	if (gl_ssao_debug < 4)
-		renderstate->SetInputTexture(0, &Ambient0, PPFilterMode::Linear);
+		renderstate->SetInputSceneFog(1);
 	else
-		renderstate->SetInputSceneNormal(0, PPFilterMode::Linear);
-	renderstate->SetInputSceneFog(1);
+		renderstate->SetInputSceneNormal(1, PPFilterMode::Linear);
 	renderstate->SetOutputSceneColor();
 	if (gl_ssao_debug != 0)
 		renderstate->SetNoBlend();
