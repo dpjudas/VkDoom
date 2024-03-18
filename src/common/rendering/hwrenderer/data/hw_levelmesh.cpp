@@ -10,6 +10,15 @@ LevelMesh::LevelMesh()
 
 	AddEmptyMesh();
 	UpdateCollision();
+
+	Mesh.MaxVertices = std::max(Mesh.Vertices.Size() * 2, (unsigned int)10000);
+	Mesh.MaxIndexes = std::max(Mesh.Indexes.Size() * 2, (unsigned int)10000);
+	Mesh.MaxSurfaces = std::max(Mesh.SurfaceIndexes.Size() * 2, (unsigned int)10000);
+	Mesh.MaxUniforms = std::max(Mesh.Uniforms.Size() * 2, (unsigned int)10000);
+	Mesh.MaxSurfaceIndexes = std::max(Mesh.SurfaceIndexes.Size() * 2, (unsigned int)10000);
+	Mesh.MaxNodes = (int)std::max(Collision->get_nodes().size() * 2, (size_t)10000);
+	Mesh.MaxLights = 100'000;
+	Mesh.MaxLightIndexes = 4 * 1024 * 1024;
 }
 
 void LevelMesh::AddEmptyMesh()
