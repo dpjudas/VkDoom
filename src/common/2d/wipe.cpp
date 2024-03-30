@@ -208,6 +208,21 @@ private:
 	int BurnTime = 8;
 };
 
+class Wiper_Fizzlefade : public Wiper
+{
+public:
+	~Wiper_Fizzlefade();
+	bool Run(int ticks) override;
+	void SetTextures(FGameTexture* startscreen, FGameTexture* endscreen) override;
+
+private:
+	static const int WIDTH = 512, HEIGHT = 256;
+	uint8_t FizzleArray[WIDTH * HEIGHT] = { 0 };
+	FBurnTexture* FizzleTexture = nullptr;
+
+	uint32_t rndval = 1;
+};
+
 //===========================================================================
 //
 //    Screen wipes
@@ -220,13 +235,16 @@ Wiper *Wiper::Create(int type)
 	{
 		case wipe_Burn:
 			return new Wiper_Burn;
-			
+
 		case wipe_Fade:
 			return new Wiper_Crossfade;
 			
 		case wipe_Melt:
 			return new Wiper_Melt;
-			
+
+		case wipe_Fizzlefade:
+			return new Wiper_Fizzlefade;
+
 		default:
 			return nullptr;
 	}
@@ -418,6 +436,69 @@ bool Wiper_Burn::Run(int ticks)
 	return done || (BurnTime > 40);
 }
 
+//==========================================================================
+
+void Wiper_Fizzlefade::SetTextures(FGameTexture* startscreen, FGameTexture* endscreen)
+{
+	startScreen = startscreen;
+	endScreen = endscreen;
+	FizzleTexture = new FBurnTexture(WIDTH, HEIGHT);
+	auto mat = FMaterial::ValidateTexture(endScreen, false);
+	mat->ClearLayers();
+	mat->AddTextureLayer(FizzleTexture, false, MaterialLayerSampling::Default);
+}
+
+Wiper_Fizzlefade::~Wiper_Fizzlefade()
+{
+	delete FizzleTexture;
+}
+
+bool Wiper_Fizzlefade::Run(int ticks)
+{
+	bool done = false;
+
+	ticks *= 5000;
+	for (int i = 0; i < ticks; i++)
+	{
+		uint32_t y = rndval & 0x000FF;
+		uint32_t x = (rndval & 0x1FF00) >> 8;
+		uint32_t lsb = rndval & 1;
+		rndval >>= 1;
+		if (lsb)
+		{
+			rndval ^= 0x00012000;
+		}
+
+		FizzleArray[x + (y << 9)] = 255;
+
+		if (rndval == 1)
+		{
+			done = true;
+			break;
+		}
+	}
+
+	FizzleTexture->CleanHardwareTextures();
+	endScreen->CleanHardwareData(false);	// this only cleans the descriptor sets for the Vulkan backend. We do not want to delete the wipe screen's hardware texture here.
+
+	uint8_t* src = FizzleArray;
+	uint32_t* dest = (uint32_t*)FizzleTexture->GetBuffer();
+	for (int y = HEIGHT; y != 0; --y)
+	{
+		for (int x = WIDTH; x != 0; --x)
+		{
+			uint8_t s = *src++;
+			*dest++ = MAKEARGB(s, 255, 255, 255);
+		}
+	}
+
+	DrawTexture(twod, startScreen, 0, 0, DTA_FlipY, screen->RenderTextureIsFlipped(), DTA_Masked, false, TAG_DONE);
+	DrawTexture(twod, endScreen, 0, 0, DTA_FlipY, screen->RenderTextureIsFlipped(), DTA_Burn, true, DTA_Masked, false, TAG_DONE);
+
+	return done;
+}
+
+//==========================================================================
 
 void PerformWipe(FTexture* startimg, FTexture* endimg, int wipe_type, bool stopsound, std::function<void()> overlaydrawer)
 {

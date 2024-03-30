@@ -255,6 +255,7 @@ bool FIntermissionActionWiper::ParseKey(FScanner &sc)
 		{ "Crossfade", GS_FORCEWIPEFADE },
 		{ "Melt", GS_FORCEWIPEMELT },
 		{ "Burn", GS_FORCEWIPEBURN },
+		{ "Fizzlefade", GS_FORCEWIPEFIZZLEFADE },
 		{ "Default", GS_FORCEWIPE },
 		{ NULL, GS_FORCEWIPE }
 	};

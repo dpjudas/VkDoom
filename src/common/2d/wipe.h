@@ -12,6 +12,7 @@ enum
 	wipe_Melt,			// weird screen melt
 	wipe_Burn,			// fade in shape of fire
 	wipe_Fade,			// crossfade from old to new
+	wipe_Fizzlefade,	// wolf3d fizzle fade from old to new
 	wipe_NUMWIPES
 };
 

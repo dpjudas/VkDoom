@@ -928,6 +928,7 @@ OptionValue Wipes
 	1.0, "$OPTVAL_MELT"
 	2.0, "$OPTVAL_BURN"
 	3.0, "$OPTVAL_CROSSFADE"
+	4.0, "$OPTVAL_FIZZLEFADE"
 }
 
 OptionValue Endoom
