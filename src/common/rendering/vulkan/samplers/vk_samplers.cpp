@@ -108,7 +108,7 @@ void VkSamplerManager::CreateHWSamplers()
 			}
 
 			// Intel has consistently been fucking up anisotropic filtering for a decade now. Time to punish them. If they now finally implement it in their hardware/drivers it will stay disabled!
-			if (maxAnisotropy > 1.0f && (fb->GetDevice()->PhysicalDevice.Properties.Properties.vendorID != 8086 || (TexFilter[filter].magFilter == VK_FILTER_LINEAR && TexFilter[filter].minFilter == VK_FILTER_LINEAR)))
+			if (maxAnisotropy > 1.0f && (fb->GetDevice()->PhysicalDevice.Properties.Properties.vendorID != 0x8086 || (TexFilter[filter].magFilter == VK_FILTER_LINEAR && TexFilter[filter].minFilter == VK_FILTER_LINEAR)))
 				builder.Anisotropy(maxAnisotropy);
 			builder.MaxLod(100.0f); // According to the spec this value is clamped so something high makes it usable for all textures.
 		}
