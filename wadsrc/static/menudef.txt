@@ -2557,6 +2557,7 @@ OptionValue "FXAAQuality"
 
 OptionValue "Anisotropy"
 {
+	0, "$OPTVAL_DEFAULT"
 	1, "$OPTVAL_OFF"
 	2, "$OPTVAL_2X"
 	4, "$OPTVAL_4X"

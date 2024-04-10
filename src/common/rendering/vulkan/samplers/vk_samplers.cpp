@@ -96,7 +96,20 @@ void VkSamplerManager::CreateHWSamplers()
 		builder.MipmapMode(TexFilter[filter].mipfilter);
 		if (TexFilter[filter].mipmapping)
 		{
-			builder.Anisotropy(gl_texture_filter_anisotropic);
+			// Anisotropy puts extra load on the memory architecture.
+			// Unless the user explicitly chose their own filter value, default to lower filtering for integrated GPUs as they are generally slow.
+			float maxAnisotropy = gl_texture_filter_anisotropic;
+			if (maxAnisotropy < 1.0f)
+			{
+				if (fb->GetDevice()->PhysicalDevice.Properties.Properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+					maxAnisotropy = 4.0f;
+				else
+					maxAnisotropy = 8.0f;
+			}
+
+			// Intel has consistently been fucking up anisotropic filtering for a decade now. Time to punish them. If they now finally implement it in their hardware/drivers it will stay disabled!
+			if (maxAnisotropy > 1.0f && (fb->GetDevice()->PhysicalDevice.Properties.Properties.vendorID != 8086 || (TexFilter[filter].magFilter == VK_FILTER_LINEAR && TexFilter[filter].minFilter == VK_FILTER_LINEAR)))
+				builder.Anisotropy(maxAnisotropy);
 			builder.MaxLod(100.0f); // According to the spec this value is clamped so something high makes it usable for all textures.
 		}
 		else
