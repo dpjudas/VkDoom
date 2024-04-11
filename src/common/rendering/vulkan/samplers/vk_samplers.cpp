@@ -145,6 +145,44 @@ void VkSamplerManager::CreateHWSamplers()
 {
 	int filter = sysCallbacks.DisableTextureFilter && sysCallbacks.DisableTextureFilter() ? 0 : gl_texture_filter;
 
+	const auto& properties = fb->GetDevice()->PhysicalDevice.Properties.Properties;
+
+	// Anisotropy puts extra load on the memory architecture.
+	// Unless the user explicitly chose their own filter value, default to lower filtering for integrated GPUs as they are generally slow.
+	float maxAnisotropy = gl_texture_filter_anisotropic;
+	if (maxAnisotropy < 1.0f)
+	{
+		if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+			maxAnisotropy = 4.0f;
+		else
+			maxAnisotropy = 8.0f;
+	}
+
+	// Intel devices handles anisotropic filtering differently than what we want.
+	if (properties.vendorID == 0x8086)
+	{
+		bool isLegacyDevice = LegacyIntelDeviceIDs.find(properties.deviceID) != LegacyIntelDeviceIDs.end();
+		bool isCurrentDriverDevice = CurrentDriverIntelDeviceIDs.find(properties.deviceID) != CurrentDriverIntelDeviceIDs.end();
+		if (isLegacyDevice ||
+			(isCurrentDriverDevice && VK_VERSION_MAJOR(properties.driverVersion) == 0 && VK_VERSION_MINOR(properties.driverVersion) < 405) ||
+			(isCurrentDriverDevice && VK_VERSION_MAJOR(properties.driverVersion) == 0 && VK_VERSION_MINOR(properties.driverVersion) == 405 && VK_VERSION_PATCH(properties.driverVersion) < 1286))
+		{
+			// Old hardware and old drivers have to turn AF off if we want any nearest filtering.
+			if (TexFilter[filter].magFilter != VK_FILTER_LINEAR || TexFilter[filter].minFilter != VK_FILTER_LINEAR)
+			{
+				maxAnisotropy = 1.0f;
+			}
+		}
+		else
+		{
+			// None (trilinear) still doesn't work. Use None (linear mipmap) instead
+			if (filter == 6)
+			{
+				filter = 5;
+			}
+		}
+	}
+
 	for (int i = CLAMP_NONE; i <= CLAMP_XY; i++)
 	{
 		SamplerBuilder builder;
@@ -154,42 +192,6 @@ void VkSamplerManager::CreateHWSamplers()
 		builder.MipmapMode(TexFilter[filter].mipfilter);
 		if (TexFilter[filter].mipmapping)
 		{
-			const auto& properties = fb->GetDevice()->PhysicalDevice.Properties.Properties;
-
-			// Anisotropy puts extra load on the memory architecture.
-			// Unless the user explicitly chose their own filter value, default to lower filtering for integrated GPUs as they are generally slow.
-			float maxAnisotropy = gl_texture_filter_anisotropic;
-			if (maxAnisotropy < 1.0f)
-			{
-				if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-					maxAnisotropy = 4.0f;
-				else
-					maxAnisotropy = 8.0f;
-			}
-
-			// Intel devices handles anisotropic filtering differently than what we want.
-			if (properties.vendorID == 0x8086)
-			{
-				if (LegacyIntelDeviceIDs.find(properties.deviceID) != LegacyIntelDeviceIDs.end() ||
-					(CurrentDriverIntelDeviceIDs.find(properties.deviceID) != CurrentDriverIntelDeviceIDs.end() &&
-					VK_VERSION_MAJOR(properties.driverVersion) == 0 && VK_VERSION_MINOR(properties.driverVersion) < 405))
-				{
-					// Old hardware and old drivers have to turn AF off if we want any nearest filtering.
-					if (TexFilter[filter].magFilter != VK_FILTER_LINEAR || TexFilter[filter].minFilter != VK_FILTER_LINEAR)
-					{
-						maxAnisotropy = 1.0f;
-					}
-				}
-				else
-				{
-					// Current driver still doesn't support trilinear min filtering. Use bilinear instead.
-					if (TexFilter[filter].mipfilter == VK_SAMPLER_MIPMAP_MODE_LINEAR)
-					{
-						builder.MipmapMode(VK_SAMPLER_MIPMAP_MODE_NEAREST);
-					}
-				}
-			}
-
 			if (maxAnisotropy > 1.0f)
 				builder.Anisotropy(maxAnisotropy);
 			builder.MaxLod(100.0f); // According to the spec this value is clamped so something high makes it usable for all textures.
