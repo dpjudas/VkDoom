@@ -172,7 +172,7 @@ void VkSamplerManager::CreateHWSamplers()
 			{
 				if (LegacyIntelDeviceIDs.find(properties.deviceID) != LegacyIntelDeviceIDs.end() ||
 					(CurrentDriverIntelDeviceIDs.find(properties.deviceID) != CurrentDriverIntelDeviceIDs.end() &&
-					(VK_VERSION_MAJOR(properties.driverVersion) > 0 || VK_VERSION_MINOR(properties.driverVersion) >= 405)))
+					VK_VERSION_MAJOR(properties.driverVersion) == 0 && VK_VERSION_MINOR(properties.driverVersion) < 405))
 				{
 					// Old hardware and old drivers have to turn AF off if we want any nearest filtering.
 					if (TexFilter[filter].magFilter != VK_FILTER_LINEAR || TexFilter[filter].minFilter != VK_FILTER_LINEAR)
