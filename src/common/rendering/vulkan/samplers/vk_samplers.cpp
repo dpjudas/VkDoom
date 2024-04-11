@@ -159,6 +159,7 @@ void VkSamplerManager::CreateHWSamplers()
 	}
 
 	// Intel devices handles anisotropic filtering differently than what we want.
+	bool brokenNearestMipLinear = false;
 	if (properties.vendorID == 0x8086)
 	{
 		bool isLegacyDevice = LegacyIntelDeviceIDs.find(properties.deviceID) != LegacyIntelDeviceIDs.end();
@@ -180,6 +181,7 @@ void VkSamplerManager::CreateHWSamplers()
 			{
 				filter = 5;
 			}
+			brokenNearestMipLinear = true;
 		}
 	}
 
@@ -235,24 +237,29 @@ void VkSamplerManager::CreateHWSamplers()
 		.DebugName("VkSamplerManager.mSamplers")
 		.Create(fb->GetDevice());
 
+	{
+		SamplerBuilder builder;
+		builder.MagFilter(VK_FILTER_NEAREST);
+		builder.MinFilter(!brokenNearestMipLinear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
+		builder.AddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+		builder.MipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR);
+		builder.MaxLod(100.0f);
+		if (maxAnisotropy > 1.0f)
+			builder.Anisotropy(maxAnisotropy);
+		mOverrideSamplers[int(MaterialLayerSampling::NearestMipLinear)] = builder.Create(fb->GetDevice());
+	}
 
-	mOverrideSamplers[int(MaterialLayerSampling::NearestMipLinear)] = SamplerBuilder()
-		.MagFilter(VK_FILTER_NEAREST)
-		.MinFilter(VK_FILTER_LINEAR)
-		.AddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		.MipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-		.MaxLod(100.0f)
-		.Anisotropy(gl_texture_filter_anisotropic)
-		.Create(fb->GetDevice());
-
-	mOverrideSamplers[int(MaterialLayerSampling::LinearMipLinear)] = SamplerBuilder()
-		.MagFilter(VK_FILTER_LINEAR)
-		.MinFilter(VK_FILTER_LINEAR)
-		.AddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT)
-		.MipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR)
-		.MaxLod(100.0f)
-		.Anisotropy(gl_texture_filter_anisotropic)
-		.Create(fb->GetDevice());
+	{
+		SamplerBuilder builder;
+		builder.MagFilter(VK_FILTER_LINEAR);
+		builder.MinFilter(VK_FILTER_LINEAR);
+		builder.AddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+		builder.MipmapMode(VK_SAMPLER_MIPMAP_MODE_LINEAR);
+		builder.MaxLod(100.0f);
+		if (maxAnisotropy > 1.0f)
+			builder.Anisotropy(maxAnisotropy);
+		mOverrideSamplers[int(MaterialLayerSampling::LinearMipLinear)] = builder.Create(fb->GetDevice());
+	}
 }
 
 void VkSamplerManager::DeleteHWSamplers()
