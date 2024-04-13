@@ -164,7 +164,7 @@ void VulkanDevice::ReleaseResources()
 
 void VulkanDevice::SetObjectName(const char* name, uint64_t handle, VkObjectType type)
 {
-	if (!DebugLayerActive) return;
+	if (!Instance->DebugLayerActive) return;
 
 	VkDebugUtilsObjectNameInfoEXT info = {};
 	info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
