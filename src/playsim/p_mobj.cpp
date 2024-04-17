@@ -101,6 +101,7 @@
 #include "fragglescript/t_fs.h"
 #include "shadowinlines.h"
 #include "d_net.h"
+#include "model.h"
 
 // MACROS ------------------------------------------------------------------
 
@@ -1387,18 +1388,57 @@ bool AActor::Massacre ()
 //
 //----------------------------------------------------------------------------
 
+void SerializeModelID(FSerializer &arc, const char *key, int &id)
+{	// TODO: make it a proper serializable type (FModelID) instead of an int
+	if(arc.isWriting())
+	{
+		if(id >= 0)
+		{
+			arc(key, Models[id]->mFilePath);
+		}
+	}
+	else
+	{
+		if(arc.HasKey(key))
+		{
+			std::pair<FString, FString> modelFile;
+			arc(key, modelFile);
+
+			id = FindModel(modelFile.first.GetChars(), modelFile.second.GetChars(), true);
+		}
+		else
+		{
+			id = -1;
+		}
+	}
+}
+
 FSerializer &Serialize(FSerializer &arc, const char *key, ModelOverride &mo, ModelOverride *def)
 {
 	arc.BeginObject(key);
-	arc("modelID", mo.modelID);
+	SerializeModelID(arc, "model", mo.modelID);
 	arc("surfaceSkinIDs", mo.surfaceSkinIDs);
 	arc.EndObject();
 	return arc;
 }
 
+FSerializer &Serialize(FSerializer &arc, const char *key, AnimModelOverride &amo, AnimModelOverride *def)
+{
+	int ok = arc.BeginObject(key);
+	if(arc.isReading() && !ok)
+	{
+		amo.id = -1;
+	}
+	else if(ok)
+	{
+		SerializeModelID(arc, "model", amo.id);
+		arc.EndObject();
+	}
+	return arc;
+}
+
 FSerializer &Serialize(FSerializer &arc, const char *key, struct AnimOverride &ao, struct AnimOverride *def)
 {
-	//TODO
 	arc.BeginObject(key);
 	arc("firstFrame", ao.firstFrame);
 	arc("lastFrame", ao.lastFrame);
@@ -5208,15 +5248,14 @@ extern bool demonew;
 
 //==========================================================================
 //
-// This function is dangerous and only designed for swapping player pawns
+// This function is only designed for swapping player pawns
 // over to their new ones upon changing levels or respawning. It SHOULD NOT be
 // used for anything else! Do not export this functionality as it's
-// meant strictly for internal usage. Only swap pointers if the thing being swapped
-// to is a type of the thing being swapped from.
+// meant strictly for internal usage.
 //
 //==========================================================================
 
-void PlayerPointerSubstitution(AActor* oldPlayer, AActor* newPlayer)
+void PlayerPointerSubstitution(AActor* oldPlayer, AActor* newPlayer, bool removeOld)
 {
 	if (oldPlayer == nullptr || newPlayer == nullptr || oldPlayer == newPlayer
 		|| !oldPlayer->IsKindOf(NAME_PlayerPawn) || !newPlayer->IsKindOf(NAME_PlayerPawn))
@@ -5253,20 +5292,16 @@ void PlayerPointerSubstitution(AActor* oldPlayer, AActor* newPlayer)
 			sec.SoundTarget = newPlayer;
 	}
 
-	// Update all the remaining object pointers. This is dangerous but needed to ensure
-	// everything functions correctly when respawning or changing levels.
+	// Update all the remaining object pointers.
 	for (DObject* probe = GC::Root; probe != nullptr; probe = probe->ObjNext)
-		probe->PointerSubstitution(oldPlayer, newPlayer);
+		probe->PointerSubstitution(oldPlayer, newPlayer, removeOld);
 }
 
 //==========================================================================
 //
-// This function is much safer than PlayerPointerSubstition as it only truly
-// swaps a few safe pointers. This has some extra barriers to it to allow
+// This has some extra barriers compared to PlayerPointerSubstitution to allow
 // Actors to freely morph into other Actors which is its main usage.
-// Previously this used raw pointer substitutions but that's far too
-// volatile to use with modder-provided information. It also allows morphing
-// to be more extendable from ZScript.
+// It also allows morphing to be more extendable from ZScript.
 //
 //==========================================================================
 
@@ -5311,30 +5346,6 @@ int MorphPointerSubstitution(AActor* from, AActor* to)
 		VMCall(func, params, 2, nullptr, 0);
 	}
 
-	// Only change some gameplay-related pointers that we know we can safely swap to whatever
-	// new Actor class is present.
-	AActor* mo = nullptr;
-	auto it = from->Level->GetThinkerIterator<AActor>();
-	while ((mo = it.Next()) != nullptr)
-	{
-		if (mo->target == from)
-			mo->target = to;
-		if (mo->tracer == from)
-			mo->tracer = to;
-		if (mo->master == from)
-			mo->master = to;
-		if (mo->goal == from)
-			mo->goal = to;
-		if (mo->lastenemy == from)
-			mo->lastenemy = to;
-		if (mo->LastHeard == from)
-			mo->LastHeard = to;
-		if (mo->LastLookActor == from)
-			mo->LastLookActor = to;
-		if (mo->Poisoner == from)
-			mo->Poisoner = to;
-	}
-
 	// Go through player infos.
 	for (int i = 0; i < MAXPLAYERS; ++i)
 	{
@@ -5363,6 +5374,10 @@ int MorphPointerSubstitution(AActor* from, AActor* to)
 		if (sec.SoundTarget == from)
 			sec.SoundTarget = to;
 	}
+
+	// Replace any object pointers that are safe to swap around.
+	for (DObject* probe = GC::Root; probe != nullptr; probe = probe->ObjNext)
+		probe->PointerSubstitution(from, to, false);
 
 	// Remaining maintenance related to morphing.
 	if (from->player != nullptr)
@@ -5493,6 +5508,7 @@ AActor *FLevelLocals::SpawnPlayer (FPlayerStart *mthing, int playernum, int flag
 	p->mo = mobj;
 	mobj->player = p;
 	state = p->playerstate;
+	const auto heldWeap = state == PST_REBORN && (dmflags3 & DF3_REMEMBER_LAST_WEAP) ? p->ReadyWeapon : nullptr;
 	if (state == PST_REBORN || state == PST_ENTER)
 	{
 		PlayerReborn (playernum);
@@ -5593,7 +5609,7 @@ AActor *FLevelLocals::SpawnPlayer (FPlayerStart *mthing, int playernum, int flag
 	{ // Special inventory handling for respawning in coop
 		IFVM(PlayerPawn, FilterCoopRespawnInventory)
 		{
-			VMValue params[] = { p->mo, oldactor };
+			VMValue params[] = { p->mo, oldactor, ((heldWeap == nullptr || (heldWeap->ObjectFlags & OF_EuthanizeMe)) ? nullptr : heldWeap) };
 			VMCall(func, params, 2, nullptr, 0);
 		}
 	}
@@ -5656,7 +5672,7 @@ AActor *FLevelLocals::SpawnPlayer (FPlayerStart *mthing, int playernum, int flag
 				if (sec.SoundTarget == oldactor) sec.SoundTarget = nullptr;
 			}
 
-			PlayerPointerSubstitution (oldactor, p->mo);
+			PlayerPointerSubstitution (oldactor, p->mo, false);
 
 			localEventManager->PlayerRespawned(PlayerNum(p));
 			Behaviors.StartTypedScripts (SCRIPT_Respawn, p->mo, true);

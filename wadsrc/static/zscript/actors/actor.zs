@@ -273,7 +273,7 @@ class Actor : Thinker native
 	meta Name BloodType2;		// Bloopsplatter replacement type
 	meta Name BloodType3;		// AxeBlood replacement type
 	meta bool DontHurtShooter;
-	meta int ExplosionRadius;
+	meta double ExplosionRadius;
 	meta int ExplosionDamage;
 	meta int MeleeDamage;
 	meta Sound MeleeSound;
@@ -432,7 +432,7 @@ class Actor : Thinker native
 		DefThreshold 100;
 		BloodType "Blood", "BloodSplatter", "AxeBlood";
 		ExplosionDamage 128;
-		ExplosionRadius -1;	// i.e. use ExplosionDamage value
+		ExplosionRadius -1.0;	// i.e. use ExplosionDamage value
 		MissileHeight 32;
 		SpriteAngle 0;
 		SpriteRotation 0;
@@ -1145,6 +1145,7 @@ class Actor : Thinker native
 	void A_Fall() { A_NoBlocking(); }
 	native void A_Look();
 	native void A_Chase(statelabel melee = '_a_chase_default', statelabel missile = '_a_chase_default', int flags = 0);
+	native void A_DoChase(State melee, State missile, int flags = 0);
 	native void A_VileChase();
 	native bool A_CheckForResurrection(State state = null, Sound snd = 0);
 	native void A_BossDeath();
@@ -1225,9 +1226,9 @@ class Actor : Thinker native
 	native void A_CustomMeleeAttack(int damage = 0, sound meleesound = "", sound misssound = "", name damagetype = "none", bool bleed = true);
 	native void A_CustomComboAttack(class<Actor> missiletype, double spawnheight, int damage, sound meleesound = "", name damagetype = "none", bool bleed = true);
 	native void A_Burst(class<Actor> chunktype);
-	native void A_RadiusDamageSelf(int damage = 128, double distance = 128, int flags = 0, class<Actor> flashtype = null);
-	native int GetRadiusDamage(Actor thing, int damage, int distance, int fulldmgdistance = 0, bool oldradiusdmg = false, bool circular = false);
-	native int RadiusAttack(Actor bombsource, int bombdamage, int bombdistance, Name bombmod = 'none', int flags = RADF_HURTSOURCE, int fulldamagedistance = 0, name species = "None");
+	native void A_RadiusDamageSelf(int damage = 128, double distance = 128.0, int flags = 0, class<Actor> flashtype = null);
+	native int GetRadiusDamage(Actor thing, int damage, double distance, double fulldmgdistance = 0.0, bool oldradiusdmg = false, bool circular = false);
+	native int RadiusAttack(Actor bombsource, int bombdamage, double bombdistance, Name bombmod = 'none', int flags = RADF_HURTSOURCE, double fulldamagedistance = 0.0, name species = "None");
 	
 	native void A_Respawn(int flags = 1);
 	native void A_RestoreSpecialPosition();
@@ -1247,8 +1248,8 @@ class Actor : Thinker native
 	deprecated("2.3", "User variables are deprecated in ZScript. Actor variables are directly accessible") native void A_SetUserArray(name varname, int index, int value);
 	deprecated("2.3", "User variables are deprecated in ZScript. Actor variables are directly accessible") native void A_SetUserVarFloat(name varname, double value);
 	deprecated("2.3", "User variables are deprecated in ZScript. Actor variables are directly accessible") native void A_SetUserArrayFloat(name varname, int index, double value);
-	native void A_Quake(double intensity, int duration, int damrad, int tremrad, sound sfx = "world/quake");
-	native void A_QuakeEx(double intensityX, double intensityY, double intensityZ, int duration, int damrad, int tremrad, sound sfx = "world/quake", int flags = 0, double mulWaveX = 1, double mulWaveY = 1, double mulWaveZ = 1, int falloff = 0, int highpoint = 0, double rollIntensity = 0, double rollWave = 0, double damageMultiplier = 1, double thrustMultiplier = 0.5, int damage = 0);
+	native void A_Quake(double intensity, int duration, double damrad, double tremrad, sound sfx = "world/quake");
+	native void A_QuakeEx(double intensityX, double intensityY, double intensityZ, int duration, double damrad, double tremrad, sound sfx = "world/quake", int flags = 0, double mulWaveX = 1, double mulWaveY = 1, double mulWaveZ = 1, double falloff = 0, int highpoint = 0, double rollIntensity = 0, double rollWave = 0, double damageMultiplier = 1, double thrustMultiplier = 0.5, int damage = 0);
 	action native void A_SetTics(int tics);
 	native void A_DamageSelf(int amount, name damagetype = "none", int flags = 0, class<Actor> filter = null, name species = "None", int src = AAPTR_DEFAULT, int inflict = AAPTR_DEFAULT);
 	native void A_DamageTarget(int amount, name damagetype = "none", int flags = 0, class<Actor> filter = null, name species = "None", int src = AAPTR_DEFAULT, int inflict = AAPTR_DEFAULT);
@@ -1304,8 +1305,8 @@ class Actor : Thinker native
 	native bool A_AttachLight(Name lightid, int type, Color lightcolor, int radius1, int radius2, int flags = 0, Vector3 ofs = (0,0,0), double param = 0, double spoti = 10, double spoto = 25, double spotp = 0);
 	native bool A_RemoveLight(Name lightid);
 
-	native version("4.12") void SetAnimation(Name animName, double framerate = -1, int startFrame = -1, int loopFrame= -1, int interpolateTics = -1, int flags = 0);
-	native version("4.12") ui void SetAnimationUI(Name animName, double framerate = -1, int startFrame = -1, int loopFrame = -1, int interpolateTics = -1, int flags = 0);
+	native version("4.12") void SetAnimation(Name animName, double framerate = -1, int startFrame = -1, int loopFrame= -1, int endFrame = -1, int interpolateTics = -1, int flags = 0);
+	native version("4.12") ui void SetAnimationUI(Name animName, double framerate = -1, int startFrame = -1, int loopFrame = -1, int endFrame = -1, int interpolateTics = -1, int flags = 0);
 
 	native version("4.12") void SetAnimationFrameRate(double framerate);
 	native version("4.12") ui void SetAnimationFrameRateUI(double framerate);
