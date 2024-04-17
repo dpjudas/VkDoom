@@ -867,7 +867,7 @@ class PlayerPawn : Actor
 	//
 	//===========================================================================
 
-	void FilterCoopRespawnInventory (PlayerPawn oldplayer)
+	void FilterCoopRespawnInventory (PlayerPawn oldplayer, Weapon curHeldWeapon = null)
 	{
 		// If we're losing everything, this is really simple.
 		if (sv_cooploseinventory)
@@ -875,6 +875,10 @@ class PlayerPawn : Actor
 			oldplayer.DestroyAllInventory();
 			return;
 		}
+
+		// Make sure to get the real held weapon before messing with the inventory.
+		if (curHeldWeapon && curHeldWeapon.bPowered_Up)
+			curHeldWeapon = curHeldWeapon.SisterWeapon;
 
 		// Walk through the old player's inventory and destroy or modify
 		// according to dmflags.
@@ -957,7 +961,15 @@ class PlayerPawn : Actor
 		ObtainInventory (oldplayer);
 
 		player.ReadyWeapon = NULL;
-		PickNewWeapon (NULL);
+		if (curHeldWeapon && curHeldWeapon.owner == self && curHeldWeapon.CheckAmmo(Weapon.EitherFire, false))
+		{
+			player.PendingWeapon = curHeldWeapon;
+			BringUpWeapon();
+		}
+		else
+		{
+			PickNewWeapon (NULL);
+		}
 	}
 
 	
@@ -1251,6 +1263,12 @@ class PlayerPawn : Actor
 		return forward, side;
 	}
 
+	virtual void ApplyAirControl(out double movefactor, out double bobfactor)
+	{
+		movefactor *= level.aircontrol;
+		bobfactor *= level.aircontrol;
+	}
+
 	//----------------------------------------------------------------------------
 	//
 	// PROC P_MovePlayer
@@ -1294,8 +1312,8 @@ class PlayerPawn : Actor
 			if (!player.onground && !bNoGravity && !waterlevel)
 			{
 				// [RH] allow very limited movement if not on ground.
-				movefactor *= level.aircontrol;
-				bobfactor*= level.aircontrol;
+				// [AA] but also allow authors to override it.
+				ApplyAirControl(movefactor, bobfactor);
 			}
 
 			fm = cmd.forwardmove;

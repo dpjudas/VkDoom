@@ -709,7 +709,7 @@ struct AnimOverride
 	double startFrame;
 	int flags = ANIMOVERRIDE_NONE;
 	float framerate;
-	double startTic; // when the animation starts if interpolating from previous animation
+	double startTic; // when the current animation started (changing framerates counts as restarting) (or when animation starts if interpolating from previous animation)
 	double switchTic; // when the animation was changed -- where to interpolate the switch from
 };
 
@@ -717,6 +717,16 @@ struct ModelOverride
 {
 	int modelID;
 	TArray<FTextureID> surfaceSkinIDs;
+};
+
+struct AnimModelOverride
+{
+	int id;
+
+	AnimModelOverride() = default;
+
+	AnimModelOverride(int i) : id(i) {}
+	operator int() { return id; }
 };
 
 enum EModelDataFlags
@@ -729,14 +739,14 @@ class DActorModelData : public DObject
 {
 	DECLARE_CLASS(DActorModelData, DObject);
 public:
-	PClass *				modelDef;
-	TArray<ModelOverride>	models;
-	TArray<FTextureID>		skinIDs;
-	TArray<int>				animationIDs;
-	TArray<int>				modelFrameGenerators;
-	int						flags;
-	int						overrideFlagsSet;
-	int						overrideFlagsClear;
+	PClass *					modelDef;
+	TArray<ModelOverride>		models;
+	TArray<FTextureID>			skinIDs;
+	TArray<AnimModelOverride>	animationIDs;
+	TArray<int>					modelFrameGenerators;
+	int							flags;
+	int							overrideFlagsSet;
+	int							overrideFlagsClear;
 
 	AnimOverride curAnim;
 	AnimOverride prevAnim; // used for interpolation when switching anims
@@ -1745,7 +1755,7 @@ struct FTranslatedLineTarget
 	bool unlinked;	// found by a trace that went through an unlinked portal.
 };
 
-void PlayerPointerSubstitution(AActor* oldPlayer, AActor* newPlayer);
+void PlayerPointerSubstitution(AActor* oldPlayer, AActor* newPlayer, bool removeOld);
 int MorphPointerSubstitution(AActor* from, AActor* to);
 
 #define S_FREETARGMOBJ	1
