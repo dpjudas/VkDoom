@@ -797,7 +797,6 @@ public:
 				break;
 
 			case NAME_lm_suncolor:
-			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
 				if (CheckInt(key) < 0 || CheckInt(key) > 0xFFFFFF)
 				{

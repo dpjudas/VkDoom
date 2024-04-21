@@ -702,7 +702,7 @@ UNSAFE_CCMD(save)
 {
 	if ((primaryLevel->vkdflags & VKDLEVELFLAG_NOUSERSAVE))
 	{
-		Printf("%s\n", GStrings("SAVEDEAD"));
+		Printf("%s\n", GStrings.GetString("SAVEDEAD"));
 		return;
 	}
 
