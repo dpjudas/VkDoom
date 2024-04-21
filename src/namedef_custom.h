@@ -676,6 +676,7 @@ xx(ZDoomTranslated)
 xx(Vavoom)
 xx(GZDoom)
 xx(Eternity)
+xx(Dsda)
 
 xx(Xpanningfloor)
 xx(Ypanningfloor)
@@ -859,7 +860,10 @@ xx(lm_sampledist_mid)
 xx(lm_sampledist_bot)
 xx(lm_sampledist_floor)
 xx(lm_sampledist_ceiling)
+xx(lm_dynamic)
 xx(lm_suncolor)
+xx(lm_sampledist)
+xx(sourceradius)
 xx(lm_dynamic)
 
 // Light keywords

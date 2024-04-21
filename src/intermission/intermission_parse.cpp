@@ -936,7 +936,7 @@ CCMD(testfinale)
 
 	if (argv.argc() == 2)
 	{
-		text = GStrings.GetString(argv[1], nullptr);
+		text = GStrings.CheckString(argv[1], nullptr);
 	}
 	else
 	{

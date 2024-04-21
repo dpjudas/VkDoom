@@ -2260,7 +2260,7 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 		cht_Give (&players[player], s, ReadInt32 (stream));
 		if (player != consoleplayer)
 		{
-			FString message = GStrings("TXT_X_CHEATS");
+			FString message = GStrings.GetString("TXT_X_CHEATS");
 			message.Substitute("%s", players[player].userinfo.GetName());
 			Printf("%s: give %s\n", message.GetChars(), s);
 		}
@@ -2965,6 +2965,12 @@ int Net_GetLatency(int *ld, int *ad)
 	return severity;
 }
 
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
 void NetworkEntityManager::InitializeNetworkEntities()
 {
 	if (!s_netEntities.Size())
@@ -3047,6 +3053,85 @@ DObject* NetworkEntityManager::GetNetworkEntity(const uint32_t id)
 
 	return s_netEntities[id];
 }
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+void DObject::SetNetworkID(const uint32_t id)
+{
+	if (!IsNetworked())
+	{
+		ObjectFlags |= OF_Networked;
+		_networkID = id;
+	}
+}
+
+void DObject::ClearNetworkID()
+{
+	ObjectFlags &= ~OF_Networked;
+	_networkID = NetworkEntityManager::WorldNetID;
+}
+
+void DObject::EnableNetworking(const bool enable)
+{
+	if (enable)
+		NetworkEntityManager::AddNetworkEntity(this);
+	else
+		NetworkEntityManager::RemoveNetworkEntity(this);
+}
+
+void DObject::RemoveFromNetwork()
+{
+	NetworkEntityManager::RemoveNetworkEntity(this);
+}
+
+static unsigned int GetNetworkID(DObject* const self)
+{
+	return self->GetNetworkID();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, GetNetworkID, GetNetworkID)
+{
+	PARAM_SELF_PROLOGUE(DObject);
+
+	ACTION_RETURN_INT(self->GetNetworkID());
+}
+
+static void EnableNetworking(DObject* const self, const bool enable)
+{
+	self->EnableNetworking(enable);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, EnableNetworking, EnableNetworking)
+{
+	PARAM_SELF_PROLOGUE(DObject);
+	PARAM_BOOL(enable);
+
+	self->EnableNetworking(enable);
+	return 0;
+}
+
+static DObject* GetNetworkEntity(const unsigned int id)
+{
+	return NetworkEntityManager::GetNetworkEntity(id);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, GetNetworkEntity, GetNetworkEntity)
+{
+	PARAM_PROLOGUE;
+	PARAM_UINT(id);
+
+	ACTION_RETURN_OBJECT(NetworkEntityManager::GetNetworkEntity(id));
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
 
 // [RH] List "ping" times
 CCMD (pings)
