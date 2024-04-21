@@ -862,9 +862,7 @@ xx(lm_sampledist_floor)
 xx(lm_sampledist_ceiling)
 xx(lm_dynamic)
 xx(lm_suncolor)
-xx(lm_sampledist)
 xx(sourceradius)
-xx(lm_dynamic)
 
 // Light keywords
 xx(SourceRadius)
