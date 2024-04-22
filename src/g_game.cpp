@@ -122,6 +122,7 @@ CVAR (Bool, storesavepic, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR (Bool, longsavemessages, false, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR (Bool, cl_waitforsave, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 CVAR (Bool, enablescriptscreenshot, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
+CVAR (Bool, cl_restartondeath, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 EXTERN_CVAR (Float, con_midtime);
 
 //==========================================================================
@@ -1752,7 +1753,7 @@ void FLevelLocals::DoReborn (int playernum, bool freshbot)
 	if (!multiplayer && !(flags2 & LEVEL2_ALLOWRESPAWN) && !sv_singleplayerrespawn &&
 		!G_SkillProperty(SKILLP_PlayerRespawn))
 	{
-		if (BackupSaveName.Len() > 0 && FileExists (BackupSaveName))
+		if (!(cl_restartondeath) && (BackupSaveName.Len() > 0 && FileExists (BackupSaveName)))
 		{ // Load game from the last point it was saved
 			savename = BackupSaveName;
 			gameaction = ga_autoloadgame;
@@ -1824,7 +1825,7 @@ void G_DoPlayerPop(int playernum)
 {
 	playeringame[playernum] = false;
 
-	FString message = GStrings(deathmatch? "TXT_LEFTWITHFRAGS" : "TXT_LEFTTHEGAME");
+	FString message = GStrings.GetString(deathmatch? "TXT_LEFTWITHFRAGS" : "TXT_LEFTTHEGAME");
 	message.Substitute("%s", players[playernum].userinfo.GetName());
 	message.Substitute("%d", FStringf("%d", players[playernum].fragcount));
 	Printf("%s\n", message.GetChars());
@@ -1902,7 +1903,7 @@ static bool CheckSingleWad (const char *name, bool &printRequires, bool printwar
 		{
 			if (!printRequires)
 			{
-				Printf ("%s:\n%s", GStrings("TXT_SAVEGAMENEEDS"), name);
+				Printf ("%s:\n%s", GStrings.GetString("TXT_SAVEGAMENEEDS"), name);
 			}
 			else
 			{
@@ -1940,7 +1941,7 @@ bool G_CheckSaveGameWads (FSerializer &arc, bool printwarn)
 
 static void LoadGameError(const char *label, const char *append = "")
 {
-	FString message = GStrings(label);
+	FString message = GStrings.GetString(label);
 	message.Substitute("%s", savename);
 	Printf ("%s %s\n", message.GetChars(), append);
 }
@@ -2059,12 +2060,12 @@ void G_DoLoadGame ()
 		FString message;
 		if (SaveVersion < MINSAVEVER)
 		{
-			message = GStrings("TXT_TOOOLDSG");
+			message = GStrings.GetString("TXT_TOOOLDSG");
 			message.Substitute("%e", FStringf("%d", MINSAVEVER));
 		}
 		else
 		{
-			message = GStrings("TXT_TOONEWSG");
+			message = GStrings.GetString("TXT_TOONEWSG");
 			message.Substitute("%e", FStringf("%d", SAVEVER));
 		}
 		message.Substitute("%d", FStringf("%d", SaveVersion));
@@ -2174,19 +2175,19 @@ void G_SaveGame (const char *filename, const char *description)
 {
 	if (sendsave || gameaction == ga_savegame)
 	{
-		Printf ("%s\n", GStrings("TXT_SAVEPENDING"));
+		Printf ("%s\n", GStrings.GetString("TXT_SAVEPENDING"));
 	}
     else if (!usergame)
 	{
-		Printf ("%s\n", GStrings("TXT_NOTSAVEABLE"));
+		Printf ("%s\n", GStrings.GetString("TXT_NOTSAVEABLE"));
     }
     else if (gamestate != GS_LEVEL)
 	{
-		Printf ("%s\n", GStrings("TXT_NOTINLEVEL"));
+		Printf ("%s\n", GStrings.GetString("TXT_NOTINLEVEL"));
     }
     else if (players[consoleplayer].health <= 0 && !multiplayer)
     {
-		Printf ("%s\n", GStrings("TXT_SPPLAYERDEAD"));
+		Printf ("%s\n", GStrings.GetString("TXT_SPPLAYERDEAD"));
     }
 	else
 	{
@@ -2313,7 +2314,7 @@ static void PutSaveComment (FSerializer &arc)
 	comment.Format("%s - %s\n", primaryLevel->MapName.GetChars(), primaryLevel->LevelName.GetChars());
 
 	// Append elapsed time
-	const char *const time = GStrings("SAVECOMMENT_TIME");
+	const char *const time = GStrings.GetString("SAVECOMMENT_TIME");
 	levelTime = primaryLevel->time / TICRATE;
 	comment.AppendFormat("%s: %02d:%02d:%02d", time, levelTime/3600, (levelTime%3600)/60, levelTime%60);
 
@@ -2465,12 +2466,12 @@ void G_DoSaveGame (bool okForQuicksave, bool forceQuicksave, FString filename, c
 		savegameManager.NotifyNewSave(filename, description, okForQuicksave, forceQuicksave);
 		BackupSaveName = filename;
 
-		if (longsavemessages) Printf("%s (%s)\n", GStrings("GGSAVED"), filename.GetChars());
-		else Printf("%s\n", GStrings("GGSAVED"));
+		if (longsavemessages) Printf("%s (%s)\n", GStrings.GetString("GGSAVED"), filename.GetChars());
+		else Printf("%s\n", GStrings.GetString("GGSAVED"));
 	}
 	else
 	{
-		Printf(PRINT_HIGH, "%s\n", GStrings("TXT_SAVEFAILED"));
+		Printf(PRINT_HIGH, "%s\n", GStrings.GetString("TXT_SAVEFAILED"));
 	}
 
 
