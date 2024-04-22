@@ -106,7 +106,7 @@ jobs:
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
           cp -r vkdoom.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          cp vkdoom *.pk3 fm_banks soundfonts package
+          cp vkdoom *.pk3 package
           strip package/vkdoom
         fi
 
