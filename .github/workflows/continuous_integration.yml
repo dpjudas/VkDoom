@@ -101,11 +101,12 @@ jobs:
         cd build
         mkdir package
         if [[ "${{ runner.os }}" == 'Windows' ]]; then
-          cp ${{ matrix.config.build_type }}/vkdoom.exe ${{ matrix.config.build_type }}/*.pk3 package
+          cp -r ${{ matrix.config.build_type }}/vkdoom.exe ${{ matrix.config.build_type }}/*.pk3 ${{ matrix.config.build_type }}/fm_banks ${{ matrix.config.build_type }}/soundfonts package
+          cp ../bin/licenses.zip ../bin/windows/libsndfile/64bit/libsndfile-1.dll ../bin/windows/openal/64bit/openal32.dll ../bin/windows/zmusic/64bit/zmusic.dll package
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
           cp -r vkdoom.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          cp vkdoom *.pk3 package
+          cp vkdoom *.pk3 fm_banks soundfonts package
           strip package/vkdoom
         fi
 
