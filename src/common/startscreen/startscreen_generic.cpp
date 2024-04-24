@@ -38,90 +38,245 @@
 #include "startupinfo.h"
 #include "image.h"
 #include "texturemanager.h"
+#include "i_time.h"
+#include "v_video.h"
+#include "v_draw.h"
+#include "vm.h"
 
-// Hexen startup screen
-#define ST_PROGRESS_X			64			// Start of notches x screen pos.
-#define ST_PROGRESS_Y			441			// Start of notches y screen pos.
+void DoDrawTexture(F2DDrawer* drawer, FGameTexture* img, double x, double y, VMVa_List& args);
 
+static const char* DTA_Constants[] =
+{
+	"DTA_Base",
+	"DTA_DestWidth",
+	"DTA_DestHeight",
+	"DTA_Alpha",
+	"DTA_FillColor",
+	"DTA_TranslationIndex",
+	"DTA_AlphaChannel",
+	"DTA_Clean",
+	"DTA_320x200",
+	"DTA_Bottom320x200",
+	"DTA_CleanNoMove",
+	"DTA_CleanNoMove_1",
+	"DTA_FlipX",
+	"DTA_ShadowColor",
+	"DTA_ShadowAlpha",
+	"DTA_Shadow",
+	"DTA_VirtualWidth",
+	"DTA_VirtualHeight",
+	"DTA_TopOffset",
+	"DTA_LeftOffset",
+	"DTA_CenterOffset",
+	"DTA_CenterBottomOffset",
+	"DTA_WindowLeft",
+	"DTA_WindowRight",
+	"DTA_ClipTop",
+	"DTA_ClipBottom",
+	"DTA_ClipLeft",
+	"DTA_ClipRight",
+	"DTA_Masked",
+	"DTA_HUDRules",
+	"DTA_HUDRulesC",
+	"DTA_KeepRatio",
+	"DTA_RenderStyle",
+	"DTA_ColorOverlay",
+	"DTA_BilinearFilter",
+	"DTA_SpecialColormap",
+	"DTA_Desaturate",
+	"DTA_Fullscreen",
+	"DTA_DestWidthF",
+	"DTA_DestHeightF",
+	"DTA_TopOffsetF",
+	"DTA_LeftOffsetF",
+	"DTA_VirtualWidthF",
+	"DTA_VirtualHeightF",
+	"DTA_WindowLeftF",
+	"DTA_WindowRightF",
+	"DTA_TextLen",
+	"DTA_CellX",
+	"DTA_CellY",
+	"DTA_Color",
+	"DTA_FlipY",
+	"DTA_SrcX",
+	"DTA_SrcY",
+	"DTA_SrcWidth",
+	"DTA_SrcHeight",
+	"DTA_LegacyRenderStyle",
+	"DTA_Burn",
+	"DTA_Spacing",
+	"DTA_Monospace",
+	"DTA_FullscreenEx",
+	"DTA_FullscreenScale",
+	"DTA_ScaleX",
+	"DTA_ScaleY",
+	"DTA_ViewportX",
+	"DTA_ViewportY",
+	"DTA_ViewportWidth",
+	"DTA_ViewportHeight",
+	"DTA_CenterOffsetRel",
+	"DTA_TopLeft",
+	"DTA_Pin",
+	"DTA_Rotate",
+	"DTA_FlipOffsets",
+	"DTA_Indexed",
+	"DTA_CleanTop",
+	"DTA_NoOffset",
+	"DTA_Localize",
+};
+
+struct DrawTextureEntry
+{
+	FGameTexture* tex = nullptr;
+	FString texname;
+	double x = 0.0;
+	double y = 0.0;
+	TArray<VMValue> args;
+	TArray<uint8_t> reginfo;
+};
 
 class FGenericStartScreen : public FStartScreen
 {
-	FBitmap Background;
-	int NotchPos = 0;
-
 public:
 	FGenericStartScreen(int max_progress);
+	void RenderScreen(F2DDrawer* drawer) override;
 
-	bool DoProgress(int) override;
+private:
+	void ValidateTexture();
+
+	bool Validated = false;
+	TArray<DrawTextureEntry> DrawCommands;
+	TMap<FString, FGameTexture*> Textures;
 };
-
-
-//==========================================================================
-//
-// FGenericStartScreen Constructor
-//
-// Shows the Hexen startup screen. If the screen doesn't appear to be
-// valid, it sets hr for a failure.
-//
-// The startup graphic is a planar, 4-bit 640x480 graphic preceded by a
-// 16 entry (48 byte) VGA palette.
-//
-//==========================================================================
-
-FGenericStartScreen::FGenericStartScreen(int max_progress)
-	: FStartScreen(max_progress)
-{
-	// at this point we do not have a working texture manager yet, so we have to do the lookup via the file system
-	int startup_lump = fileSystem.CheckNumForName("BOOTLOGO", FileSys::ns_graphics);
-
-	StartupBitmap.Create(640 * 2, 480 * 2);
-	ClearBlock(StartupBitmap, { 0, 0, 0, 255 }, 0, 0, 640 * 2, 480 * 2);
-	// This also needs to work if the lump turns out to be unusable.
-	if (startup_lump != -1)
-	{
-		auto iBackground = FImageSource::GetImage(startup_lump, false);
-		if (iBackground)
-		{
-			Background = iBackground->GetCachedBitmap(nullptr, FImageSource::normal);
-			if (Background.GetWidth() < 640 * 2 || Background.GetHeight() < 480 * 2)
-				StartupBitmap.Blit(320 * 2 - Background.GetWidth()/2, 220 * 2 - Background.GetHeight() / 2, Background);
-			else
-				StartupBitmap.Blit(0, 0, Background, 640 * 2, 480 * 2);
-		
-		}
-	}
-}
-
-//==========================================================================
-//
-// FGenericStartScreen :: Progress
-//
-// Bumps the progress meter one notch.
-//
-//==========================================================================
-
-bool FGenericStartScreen::DoProgress(int advance)
-{
-	int notch_pos;
-
-	if (CurPos < MaxPos)
-	{
-		RgbQuad bcolor = { 2, 25, 87, 255 }; // todo: make configurable
-		int numnotches = 200 * 2;
-		notch_pos = ((CurPos + 1) * numnotches) / MaxPos;
-		if (notch_pos != NotchPos)
-		{ // Time to draw another notch.
-			ClearBlock(StartupBitmap, bcolor, (320 - 100) * 2, 480 * 2 - 30, notch_pos, 4 * 2);
-			NotchPos = notch_pos;
-			if (StartupTexture)
-				StartupTexture->CleanHardwareData(true);
-		}
-	}
-	return FStartScreen::DoProgress(advance);
-}
-
 
 FStartScreen* CreateGenericStartScreen(int max_progress)
 {
 	return new FGenericStartScreen(max_progress);
+}
+
+FGenericStartScreen::FGenericStartScreen(int max_progress)
+{
+	FScanner sc;
+	int numblocks = 0;
+
+	int i = 0;
+	TMap<FString, int> DTALookup;
+	for (const char* constant : DTA_Constants)
+	{
+		DTALookup.Insert(FString(constant).MakeLower(), DTA_Base + i);
+		i++;
+	}
+
+	int lump = fileSystem.CheckNumForFullName("STARTUPINFO", true, 0, true);
+	if (lump == -1)
+		return;
+
+	sc.OpenLumpNum(lump);
+	while (sc.GetString())
+	{
+		if (sc.Compare("background"))
+		{
+			numblocks++;
+			if (numblocks > 1)
+			{
+				sc.ScriptMessage("Multiple 'background' records ignored");
+				// Skip the rest.
+				break;
+			}
+
+			sc.MustGetStringName("{");
+			while (!sc.CheckString("}"))
+			{
+				sc.MustGetString();
+				if (sc.Compare("DrawTexture"))
+				{
+					DrawTextureEntry entry;
+
+					sc.MustGetString();
+
+					entry.texname = sc.String;
+
+					sc.MustGetFloat();
+					entry.x = sc.Float;
+
+					sc.MustGetFloat();
+					entry.y = sc.Float;
+
+					while (!sc.CheckString("TAG_END"))
+					{
+						if (sc.CheckNumber())
+						{
+							entry.args.Push(VMValue(sc.Number));
+							entry.reginfo.Push(REGT_INT);
+						}
+						else if (sc.CheckFloat())
+						{
+							entry.args.Push(VMValue(sc.Float));
+							entry.reginfo.Push(REGT_FLOAT);
+						}
+						else
+						{
+							sc.MustGetString();
+							int* value = DTALookup.CheckKey(FString(sc.String).MakeLower());
+							if (value)
+							{
+								entry.args.Push(VMValue(*value));
+								entry.reginfo.Push(REGT_INT);
+							}
+							else
+							{
+								sc.ScriptError("Unknown DTA constant '%s'", sc.String);
+								break;
+							}
+						}
+					}
+					DrawCommands.Push(entry);
+				}
+			}
+		}
+	}
+}
+
+void FGenericStartScreen::RenderScreen(F2DDrawer* drawer)
+{
+	ValidateTexture();
+
+	for (const DrawTextureEntry& command : DrawCommands)
+	{
+		if (command.tex)
+		{
+			VMVa_List args = {};
+			args.args = command.args.Data();
+			args.reginfo = command.reginfo.Data();
+			args.numargs = command.args.Size();
+			args.curindex = 0;
+			DoDrawTexture(drawer, command.tex, command.x, command.y, args);
+		}
+	}
+}
+
+void FGenericStartScreen::ValidateTexture()
+{
+	if (Validated)
+		return;
+
+	Validated = true;
+	for (DrawTextureEntry& command : DrawCommands)
+	{
+		FString key = command.texname.MakeLower();
+		if (!Textures.CheckKey(key))
+		{
+			int lump = fileSystem.CheckNumForName(key.GetChars(), FileSys::ns_graphics);
+			if (lump != -1)
+			{
+				auto imgsource = FImageSource::GetImage(lump, false);
+				Textures[key] = MakeGameTexture(new FImageTexture(imgsource), nullptr, ETextureType::Override);
+			}
+			else
+			{
+				Textures[key] = nullptr;
+			}
+		}
+		command.tex = Textures[key];
+	}
 }

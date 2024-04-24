@@ -72,7 +72,7 @@ static const char* StrifeStartupPicNames[] =
 
 
 
-class FStrifeStartScreen : public FStartScreen
+class FStrifeStartScreen : public FBitmapStartScreen
 {
 public:
 	FStrifeStartScreen(int max_progress);
@@ -103,7 +103,7 @@ protected:
 //==========================================================================
 
 FStrifeStartScreen::FStrifeStartScreen(int max_progress)
-	: FStartScreen(max_progress)
+	: FBitmapStartScreen(max_progress)
 {
 	StartupBitmap.Create(320, 200);
 
@@ -153,7 +153,7 @@ bool FStrifeStartScreen::DoProgress(int advance)
 			StartupTexture->CleanHardwareData(true);
 		}
 	}
-	return FStartScreen::DoProgress(advance);
+	return FBitmapStartScreen::DoProgress(advance);
 }
 
 //==========================================================================

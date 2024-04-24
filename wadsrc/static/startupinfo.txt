@@ -1,0 +1,5 @@
+
+background
+{
+	drawtexture bootlogo 832 412 DTA_VirtualWidth 1920 DTA_VirtualHeight 1080 DTA_DestWidth 256 DTA_DestHeight 213 DTA_BilinearFilter 1 DTA_LegacyRenderStyle 1 TAG_END
+}

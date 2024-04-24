@@ -48,7 +48,7 @@
 #define ST_NETPROGRESS_X		288
 #define ST_NETPROGRESS_Y		32
 
-class FHexenStartScreen : public FStartScreen
+class FHexenStartScreen : public FBitmapStartScreen
 {
 	// Hexen's notch graphics, converted to chunky pixels.
 	FBitmap Background;
@@ -78,7 +78,7 @@ public:
 //==========================================================================
 
 FHexenStartScreen::FHexenStartScreen(int max_progress)
-	: FStartScreen(max_progress)
+	: FBitmapStartScreen(max_progress)
 {
 	// at this point we do not have a working texture manager yet, so we have to do the lookup via the file system
 	int startup_lump = fileSystem.CheckNumForName("STARTUP", FileSys::ns_graphics);
@@ -157,7 +157,7 @@ bool FHexenStartScreen::DoProgress(int advance)
 			ST_Sound("StartupTick");
 		}
 	}
-	return FStartScreen::DoProgress(advance);
+	return FBitmapStartScreen::DoProgress(advance);
 }
 
 //==========================================================================
@@ -173,7 +173,7 @@ void FHexenStartScreen::DoNetProgress(int count)
 	int oldpos = NetCurPos;
 	int x, y;
 
-	FStartScreen::NetProgress(count);
+	FBitmapStartScreen::NetProgress(count);
 	
 	if (NetMaxPos != 0 && NetCurPos > oldpos)
 	{
@@ -202,7 +202,7 @@ void FHexenStartScreen::DoNetProgress(int count)
 void FHexenStartScreen::NetDone()
 {
 	ST_Sound("PickupWeapon");
-	FStartScreen::NetDone();
+	FBitmapStartScreen::NetDone();
 }
 
 

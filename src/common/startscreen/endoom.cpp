@@ -77,7 +77,7 @@ CUSTOM_CVAR(Int, showendoom, 0, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 
 // CODE --------------------------------------------------------------------
 
-class FEndoomScreen : public FStartScreen
+class FEndoomScreen : public FBitmapStartScreen
 {
 	uint64_t lastUpdateTime;
 	bool blinkstate = false;
@@ -103,7 +103,7 @@ public:
 //==========================================================================
 
 FEndoomScreen::FEndoomScreen(int loading_lump)
-	: FStartScreen(0)
+	: FBitmapStartScreen(0)
 {
 	fileSystem.ReadFile(loading_lump, endoom_screen);
 

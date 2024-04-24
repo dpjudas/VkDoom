@@ -49,6 +49,7 @@
 #include "v_draw.h"
 #include "g_input.h"
 #include "texturemanager.h"
+#include "hw_renderstate.h"
 
 // Text mode color values
 enum{
@@ -378,7 +379,7 @@ FStartScreen* GetGameStartScreen(int max_progress)
 //
 //==========================================================================
 
-void FStartScreen::ClearBlock(FBitmap& bitmap_info, RgbQuad fill, int x, int y, int bytewidth, int height)
+void FBitmapStartScreen::ClearBlock(FBitmap& bitmap_info, RgbQuad fill, int x, int y, int bytewidth, int height)
 {
 	int destpitch = bitmap_info.GetWidth();
 	auto dest = (RgbQuad*)(bitmap_info.GetPixels()) + x + y * destpitch;
@@ -403,7 +404,7 @@ void FStartScreen::ClearBlock(FBitmap& bitmap_info, RgbQuad fill, int x, int y, 
 //
 //==========================================================================
 
-void FStartScreen::DrawTextScreen(FBitmap& bitmap_info, const uint8_t* text_screen)
+void FBitmapStartScreen::DrawTextScreen(FBitmap& bitmap_info, const uint8_t* text_screen)
 {
 	int x, y;
 
@@ -427,7 +428,7 @@ void FStartScreen::DrawTextScreen(FBitmap& bitmap_info, const uint8_t* text_scre
 //==========================================================================
 uint8_t* GetHexChar(int codepoint);
 
-int FStartScreen::DrawChar(FBitmap& screen, double x, double y, unsigned charnum, RgbQuad fg, RgbQuad bg)
+int FBitmapStartScreen::DrawChar(FBitmap& screen, double x, double y, unsigned charnum, RgbQuad fg, RgbQuad bg)
 {
 	if (x < 0 || y < 0 || y >= screen.GetHeight() - 16) return 1;
 	static const uint8_t space[17] = { 16 };
@@ -469,7 +470,7 @@ int FStartScreen::DrawChar(FBitmap& screen, double x, double y, unsigned charnum
 	return size;
 }
 
-int FStartScreen::DrawChar(FBitmap& screen, double x, double y, unsigned charnum, uint8_t attrib)
+int FBitmapStartScreen::DrawChar(FBitmap& screen, double x, double y, unsigned charnum, uint8_t attrib)
 {
 	const uint8_t bg = (attrib & 0x70) >> 4;
 	const uint8_t fg = attrib & 0x0F;
@@ -477,7 +478,7 @@ int FStartScreen::DrawChar(FBitmap& screen, double x, double y, unsigned charnum
 	return DrawChar(screen, x, y, charnum, fgc, bgc);
 }
 
-int FStartScreen::DrawString(FBitmap& screen, double x, double y, const char* text, RgbQuad fg, RgbQuad bg)
+int FBitmapStartScreen::DrawString(FBitmap& screen, double x, double y, const char* text, RgbQuad fg, RgbQuad bg)
 {
 	double oldx = x;
 	auto str = (const uint8_t*)text;
@@ -496,7 +497,7 @@ int FStartScreen::DrawString(FBitmap& screen, double x, double y, const char* te
 //
 //==========================================================================
 
-int FStartScreen::SizeOfText(const char* text)
+int FBitmapStartScreen::SizeOfText(const char* text)
 {
 	int len = 0;
 	const uint8_t* utext = (uint8_t*)text;
@@ -518,7 +519,7 @@ int FStartScreen::SizeOfText(const char* text)
 //
 //==========================================================================
 
-void FStartScreen::UpdateTextBlink(FBitmap& bitmap_info, const uint8_t* text_screen, bool on)
+void FBitmapStartScreen::UpdateTextBlink(FBitmap& bitmap_info, const uint8_t* text_screen, bool on)
 {
 	int x, y;
 
@@ -543,7 +544,7 @@ void FStartScreen::UpdateTextBlink(FBitmap& bitmap_info, const uint8_t* text_scr
 //
 //==========================================================================
 
-void FStartScreen::ST_Sound(const char* sndname)
+void FBitmapStartScreen::ST_Sound(const char* sndname)
 {
 	if (sysCallbacks.PlayStartupSound)
 		sysCallbacks.PlayStartupSound(sndname);
@@ -557,7 +558,7 @@ void FStartScreen::ST_Sound(const char* sndname)
 //
 //==========================================================================
 
-void FStartScreen::CreateHeader()
+void FBitmapStartScreen::CreateHeader()
 {
 	HeaderBitmap.Create(StartupBitmap.GetWidth() * Scale, 2 * 16);
 	RgbQuad bcolor, fcolor;
@@ -583,7 +584,7 @@ void FStartScreen::CreateHeader()
 //
 //==========================================================================
 
-void FStartScreen::DrawNetStatus(int found, int total)
+void FBitmapStartScreen::DrawNetStatus(int found, int total)
 {
 	RgbQuad black = { 0, 0, 0, 255 };
 	RgbQuad gray = { 100, 100, 100, 255 };
@@ -603,7 +604,7 @@ void FStartScreen::DrawNetStatus(int found, int total)
 //
 //==========================================================================
 
-bool FStartScreen::NetInit(const char* message, int numplayers)
+bool FBitmapStartScreen::NetInit(const char* message, int numplayers)
 {
 	NetMaxPos = numplayers;
 	NetCurPos = 0;
@@ -620,13 +621,13 @@ bool FStartScreen::NetInit(const char* message, int numplayers)
 //
 //==========================================================================
 
-bool FStartScreen::DoProgress(int advance)
+bool FBitmapStartScreen::DoProgress(int advance)
 {
 	CurPos = min(CurPos + advance, MaxPos);
 	return true;
 }
 
-void FStartScreen::DoNetProgress(int count)
+void FBitmapStartScreen::DoNetProgress(int count)
 {
 	if (count == 0)
 	{
@@ -639,14 +640,14 @@ void FStartScreen::DoNetProgress(int count)
 	NetTexture->CleanHardwareData();
 }
 
-bool FStartScreen::Progress(int advance)
+bool FBitmapStartScreen::Progress(int advance)
 {
 	bool done = DoProgress(advance);
 	Render();
 	return done;
 }
 
-void FStartScreen::NetProgress(int count)
+void FBitmapStartScreen::NetProgress(int count)
 {
 	DoNetProgress(count);
 	Render();
@@ -663,30 +664,13 @@ void FStartScreen::Render(bool force)
 		screen->FrameTime = nowtime;
 		screen->FrameTimeNS = I_nsTime();
 		screen->BeginFrame();
+		//screen->mSceneClearColor[2] = 255.0f;
+		screen->RenderState()->Clear(CT_Color | CT_Depth | CT_Stencil);
 		twod->ClearClipRect();
 		I_GetEvent();
-		ValidateTexture();
-		float displaywidth;
-		float displayheight;
 		twod->Begin(screen->GetWidth(), screen->GetHeight());
 
-		// At this point the shader for untextured rendering has not been loaded yet, so we got to clear the screen by rendering a texture with black color.
-		DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, StartupTexture->GetDisplayWidth(), DTA_VirtualHeightF, StartupTexture->GetDisplayHeight(), DTA_KeepRatio, true, DTA_Color, PalEntry(255,0,0,0), TAG_END);
-
-		if (HeaderTexture)
-		{
-			displaywidth = HeaderTexture->GetDisplayWidth();
-			displayheight = HeaderTexture->GetDisplayHeight() + StartupTexture->GetDisplayHeight();
-			DrawTexture(twod, HeaderTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
-			DrawTexture(twod, StartupTexture, 0, 32, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
-			if (NetMaxPos >= 0) DrawTexture(twod, NetTexture, 0, displayheight - 16, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
-		}
-		else
-		{
-			displaywidth = StartupTexture->GetDisplayWidth();
-			displayheight = StartupTexture->GetDisplayHeight();
-			DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
-		}
+		RenderScreen(twod);
 
 		twod->End();
 		screen->Update();
@@ -697,9 +681,30 @@ void FStartScreen::Render(bool force)
 		minwaittime = (newtime - nowtime) * 2.0;
 }
 
-FImageSource* CreateStartScreenTexture(FBitmap& srcdata);
+void FBitmapStartScreen::RenderScreen(F2DDrawer* drawer)
+{
+	ValidateTexture();
 
-void FStartScreen::ValidateTexture()
+	// At this point the shader for untextured rendering has not been loaded yet, so we got to clear the screen by rendering a texture with black color.
+	DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, StartupTexture->GetDisplayWidth(), DTA_VirtualHeightF, StartupTexture->GetDisplayHeight(), DTA_KeepRatio, true, DTA_Color, PalEntry(255, 0, 0, 0), TAG_END);
+
+	if (HeaderTexture)
+	{
+		float displaywidth = HeaderTexture->GetDisplayWidth();
+		float displayheight = HeaderTexture->GetDisplayHeight() + StartupTexture->GetDisplayHeight();
+		DrawTexture(twod, HeaderTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+		DrawTexture(twod, StartupTexture, 0, 32, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+		if (NetMaxPos >= 0) DrawTexture(twod, NetTexture, 0, displayheight - 16, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+	}
+	else
+	{
+		float displaywidth = StartupTexture->GetDisplayWidth();
+		float displayheight = StartupTexture->GetDisplayHeight();
+		DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+	}
+}
+
+void FBitmapStartScreen::ValidateTexture()
 {
 	if (StartupTexture == nullptr)
 	{

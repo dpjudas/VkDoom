@@ -47,7 +47,7 @@
 #define THERM_COLOR				0xA		// light green
 
 
-class FHereticStartScreen : public FStartScreen
+class FHereticStartScreen : public FBitmapStartScreen
 {
 	int NotchPos;
 	int ThermX, ThermY, ThermWidth, ThermHeight;
@@ -74,7 +74,7 @@ public:
 //==========================================================================
 
 FHereticStartScreen::FHereticStartScreen(int max_progress)
-	: FStartScreen(max_progress)
+	: FBitmapStartScreen(max_progress)
 {
 	int loading_lump = fileSystem.CheckNumForName("LOADING");
 	uint8_t loading_screen[4000];
@@ -129,7 +129,7 @@ bool FHereticStartScreen::DoProgress(int advance)
 			StartupTexture->CleanHardwareData(true);
 		}
 	}
-	return FStartScreen::DoProgress(advance);
+	return FBitmapStartScreen::DoProgress(advance);
 }
 
 //==========================================================================

@@ -40,6 +40,22 @@
 #include "bitmap.h"
 #include "zstring.h"
 
+class F2DDrawer;
+class FImageSource;
+class FBitmap;
+
+class FStartScreen
+{
+public:
+	virtual ~FStartScreen() = default;
+	virtual void RenderScreen(F2DDrawer* drawer) = 0;
+	virtual void LoadingStatus(const char* message, int colors) {}
+	virtual void AppendStatusLine(const char* status) {}
+	virtual bool Progress(int) { Render(); return true; }
+
+	void Render(bool force = false);
+};
+
 class FGameTexture;
 
 struct RgbQuad 
@@ -50,10 +66,9 @@ struct RgbQuad
 	uint8_t    rgbReserved;
 };
 
-
 extern const RgbQuad TextModePalette[16];
 
-class FStartScreen
+class FBitmapStartScreen : public FStartScreen
 {
 protected:
 	int CurPos = 0;
@@ -69,13 +84,10 @@ protected:
 	FGameTexture* HeaderTexture = nullptr;
 	FGameTexture* NetTexture = nullptr;
 public:
-	FStartScreen(int maxp) { MaxPos = maxp; }
-	virtual ~FStartScreen() = default;
-	void Render(bool force = false);
-	bool Progress(int);
+	FBitmapStartScreen(int maxp) { MaxPos = maxp; }
+	void RenderScreen(F2DDrawer* drawer) override;
+	bool Progress(int) override;
 	void NetProgress(int count);
-	virtual void LoadingStatus(const char *message, int colors) {}
-	virtual void AppendStatusLine(const char *status) {}
 	virtual bool NetInit(const char* message, int numplayers);
 	virtual void NetDone() {}
 	virtual void NetTick() {}
@@ -85,7 +97,6 @@ public:
 	
 protected:
 	void ClearBlock(FBitmap& bitmap_info, RgbQuad fill, int x, int y, int bytewidth, int height);
-	FBitmap AllocTextBitmap();
 	void DrawTextScreen(FBitmap& bitmap_info, const uint8_t* text_screen);
 	int DrawChar(FBitmap& screen, double x, double y, unsigned charnum, uint8_t attrib);
 	int DrawChar(FBitmap& screen, double x, double y, unsigned charnum, RgbQuad fg, RgbQuad bg);
@@ -101,6 +112,8 @@ protected:
 };
 
 FStartScreen* GetGameStartScreen(int max_progress);
+
+FImageSource* CreateStartScreenTexture(FBitmap& srcdata);
 
 [[noreturn]]
 void ST_Endoom();
