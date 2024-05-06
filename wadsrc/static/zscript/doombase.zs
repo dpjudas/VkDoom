@@ -107,6 +107,10 @@ extend struct GameInfoStruct
 	native double normforwardmove[2];
 	native double normsidemove[2];
 	native bool mHideParTimes;
+	native bool forceLightmaps;
+	native FVector3 defaultSunColor;
+	native FVector3 defaultSunDirection;
+	native int defaultLightmapSampleDistance;
 }
 
 extend class Object
