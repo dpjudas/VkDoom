@@ -15,6 +15,8 @@
 #include "hwrenderer/scene/hw_flatdispatcher.h"
 #include <unordered_map>
 
+#include "vm.h"
+
 static bool RequireLevelMesh()
 {
 	if (level.levelMesh)
@@ -34,6 +36,20 @@ static bool RequireLightmap()
 
 	Printf("Lightmap is not enabled in this level.\n");
 	return false;
+}
+
+static int InvalidateLightmap()
+{
+	int count = 0;
+
+	for (auto& tile : level.levelMesh->LightmapTiles)
+	{
+		if (!tile.NeedsUpdate)
+			++count;
+		tile.NeedsUpdate = true;
+	}
+
+	return count;
 }
 
 ADD_STAT(lightmap)
@@ -71,13 +87,8 @@ CCMD(invalidatelightmap)
 {
 	if (!RequireLightmap()) return;
 
-	int count = 0;
-	for (auto& tile : level.levelMesh->LightmapTiles)
-	{
-		if (!tile.NeedsUpdate)
-			++count;
-		tile.NeedsUpdate = true;
-	}
+	int count = InvalidateLightmap();
+
 	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->LightmapTiles.Size());
 }
 
@@ -1175,4 +1186,44 @@ void DoomLevelMesh::CreatePortals(FLevelLocals& doomMap)
 			linePortals[i] = index;
 		}
 	}
+}
+
+// struct lightmap
+
+DEFINE_ACTION_FUNCTION(_Lightmap, Invalidate)
+{
+	PARAM_PROLOGUE;
+	InvalidateLightmap();
+	return 0;
+}
+
+DEFINE_ACTION_FUNCTION(_Lightmap, SetSunDirection)
+{
+	PARAM_PROLOGUE;
+	PARAM_FLOAT(x);
+	PARAM_FLOAT(y);
+	PARAM_FLOAT(z);
+
+	auto vec = FVector3(float(x), float(y), float(z));
+
+	if (!vec.isZero())
+	{
+		vec.MakeUnit();
+		level.SunDirection = vec;
+		level.levelMesh->SunDirection = vec;
+	}
+	return 0;
+}
+
+DEFINE_ACTION_FUNCTION(_Lightmap, SetSunColor)
+{
+	PARAM_PROLOGUE;
+	PARAM_FLOAT(x);
+	PARAM_FLOAT(y);
+	PARAM_FLOAT(z);
+
+	auto vec = FVector3(float(x), float(y), float(z));
+	level.SunColor = vec;
+	level.levelMesh->SunColor = vec;
+	return 0;
 }
