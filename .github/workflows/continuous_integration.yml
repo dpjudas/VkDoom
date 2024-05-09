@@ -95,7 +95,7 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
-      if: runner.os == 'Windows' || matrix.config.name == 'Linux GCC 12'
+      if: (runner.os == 'Windows' || matrix.config.name == 'Linux GCC 12') && matrix.config.build_type == 'RelWithDebInfo'
       shell: bash
       run: |
         cd build
