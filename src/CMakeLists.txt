@@ -1328,6 +1328,9 @@ if( MSVC )
 	endif()
 	set_target_properties(zdoom PROPERTIES LINK_FLAGS ${LINKERSTUFF})
 
+	# Create stripped PDBs for nightly builds
+	set_target_properties(zdoom PROPERTIES LINK_FLAGS_RELWITHDEBINFO /PDBSTRIPPED:${ZDOOM_OUTPUT_DIR}/RelWithDebInfo/${ZDOOM_EXE_NAME}-stripped.pdb)
+
 	add_custom_command(TARGET zdoom POST_BUILD
 		COMMAND "mt.exe" -manifest \"${CMAKE_CURRENT_SOURCE_DIR}\\common\\platform\\win32\\manifest.xml\" -outputresource:\"$<TARGET_FILE:zdoom>\"\;\#1
 		COMMENT "Adding manifest..."

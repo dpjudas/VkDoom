@@ -13,7 +13,7 @@ jobs:
         - name: Visual Studio 2022
           os: windows-2022
           extra_options: -DCMAKE_TOOLCHAIN_FILE=build/vcpkg/scripts/buildsystems/vcpkg.cmake
-          build_type: Release
+          build_type: RelWithDebInfo
 
         - name: Visual Studio 2022
           os: windows-2022
@@ -103,6 +103,7 @@ jobs:
         if [[ "${{ runner.os }}" == 'Windows' ]]; then
           cp -r ${{ matrix.config.build_type }}/vkdoom.exe ${{ matrix.config.build_type }}/*.pk3 ${{ matrix.config.build_type }}/fm_banks ${{ matrix.config.build_type }}/soundfonts package
           cp ../bin/licenses.zip ../bin/windows/libsndfile/64bit/libsndfile-1.dll ../bin/windows/openal/64bit/openal32.dll ../bin/windows/zmusic/64bit/zmusic.dll package
+          cp ${{ matrix.config.build_type }}/vkdoom-stripped.pdb package/${{ matrix.config.build_type }}/vkdoom.pdb
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
           cp -r vkdoom.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
@@ -134,7 +135,7 @@ jobs:
     - name: Download Windows artifact
       uses: actions/download-artifact@v4
       with:
-        name: Visual Studio 2022 Release
+        name: Visual Studio 2022 RelWithDebInfo
         path: build/vkdoom-windows-prerelease
 
     - name: Download Linux artifact
