@@ -55,6 +55,8 @@ public:
 
 	Point GetLParamPos(LPARAM lparam) const;
 
+	void* GetNativeHandle() override { return reinterpret_cast<void*>(WindowHandle); }
+
 	static void ProcessEvents();
 	static void RunLoop();
 	static void ExitLoop();

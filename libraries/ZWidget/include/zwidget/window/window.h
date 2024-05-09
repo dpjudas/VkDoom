@@ -165,4 +165,6 @@ public:
 
 	virtual std::string GetClipboardText() = 0;
 	virtual void SetClipboardText(const std::string& text) = 0;
+
+	virtual void* GetNativeHandle() = 0;
 };

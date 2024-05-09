@@ -733,6 +733,12 @@ Size Widget::GetScreenSize()
 	return DisplayWindow::GetScreenSize();
 }
 
+void* Widget::GetNativeHandle()
+{
+	Widget* w = Window();
+	return w ? w->DispWindow->GetNativeHandle() : nullptr;
+}
+
 void Widget::SetStyleClass(const std::string& themeClass)
 {
 	if (StyleClass != themeClass)

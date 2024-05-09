@@ -286,11 +286,10 @@ void SDL2DisplayWindow::RunLoop()
 
 	while (!ExitRunLoop)
 	{
-		SDL_Event event;
+		SDL_Event event = {};
 		int result = SDL_WaitEvent(&event);
-		if (result == 0)
-			throw std::runtime_error(std::string("SDL_WaitEvent failed:") + SDL_GetError());
-		DispatchEvent(event);
+		if (result == 1)
+			DispatchEvent(event); // Silently ignore if it fails and pray it doesn't busy loop, because SDL and Linux utterly sucks!
 	}
 }
 

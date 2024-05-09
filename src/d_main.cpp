@@ -29,6 +29,8 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#define WIN32_MEAN_AND_LEAN
+#include <Windows.h>
 #endif
 
 #if defined(__unix__) || defined(__APPLE__)
@@ -117,6 +119,7 @@
 #include "screenjob.h"
 #include "startscreen.h"
 #include "shiftstate.h"
+#include "common/widgets/errorwindow.h"
 
 #ifdef __unix__
 #include "i_system.h"  // for SHARE_DIR
@@ -3716,6 +3719,49 @@ static int D_DoomMain_Internal (void)
 	}
 	LoadHexFont(wad);	// load hex font early so we have it during startup.
 	InitWidgetResources(wad);
+
+	if (Args->CheckParm("-showcrashreport"))
+	{
+		FString minidumpFilename = Args->GetArg(2);
+		FString logFilename = Args->GetArg(3);
+		
+		FString logText;
+		{
+			FileReader fr;
+			if (fr.OpenFile(logFilename.GetChars()))
+			{
+				std::vector<char> data(fr.GetLength() + 1);
+				if (fr.Read(data.data(), data.size() - 1) == (FileReader::Size)data.size() - 1)
+				{
+					logText = data.data();
+				}
+			}
+		}
+		std::vector<uint8_t> minidump;
+		{
+			FileReader fr;
+			if (fr.OpenFile(minidumpFilename.GetChars()))
+			{
+				minidump.resize(fr.GetLength());
+				if (fr.Read(minidump.data(), minidump.size()) != (FileReader::Size)minidump.size())
+				{
+					minidump.clear();
+				}
+			}
+		}
+
+		FString text;
+		text.Format("%s fatally crashed!", GAMENAME);
+		ErrorWindow::ExecModal(text.GetChars(), logText.GetChars(), std::move(minidump));
+
+		// Crash reporter only uses -showcrashreport on Windows at the moment and there seems to be no abstraction available
+		#ifdef WIN32
+		DeleteFile(logFilename.WideString().c_str());
+		DeleteFile(minidumpFilename.WideString().c_str());
+		#endif
+
+		return 0;
+	}
 
 	C_InitConsole(80*8, 25*8, false);
 	I_DetectOS();

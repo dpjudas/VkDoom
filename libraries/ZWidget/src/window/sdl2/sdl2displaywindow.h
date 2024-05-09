@@ -45,6 +45,8 @@ public:
 	std::string GetClipboardText() override;
 	void SetClipboardText(const std::string& text) override;
 
+	void* GetNativeHandle() override { return WindowHandle; }
+
 	static void DispatchEvent(const SDL_Event& event);
 	static SDL2DisplayWindow* FindEventWindow(const SDL_Event& event);
 
