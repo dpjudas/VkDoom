@@ -230,7 +230,7 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 	meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
 	meshlight.RelativeOrigin = meshlight.Origin;
 	meshlight.Radius = (float)light->GetRadius();
-	meshlight.Intensity = (float)light->target->Alpha;
+	meshlight.Intensity = light->target ? (float)light->target->Alpha : 1.0f;
 	if (light->IsSpot())
 	{
 		meshlight.InnerAngleCos = (float)light->pSpotInnerAngle->Cos();
