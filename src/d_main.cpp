@@ -3307,7 +3307,11 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 	}
 
 	TexMan.Init();
-	
+
+	// Init fonts and console earlier as the start screen might display it
+	V_InitFonts();
+	C_InitConsole(SCREENWIDTH, SCREENHEIGHT, false);
+
 	if (!batchrun) Printf ("V_Init: allocate screen.\n");
 	if (!restart)
 	{
@@ -3376,7 +3380,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 
 	StartWindow->Progress(); 
 	if (StartScreen) StartScreen->Progress(1);
-	V_InitFonts();
 	InitDoomFonts();
 	V_LoadTranslations();
 	UpdateGenericUI(false);

@@ -49,6 +49,9 @@
 #include "v_draw.h"
 #include "g_input.h"
 #include "texturemanager.h"
+#include "c_console.h"
+
+CVAR(Bool, startscreen_console, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 
 // Text mode color values
 enum{
@@ -670,22 +673,30 @@ void FStartScreen::Render(bool force)
 		float displayheight;
 		twod->Begin(screen->GetWidth(), screen->GetHeight());
 
-		// At this point the shader for untextured rendering has not been loaded yet, so we got to clear the screen by rendering a texture with black color.
-		DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, StartupTexture->GetDisplayWidth(), DTA_VirtualHeightF, StartupTexture->GetDisplayHeight(), DTA_KeepRatio, true, DTA_Color, PalEntry(255,0,0,0), TAG_END);
-
-		if (HeaderTexture)
+		if (startscreen_console)
 		{
-			displaywidth = HeaderTexture->GetDisplayWidth();
-			displayheight = HeaderTexture->GetDisplayHeight() + StartupTexture->GetDisplayHeight();
-			DrawTexture(twod, HeaderTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
-			DrawTexture(twod, StartupTexture, 0, 32, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
-			if (NetMaxPos >= 0) DrawTexture(twod, NetTexture, 0, displayheight - 16, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+			C_FullConsole();
+			C_DrawConsole();
 		}
 		else
 		{
-			displaywidth = StartupTexture->GetDisplayWidth();
-			displayheight = StartupTexture->GetDisplayHeight();
-			DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+			// At this point the shader for untextured rendering has not been loaded yet, so we got to clear the screen by rendering a texture with black color.
+			DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, StartupTexture->GetDisplayWidth(), DTA_VirtualHeightF, StartupTexture->GetDisplayHeight(), DTA_KeepRatio, true, DTA_Color, PalEntry(255, 0, 0, 0), TAG_END);
+
+			if (HeaderTexture)
+			{
+				displaywidth = HeaderTexture->GetDisplayWidth();
+				displayheight = HeaderTexture->GetDisplayHeight() + StartupTexture->GetDisplayHeight();
+				DrawTexture(twod, HeaderTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+				DrawTexture(twod, StartupTexture, 0, 32, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+				if (NetMaxPos >= 0) DrawTexture(twod, NetTexture, 0, displayheight - 16, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+			}
+			else
+			{
+				displaywidth = StartupTexture->GetDisplayWidth();
+				displayheight = StartupTexture->GetDisplayHeight();
+				DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+			}
 		}
 
 		twod->End();
