@@ -563,9 +563,6 @@ void C_DrawConsole ()
 	static int oldbottom = 0;
 	int lines, left, offset;
 
-	if (!CurrentConsoleFont)
-		return;
-
 	int textScale = active_con_scale(twod);
 
 	left = LEFTMARGIN;
