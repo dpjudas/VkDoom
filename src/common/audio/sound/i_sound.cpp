@@ -95,7 +95,7 @@ CUSTOM_CVAR(Float, snd_mastervolume, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CV
 	else if (self > 1.f)
 		self = 1.f;
 
-	ChangeMusicSetting(zmusic_snd_mastervolume, nullptr, self * 0.5f);
+	ChangeMusicSetting(zmusic_snd_mastervolume, nullptr, self * 0.75f);
 	snd_sfxvolume->Callback();
 	snd_musicvolume->Callback();
 }
@@ -115,7 +115,7 @@ CUSTOM_CVAR (Float, snd_sfxvolume, 1.0f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG|CVAR_NOI
 		self = 1.f;
 	else if (GSnd != NULL)
 	{
-		GSnd->SetSfxVolume (self * snd_mastervolume * 0.25f);
+		GSnd->SetSfxVolume (self * snd_mastervolume * 0.50f);
 	}
 }
 

@@ -82,7 +82,7 @@ CUSTOM_CVARD(Float, snd_musicvolume, 1.0, CVAR_ARCHIVE|CVAR_GLOBALCONFIG, "contr
 		ChangeMusicSetting(zmusic_snd_musicvolume, nullptr, self);
 		if (GSnd != nullptr)
 		{
-			GSnd->SetMusicVolume(clamp<float>(self * relative_volume * snd_mastervolume * 0.5f, 0, 1));
+			GSnd->SetMusicVolume(clamp<float>(self * relative_volume * snd_mastervolume * 0.75f, 0, 1));
 		}
 		// For music not implemented through the digital sound system,
 		// let them know about the change.
