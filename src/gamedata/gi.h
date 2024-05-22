@@ -215,7 +215,7 @@ struct gameinfo_t
 	bool nomergepickupmsg;
 	bool mHideParTimes;
 	CutsceneDef IntroScene;
-	bool forceLightmaps = false;
+	bool forceEnableLightmaps = false;
 	FVector3 defaultSunColor = FVector3(1.f, 1.f, 1.f);
 	FVector3 defaultSunDirection = FVector3(0.45f, 0.3f, 0.9f);
 	int defaultLightmapSampleDistance = 16;

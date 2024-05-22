@@ -3208,7 +3208,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	Level->SunColor = gameinfo.defaultSunColor;
 	Level->SunDirection = gameinfo.defaultSunDirection;
 	Level->LightmapSampleDistance = gameinfo.defaultLightmapSampleDistance;
-	Level->lightmaps = gameinfo.forceLightmaps;
+	Level->lightmaps = gameinfo.forceEnableLightmaps;
 
 	// note: most of this ordering is important 
 	ForceNodeBuild = gennodes;
