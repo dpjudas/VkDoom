@@ -14,7 +14,7 @@
 class Win32DisplayWindow : public DisplayWindow
 {
 public:
-	Win32DisplayWindow(DisplayWindowHost* windowHost);
+	Win32DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow);
 	~Win32DisplayWindow();
 
 	void SetWindowTitle(const std::string& text) override;
@@ -52,6 +52,9 @@ public:
 
 	std::string GetClipboardText() override;
 	void SetClipboardText(const std::string& text) override;
+
+	Point MapFromGlobal(const Point& pos) const override;
+	Point MapToGlobal(const Point& pos) const override;
 
 	Point GetLParamPos(LPARAM lparam) const;
 

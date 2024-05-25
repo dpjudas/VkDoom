@@ -118,7 +118,7 @@ public:
 class DisplayWindow
 {
 public:
-	static std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost);
+	static std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost, bool popupWindow);
 
 	static void ProcessEvents();
 	static void RunLoop();
@@ -156,6 +156,9 @@ public:
 	virtual int GetPixelWidth() const = 0;
 	virtual int GetPixelHeight() const = 0;
 	virtual double GetDpiScale() const = 0;
+
+	virtual Point MapFromGlobal(const Point& pos) const = 0;
+	virtual Point MapToGlobal(const Point& pos) const = 0;
 
 	virtual void SetBorderColor(uint32_t bgra8) = 0;
 	virtual void SetCaptionColor(uint32_t bgra8) = 0;

@@ -4,12 +4,14 @@
 #include "core/colorf.h"
 #include "core/theme.h"
 #include <stdexcept>
+#include <cmath>
+#include <algorithm>
 
 Widget::Widget(Widget* parent, WidgetType type) : Type(type)
 {
 	if (type != WidgetType::Child)
 	{
-		DispWindow = DisplayWindow::Create(this);
+		DispWindow = DisplayWindow::Create(this, type == WidgetType::Popup);
 		DispCanvas = Canvas::create(DispWindow.get());
 		SetStyleState("root");
 
@@ -167,6 +169,10 @@ void Widget::SetFrameGeometry(const Rect& geometry)
 		top = std::min(top, FrameGeometry.bottom());
 		right = std::max(right, FrameGeometry.left());
 		bottom = std::max(bottom, FrameGeometry.top());
+		left = GridFitPoint(left);
+		top = GridFitPoint(top);
+		right = GridFitPoint(right);
+		bottom = GridFitPoint(bottom);
 		ContentGeometry = Rect::ltrb(left, top, right, bottom);
 		OnGeometryChanged();
 	}
@@ -458,12 +464,12 @@ void Widget::SetClipboardText(const std::string& text)
 		w->DispWindow->SetClipboardText(text);
 }
 
-Widget* Widget::Window()
+Widget* Widget::Window() const
 {
-	for (Widget* w = this; w != nullptr; w = w->Parent())
+	for (const Widget* w = this; w != nullptr; w = w->Parent())
 	{
 		if (w->DispWindow)
-			return w;
+			return const_cast<Widget*>(w);
 	}
 	return nullptr;
 }
@@ -510,7 +516,7 @@ Point Widget::MapFromGlobal(const Point& pos) const
 	{
 		if (cur->DispWindow)
 		{
-			return p - cur->GetFrameGeometry().topLeft();
+			return cur->DispWindow->MapFromGlobal(p);
 		}
 		p -= cur->ContentGeometry.topLeft();
 	}
@@ -536,7 +542,7 @@ Point Widget::MapToGlobal(const Point& pos) const
 	{
 		if (cur->DispWindow)
 		{
-			return cur->GetFrameGeometry().topLeft() + p;
+			return cur->DispWindow->MapToGlobal(p);
 		}
 		p += cur->ContentGeometry.topLeft();
 	}
@@ -705,9 +711,21 @@ void Widget::OnWindowKeyUp(InputKey key)
 
 void Widget::OnWindowGeometryChanged()
 {
+	if (!DispWindow)
+		return;
 	Size size = DispWindow->GetClientSize();
 	FrameGeometry = Rect::xywh(0.0, 0.0, size.width, size.height);
-	ContentGeometry = FrameGeometry;
+
+	double left = FrameGeometry.left() + GetNoncontentLeft();
+	double top = FrameGeometry.top() + GetNoncontentTop();
+	double right = FrameGeometry.right() - GetNoncontentRight();
+	double bottom = FrameGeometry.bottom() - GetNoncontentBottom();
+	left = std::min(left, FrameGeometry.right());
+	top = std::min(top, FrameGeometry.bottom());
+	right = std::max(right, FrameGeometry.left());
+	bottom = std::max(bottom, FrameGeometry.top());
+	ContentGeometry = Rect::ltrb(left, top, right, bottom);
+
 	OnGeometryChanged();
 }
 
@@ -726,6 +744,26 @@ void Widget::OnWindowDeactivated()
 
 void Widget::OnWindowDpiScaleChanged()
 {
+}
+
+double Widget::GetDpiScale() const
+{
+	Widget* w = Window();
+	return w ? w->DispWindow->GetDpiScale() : 1.0;
+}
+
+double Widget::GridFitPoint(double p) const
+{
+	double dpiscale = GetDpiScale();
+	return std::round(p * dpiscale) / dpiscale;
+}
+
+double Widget::GridFitSize(double s) const
+{
+	if (s <= 0.0)
+		return 0.0;
+	double dpiscale = GetDpiScale();
+	return std::max(std::floor(s * dpiscale + 0.25), 1.0) / dpiscale;
 }
 
 Size Widget::GetScreenSize()

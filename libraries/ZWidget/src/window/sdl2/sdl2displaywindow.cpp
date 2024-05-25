@@ -24,11 +24,14 @@ static void CheckInitSDL()
 	static InitSDL initsdl;
 }
 
-SDL2DisplayWindow::SDL2DisplayWindow(DisplayWindowHost* windowHost) : WindowHost(windowHost)
+SDL2DisplayWindow::SDL2DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow) : WindowHost(windowHost)
 {
 	CheckInitSDL();
 
-	int result = SDL_CreateWindowAndRenderer(320, 200, SDL_WINDOW_HIDDEN /*| SDL_WINDOW_ALLOW_HIGHDPI*/, &WindowHandle, &RendererHandle);
+	unsigned int flags = SDL_WINDOW_HIDDEN /*| SDL_WINDOW_ALLOW_HIGHDPI*/;
+	if (popupWindow)
+		flags |= SDL_WINDOW_BORDERLESS;
+	int result = SDL_CreateWindowAndRenderer(320, 200, flags, &WindowHandle, &RendererHandle);
 	if (result != 0)
 		throw std::runtime_error(std::string("Unable to create SDL window:") + SDL_GetError());
 	
@@ -172,6 +175,24 @@ Rect SDL2DisplayWindow::GetWindowFrame() const
 	SDL_GetWindowPosition(WindowHandle, &x, &y);
 	SDL_GetWindowSize(WindowHandle, &w, &h);
 	return Rect::xywh(x / uiscale, y / uiscale, w / uiscale, h / uiscale);
+}
+
+Point SDL2DisplayWindow::MapFromGlobal(const Point& pos) const
+{
+	int x = 0;
+	int y = 0;
+	double uiscale = GetDpiScale();
+	SDL_GetWindowPosition(WindowHandle, &x, &y);
+	return Point(pos.x - x / uiscale, pos.y - y / uiscale);
+}
+
+Point SDL2DisplayWindow::MapToGlobal(const Point& pos) const
+{
+	int x = 0;
+	int y = 0;
+	double uiscale = GetDpiScale();
+	SDL_GetWindowPosition(WindowHandle, &x, &y);
+	return Point(pos.x + x / uiscale, pos.y + y / uiscale);
 }
 
 Size SDL2DisplayWindow::GetClientSize() const
