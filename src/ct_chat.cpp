@@ -173,7 +173,7 @@ bool CT_Responder (event_t *ev)
 			else if (ev->data1 == 'V' && (ev->data3 & GKM_CTRL))
 #endif // __APPLE__
 			{
-				CT_PasteChat(I_GetFromClipboard(false));
+				CT_PasteChat(I_GetFromClipboard(false).GetChars());
 			}
 		}
 		else if (ev->subtype == EV_GUI_Char)
@@ -193,7 +193,7 @@ bool CT_Responder (event_t *ev)
 #ifdef __unix__
 		else if (ev->subtype == EV_GUI_MButtonDown)
 		{
-			CT_PasteChat(I_GetFromClipboard(true));
+			CT_PasteChat(I_GetFromClipboard(true).GetChars());
 		}
 #endif
 	}
@@ -261,7 +261,7 @@ void CT_Drawer (void)
 			if (!!rv) return;
 		}
 
-		FStringf prompt("%s ", GStrings("TXT_SAY"));
+		FStringf prompt("%s ", GStrings.GetString("TXT_SAY"));
 		int x, scalex, y, promptwidth;
 
 		y = (viewactive || gamestate != GS_LEVEL) ? -displayfont->GetHeight()-2 : -displayfont->GetHeight() - 22;
@@ -291,7 +291,7 @@ void CT_Drawer (void)
 
 		DrawText(drawer, displayfont, CR_GREEN, 0, y, prompt.GetChars(), 
 			DTA_VirtualWidth, screen_width, DTA_VirtualHeight, screen_height, DTA_KeepRatio, true, TAG_DONE);
-		DrawText(drawer, displayfont, CR_GREY, promptwidth, y, printstr,
+		DrawText(drawer, displayfont, CR_GREY, promptwidth, y, printstr.GetChars(),
 			DTA_VirtualWidth, screen_width, DTA_VirtualHeight, screen_height, DTA_KeepRatio, true, TAG_DONE);
 	}
 }
@@ -371,17 +371,16 @@ static void ShoveChatStr (const char *str, uint8_t who)
 		who |= 2;
 	}
 
-	Net_WriteByte (DEM_SAY);
-	Net_WriteByte (who);
+	Net_WriteInt8 (DEM_SAY);
+	Net_WriteInt8 (who);
 
-	if (!chat_substitution || !DoSubstitution (substBuff, str))
+	if (chat_substitution && DoSubstitution (substBuff, str))
 	{
-		Net_WriteString(MakeUTF8(str));
+		str = substBuff.GetChars();
 	}
-	else
-	{
-		Net_WriteString(MakeUTF8(substBuff));
-	}
+
+	Net_WriteString(CleanseString(const_cast<char*>(MakeUTF8(str))));
+
 }
 
 //===========================================================================

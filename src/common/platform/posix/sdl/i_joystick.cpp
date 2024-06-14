@@ -38,13 +38,15 @@
 #include "m_joy.h"
 #include "keydef.h"
 
+#define DEFAULT_DEADZONE 0.25f;
+
 // Very small deadzone so that floating point magic doesn't happen
 #define MIN_DEADZONE 0.000001f
 
 class SDLInputJoystick: public IJoystickConfig
 {
 public:
-	SDLInputJoystick(int DeviceIndex) : DeviceIndex(DeviceIndex), Multiplier(1.0f)
+	SDLInputJoystick(int DeviceIndex) : DeviceIndex(DeviceIndex), Multiplier(1.0f) , Enabled(true)
 	{
 		Device = SDL_JoystickOpen(DeviceIndex);
 		if(Device != NULL)
@@ -143,7 +145,7 @@ public:
 				info.Name.Format("Axis %d", i+1);
 			else
 				info.Name.Format("Hat %d (%c)", (i-NumAxes)/2 + 1, (i-NumAxes)%2 == 0 ? 'x' : 'y');
-			info.DeadZone = MIN_DEADZONE;
+			info.DeadZone = DEFAULT_DEADZONE;
 			info.Multiplier = 1.0f;
 			info.Value = 0.0;
 			info.ButtonValue = 0;
@@ -154,6 +156,17 @@ public:
 			Axes.Push(info);
 		}
 	}
+
+	bool GetEnabled()
+	{
+		return Enabled;
+	}
+	
+	void SetEnabled(bool enabled)
+	{
+		Enabled = enabled;
+	}
+
 	FString GetIdentifier()
 	{
 		char id[16];
@@ -248,11 +261,16 @@ protected:
 	SDL_Joystick		*Device;
 
 	float				Multiplier;
+	bool				Enabled;
 	TArray<AxisInfo>	Axes;
 	int					NumAxes;
 	int					NumHats;
+
+	friend class SDLInputJoystickManager;
 };
-const EJoyAxis SDLInputJoystick::DefaultAxes[5] = {JOYAXIS_Side, JOYAXIS_Forward, JOYAXIS_Pitch, JOYAXIS_Yaw, JOYAXIS_Up};
+
+// [Nash 4 Feb 2024] seems like on Linux, the third axis is actually the Left Trigger, resulting in the player uncontrollably looking upwards.
+const EJoyAxis SDLInputJoystick::DefaultAxes[5] = {JOYAXIS_Side, JOYAXIS_Forward, JOYAXIS_None, JOYAXIS_Yaw, JOYAXIS_Pitch};
 
 class SDLInputJoystickManager
 {
@@ -291,7 +309,7 @@ public:
 	void ProcessInput() const
 	{
 		for(unsigned int i = 0;i < Joysticks.Size();++i)
-			Joysticks[i]->ProcessInput();
+			if(Joysticks[i]->Enabled) Joysticks[i]->ProcessInput();
 	}
 protected:
 	TArray<SDLInputJoystick *> Joysticks;

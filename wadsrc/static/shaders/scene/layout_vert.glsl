@@ -11,7 +11,7 @@ layout(location = 9) out vec3 vLightmap;
 layout(location = 3) in vec4 aVertex2;
 layout(location = 4) in vec4 aNormal;
 layout(location = 5) in vec4 aNormal2;
-layout(location = 6) in vec3 aLightmap;
+layout(location = 6) in vec2 aLightmap;
 layout(location = 7) in vec4 aBoneWeight;
 layout(location = 8) in uvec4 aBoneSelector;
 
@@ -25,4 +25,9 @@ layout(location = 6) out vec4 vEyeNormal;
 #ifdef NO_CLIPDISTANCE_SUPPORT
 layout(location = 7) out vec4 ClipDistanceA;
 layout(location = 8) out vec4 ClipDistanceB;
+#endif
+
+#if defined(USE_LEVELMESH)
+layout(location = 9) in int aDataIndex;
+layout(location = 10) out flat int uDataIndex;
 #endif

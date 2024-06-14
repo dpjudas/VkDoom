@@ -113,7 +113,7 @@ void VkHardwareTexture::CreateImage(FTexture *tex, int translation, int flags)
 	}
 	else
 	{
-		VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+		VkFormat format = tex->IsHDR() ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
 		int w = tex->GetWidth();
 		int h = tex->GetHeight();
 
@@ -304,7 +304,6 @@ void VkHardwareTexture::CreateWipeTexture(int w, int h, const char *name)
 
 VkMaterial::VkMaterial(VulkanRenderDevice* fb, FGameTexture* tex, int scaleflags) : FMaterial(tex, scaleflags), fb(fb)
 {
-	mThreadDescriptorSets.resize(fb->MaxThreads);
 	fb->GetDescriptorSetManager()->AddMaterial(this);
 }
 
@@ -316,21 +315,15 @@ VkMaterial::~VkMaterial()
 
 void VkMaterial::DeleteDescriptors()
 {
-	if (fb)
-	{
-		auto deleteList = fb->GetCommands()->DrawDeleteList.get();
-		for (auto& it : mDescriptorSets)
-		{
-			deleteList->Add(std::move(it.descriptor));
-		}
-		mDescriptorSets.clear();
-
-		for (auto& list : mThreadDescriptorSets)
-			list.clear();
-	}
+	mDescriptorSets.clear();
 }
 
-VulkanDescriptorSet* VkMaterial::GetDescriptorSet(const FMaterialState& state)
+int VkMaterial::GetBindlessIndex(const FMaterialState& state)
+{
+	return GetDescriptorEntry(state).bindlessIndex;
+}
+
+VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState& state)
 {
 	auto base = Source();
 	int clampmode = state.mClampMode;
@@ -341,22 +334,17 @@ VulkanDescriptorSet* VkMaterial::GetDescriptorSet(const FMaterialState& state)
 
 	for (auto& set : mDescriptorSets)
 	{
-		if (set.descriptor && set.clampmode == clampmode && set.remap == translationp) return set.descriptor.get();
+		if (set.clampmode == clampmode && set.remap == translationp) return set;
 	}
 
 	int numLayers = NumLayers();
+	auto descriptors = fb->GetDescriptorSetManager();
+	auto* sampler = fb->GetSamplerManager()->Get(clampmode);
 
-	auto descriptor = fb->GetDescriptorSetManager()->AllocateTextureDescriptorSet(max(numLayers, SHADER_MIN_REQUIRED_TEXTURE_LAYERS));
-
-	descriptor->SetDebugName("VkHardwareTexture.mDescriptorSets");
-
-	VulkanSampler* sampler = fb->GetSamplerManager()->Get(clampmode);
-
-	WriteDescriptors update;
 	MaterialLayerInfo *layer;
 	auto systex = static_cast<VkHardwareTexture*>(GetLayer(0, state.mTranslation, &layer));
 	auto systeximage = systex->GetImage(layer->layerTexture, state.mTranslation, layer->scaleFlags);
-	update.AddCombinedImageSampler(descriptor.get(), 0, systeximage->View.get(), sampler, systeximage->Layout);
+	int bindlessIndex = descriptors->AddBindlessTextureIndex(systeximage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(0), clampmode));
 
 	if (!(layer->scaleFlags & CTF_Indexed))
 	{
@@ -364,7 +352,7 @@ VulkanDescriptorSet* VkMaterial::GetDescriptorSet(const FMaterialState& state)
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, 0, &layer));
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
-			update.AddCombinedImageSampler(descriptor.get(), i, syslayerimage->View.get(), sampler, syslayerimage->Layout);
+			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 	}
 	else
@@ -373,35 +361,11 @@ VulkanDescriptorSet* VkMaterial::GetDescriptorSet(const FMaterialState& state)
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, translation, &layer));
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
-			update.AddCombinedImageSampler(descriptor.get(), i, syslayerimage->View.get(), sampler, syslayerimage->Layout);
+			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 		numLayers = 3;
 	}
 
-	auto dummyImage = fb->GetTextureManager()->GetNullTextureView();
-	for (int i = numLayers; i < SHADER_MIN_REQUIRED_TEXTURE_LAYERS; i++)
-	{
-		update.AddCombinedImageSampler(descriptor.get(), i, dummyImage, sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	}
-
-	update.Execute(fb->GetDevice());
-	mDescriptorSets.emplace_back(clampmode, translationp, std::move(descriptor));
-	return mDescriptorSets.back().descriptor.get();
-}
-
-VulkanDescriptorSet* VkMaterial::GetDescriptorSet(int threadIndex, const FMaterialState& state)
-{
-	int clampmode = Source()->GetClampMode(state.mClampMode);
-	int translation = state.mTranslation;
-	auto translationp = IsLuminosityTranslation(translation) ? translation : intptr_t(GPalette.GetTranslation(GetTranslationType(translation), GetTranslationIndex(translation)));
-	for (auto& set : mThreadDescriptorSets[threadIndex])
-	{
-		if (set.descriptor && set.clampmode == clampmode && set.remap == translationp)
-			return set.descriptor;
-	}
-
-	std::unique_lock<std::mutex> lock(fb->ThreadMutex);
-	VulkanDescriptorSet* descriptorset = GetDescriptorSet(state);
-	mThreadDescriptorSets[threadIndex].push_back(ThreadDescriptorEntry(clampmode, translationp, descriptorset));
-	return descriptorset;
+	mDescriptorSets.emplace_back(clampmode, translationp, bindlessIndex);
+	return mDescriptorSets.back();
 }

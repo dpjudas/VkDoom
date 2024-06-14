@@ -132,16 +132,16 @@ void FState::CheckCallerType(AActor *self, AActor *stateowner)
 		// This should really never happen. Any valid action function must have actor pointers here.
 		if (!requiredType->isObjectPointer())
 		{
-			ThrowAbortException(X_OTHER, "Bad function prototype in function call to %s", ActionFunc->PrintableName.GetChars());
+			ThrowAbortException(X_OTHER, "Bad function prototype in function call to %s", ActionFunc->PrintableName);
 		}
 		auto cls = static_cast<PObjectPointer*>(requiredType)->PointedClass();
 		if (check == nullptr)
 		{
-			ThrowAbortException(X_OTHER, "%s called without valid caller. %s expected", ActionFunc->PrintableName.GetChars(), cls->TypeName.GetChars());
+			ThrowAbortException(X_OTHER, "%s called without valid caller. %s expected", ActionFunc->PrintableName, cls->TypeName.GetChars());
 		}
 		if (!(StateFlags & STF_DEHACKED) && !check->IsKindOf(cls))
 		{
-			ThrowAbortException(X_OTHER, "Invalid class %s in function call to %s. %s expected", check->GetClass()->TypeName.GetChars(), ActionFunc->PrintableName.GetChars(), cls->TypeName.GetChars());
+			ThrowAbortException(X_OTHER, "Invalid class %s in function call to %s. %s expected", check->GetClass()->TypeName.GetChars(), ActionFunc->PrintableName, cls->TypeName.GetChars());
 		}
 	};
 	
@@ -487,6 +487,8 @@ void PClassActor::InitializeDefaults()
 			{
 				memset(Defaults + ParentClass->Size, 0, Size - ParentClass->Size);
 			}
+
+			optr->ObjectFlags = ((DObject*)ParentClass->Defaults)->ObjectFlags & OF_Transient;
 		}
 		else
 		{
@@ -783,17 +785,17 @@ static void SummonActor (int command, int command2, FCommandLine argv)
 			Printf ("Unknown actor '%s'\n", argv[1]);
 			return;
 		}
-		Net_WriteByte (argv.argc() > 2 ? command2 : command);
+		Net_WriteInt8 (argv.argc() > 2 ? command2 : command);
 		Net_WriteString (type->TypeName.GetChars());
 
 		if (argv.argc () > 2)
 		{
-			Net_WriteWord (atoi (argv[2])); // angle
-			Net_WriteWord ((argv.argc() > 3) ? atoi(argv[3]) : 0); // TID
-			Net_WriteByte ((argv.argc() > 4) ? atoi(argv[4]) : 0); // special
+			Net_WriteInt16 (atoi (argv[2])); // angle
+			Net_WriteInt16 ((argv.argc() > 3) ? atoi(argv[3]) : 0); // TID
+			Net_WriteInt8 ((argv.argc() > 4) ? atoi(argv[4]) : 0); // special
 			for (int i = 5; i < 10; i++)
 			{ // args[5]
-				Net_WriteLong((i < argv.argc()) ? atoi(argv[i]) : 0);
+				Net_WriteInt32((i < argv.argc()) ? atoi(argv[i]) : 0);
 			}
 		}
 	}

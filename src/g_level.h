@@ -3,10 +3,10 @@
 #include "doomtype.h"
 #include "vectors.h"
 #include "sc_man.h"
-#include "file_zip.h"
 #include "g_mapinfo.h"
 
 
+using FileSys::FCompressedBuffer;
 extern bool savegamerestore;
 
 void G_InitNew (const char *mapname, bool bTitleLevel);
@@ -27,6 +27,7 @@ enum
 	CHANGELEVEL_NOINTERMISSION = 16,
 	CHANGELEVEL_RESETHEALTH = 32,
 	CHANGELEVEL_PRERAISEWEAPON = 64,
+	CHANGELEVEL_NOAUTOSAVE = 128,
 };
 
 void G_DoLoadLevel (const FString &MapName, int position, bool autosave, bool newGame);

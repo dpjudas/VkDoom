@@ -180,6 +180,13 @@ enum : unsigned
 enum : unsigned
 {
 	DF3_NO_PLAYER_CLIP		= 1 << 0,	// Players can walk through and shoot through each other
+	DF3_COOP_SHARE_KEYS		= 1 << 1,	// Keys and other core items will be given to all players in coop
+	DF3_LOCAL_ITEMS			= 1 << 2,	// Items are picked up client-side rather than fully taken by the client who picked it up
+	DF3_NO_LOCAL_DROPS		= 1 << 3,	// Drops from Actors aren't picked up locally
+	DF3_NO_COOP_ONLY_ITEMS	= 1 << 4,	// Items that only appear in co-op are disabled
+	DF3_NO_COOP_ONLY_THINGS	= 1 << 5,	// Any Actor that only appears in co-op is disabled
+	DF3_REMEMBER_LAST_WEAP	= 1 << 6,	// When respawning in co-op, keep the last used weapon out instead of switching to the best new one.
+	DF3_PISTOL_START		= 1 << 7,	// Take player inventory when exiting to the next level.
 };
 
 // [RH] Compatibility flags.
@@ -213,7 +220,7 @@ enum : unsigned int
 	COMPATF_VILEGHOSTS		= 1 << 25,	// Crushed monsters are resurrected as ghosts.
 	COMPATF_NOBLOCKFRIENDS	= 1 << 26,	// Friendly monsters aren't blocked by monster-blocking lines.
 	COMPATF_SPRITESORT		= 1 << 27,	// Invert sprite sorting order for sprites of equal distance
-	COMPATF_HITSCAN			= 1 << 28,	// Hitscans use original blockmap anf hit check code.
+	COMPATF_HITSCAN			= 1 << 28,	// Hitscans use original blockmap and hit check code.
 	COMPATF_LIGHT			= 1 << 29,	// Find neighboring light level like Doom
 	COMPATF_POLYOBJ			= 1 << 30,	// Draw polyobjects the old fashioned way
 	COMPATF_MASKEDMIDTEX	= 1u << 31,	// Ignore compositing when drawing masked midtextures
@@ -251,6 +258,7 @@ enum
 	BCOMPATF_NOSLOPEID			= 1 << 9,	// disable line IDs on slopes.
 	BCOMPATF_CLIPMIDTEX			= 1 << 10,	// Always Clip midtex's in the software renderer (required to run certain GZDoom maps, has no effect in the hardware renderer)
 	BCOMPATF_NOSECTIONMERGE		= 1 << 11,	// (for IWAD maps) keep separate sections for sectors with intra-sector linedefs. 
+	BCOMPATF_NOMIRRORS			= 1 << 12,	// disable mirrors, for maps that have broken setups.
 };
 
 // phares 3/20/98:

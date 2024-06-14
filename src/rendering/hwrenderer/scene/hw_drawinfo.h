@@ -9,6 +9,11 @@
 #include "v_video.h"
 #include "hw_weapon.h"
 #include "hw_drawlist.h"
+#include "hw_renderstate.h"
+#include "g_levellocals.h"
+
+EXTERN_CVAR(Bool, lm_always_update);
+EXTERN_CVAR(Int, lm_max_updates);
 
 enum EDrawMode
 {
@@ -34,12 +39,9 @@ class Clipper;
 class HWPortal;
 class HWScenePortalBase;
 class FRenderState;
+class HWDrawContext;
 
-//==========================================================================
-//
 // these are used to link faked planes due to missing textures to a sector
-//
-//==========================================================================
 struct gl_subsectorrendernode
 {
 	gl_subsectorrendernode *	next;
@@ -132,6 +134,8 @@ struct HWDrawInfo
 	bool isNightvision() const { return !!(FullbrightFlags & Nightvision); }
 	bool isStealthVision() const { return !!(FullbrightFlags & StealthVision); }
     
+	HWDrawContext* drawctx = nullptr;
+
 	HWDrawList drawlists[GLDL_TYPES];
 	int vpIndex;
 	ELightMode lightmode;
@@ -142,14 +146,15 @@ struct HWDrawInfo
 	std::atomic<int> spriteindex;
 	HWPortal *mClipPortal;
 	HWPortal *mCurrentPortal;
-	//FRotator mAngles;
 	Clipper *mClipper;
 	FRenderViewpoint Viewpoint;
 	HWViewpointUniforms VPUniforms;	// per-viewpoint uniform state
 	TArray<HWPortal *> Portals;
 	TArray<HWDecal *> Decals[2];	// the second slot is for mirrors which get rendered in a separate pass.
 	TArray<HUDSprite> hudsprites;	// These may just be stored by value.
-	TArray<ACorona*> Coronas;
+	TArray<AActor*> Coronas;
+	TArray<Fogball> Fogballs;
+	TArray<LightmapTile*> VisibleTiles;
 	uint64_t LastFrameTime = 0;
 
 	TArray<MissingTextureInfo> MissingUpperTextures;
@@ -165,9 +170,6 @@ struct HWDrawInfo
     TMap<int, gl_floodrendernode*> floodFloorSegs;
     TMap<int, gl_floodrendernode*> floodCeilingSegs;
 
-	//TArray<sector_t *> CeilingStacks;
-	//TArray<sector_t *> FloorStacks;
-
 	TArray<subsector_t *> HandledSubsectors;
 
 	TArray<uint8_t> section_renderflags;
@@ -180,45 +182,29 @@ struct HWDrawInfo
 	fixed_t viewx, viewy;	// since the nodes are still fixed point, keeping the view position  also fixed point for node traversal is faster.
 	bool multithread;
 
-	bool MeshBuilding = false;
+	TArray<bool> QueryResultsBuffer;
 
-private:
-    // For ProcessLowerMiniseg
-    bool inview;
-    subsector_t * viewsubsector;
-    TArray<seg_t *> lowersegs;
-
-	subsector_t *currentsubsector;	// used by the line processing code.
-	sector_t *currentsector;
+	HWDrawInfo(HWDrawContext* drawctx) : drawctx(drawctx) { for (HWDrawList& list : drawlists) list.drawctx = drawctx; }
 
 	void WorkerThread();
 
 	void UnclipSubsector(subsector_t *sub);
 	
-	void AddLine(seg_t *seg, bool portalclip, FRenderState& state);
-	void PolySubsector(subsector_t * sub, FRenderState& state);
-	void RenderPolyBSPNode(void *node, FRenderState& state);
-	void AddPolyobjs(subsector_t *sub, FRenderState& state);
-	void AddLines(subsector_t * sub, sector_t * sector, FRenderState& state);
-	void AddSpecialPortalLines(subsector_t * sub, sector_t * sector, linebase_t *line, FRenderState& state);
+	void AddLine(seg_t *seg, bool portalclip);
+	void PolySubsector(subsector_t * sub);
+	void RenderPolyBSPNode(void *node);
+	void AddPolyobjs(subsector_t *sub);
+	void AddLines(subsector_t * sub, sector_t * sector);
+	void AddSpecialPortalLines(subsector_t * sub, sector_t * sector, linebase_t *line);
 	public:
-	void RenderThings(subsector_t * sub, sector_t * sector, FRenderState& state);
-	void RenderParticles(subsector_t *sub, sector_t *front, FRenderState& state);
-	void DoSubsector(subsector_t * sub, FRenderState& state);
-	int SetupLightsForOtherPlane(subsector_t * sub, FDynLightData &lightdata, const secplane_t *plane, FRenderState& state);
-	int CreateOtherPlaneVertices(subsector_t *sub, const secplane_t *plane, FRenderState& state);
-	void DrawPSprite(HUDSprite *huds, FRenderState &state);
-	void SetColor(FRenderState &state, int sectorlightlevel, int rellight, bool fullbright, const FColormap &cm, float alpha, bool weapon = false);
-	void SetFog(FRenderState &state, int lightlevel, int rellight, bool fullbright, const FColormap *cmap, bool isadditive);
-	void SetShaderLight(FRenderState &state, float level, float olight);
-	int CalcLightLevel(int lightlevel, int rellight, bool weapon, int blendfactor);
-	PalEntry CalcLightColor(int light, PalEntry pe, int blendfactor);
-	float GetFogDensity(int lightlevel, PalEntry fogcolor, int sectorfogdensity, int blendfactor);
-	bool CheckFog(sector_t *frontsector, sector_t *backsector);
-	WeaponLighting GetWeaponLighting(sector_t *viewsector, const DVector3 &pos, int cm, area_t in_area, const DVector3 &playerpos);
+	void RenderThings(subsector_t * sub, sector_t * sector);
+	void RenderParticles(subsector_t *sub, sector_t *front);
+	void DoSubsector(subsector_t * sub);
+	void DrawPSprite(HUDSprite* huds, FRenderState& state);
+	WeaponLighting GetWeaponLighting(sector_t* viewsector, const DVector3& pos, int cm, area_t in_area, const DVector3& playerpos);
 
-	void PreparePlayerSprites2D(sector_t * viewsector, area_t in_area, FRenderState& state);
-	void PreparePlayerSprites3D(sector_t * viewsector, area_t in_area, FRenderState& state);
+	void PreparePlayerSprites2D(sector_t* viewsector, area_t in_area, FRenderState& state);
+	void PreparePlayerSprites3D(sector_t* viewsector, area_t in_area, FRenderState& state);
 public:
 
 	void SetCameraPos(const DVector3 &pos)
@@ -239,11 +225,38 @@ public:
 		VPUniforms.mClipHeight = 0;
 	}
 
+	void PushVisibleSurface(LevelMeshSurface* surface)
+	{
+		if (outer)
+		{
+			outer->PushVisibleSurface(surface);
+			return;
+		}
+
+		if (surface->LightmapTileIndex < 0)
+			return;
+
+		LightmapTile* tile = &Level->levelMesh->LightmapTiles[surface->LightmapTileIndex];
+		if (lm_always_update || surface->AlwaysUpdate)
+		{
+			tile->NeedsUpdate = true;
+		}
+		else if (VisibleTiles.Size() >= unsigned(lm_max_updates))
+		{
+			return;
+		}
+
+		if (tile->NeedsUpdate)
+		{
+			VisibleTiles.Push(tile);
+		}
+	}
+
 	HWPortal * FindPortal(const void * src);
 	void RenderBSPNode(void *node, FRenderState& state);
 	void RenderBSP(void *node, bool drawpsprites, FRenderState& state);
 
-	static HWDrawInfo *StartDrawInfo(FLevelLocals *lev, HWDrawInfo *parent, FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms);
+	static HWDrawInfo *StartDrawInfo(HWDrawContext* drawctx, FLevelLocals *lev, HWDrawInfo *parent, FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms);
 	void StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms);
 	void ClearBuffers();
 	HWDrawInfo *EndDrawInfo();
@@ -252,6 +265,7 @@ public:
 
 	void DrawScene(int drawmode, FRenderState& state);
 	void CreateScene(bool drawpsprites, FRenderState& state);
+	void PutWallPortal(HWWall wall, FRenderState& state);
 	void RenderScene(FRenderState &state);
 	void RenderTranslucent(FRenderState &state);
 	void RenderPortal(HWPortal *p, FRenderState &state, bool usestencil);
@@ -269,8 +283,6 @@ public:
 	bool CollectSubsectorsFloor(subsector_t * sub, sector_t * anchor);
 	bool CheckAnchorCeiling(subsector_t * sub);
 	bool CollectSubsectorsCeiling(subsector_t * sub, sector_t * anchor);
-	void CollectSectorStacksCeiling(subsector_t * sub, sector_t * anchor, area_t in_area);
-	void CollectSectorStacksFloor(subsector_t * sub, sector_t * anchor, area_t in_area);
 
 	void DispatchRenderHacks(FRenderState& state);
 	void AddUpperMissingTexture(side_t * side, subsector_t *sub, float backheight);
@@ -284,9 +296,6 @@ public:
 
 	void AddHackedSubsector(subsector_t * sub);
 	void HandleHackedSubsectors(FRenderState& state);
-	void AddFloorStack(sector_t * sec);
-	void AddCeilingStack(sector_t * sec);
-	void ProcessSectorStacks(area_t in_area);
 
 	void ProcessActorsInPortal(FLinePortalSpan *glport, area_t in_area, FRenderState& state);
 
@@ -307,7 +316,7 @@ public:
 	void DrawDecals(FRenderState &state, TArray<HWDecal *> &decals);
 	void DrawPlayerSprites(bool hudModelStep, FRenderState &state);
 	void DrawCoronas(FRenderState& state);
-	void DrawCorona(FRenderState& state, ACorona* corona, double dist);
+	void DrawCorona(FRenderState& state, AActor* corona, float coronaFade, double dist);
 
 	void ProcessLowerMinisegs(TArray<seg_t *> &lowersegs, FRenderState& state);
     void AddSubsectorToPortal(FSectorPortalGroup *portal, subsector_t *sub);
@@ -317,34 +326,36 @@ public:
 	void AddFlat(HWFlat *flat, bool fog);
 	void AddSprite(HWSprite *sprite, bool translucent);
 
+	void RenderThings(subsector_t* sub, sector_t* sector, FRenderState& state);
+	void RenderParticles(subsector_t* sub, sector_t* front, FRenderState& state);
+	void DoSubsector(subsector_t* sub, FRenderState& state);
+	int SetupLightsForOtherPlane(subsector_t* sub, FDynLightData& lightdata, const secplane_t* plane, FRenderState& state);
+	int CreateOtherPlaneVertices(subsector_t* sub, const secplane_t* plane, FRenderState& state);
 
     HWDecal *AddDecal(bool onmirror);
-
-	bool isSoftwareLighting() const
-	{
-		return lightmode == ELightMode::ZDoomSoftware || lightmode == ELightMode::DoomSoftware || lightmode == ELightMode::Build;
-	}
-
-	bool isBuildSoftwareLighting() const
-	{
-		return lightmode == ELightMode::Build;
-	}
-
-	bool isDoomSoftwareLighting() const
-	{
-		return lightmode == ELightMode::ZDoomSoftware || lightmode == ELightMode::DoomSoftware;
-	}
-
-	bool isDarkLightMode() const
-	{
-		return lightmode == ELightMode::Doom || lightmode == ELightMode::DoomDark;
-	}
 
 	void SetFallbackLightMode()
 	{
 		lightmode = ELightMode::Doom;
 	}
 
+private:
+	// For ProcessLowerMiniseg
+	bool inview;
+	subsector_t* viewsubsector;
+	TArray<seg_t*> lowersegs;
+
+	subsector_t* currentsubsector;	// used by the line processing code.
+	sector_t* currentsector;
+
+	void AddLine(seg_t* seg, bool portalclip, FRenderState& state);
+	void PolySubsector(subsector_t* sub, FRenderState& state);
+	void RenderPolyBSPNode(void* node, FRenderState& state);
+	void AddPolyobjs(subsector_t* sub, FRenderState& state);
+	void AddLines(subsector_t* sub, sector_t* sector, FRenderState& state);
+	void AddSpecialPortalLines(subsector_t* sub, sector_t* sector, linebase_t* line, FRenderState& state);
+
+	void UpdateLightmaps();
 };
 
 void CleanSWDrawer();
@@ -353,3 +364,30 @@ void WriteSavePic(player_t* player, FileWriter* file, int width, int height);
 sector_t* RenderView(player_t* player);
 
 
+inline bool isSoftwareLighting(ELightMode lightmode)
+{
+	return lightmode == ELightMode::ZDoomSoftware || lightmode == ELightMode::DoomSoftware || lightmode == ELightMode::Build;
+}
+
+inline bool isBuildSoftwareLighting(ELightMode lightmode)
+{
+	return lightmode == ELightMode::Build;
+}
+
+inline bool isDoomSoftwareLighting(ELightMode lightmode)
+{
+	return lightmode == ELightMode::ZDoomSoftware || lightmode == ELightMode::DoomSoftware;
+}
+
+inline bool isDarkLightMode(ELightMode lightmode)
+{
+	return lightmode == ELightMode::Doom || lightmode == ELightMode::DoomDark;
+}
+
+int CalcLightLevel(ELightMode lightmode, int lightlevel, int rellight, bool weapon, int blendfactor);
+PalEntry CalcLightColor(ELightMode lightmode, int light, PalEntry pe, int blendfactor);
+float GetFogDensity(FLevelLocals* Level, ELightMode lightmode, int lightlevel, PalEntry fogcolor, int sectorfogdensity, int blendfactor);
+bool CheckFog(FLevelLocals* Level, sector_t* frontsector, sector_t* backsector, ELightMode lightmode);
+void SetColor(FRenderState& state, FLevelLocals* Level, ELightMode lightmode, int sectorlightlevel, int rellight, bool fullbright, const FColormap& cm, float alpha, bool weapon = false);
+void SetShaderLight(FRenderState& state, FLevelLocals* Level, float level, float olight);
+void SetFog(FRenderState& state, FLevelLocals* Level, ELightMode lightmode, int lightlevel, int rellight, bool fullbright, const FColormap* cmap, bool isadditive, bool inskybox);

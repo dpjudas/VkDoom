@@ -376,7 +376,7 @@ void player_t::SetLogNumber (int num)
 
 	// First look up TXT_LOGTEXT%d in the string table
 	mysnprintf(lumpname, countof(lumpname), "$TXT_LOGTEXT%d", num);
-	auto text = GStrings[lumpname+1];
+	auto text = GStrings.CheckString(lumpname+1);
 	if (text)
 	{
 		SetLogText(lumpname);	// set the label, not the content, so that a language change can be picked up.
@@ -394,7 +394,7 @@ void player_t::SetLogNumber (int num)
 			// If this is an original IWAD text, try looking up its lower priority string version first.
 
 			mysnprintf(lumpname, countof(lumpname), "$TXT_ILOG%d", num);
-			auto text = GStrings[lumpname + 1];
+			auto text = GStrings.CheckString(lumpname + 1);
 			if (text)
 			{
 				SetLogText(lumpname);	// set the label, not the content, so that a language change can be picked up.
@@ -403,7 +403,7 @@ void player_t::SetLogNumber (int num)
 		}
 
 		auto lump = fileSystem.ReadFile(lumpnum);
-		SetLogText (lump.GetString());
+		SetLogText (lump.string());
 	}
 }
 
@@ -422,7 +422,7 @@ void player_t::SetLogText (const char *text)
 	if (mo && mo->CheckLocalView())
 	{
 		// Print log text to console
-		Printf(PRINT_HIGH | PRINT_NONOTIFY, TEXTCOLOR_GOLD "%s\n", LogText[0] == '$' ? GStrings(text + 1) : text);
+		Printf(PRINT_HIGH | PRINT_NONOTIFY, TEXTCOLOR_GOLD "%s\n", LogText[0] == '$' ? GStrings.GetString(text + 1) : text);
 	}
 }
 
@@ -430,7 +430,7 @@ DEFINE_ACTION_FUNCTION(_PlayerInfo, SetLogText)
 {
 	PARAM_SELF_STRUCT_PROLOGUE(player_t);
 	PARAM_STRING(log);
-	self->SetLogText(log);
+	self->SetLogText(log.GetChars());
 	return 0;
 }
 
@@ -478,7 +478,7 @@ void player_t::SetFOV(float fov)
 		{
 			if (consoleplayer == Net_Arbitrator)
 			{
-				Net_WriteByte(DEM_MYFOV);
+				Net_WriteInt8(DEM_MYFOV);
 			}
 			else
 			{
@@ -488,7 +488,7 @@ void player_t::SetFOV(float fov)
 		}
 		else
 		{
-			Net_WriteByte(DEM_MYFOV);
+			Net_WriteInt8(DEM_MYFOV);
 		}
 		Net_WriteFloat(clamp<float>(fov, 5.f, 179.f));
 	}
@@ -637,9 +637,9 @@ void player_t::SendPitchLimits() const
 			uppitch = downpitch = (int)maxviewpitch;
 		}
 
-		Net_WriteByte(DEM_SETPITCHLIMIT);
-		Net_WriteByte(uppitch);
-		Net_WriteByte(downpitch);
+		Net_WriteInt8(DEM_SETPITCHLIMIT);
+		Net_WriteInt8(uppitch);
+		Net_WriteInt8(downpitch);
 	}
 }
 
@@ -693,7 +693,7 @@ bool player_t::Resurrect()
 		P_BringUpWeapon(this);
 	}
 
-	if (morphTics)
+	if (mo->alternative != nullptr)
 	{
 		P_UnmorphActor(mo, mo);
 	}
@@ -828,16 +828,16 @@ static int SetupCrouchSprite(AActor *self, int crouchsprite)
 		FString normspritename = sprites[self->SpawnState->sprite].name;
 		FString crouchspritename = sprites[crouchsprite].name;
 
-		int spritenorm = fileSystem.CheckNumForName(normspritename + "A1", ns_sprites);
+		int spritenorm = fileSystem.CheckNumForName((normspritename + "A1").GetChars(), FileSys::ns_sprites);
 		if (spritenorm == -1)
 		{
-			spritenorm = fileSystem.CheckNumForName(normspritename + "A0", ns_sprites);
+			spritenorm = fileSystem.CheckNumForName((normspritename + "A0").GetChars(), FileSys::ns_sprites);
 		}
 
-		int spritecrouch = fileSystem.CheckNumForName(crouchspritename + "A1", ns_sprites);
+		int spritecrouch = fileSystem.CheckNumForName((crouchspritename + "A1").GetChars(), FileSys::ns_sprites);
 		if (spritecrouch == -1)
 		{
-			spritecrouch = fileSystem.CheckNumForName(crouchspritename + "A0", ns_sprites);
+			spritecrouch = fileSystem.CheckNumForName((crouchspritename + "A0").GetChars(), FileSys::ns_sprites);
 		}
 
 		if (spritenorm == -1 || spritecrouch == -1)
@@ -1172,7 +1172,7 @@ void P_CheckEnvironment(player_t *player)
 		P_PlayerOnSpecialFlat(player, P_GetThingFloorType(player->mo));
 	}
 	if (player->mo->Vel.Z <= -player->mo->FloatVar(NAME_FallingScreamMinSpeed) &&
-		player->mo->Vel.Z >= -player->mo->FloatVar(NAME_FallingScreamMaxSpeed) && !player->morphTics &&
+		player->mo->Vel.Z >= -player->mo->FloatVar(NAME_FallingScreamMaxSpeed) && player->mo->alternative == nullptr &&
 		player->mo->waterlevel == 0)
 	{
 		auto id = S_FindSkinnedSound(player->mo, S_FindSound("*falling"));
@@ -1239,6 +1239,17 @@ void P_PlayerThink (player_t *player)
 		I_Error ("No player %td start\n", player - players + 1);
 	}
 
+	for (unsigned int i = 0u; i < 3u; ++i)
+	{
+		if (fabs(player->angleOffsetTargets[i].Degrees()) >= EQUAL_EPSILON)
+		{
+			player->mo->Angles[i] += player->angleOffsetTargets[i];
+			player->mo->PrevAngles[i] = player->mo->Angles[i];
+		}
+
+		player->angleOffsetTargets[i] = nullAngle;
+	}
+
 	if (player->SubtitleCounter > 0)
 	{
 		player->SubtitleCounter--;
@@ -1267,6 +1278,7 @@ void P_PlayerThink (player_t *player)
 	player->cheats &= ~CF_INTERPVIEWANGLES;
 	player->cheats &= ~CF_SCALEDNOLERP;
 	player->cheats &= ~CF_NOFOVINTERP;
+	player->cheats &= ~CF_NOVIEWPOSINTERP;
 	player->mo->FloatVar("prevBob") = player->bob;
 
 	IFVIRTUALPTRNAME(player->mo, NAME_PlayerPawn, PlayerThink)
@@ -1620,6 +1632,7 @@ void player_t::Serialize(FSerializer &arc)
 
 	if (arc.isReading())
 	{
+		userinfo.Reset(mo->Level->PlayerNum(this));
 		ReadUserInfo(arc, userinfo, skinname);
 	}
 	else
@@ -1711,7 +1724,7 @@ void player_t::Serialize(FSerializer &arc)
 	}
 	if (skinname.IsNotEmpty())
 	{
-		userinfo.SkinChanged(skinname, CurrentPlayerClass);
+		userinfo.SkinChanged(skinname.GetChars(), CurrentPlayerClass);
 	}
 }
 

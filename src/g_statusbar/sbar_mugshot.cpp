@@ -97,7 +97,7 @@ FGameTexture *FMugShotFrame::GetTexture(const char *default_face, const char *sk
 		}
 		sprite.UnlockBuffer();
 	}
-	return TexMan.GetGameTexture(TexMan.CheckForTexture(sprite, ETextureType::Any, FTextureManager::TEXMAN_TryAny|FTextureManager::TEXMAN_AllowSkins));
+	return TexMan.GetGameTexture(TexMan.CheckForTexture(sprite.GetChars(), ETextureType::Any, FTextureManager::TEXMAN_TryAny|FTextureManager::TEXMAN_AllowSkins));
 }
 
 //===========================================================================
@@ -376,7 +376,7 @@ int FMugShot::UpdateState(player_t *player, StateFlags stateflags)
 				full_state_name = "pain.";
 			}
 			full_state_name += player->LastDamageType.GetChars();
-			if (SetState(full_state_name, false, true))
+			if (SetState(full_state_name.GetChars(), false, true))
 			{
 				bDamageFaceActive = (CurrentState != NULL);
 				LastDamageAngle = damage_angle;
@@ -403,7 +403,7 @@ int FMugShot::UpdateState(player_t *player, StateFlags stateflags)
 					full_state_name = "pain.";
 				}
 				full_state_name += player->LastDamageType.GetChars();
-				if (SetState(full_state_name))
+				if (SetState(full_state_name.GetChars()))
 				{
 					bOuchActive = use_ouch;
 				}
@@ -445,7 +445,7 @@ int FMugShot::UpdateState(player_t *player, StateFlags stateflags)
 			full_state_name = "xdeath.";
 		}
 		full_state_name += player->LastDamageType.GetChars();
-		SetState(full_state_name);
+		SetState(full_state_name.GetChars());
 		bNormal = true; //Allow the face to return to alive states when the player respawns.
 	}
 	return 0;
@@ -479,7 +479,7 @@ FGameTexture *FMugShot::GetFace(player_t *player, const char *default_face, int 
 	if (CurrentState != NULL)
 	{
 		int skin = player->userinfo.GetSkin();
-		const char *skin_face = (stateflags & FMugShot::CUSTOM) ? nullptr : (player->morphTics ? (GetDefaultByType(player->MorphedPlayerClass))->NameVar(NAME_Face).GetChars() : Skins[skin].Face.GetChars());
+		const char *skin_face = (stateflags & FMugShot::CUSTOM) ? nullptr : (player->mo->alternative != nullptr ? (GetDefaultByType(player->MorphedPlayerClass))->NameVar(NAME_Face).GetChars() : Skins[skin].Face.GetChars());
 		return CurrentState->GetCurrentFrameTexture(default_face, skin_face, level, angle);
 	}
 	return NULL;

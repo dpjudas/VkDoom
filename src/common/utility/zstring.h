@@ -39,6 +39,8 @@
 #include <stddef.h>
 #include <string>
 #include "tarray.h"
+#include "utf8.h"
+#include "filesystem.h"
 
 #ifdef __GNUC__
 #define PRINTFISH(x) __attribute__((format(printf, 2, x)))
@@ -55,10 +57,6 @@
 #else
 #define IGNORE_FORMAT_PRE
 #define IGNORE_FORMAT_POST
-#endif
-
-#ifdef _WIN32
-std::wstring WideString(const char *);
 #endif
 
 struct FStringData
@@ -127,7 +125,7 @@ public:
 
 	// Copy constructors
 	FString (const FString &other) { AttachToOther (other); }
-	FString (FString &&other) : Chars(other.Chars) { other.ResetToNull(); }
+	FString (FString &&other) noexcept : Chars(other.Chars) { other.ResetToNull(); }
 	FString (const char *copyStr);
 	FString (const char *copyStr, size_t copyLen);
 	FString (char oneChar);
@@ -148,9 +146,6 @@ public:
 	FString (const char *head, const char *tail);
 	FString (char head, const FString &tail);
 
-	// Other constructors
-	FString (ELumpNum);	// Create from a lump
-
 	~FString ();
 
 	// Discard string's contents, create a new buffer, and lock it.
@@ -168,8 +163,6 @@ public:
 	explicit operator bool() = delete; // this is needed to render the operator const char * ineffective when used in boolean constructs.
 	bool operator !() = delete;
 
-	operator const char *() const { return Chars; }
-
 	const char *GetChars() const { return Chars; }
 
 	const char &operator[] (int index) const { return Chars[index]; }
@@ -186,7 +179,7 @@ public:
 	const char &operator[] (unsigned long long index) const { return Chars[index]; }
 
 	FString &operator = (const FString &other);
-	FString &operator = (FString &&other);
+	FString &operator = (FString &&other) noexcept;
 	FString &operator = (const char *copyStr);
 
 	FString operator + (const FString &tail) const;
@@ -331,13 +324,13 @@ public:
 
 	int Compare (const FString &other) const { return strcmp (Chars, other.Chars); }
 	int Compare (const char *other) const { return strcmp (Chars, other); }
-	int Compare(const FString &other, int len) const { return strncmp(Chars, other.Chars, len); }
-	int Compare(const char *other, int len) const { return strncmp(Chars, other, len); }
+	int Compare(const FString &other, size_t len) const { return strncmp(Chars, other.Chars, len); }
+	int Compare(const char *other, size_t len) const { return strncmp(Chars, other, len); }
 
 	int CompareNoCase (const FString &other) const { return stricmp (Chars, other.Chars); }
 	int CompareNoCase (const char *other) const { return stricmp (Chars, other); }
-	int CompareNoCase(const FString &other, int len) const { return strnicmp(Chars, other.Chars, len); }
-	int CompareNoCase(const char *other, int len) const { return strnicmp(Chars, other, len); }
+	int CompareNoCase(const FString &other, size_t len) const { return strnicmp(Chars, other.Chars, len); }
+	int CompareNoCase(const char *other, size_t len) const { return strnicmp(Chars, other, len); }
 
 	enum EmptyTokenType
 	{
@@ -364,7 +357,7 @@ protected:
 	void AllocBuffer (size_t len);
 	void ReallocBuffer (size_t newlen);
 
-	static int FormatHelper (void *data, const char *str, int len);
+	static char* FormatHelper (const char *str, void* data, int len);
 	static void StrCopy (char *to, const char *from, size_t len);
 	static void StrCopy (char *to, const FString &from);
 
@@ -431,6 +424,7 @@ public:
 };
 
 
+/*
 namespace StringFormat
 {
 	enum
@@ -461,6 +455,7 @@ namespace StringFormat
 	int VWorker (OutputFunc output, void *outputData, const char *fmt, va_list arglist);
 	int Worker (OutputFunc output, void *outputData, const char *fmt, ...);
 };
+*/
 
 #undef PRINTFISH
 

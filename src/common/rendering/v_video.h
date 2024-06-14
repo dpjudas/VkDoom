@@ -45,6 +45,7 @@
 #include "hw_shadowmap.h"
 #include "hw_levelmesh.h"
 #include "buffers.h"
+#include "files.h"
 
 
 struct FPortalSceneState;
@@ -54,22 +55,6 @@ struct HWDrawInfo;
 class FMaterial;
 class FGameTexture;
 class FRenderState;
-
-enum EHWCaps
-{
-	// [BB] Added texture compression flags.
-	RFL_TEXTURE_COMPRESSION = 1,
-	RFL_TEXTURE_COMPRESSION_S3TC = 2,
-
-	RFL_SHADER_STORAGE_BUFFER = 4,
-	RFL_BUFFER_STORAGE = 8,
-
-	RFL_NO_CLIP_PLANES = 32,
-
-	RFL_INVALIDATE_BUFFER = 64,
-	RFL_DEBUG = 128,
-};
-
 
 extern int DisplayWidth, DisplayHeight;
 
@@ -84,11 +69,11 @@ EXTERN_CVAR(Int, win_h)
 EXTERN_CVAR(Bool, win_maximized)
 
 struct FColormap;
-class FileWriter;
 enum FTextureFormat : uint32_t;
 class FModelRenderer;
 struct SamplerUniform;
 struct FVertexBufferAttribute;
+struct MeshApplyData;
 
 //
 // VIDEO
@@ -128,8 +113,6 @@ private:
 
 public:
 	// Hardware render state that needs to be exposed to the API independent part of the renderer. For ease of access this is stored in the base class.
-	int hwcaps = 0;								// Capability flags
-	float glslversion = 0;						// This is here so that the differences between old OpenGL and new OpenGL/Vulkan can be handled by platform independent code.
 	int instack[2] = { 0,0 };					// this is globally maintained state for portal recursion avoidance.
 	int stencilValue = 0;						// Global stencil test value
 	unsigned int uniformblockalignment = 256;	// Hardware dependent uniform buffer alignment.
@@ -155,21 +138,8 @@ public:
 	virtual bool IsVulkan() { return false; }
 	virtual bool IsPoly() { return false; }
 	virtual bool CompileNextShader() { return true; }
-	virtual void SetLevelMesh(hwrenderer::LevelMesh *mesh) { }
-	bool allowSSBO() const
-	{
-#ifndef HW_BLOCK_SSBO
-		return true;
-#else
-		return mPipelineType == 0;
-#endif
-	}
-
-	// SSBOs have quite worse performance for read only data, so keep this around only as long as Vulkan has not been adapted yet.
-	bool useSSBO() 
-	{
-		return IsVulkan();
-	}
+	virtual void SetLevelMesh(LevelMesh *mesh) { }
+	virtual void UpdateLightmaps(const TArray<LightmapTile*>& tiles) {}
 
 	virtual DCanvas* GetCanvas() { return nullptr; }
 
@@ -214,18 +184,15 @@ public:
 	virtual void BeginFrame() {}
 	virtual void SetWindowSize(int w, int h) {}
 	virtual void StartPrecaching() {}
-	virtual FRenderState* RenderState(int threadIndex) { return nullptr; }
+	virtual FRenderState* RenderState() { return nullptr; }
 
 	virtual int GetClientWidth() = 0;
 	virtual int GetClientHeight() = 0;
 	virtual void BlurScene(float amount) {}
 
-	virtual void InitLightmap(int LMTextureSize, int LMTextureCount, TArray<uint16_t>& LMTextureData) {}
-
     // Interface to hardware rendering resources
 	virtual IBuffer* CreateVertexBuffer(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute* attrs) { return nullptr; }
 	virtual IBuffer* CreateIndexBuffer() { return nullptr; }
-	bool BuffersArePersistent() { return !!(hwcaps & RFL_BUFFER_STORAGE); }
 
 	// This is overridable in case Vulkan does it differently.
 	virtual bool RenderTextureIsFlipped() const
@@ -250,11 +217,16 @@ public:
 	virtual void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect&)> renderFunc) {}
 	virtual void SetActiveRenderTarget() {}
 
+	// Get the array index for the material in the textures array accessible from shaders
+	virtual int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) { return -1; }
+
 	// Screen wiping
 	virtual FTexture *WipeStartScreen();
 	virtual FTexture *WipeEndScreen();
 
 	virtual void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) { if (afterBloomDrawEndScene2D) afterBloomDrawEndScene2D(); }
+
+	virtual int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) { return 0; }
 
 	void ScaleCoordsFromWindow(int16_t &x, int16_t &y);
 
@@ -276,8 +248,6 @@ public:
 
 	uint64_t FrameTime = 0;
 	uint64_t FrameTimeNS = 0;
-
-	int MaxThreads = 8; // To do: this may need to be limited by how much memory is available for dedicated buffer mapping (i.e. is resizeable bar available or not)
 
 private:
 	uint64_t fpsLimitTime = 0;

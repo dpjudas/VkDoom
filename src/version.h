@@ -55,7 +55,7 @@ const char *GetVersionString();
 
 // These are for zscript versioning.
 #define ZSCRIPT_VER_MAJOR 4
-#define ZSCRIPT_VER_MINOR 11
+#define ZSCRIPT_VER_MINOR 12
 #define ZSCRIPT_VER_REVISION 0
 
 // This should always refer to the VkDoom version a derived port is based on and not reflect the derived port's version number!
@@ -71,7 +71,7 @@ const char *GetVersionString();
 // Version stored in the ini's [LastRun] section.
 // Bump it if you made some configuration change that you want to
 // be able to migrate in FGameConfigFile::DoGlobalSetup().
-#define LASTRUNVERSION "224"
+#define LASTRUNVERSION "225"
 
 // Protocol version used in demos.
 // Bump it if you change existing DEM_ commands or add new ones.

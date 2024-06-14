@@ -2,12 +2,11 @@
 
 #include "memarena.h"
 
-extern FMemArena RenderDataAllocator;
-void ResetRenderDataAllocator();
 struct HWDrawInfo;
 class HWWall;
 class HWFlat;
 class HWSprite;
+class HWDrawContext;
 class FRenderState;
 
 //==========================================================================
@@ -60,22 +59,21 @@ struct SortNode
 
 struct HWDrawList
 {
-	//private:
+	HWDrawContext* drawctx = nullptr;
 	TArray<HWWall*> walls;
 	TArray<HWFlat*> flats;
 	TArray<HWSprite*> sprites;
 	TArray<HWDrawItem> drawitems;
-	int SortNodeStart;
-    float SortZ;
-	SortNode * sorted;
-	bool reverseSort;
+	int SortNodeStart = 0;
+	float SortZ = 0.0f;
+	SortNode* sorted = nullptr;
+	bool reverseSort = false;
 	
-public:
 	HWDrawList()
 	{
-		next=NULL;
+		next=nullptr;
 		SortNodeStart=-1;
-		sorted=NULL;
+		sorted=nullptr;
 	}
 	
 	~HWDrawList()
@@ -100,10 +98,10 @@ public:
 	SortNode * FindSortPlane(SortNode * head);
 	SortNode * FindSortWall(SortNode * head);
 	void SortPlaneIntoPlane(SortNode * head,SortNode * sort);
-	void SortWallIntoPlane(HWDrawInfo* di, FRenderState& state, SortNode * head,SortNode * sort);
+	void SortWallIntoPlane(HWDrawInfo* di, SortNode * head,SortNode * sort);
 	void SortSpriteIntoPlane(SortNode * head,SortNode * sort);
 	void SortWallIntoWall(HWDrawInfo *di, FRenderState& state, SortNode * head,SortNode * sort);
-	void SortSpriteIntoWall(HWDrawInfo *di, FRenderState& state, SortNode * head,SortNode * sort);
+	void SortSpriteIntoWall(HWDrawInfo *di, SortNode * head,SortNode * sort);
 	int CompareSprites(SortNode * a,SortNode * b);
 	SortNode * SortSpriteList(SortNode * head);
 	SortNode * DoSort(HWDrawInfo *di, FRenderState& state, SortNode * head);
@@ -117,7 +115,7 @@ public:
 	void DrawSorted(HWDrawInfo *di, FRenderState &state, SortNode * head);
 	void DrawSorted(HWDrawInfo *di, FRenderState &state);
 
-	HWDrawList * next;
+	HWDrawList *next = nullptr;
 } ;
 
 

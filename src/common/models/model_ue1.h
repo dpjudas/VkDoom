@@ -26,7 +26,7 @@ public:
 
 	bool Load(const char * fn, int lumpnum, const char * buffer, int length) override;
 	int FindFrame(const char* name, bool nodefault) override;
-	void RenderFrame(FModelRenderer *renderer, FGameTexture * skin, int frame, int frame2, double inter, int translation, const FTextureID* surfaceskinids, const TArray<VSMatrix>& boneData, int boneStartPosition) override;
+	void RenderFrame(FModelRenderer *renderer, FGameTexture * skin, int frame, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, const TArray<VSMatrix>& boneData, int boneStartPosition) override;
 	void BuildVertexBuffer(FModelRenderer *renderer) override;
 	void AddSkins(uint8_t *hitlist, const FTextureID* surfaceskinids) override;
 	void LoadGeometry();
@@ -70,15 +70,15 @@ private:
 	{
 		uint16_t numframes, framesize;
 	};
-	d3dhead * dhead;
-	d3dpoly * dpolys;
-	a3dhead * ahead;
-	uint32_t * averts;
+	const d3dhead * dhead;
+	const d3dpoly * dpolys;
+	const a3dhead * ahead;
+	const uint32_t * averts;
 	struct dxvert
 	{
 		int16_t x, y, z, pad;
 	};
-	dxvert * dxverts;
+	const dxvert * dxverts;
 
 	// converted data structures
 	struct UE1Vertex

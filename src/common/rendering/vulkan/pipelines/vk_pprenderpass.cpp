@@ -79,7 +79,11 @@ void VkPPRenderPassSetup::CreatePipeline(const VkPPRenderPassKey& key)
 		builder.Stencil(VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_EQUAL, 0xffffffff, 0xffffffff, 0);
 	}
 	builder.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
-	BlendMode(builder, key.BlendMode);
+
+	ColorBlendAttachmentBuilder blendbuilder;
+	BlendMode(blendbuilder, key.BlendMode);
+	builder.AddColorBlendAttachment(blendbuilder.Create());
+
 	builder.RasterizationSamples(key.Samples);
 	builder.Layout(PipelineLayout.get());
 	builder.RenderPass(RenderPass.get());

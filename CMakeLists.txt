@@ -1,10 +1,4 @@
-cmake_minimum_required( VERSION 3.1.0 )
-project(VkDoom)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF) 
-
+cmake_minimum_required( VERSION 3.16 )
 
 if( COMMAND cmake_policy )
 	if( POLICY CMP0011 )
@@ -13,7 +7,46 @@ if( COMMAND cmake_policy )
 	if( POLICY CMP0054 )
 		cmake_policy( SET CMP0054 NEW )
 	endif()
+	if ( POLICY CMP0067 )
+		cmake_policy( SET CMP0067 NEW )
+	endif()
+	if ( POLICY CMP0091 )
+		cmake_policy( SET CMP0091 NEW )
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
 endif()
+
+if (LIBVPX_VCPKG)
+	list(APPEND VCPKG_MANIFEST_FEATURES "vcpkg-libvpx")
+endif()
+
+if (OPENAL_SOFT_VCPKG)
+	list(APPEND VCPKG_MANIFEST_FEATURES "vcpkg-openal-soft")
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR (NOT CMAKE_SYSTEM_NAME AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows"))
+	# Force static triplet on Windows
+	set(VCPKG_TARGET_TRIPLET "x64-windows-static")
+endif()
+
+project(VkDoom)
+
+if (WIN32 AND VCPKG_TOOLCHAIN)
+	option(LIBVPX_VCPKG "Use libvpx from vcpkg" OFF)
+endif()
+
+if (VCPKG_TOOLCHAIN)
+	option(OPENAL_SOFT_VCPKG "Use OpenAL from vcpkg" OFF)
+endif()
+
+if (NOT VCPKG_TOOLCHAIN)
+	set(VCPKG_MANIFEST_FEATURES)
+endif()
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF) 
+
 
 list( APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake )
 include( FindPackageHandleStandardArgs )
@@ -146,13 +179,6 @@ endif()
 
 if( DEM_CMAKE_COMPILER_IS_GNUCXX_COMPATIBLE )
 	set( PROFILE 0 CACHE BOOL "Enable profiling with gprof for Debug and RelWithDebInfo build types." )
-
-	if( CMAKE_CXX_STANDARD )
-		# By default, try_compile() invocations ignore CXX_STANDARD value
-		# CMake 3.8 and newer have CMP0067 policy that fixes the issue, but it should be enabled explicitly
-		# Older versions require manual specification of the corresponding command line option
-		set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${CMAKE_CXX_STANDARD}" )
-	endif()
 endif()
 
 # Fast math flags, required by some subprojects
@@ -188,9 +214,7 @@ endmacro()
 option( NO_OPENAL "Disable OpenAL sound support" OFF )
 
 find_package( BZip2 )
-find_package( JPEG )
 find_package( VPX )
-find_package( ZLIB )
 
 include( TargetArch )
 
@@ -218,7 +242,7 @@ if( MSVC )
 	# String pooling
 	# Function-level linking
 	# Disable run-time type information
-	set( ALL_C_FLAGS "/GF /Gy /permissive-" )
+	set( ALL_C_FLAGS "/GF /Gy /permissive- /utf-8" )
 
 	if ( HAVE_VULKAN )
 		set( ALL_C_FLAGS "${ALL_C_FLAGS} /DHAVE_VULKAN" )
@@ -236,28 +260,19 @@ if( MSVC )
 	# Avoid CRT DLL dependancies in release builds, optionally generate assembly output for checking crash locations.
 	option( ZDOOM_GENERATE_ASM "Generate assembly output." OFF )
 	if( ZDOOM_GENERATE_ASM )
-		set( REL_C_FLAGS "/MT /Oy /Oi /FAcs /GS-" )
+		set( REL_C_FLAGS "/Oy /Oi /FAcs /GS-" )
 	else()
-		set( REL_C_FLAGS "/MT /Oy /Oi /GS-" )
+		set( REL_C_FLAGS "/Oy /Oi /GS-" )
 	endif()
 
 
 	# Debug allocations in debug builds
-	set( DEB_C_FLAGS "/D _CRTDBG_MAP_ALLOC /MTd" )
+	set( DEB_C_FLAGS "/D _CRTDBG_MAP_ALLOC" )
 
 	# Disable warnings for unsecure CRT functions from VC8+
 	set( ALL_C_FLAGS "${ALL_C_FLAGS} /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0600 /D_CRT_SECURE_NO_DEPRECATE /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_WARNINGS" )
 
-	# The CMake configurations set /GR and /MD by default, which conflict with our settings.
-	string(REPLACE "/MD " " " CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE} )
-	string(REPLACE "/MD " " " CMAKE_CXX_FLAGS_MINSIZEREL ${CMAKE_CXX_FLAGS_MINSIZEREL} )
-	string(REPLACE "/MD " " " CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} )
 	string(REPLACE "/Ob1 " "/Ob2 " CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} )
-	string(REPLACE "/MDd " " " CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG} )
-	string(REPLACE "/MD " " " CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE} )
-	string(REPLACE "/MD " " " CMAKE_C_FLAGS_MINSIZEREL ${CMAKE_C_FLAGS_MINSIZEREL} )
-	string(REPLACE "/MD " " " CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO} )
-	string(REPLACE "/MDd " " " CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} )
 else()
 	set( REL_LINKER_FLAGS "" )
 	set( ALL_C_FLAGS "-ffp-contract=off" )
@@ -272,7 +287,7 @@ else()
 
 	if ( UNIX )
 		include(CheckSymbolExists)
-		check_symbol_exists( "fts_set" "fts.h" HAVE_FTS )
+		check_symbol_exists( "fts_set" "sys/types.h;sys/stat.h;fts.h" HAVE_FTS )
 		if ( NOT HAVE_FTS )
 			include ( FindPkgConfig )
 			pkg_check_modules( MUSL_FTS musl-fts )
@@ -289,7 +304,7 @@ else()
 
 
 	if( APPLE )
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
 		if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
 			# If we're compiling with a custom GCC on the Mac (which we know since g++-4.2 doesn't support C++11) statically link libgcc.
 			set( ALL_C_FLAGS "-static-libgcc" )
@@ -317,8 +332,6 @@ set( CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} ${REL_C_FLAGS}" )
 set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${REL_C_FLAGS}" )
 set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEB_C_FLAGS} -D_DEBUG" )
 
-option(FORCE_INTERNAL_ZLIB "Use internal zlib")
-option(FORCE_INTERNAL_JPEG "Use internal jpeg")
 option(FORCE_INTERNAL_BZIP2 "Use internal bzip2")
 option(FORCE_INTERNAL_DRAGONBOOK "Use internal dragonbook" ON)
 mark_as_advanced( FORCE_INTERNAL_DRAGONBOOK )
@@ -327,21 +340,13 @@ if (HAVE_VULKAN)
 	add_subdirectory( libraries/ZVulkan )
 endif()
 
+add_subdirectory( libraries/ZWidget )
+add_subdirectory( libraries/webp )
+
 add_subdirectory( libraries/discordrpc EXCLUDE_FROM_ALL )
 set( DRPC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libraries/discordrpc/include" )
 set( DRPC_LIBRARIES discord-rpc )
 set( DRPC_LIBRARY discord-rpc )
-
-if( ZLIB_FOUND AND NOT FORCE_INTERNAL_ZLIB )
-	message( STATUS "Using system zlib, includes found at ${ZLIB_INCLUDE_DIR}" )
-else()
-	message( STATUS "Using internal zlib" )
-	set( SKIP_INSTALL_ALL TRUE ) # Avoid installing zlib
-	add_subdirectory( libraries/zlib )
-	set( ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/zlib )
-	set( ZLIB_LIBRARIES z )
-	set( ZLIB_LIBRARY z )
-endif()
 
 if( HAVE_VM_JIT AND UNIX )
 	check_symbol_exists( "backtrace" "execinfo.h" HAVE_BACKTRACE )
@@ -368,16 +373,6 @@ if( ${HAVE_VM_JIT} )
 		set( DRAGONBOOK_LIBRARIES dragonbook )
 		set( DRAGONBOOK_LIBRARY dragonbook )
 	endif()
-endif()
-
-if( JPEG_FOUND AND NOT FORCE_INTERNAL_JPEG )
-	message( STATUS "Using system jpeg library, includes found at ${JPEG_INCLUDE_DIR}" )
-else()
-	message( STATUS "Using internal jpeg library" )
-	add_subdirectory( libraries/jpeg )
-	set( JPEG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/jpeg )
-	set( JPEG_LIBRARIES jpeg )
-	set( JPEG_LIBRARY jpeg )
 endif()
 
 if( BZIP2_FOUND AND NOT FORCE_INTERNAL_BZIP2 )
@@ -411,8 +406,8 @@ install(DIRECTORY docs/
 option( DYN_OPENAL "Dynamically load OpenAL" ON )
 
 add_subdirectory( libraries/lzma )
+add_subdirectory( libraries/miniz )
 add_subdirectory( tools )
-add_subdirectory( libraries/gdtoa )
 add_subdirectory( wadsrc )
 add_subdirectory( wadsrc_bm )
 add_subdirectory( wadsrc_lights )

@@ -555,7 +555,7 @@ namespace swrenderer
 				frontsector->GetAlpha(sector_t::ceiling),
 				!!(frontsector->GetFlags(sector_t::ceiling) & PLANEF_ADDITIVE),
 				frontsector->planes[sector_t::ceiling].xform,
-				frontsector->sky,
+				frontsector->skytransfer,
 				portal,
 				basecolormap,
 				Fake3DOpaque::Normal,
@@ -595,7 +595,7 @@ namespace swrenderer
 				frontsector->GetAlpha(sector_t::floor),
 				!!(frontsector->GetFlags(sector_t::floor) & PLANEF_ADDITIVE),
 				frontsector->planes[sector_t::floor].xform,
-				frontsector->sky,
+				frontsector->skytransfer,
 				portal,
 				basecolormap,
 				Fake3DOpaque::Normal,
@@ -732,7 +732,7 @@ namespace swrenderer
 						tempsec.GetAlpha(sector_t::floor),
 						!!(clip3d->fakeFloor->fakeFloor->flags & FF_ADDITIVETRANS),
 						tempsec.planes[position].xform,
-						tempsec.sky,
+						tempsec.skytransfer,
 						nullptr,
 						basecolormap,
 						Fake3DOpaque::FakeFloor,
@@ -800,7 +800,7 @@ namespace swrenderer
 						tempsec.GetAlpha(sector_t::ceiling),
 						!!(clip3d->fakeFloor->fakeFloor->flags & FF_ADDITIVETRANS),
 						tempsec.planes[position].xform,
-						tempsec.sky,
+						tempsec.skytransfer,
 						nullptr,
 						basecolormap,
 						Fake3DOpaque::FakeCeiling,
@@ -853,7 +853,7 @@ namespace swrenderer
 			node_t *bsp = (node_t *)node;
 
 			// Decide which side the view point is on.
-			int side = R_PointOnSide(Thread->Viewport->viewpoint.Pos, bsp);
+			int side = R_PointOnSide(Thread->Viewport->viewpoint.Pos.XY(), bsp);
 
 			// Recursively divide front space (toward the viewer).
 			RenderBSPNode(bsp->children[side]);
@@ -1046,7 +1046,7 @@ namespace swrenderer
 		// The X offsetting (SpriteOffset.X) is performed in r_sprite.cpp, in RenderSprite::Project().
 		sprite.pos = thing->InterpolatedPosition(Thread->Viewport->viewpoint.TicFrac);
 		sprite.pos += thing->WorldOffset;
-		sprite.pos.Z += thing->GetBobOffset(Thread->Viewport->viewpoint.TicFrac) - thing->SpriteOffset.Y;
+		sprite.pos.Z += thing->GetBobOffset(Thread->Viewport->viewpoint.TicFrac) + thing->GetSpriteOffset(true);
 		sprite.spritenum = thing->sprite;
 		sprite.tex = nullptr;
 		sprite.voxel = nullptr;

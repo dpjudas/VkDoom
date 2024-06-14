@@ -36,6 +36,7 @@
 #include "flatvertices.h"
 #include "hw_clock.h"
 #include "hw_lighting.h"
+#include "hw_drawcontext.h"
 #include "texturemanager.h"
 
 EXTERN_CVAR(Int, r_mirror_recursions)
@@ -73,7 +74,6 @@ CCMD(gl_portalinfo)
 }
 
 static FString indent;
-FPortalSceneState portalState;
 
 //-----------------------------------------------------------------------------
 //
@@ -107,7 +107,7 @@ void FPortalSceneState::EndFrame(HWDrawInfo *di, FRenderState &state)
 
 	if (gl_portalinfo)
 	{
-		indent.Truncate(long(indent.Len()-2));
+		indent.Truncate(indent.Len()-2);
 		Printf("%s}\n", indent.GetChars());
 		if (indent.Len() == 0) gl_portalinfo = false;
 	}
@@ -445,7 +445,7 @@ int HWLinePortal::ClipSeg(seg_t *seg, const DVector3 &viewpos)
 	{
 		return PClip_Inside;	// should be handled properly.
 	}
-	return P_ClipLineToPortal(linedef, this, viewpos) ? PClip_InFront : PClip_Inside;
+	return P_ClipLineToPortal(linedef, this, viewpos.XY()) ? PClip_InFront : PClip_Inside;
 }
 
 int HWLinePortal::ClipSubsector(subsector_t *sub)
@@ -970,19 +970,19 @@ void HWHorizonPortal::DrawContents(HWDrawInfo *di, FRenderState &state)
 	if (texture->isFullbright())
 	{
 		// glowing textures are always drawn full bright without color
-		di->SetColor(state, 255, 0, false, origin->colormap, 1.f);
-		di->SetFog(state, 255, 0, false, &origin->colormap, false);
+		SetColor(state, di->Level, di->lightmode, 255, 0, false, origin->colormap, 1.f);
+		SetFog(state, di->Level, di->lightmode, 255, 0, false, &origin->colormap, false, di->drawctx->portalState.inskybox);
 	}
 	else
 	{
 		int rel = getExtraLight();
-		di->SetColor(state, origin->lightlevel, rel, di->isFullbrightScene(), origin->colormap, 1.0f);
-		di->SetFog(state, origin->lightlevel, rel, di->isFullbrightScene(), &origin->colormap, false);
+		SetColor(state, di->Level, di->lightmode, origin->lightlevel, rel, di->isFullbrightScene(), origin->colormap, 1.0f);
+		SetFog(state, di->Level, di->lightmode, origin->lightlevel, rel, di->isFullbrightScene(), &origin->colormap, false, di->drawctx->portalState.inskybox);
 	}
 
 
 	state.EnableBrightmap(true);
-	state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, 0, -1);
+	state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, NO_TRANSLATION, -1);
 	state.SetObjectColor(origin->specialcolor);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	state.SetRenderStyle(STYLE_Source);
@@ -1028,7 +1028,7 @@ void HWEEHorizonPortal::DrawContents(HWDrawInfo *di, FRenderState &state)
 		sector->GetTexture(sector_t::ceiling) == skyflatnum)
 	{
 		HWSkyInfo skyinfo;
-		skyinfo.init(di, sector->sky, 0);
+		skyinfo.init(di, sector, sector_t::ceiling, sector->skytransfer, 0);
 		HWSkyPortal sky(screen->mSkyData, mState, &skyinfo, true);
 		sky.DrawContents(di, state);
 	}

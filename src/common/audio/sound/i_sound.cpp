@@ -88,14 +88,14 @@ void I_CloseSound ();
 // Maximum volume of all audio
 //==========================================================================
 
-CUSTOM_CVAR(Float, snd_mastervolume, 1.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
+CUSTOM_CVAR(Float, snd_mastervolume, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
 {
 	if (self < 0.f)
 		self = 0.f;
 	else if (self > 1.f)
 		self = 1.f;
 
-	ChangeMusicSetting(zmusic_snd_mastervolume, nullptr, self);
+	ChangeMusicSetting(zmusic_snd_mastervolume, nullptr, self * 0.75f);
 	snd_sfxvolume->Callback();
 	snd_musicvolume->Callback();
 }
@@ -107,7 +107,7 @@ CUSTOM_CVAR(Float, snd_mastervolume, 1.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVA
 // Maximum volume of a sound effect.
 //==========================================================================
 
-CUSTOM_CVAR (Float, snd_sfxvolume, 1.f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG|CVAR_NOINITCALL)
+CUSTOM_CVAR (Float, snd_sfxvolume, 1.0f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG|CVAR_NOINITCALL)
 {
 	if (self < 0.f)
 		self = 0.f;
@@ -115,7 +115,7 @@ CUSTOM_CVAR (Float, snd_sfxvolume, 1.f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG|CVAR_NOIN
 		self = 1.f;
 	else if (GSnd != NULL)
 	{
-		GSnd->SetSfxVolume (self * snd_mastervolume);
+		GSnd->SetSfxVolume (self * snd_mastervolume * 0.50f);
 	}
 }
 
@@ -248,7 +248,7 @@ public:
 
 void I_InitSound ()
 {
-	FModule_SetProgDir(progdir);
+	FModule_SetProgDir(progdir.GetChars());
 	/* Get command line options: */
 	nosound = !!Args->CheckParm ("-nosound");
 	nosfx = !!Args->CheckParm ("-nosfx");

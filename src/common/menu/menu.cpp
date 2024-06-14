@@ -406,7 +406,9 @@ void DMenu::CallDrawer()
 	IFVIRTUAL(DMenu, Drawer)
 	{
 		VMValue params[] = { (DObject*)this };
+		InMenu++;
 		VMCall(func, params, 1, nullptr, 0);
+		InMenu--;
 		twod->ClearClipRect();	// make sure the scripts don't leave a valid clipping rect behind.
 	}
 }
@@ -1039,6 +1041,7 @@ DEFINE_FIELD(DListMenuDescriptor, mFontColor2)
 DEFINE_FIELD(DListMenuDescriptor, mAnimatedTransition)
 DEFINE_FIELD(DListMenuDescriptor, mAnimated)
 DEFINE_FIELD(DListMenuDescriptor, mCenter)
+DEFINE_FIELD(DListMenuDescriptor, mCenterText)
 DEFINE_FIELD(DListMenuDescriptor, mDontDim)
 DEFINE_FIELD(DListMenuDescriptor, mDontBlur)
 DEFINE_FIELD(DListMenuDescriptor, mVirtWidth)
@@ -1209,7 +1212,7 @@ bool DMenuItemBase::GetString(int i, char *s, int len)
 		FString retstr;
 		VMReturn ret[2]; ret[0].IntAt(&retval); ret[1].StringAt(&retstr);
 		VMCall(func, params, countof(params), ret, 2);
-		strncpy(s, retstr, len);
+		strncpy(s, retstr.GetChars(), len);
 		return !!retval;
 	}
 	return false;

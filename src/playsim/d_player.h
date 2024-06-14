@@ -123,8 +123,9 @@ typedef enum
 	CF_PREDICTING		= 1 << 13,		// [RH] Player movement is being predicted
 	CF_INTERPVIEW		= 1 << 14,		// [RH] view was changed outside of input, so interpolate one frame
 	CF_INTERPVIEWANGLES	= 1 << 15,		// [MR] flag for interpolating view angles without interpolating the entire frame
-	CF_SCALEDNOLERP		= 1 << 15,		// [MR] flag for applying angles changes in the ticrate without interpolating the frame
 	CF_NOFOVINTERP		= 1 << 16,		// [B] Disable FOV interpolation when instantly zooming
+	CF_SCALEDNOLERP		= 1 << 17,		// [MR] flag for applying angles changes in the ticrate without interpolating the frame
+	CF_NOVIEWPOSINTERP	= 1 << 18,		// Disable view position interpolation.
 	CF_EXTREMELYDEAD	= 1 << 22,		// [RH] Reliably let the status bar know about extreme deaths.
 	CF_BUDDHA2			= 1 << 24,		// [MC] Absolute buddha. No voodoo can kill it either.
 	CF_GODMODE2			= 1 << 25,		// [MC] Absolute godmode. No voodoo can kill it either.
@@ -269,7 +270,7 @@ struct userinfo_t : TMap<FName,FBaseCVar *>
 		return *static_cast<FBoolCVar *>(*CheckKey(NAME_Wi_NoAutostartMap));
 	}
 
-	void Reset();
+	void Reset(int pnum);
 	int TeamChanged(int team);
 	int SkinChanged(const char *skinname, int playerclass);
 	int SkinNumChanged(int skinnum);
@@ -375,6 +376,7 @@ public:
 	int			chickenPeck = 0;			// chicken peck countdown
 	int			jumpTics = 0;				// delay the next jump for a moment
 	bool		onground = 0;				// Identifies if this player is on the ground or other object
+	bool		crossingPortal = 0;			// Crossing a portal (disables sprite from showing up)
 
 	int			respawn_time = 0;			// [RH] delay respawning until this tic
 	TObjPtr<AActor*>	camera = MakeObjPtr<AActor*>(nullptr);			// [RH] Whose eyes this player sees through
@@ -457,8 +459,7 @@ public:
 	bool Resurrect();
 
 	// Scaled angle adjustment info. Not for direct manipulation.
-	DRotator angleTargets;
-	DRotator angleAppliedAmounts;
+	DRotator angleOffsetTargets;
 };
 
 // Bookkeeping on players - state.

@@ -38,10 +38,7 @@ VkBufferManager::~VkBufferManager()
 
 void VkBufferManager::Init()
 {
-	for (int threadIndex = 0; threadIndex < fb->MaxThreads; threadIndex++)
-	{
-		RSBuffers.push_back(std::make_unique<VkRSBuffers>(fb));
-	}
+	RSBuffers = std::make_unique<VkRSBuffers>(fb);
 
 	Shadowmap.Nodes.reset(new VkHardwareDataBuffer(fb, true, false));
 	Shadowmap.Lines.reset(new VkHardwareDataBuffer(fb, true, false));
@@ -52,7 +49,7 @@ void VkBufferManager::Init()
 
 void VkBufferManager::Deinit()
 {
-	RSBuffers.clear();
+	RSBuffers.reset();
 
 	Shadowmap.Nodes.reset();
 	Shadowmap.Lines.reset();
@@ -76,7 +73,9 @@ void VkBufferManager::RemoveBuffer(VkHardwareBuffer* buffer)
 
 IBuffer* VkBufferManager::CreateVertexBuffer(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute* attrs)
 {
-	return new VkHardwareVertexBuffer(fb, fb->GetRenderPassManager()->GetVertexFormat(numBindingPoints, numAttributes, stride, attrs));
+	std::vector<size_t> bufferStrides;
+	bufferStrides.resize(numBindingPoints, stride);
+	return new VkHardwareVertexBuffer(fb, fb->GetRenderPassManager()->GetVertexFormat(bufferStrides, std::vector<FVertexBufferAttribute>(attrs, attrs + numAttributes)));
 }
 
 IBuffer* VkBufferManager::CreateIndexBuffer()

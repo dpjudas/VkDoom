@@ -28,6 +28,7 @@
 #include "filesystem.h"
 #include "engineerrors.h"
 #include "version.h"
+#include "cmdlib.h"
 
 VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 {
@@ -70,11 +71,13 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			{ "spheremap",    "shaders/scene/frag_main.glsl",        "shaders/scene/material_default.glsl", "shaders/scene/mateffect_default.glsl", "shaders/scene/lightmodel_normal.glsl", "#define SPHEREMAP\n#define NO_ALPHATEST\n" },
 			{ "burn",         "shaders/scene/frag_burn.glsl",        nullptr,                               nullptr,                                nullptr,                                "#define SIMPLE\n#define NO_ALPHATEST\n" },
 			{ "stencil",      "shaders/scene/frag_stencil.glsl",     nullptr,                               nullptr,                                nullptr,                                "#define SIMPLE\n#define NO_ALPHATEST\n" },
+			{ "portal",       "shaders/scene/frag_portal.glsl",      nullptr,                               nullptr,                                nullptr,                                "#define SIMPLE\n#define NO_ALPHATEST\n" },
 		};
 
 		const auto& desc = effectshaders[key.SpecialEffect];
-		program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.defines);
-		program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.defines, key);
+		program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.defines, key.UseLevelMesh);
+		if (!key.NoFragmentShader)
+			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.defines, key);
 	}
 	else
 	{
@@ -111,28 +114,31 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		if (key.EffectState < FIRST_USER_SHADER)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
-			program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.Defines);
-			program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump, desc.Defines, key);
+			program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.Defines, key.UseLevelMesh);
+			if (!key.NoFragmentShader)
+				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump, desc.Defines, key);
 		}
 		else
 		{
 			const auto& desc = usershaders[key.EffectState - FIRST_USER_SHADER];
-			const FString& name = ExtractFileBase(desc.shader);
+			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, defines);
-			program.frag = LoadFragShader(name, mainfp, desc.shader, defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump, defines, key);
+			program.vert = LoadVertShader(name, mainvp, defines.GetChars(), key.UseLevelMesh);
+			if (!key.NoFragmentShader)
+				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key);
 		}
 	}
 	return &program;
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *defines)
+std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *defines, bool levelmesh)
 {
 	FString definesBlock;
 	definesBlock << defines;
-	definesBlock << "\n#define MAX_STREAM_DATA " << std::to_string(MAX_STREAM_DATA).c_str() << "\n";
+	definesBlock << "\n#define MAX_SURFACE_UNIFORMS " << std::to_string(MAX_SURFACE_UNIFORMS).c_str() << "\n";
 	definesBlock << "#define MAX_LIGHT_DATA " << std::to_string(MAX_LIGHT_DATA).c_str() << "\n";
+	definesBlock << "#define MAX_FOGBALL_DATA " << std::to_string(MAX_FOGBALL_DATA).c_str() << "\n";
 #ifdef NPOT_EMULATION
 	definesBlock << "#define NPOT_EMULATION\n";
 #endif
@@ -140,6 +146,9 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 	{
 		definesBlock << "#define NO_CLIPDISTANCE_SUPPORT\n";
 	}
+
+	if (levelmesh)
+		definesBlock << "#define USE_LEVELMESH\n";
 
 	FString layoutBlock;
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
@@ -163,10 +172,11 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump, const char *defines, const VkShaderKey& key)
 {
 	FString definesBlock;
-	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME)) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
+	if (fb->IsRayQueryEnabled()) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
 	definesBlock << defines;
-	definesBlock << "\n#define MAX_STREAM_DATA " << std::to_string(MAX_STREAM_DATA).c_str() << "\n";
+	definesBlock << "\n#define MAX_SURFACE_UNIFORMS " << std::to_string(MAX_SURFACE_UNIFORMS).c_str() << "\n";
 	definesBlock << "#define MAX_LIGHT_DATA " << std::to_string(MAX_LIGHT_DATA).c_str() << "\n";
+	definesBlock << "#define MAX_FOGBALL_DATA " << std::to_string(MAX_FOGBALL_DATA).c_str() << "\n";
 #ifdef NPOT_EMULATION
 	definesBlock << "#define NPOT_EMULATION\n";
 #endif
@@ -182,6 +192,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 
 	if (key.UseRaytrace) definesBlock << "#define USE_RAYTRACE\n";
 	if (key.UseShadowmap) definesBlock << "#define USE_SHADOWMAP\n";
+	if (key.UseLevelMesh) definesBlock << "#define USE_LEVELMESH\n";
 
 	switch (key.TextureMode)
 	{
@@ -207,6 +218,11 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (key.FogRadial) definesBlock << "#define FOG_RADIAL\n";
 	if (key.SWLightRadial) definesBlock << "#define SWLIGHT_RADIAL\n";
 	if (key.SWLightBanded) definesBlock << "#define SWLIGHT_BANDED\n";
+	if (key.FogBalls) definesBlock << "#define FOGBALLS\n";
+
+	// Backwards compatibility with shaders that rape and pillage... uhm, I mean abused uFogEnabled to detect 2D rendering!
+	if (key.Simple2D) definesBlock << "#define uFogEnabled -3\n";
+	else definesBlock << "#define uFogEnabled 0\n";
 
 	FString layoutBlock;
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
@@ -217,23 +233,67 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 
 	FString materialname = "MaterialBlock";
 	FString materialBlock;
+	FString lightname = "LightBlock";
+	FString lightBlock;
+	FString mateffectname = "MaterialEffectBlock";
+	FString mateffectBlock;
+
 	if (material_lump)
 	{
 		materialname = material_lump;
 		materialBlock = LoadPublicShaderLump(material_lump);
+
+		// Attempt to fix old custom shaders:
+
+		materialBlock = RemoveLegacyUserUniforms(materialBlock);
+		materialBlock.Substitute("gl_TexCoord[0]", "vTexCoord");
+
+		if (materialBlock.IndexOf("ProcessMaterial") < 0 && materialBlock.IndexOf("SetupMaterial") < 0)
+		{
+			// Old hardware shaders that implements GetTexCoord, ProcessTexel or Process
+
+			if (materialBlock.IndexOf("GetTexCoord") >= 0)
+			{
+				mateffectBlock = "vec2 GetTexCoord();";
+			}
+			
+			FString code;
+			if (materialBlock.IndexOf("ProcessTexel") >= 0)
+			{
+				code = LoadPrivateShaderLump("shaders/scene/material_legacy_ptexel.glsl");
+			}
+			else if (materialBlock.IndexOf("Process") >= 0)
+			{
+				code = LoadPrivateShaderLump("shaders/scene/material_legacy_process.glsl");
+			}
+			else
+			{
+				code = LoadPrivateShaderLump("shaders/scene/material_default.glsl");
+			}
+			code << "\n#line 1\n";
+
+			materialBlock = code + materialBlock;
+		}
+		else if (materialBlock.IndexOf("SetupMaterial") < 0)
+		{
+			// Old hardware shader implementing SetupMaterial
+
+			definesBlock << "#define LEGACY_USER_SHADER\n";
+
+			FString code = LoadPrivateShaderLump("shaders/scene/material_legacy_pmaterial.glsl");
+			code << "\n#line 1\n";
+
+			materialBlock = code + materialBlock;
+		}
 	}
 
-	FString lightname = "LightBlock";
-	FString lightBlock;
-	if (light_lump)
+	if (light_lump && lightBlock.IsEmpty())
 	{
 		lightname = light_lump;
 		lightBlock << LoadPrivateShaderLump(light_lump).GetChars();
 	}
 
-	FString mateffectname = "MaterialEffectBlock";
-	FString mateffectBlock;
-	if (mateffect_lump)
+	if (mateffect_lump && mateffectBlock.IsEmpty())
 	{
 		mateffectname = mateffect_lump;
 		mateffectBlock << LoadPrivateShaderLump(mateffect_lump).GetChars();
@@ -269,8 +329,9 @@ FString VkShaderManager::GetVersionBlock()
 	}
 
 	versionBlock << "#extension GL_GOOGLE_include_directive : enable\n";
+	versionBlock << "#extension GL_EXT_nonuniform_qualifier : enable\r\n";
 
-	if (fb->GetDevice()->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME))
+	if (fb->IsRayQueryEnabled())
 	{
 		versionBlock << "#extension GL_EXT_ray_query : enable\n";
 	}
@@ -307,16 +368,14 @@ FString VkShaderManager::LoadPublicShaderLump(const char *lumpname)
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	FileData data = fileSystem.ReadFile(lump);
-	return data.GetString();
+	return GetStringFromLump(lump);
 }
 
 FString VkShaderManager::LoadPrivateShaderLump(const char *lumpname)
 {
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	FileData data = fileSystem.ReadFile(lump);
-	return data.GetString();
+	return GetStringFromLump(lump);
 }
 
 VkPPShader* VkShaderManager::GetVkShader(PPShader* shader)

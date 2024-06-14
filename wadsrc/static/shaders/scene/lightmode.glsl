@@ -4,6 +4,7 @@
 #include "shaders/scene/lightmode_vanilla.glsl"
 #include "shaders/scene/lightmode_build.glsl"
 #include "shaders/scene/material.glsl"
+#include "shaders/scene/fogball.glsl"
 
 //===========================================================================
 //
@@ -85,6 +86,10 @@ vec4 getLightColor(Material material)
 
 		frag = vec4(mix(uFogColor.rgb, frag.rgb, fogfactor), frag.a);
 
+	#endif
+
+	#if defined(FOGBALLS)
+	frag = ProcessFogBalls(frag);
 	#endif
 
 	return frag;

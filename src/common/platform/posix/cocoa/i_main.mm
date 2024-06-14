@@ -47,6 +47,7 @@
 #include "printf.h"
 #include "s_music.h"
 #include "engineerrors.h"
+#include "zstring.h"
 
 
 #define ZD_UNUSED(VARIABLE) ((void)(VARIABLE))
@@ -130,6 +131,7 @@ static bool ReadSystemVersionFromPlist(NSOperatingSystemVersion& version)
 	return false;
 }
 
+FString sys_ostype;
 void I_DetectOS()
 {
 	NSOperatingSystemVersion version = {};
@@ -151,21 +153,24 @@ void I_DetectOS()
 	case 10:
 		switch (version.minorVersion)
 		{
-			case 12: name = "macOS Sierra";          break;
-			case 13: name = "macOS High Sierra";     break;
-			case 14: name = "macOS Mojave";          break;
-			case 15: name = "macOS Catalina";        break;
-			case 16: name = "macOS Big Sur";         break;
+			case 12: name = "Sierra";      break;
+			case 13: name = "High Sierra"; break;
+			case 14: name = "Mojave";      break;
+			case 15: name = "Catalina";    break;
+			case 16: name = "Big Sur";     break;
 		}
 		break;
 	case 11:
-		name = "macOS Big Sur";
+		name = "Big Sur";
 		break;
 	case 12:
-		name = "macOS Monterey";
+		name = "Monterey";
 		break;
 	case 13:
-		name = "macOS Ventura";
+		name = "Ventura";
+		break;
+	case 14:
+		name = "Sonoma";
 		break;
 	}
 
@@ -186,9 +191,11 @@ void I_DetectOS()
 		"Unknown";
 #endif
 
-	Printf("%s running %s %d.%d.%d (%s) %s\n", model, name,
+	Printf("%s running macOS %s %d.%d.%d (%s) %s\n", model, name,
 		   int(version.majorVersion), int(version.minorVersion), int(version.patchVersion),
 		   release, architecture);
+
+	sys_ostype.Format("macOS %d.%d %s", int(version.majorVersion), int(version.minorVersion), name);
 }
 
 
@@ -279,7 +286,8 @@ extern bool AppActive;
 {
 	ZD_UNUSED(aNotification);
 
-	S_SetSoundPaused(1);
+	if (GSnd)
+		S_SetSoundPaused(1);
 
 	AppActive = true;
 }
@@ -288,7 +296,8 @@ extern bool AppActive;
 {
 	ZD_UNUSED(aNotification);
 
-	S_SetSoundPaused(0);
+	if (GSnd)
+		S_SetSoundPaused(0);
 
 	AppActive = false;
 }
@@ -339,7 +348,7 @@ extern bool AppActive;
 
 	for (size_t i = 0, count = s_argv.Size(); i < count; ++i)
 	{
-		if (0 == strcmp(s_argv[i], charFileName))
+		if (0 == strcmp(s_argv[i].GetChars(), charFileName))
 		{
 			return FALSE;
 		}

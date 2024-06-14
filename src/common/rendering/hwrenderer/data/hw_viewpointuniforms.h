@@ -26,7 +26,7 @@ struct HWViewpointUniforms
 	int mViewHeight = 0;
 	float mClipHeight = 0.f;
 	float mClipHeightDirection = 0.f;
-	int mShadowmapFilter = 1;
+	int mShadowFilter = 1;
 
 	int mLightBlendMode = 0;
 

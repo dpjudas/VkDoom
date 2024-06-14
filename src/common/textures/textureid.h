@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include "tarray.h"
+
 enum class ETextureType : uint8_t
 {
 	Any,
@@ -28,6 +31,7 @@ class FTextureID
 
 public:
 	FTextureID() = default;
+	FTextureID(std::nullptr_t) : texnum(0) {}
 	bool isNull() const { return texnum == 0; }
 	bool isValid() const { return texnum > 0; }
 	bool Exists() const { return texnum >= 0; }
@@ -45,7 +49,7 @@ public:
 	bool operator > (FTextureID other) const { return texnum > other.texnum; }
 
 protected:
-	FTextureID(int num) { texnum = num; }
+	constexpr FTextureID(int num) : texnum(num) { }
 private:
 	int texnum;
 };
@@ -53,13 +57,21 @@ private:
 class FNullTextureID : public FTextureID
 {
 public:
-	FNullTextureID() : FTextureID(0) {}
+	constexpr FNullTextureID() : FTextureID(0) {}
 };
 
 // This is for the script interface which needs to do casts from int to texture.
 class FSetTextureID : public FTextureID
 {
 public:
-	FSetTextureID(int v) : FTextureID(v) {}
+	constexpr FSetTextureID(int v) : FTextureID(v) {}
 };
 
+template<> struct THashTraits<FTextureID>
+{
+
+	hash_t Hash(const FTextureID key) { return (hash_t)key.GetIndex(); }
+
+	// Compares two keys, returning zero if they are the same.
+	int Compare(const FTextureID left, const FTextureID right) { return left != right; }
+};

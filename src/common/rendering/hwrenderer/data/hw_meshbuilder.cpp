@@ -63,18 +63,19 @@ void MeshBuilder::Apply()
 	state.applyData.RenderStyle = mRenderStyle;
 	state.applyData.SpecialEffect = mSpecialEffect;
 	state.applyData.TextureEnabled = mTextureEnabled;
-	state.applyData.AlphaThreshold = mStreamData.uAlphaThreshold;
+	state.applyData.AlphaThreshold = mSurfaceUniforms.uAlphaThreshold;
 	state.applyData.DepthFunc = mDepthFunc;
 	state.applyData.FogEnabled = mFogEnabled;
+	state.applyData.FogColor = (mFogColor & 0xffffff) == 0;
 	state.applyData.BrightmapEnabled = mBrightmapEnabled;
 	state.applyData.TextureClamp = mTextureClamp;
 	state.applyData.TextureMode = mTextureMode;
 	state.applyData.TextureModeFlags = mTextureModeFlags;
-	state.streamData = mStreamData;
+	state.surfaceUniforms = mSurfaceUniforms;
 	state.material = mMaterial;
 	state.textureMatrix = mTextureMatrix;
 
-	state.streamData.uVertexNormal = FVector4(0.0f, 0.0f, 0.0f, 0.0f); // Grr, this should be part of the vertex!!
+	state.surfaceUniforms.uVertexNormal = FVector4(0.0f, 0.0f, 0.0f, 0.0f); // Grr, this should be part of the vertex!!
 
 	mDrawLists = &mSortedLists[state];
 }

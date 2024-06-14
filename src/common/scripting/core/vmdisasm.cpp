@@ -46,6 +46,9 @@
 #define LKP		MODE_AP | MODE_BCJOINT | MODE_BCKP
 #define LFP		MODE_AP | MODE_BUNUSED | MODE_CUNUSED
 
+
+#define RP		MODE_AP | MODE_BUNUSED | MODE_CUNUSED
+
 #define RIRPKI	MODE_AI | MODE_BP | MODE_CKI
 #define RIRPRI	MODE_AI | MODE_BP | MODE_CI
 #define RFRPKI	MODE_AF | MODE_BP | MODE_CKI
@@ -528,7 +531,7 @@ void VMDisasm(FILE *out, const VMOP *code, int codesize, const VMScriptFunction 
 			}
 			else if (code[i].op == OP_CALL_K && callfunc)
 			{
-				printf_wrapper(out, "  [%s]\n", callfunc->PrintableName.GetChars());
+				printf_wrapper(out, "  [%s]\n", callfunc->PrintableName);
 			}
 			else
 			{

@@ -152,14 +152,14 @@ void hw_PrecacheTexture(uint8_t *texhitlist, TMap<PClassActor*, bool> &actorhitl
 	while (it.NextPair(pair))
 	{
 		PClassActor *cls = pair->Key;
-		auto remap = GPalette.TranslationToTable(GetDefaultByType(cls)->Translation);
+		auto remap = GPalette.TranslationToTable(GetDefaultByType(cls)->Translation.index());
 		int gltrans = remap == nullptr ? 0 : remap->Index;
 
 		for (unsigned i = 0; i < cls->GetStateCount(); i++)
 		{
 			auto &state = cls->GetStates()[i];
 			spritelist[state.sprite].Insert(gltrans, true);
-			FSpriteModelFrame * smf = FindModelFrame(cls, state.sprite, state.Frame, false);
+			FSpriteModelFrame * smf = FindModelFrameRaw(cls, state.sprite, state.Frame, false);
 			if (smf != NULL)
 			{
 				for (int i = 0; i < smf->modelsAmount; i++)
@@ -316,7 +316,7 @@ void hw_PrecacheTexture(uint8_t *texhitlist, TMap<PClassActor*, bool> &actorhitl
 		FImageSource::EndPrecaching();
 
 		// cache all used models
-		FModelRenderer* renderer = new FHWModelRenderer(nullptr, *screen->RenderState(0), -1);
+		FModelRenderer* renderer = new FHWModelRenderer(nullptr, *screen->RenderState(), -1);
 		for (unsigned i = 0; i < Models.Size(); i++)
 		{
 			if (modellist[i]) 

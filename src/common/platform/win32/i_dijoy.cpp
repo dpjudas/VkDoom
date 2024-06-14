@@ -180,6 +180,9 @@ public:
 	bool IsAxisMapDefault(int axis);
 	bool IsAxisScaleDefault(int axis);
 
+	bool GetEnabled();
+	void SetEnabled(bool enabled);
+
 	void SetDefaultConfig();
 	FString GetIdentifier();
 
@@ -218,6 +221,8 @@ protected:
 
 	DIOBJECTDATAFORMAT *Objects;
 	DIDATAFORMAT DataFormat;
+
+	bool Enabled;
 
 	static BOOL CALLBACK EnumObjectsCallback(LPCDIDEVICEOBJECTINSTANCE lpddoi, LPVOID pvRef);
 	void OrderAxes();
@@ -297,6 +302,7 @@ FDInputJoystick::FDInputJoystick(const GUID *instance, FString &name)
 	Instance = *instance;
 	Name = name;
 	Marked = false;
+	Enabled = true;
 }
 
 //===========================================================================
@@ -410,12 +416,13 @@ void FDInputJoystick::ProcessInput()
 	{
 		hr = Device->Acquire();
 	}
-	if (FAILED(hr))
+	if (FAILED(hr) || !Enabled)
 	{
 		return;
 	}
 
-	state = (uint8_t *)alloca(DataFormat.dwDataSize);
+	TArray<uint8_t> statearr(DataFormat.dwDataSize, true);
+	state = statearr.data();
 	hr = Device->GetDeviceState(DataFormat.dwDataSize, state);
 	if (FAILED(hr))
 		return;
@@ -892,7 +899,7 @@ const char *FDInputJoystick::GetAxisName(int axis)
 {
 	if (unsigned(axis) < Axes.Size())
 	{
-		return Axes[axis].Name;
+		return Axes[axis].Name.GetChars();
 	}
 	return "Invalid";
 }
@@ -982,6 +989,28 @@ bool FDInputJoystick::IsAxisScaleDefault(int axis)
 		return Axes[axis].Multiplier == Axes[axis].DefaultMultiplier;
 	}
 	return true;
+}
+
+//===========================================================================
+//
+// FDInputJoystick :: GetEnabled
+//
+//===========================================================================
+
+bool FDInputJoystick::GetEnabled()
+{
+	return Enabled;
+}
+
+//===========================================================================
+//
+// FDInputJoystick :: SetEnabled
+//
+//===========================================================================
+
+void FDInputJoystick::SetEnabled(bool enabled)
+{
+	Enabled = enabled;
 }
 
 //===========================================================================

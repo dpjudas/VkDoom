@@ -40,7 +40,7 @@ class PlayerPawn : Actor
 	double		SideMove1, SideMove2;
 	TextureID	ScoreIcon;
 	int			SpawnMask;
-	Name			MorphWeapon;
+	Name			MorphWeapon;		// This should really be a class<Weapon> but it's too late to change now.
 	double		AttackZOffset;			// attack height, relative to player center
 	double		UseRange;				// [NS] Distance at which player can +use
 	double		AirCapacity;			// Multiplier for air supply underwater.
@@ -48,6 +48,7 @@ class PlayerPawn : Actor
 	color 		DamageFade;				// [CW] Fades for when you are being damaged.
 	double		FlyBob;					// [B] Fly bobbing mulitplier
 	double		ViewBob;				// [SP] ViewBob Multiplier
+	double		ViewBobSpeed;			// [AA] ViewBob speed multiplier
 	double		WaterClimbSpeed;		// [B] Speed when climbing up walls in water
 	double		FullHeight;
 	double		curBob;
@@ -79,6 +80,7 @@ class PlayerPawn : Actor
 	property TeleportFreezeTime: TeleportFreezeTime;
 	property FlyBob: FlyBob;
 	property ViewBob: ViewBob;
+	property ViewBobSpeed: ViewBobSpeed;
 	property WaterClimbSpeed : WaterClimbSpeed;
 	
 	flagdef NoThrustWhenInvul: PlayerFlags, 0;
@@ -128,6 +130,7 @@ class PlayerPawn : Actor
 		Player.AirCapacity 1;
 		Player.FlyBob 1;
 		Player.ViewBob 1;
+		Player.ViewBobSpeed 20;
 		Player.WaterClimbSpeed 3.5;
 		Player.TeleportFreezeTime 18;
 		Obituary "$OB_MPDEFAULT";
@@ -474,7 +477,7 @@ class PlayerPawn : Actor
 		let player = self.player;
 		if (!player) return;	
 		if ((player.WeaponState & WF_DISABLESWITCH) || // Weapon changing has been disabled.
-			player.morphTics != 0)					// Morphed classes cannot change weapons.
+			Alternative)					// Morphed classes cannot change weapons.
 		{ // ...so throw away any pending weapon requests.
 			player.PendingWeapon = WP_NOCHANGE;
 		}
@@ -619,7 +622,7 @@ class PlayerPawn : Actor
 		}
 		else
 		{
-			angle = Level.maptime / (20 * TICRATE / 35.) * 360.;
+			angle = Level.maptime / (ViewBobSpeed * TICRATE / 35.) * 360.;
 			bob = player.bob * sin(angle) * (waterlevel > 1 ? 0.25f : 0.5f);
 		}
 
@@ -648,7 +651,7 @@ class PlayerPawn : Actor
 			}
 		}
 
-		if (player.morphTics)
+		if (Alternative)
 		{
 			bob = 0;
 		}
@@ -864,7 +867,7 @@ class PlayerPawn : Actor
 	//
 	//===========================================================================
 
-	void FilterCoopRespawnInventory (PlayerPawn oldplayer)
+	void FilterCoopRespawnInventory (PlayerPawn oldplayer, Weapon curHeldWeapon = null)
 	{
 		// If we're losing everything, this is really simple.
 		if (sv_cooploseinventory)
@@ -872,6 +875,10 @@ class PlayerPawn : Actor
 			oldplayer.DestroyAllInventory();
 			return;
 		}
+
+		// Make sure to get the real held weapon before messing with the inventory.
+		if (curHeldWeapon && curHeldWeapon.bPowered_Up)
+			curHeldWeapon = curHeldWeapon.SisterWeapon;
 
 		// Walk through the old player's inventory and destroy or modify
 		// according to dmflags.
@@ -885,7 +892,7 @@ class PlayerPawn : Actor
 			// inventory amount.
 			let defitem = FindInventory (item.GetClass());
 
-			if (sv_cooplosekeys && defitem == NULL && item is 'Key')
+			if ((sv_cooplosekeys && !sv_coopsharekeys) && defitem == NULL && item is 'Key')
 			{
 				item.Destroy();
 			}
@@ -954,7 +961,15 @@ class PlayerPawn : Actor
 		ObtainInventory (oldplayer);
 
 		player.ReadyWeapon = NULL;
-		PickNewWeapon (NULL);
+		if (curHeldWeapon && curHeldWeapon.owner == self && curHeldWeapon.CheckAmmo(Weapon.EitherFire, false))
+		{
+			player.PendingWeapon = curHeldWeapon;
+			BringUpWeapon();
+		}
+		else
+		{
+			PickNewWeapon (NULL);
+		}
 	}
 
 	
@@ -1069,7 +1084,7 @@ class PlayerPawn : Actor
 
 	virtual bool CanCrouch() const
 	{
-		return player.morphTics == 0 || bCrouchableMorph;
+		return !Alternative || bCrouchableMorph;
 	}
 
 	//----------------------------------------------------------------------------
@@ -1235,7 +1250,7 @@ class PlayerPawn : Actor
 			side *= SideMove2;
 		}
 
-		if (!player.morphTics)
+		if (!Alternative)
 		{
 			double factor = 1.;
 			for(let it = Inv; it != null; it = it.Inv)
@@ -1246,6 +1261,12 @@ class PlayerPawn : Actor
 			side *= factor;
 		}
 		return forward, side;
+	}
+
+	virtual void ApplyAirControl(out double movefactor, out double bobfactor)
+	{
+		movefactor *= level.aircontrol;
+		bobfactor *= level.aircontrol;
 	}
 
 	//----------------------------------------------------------------------------
@@ -1291,8 +1312,8 @@ class PlayerPawn : Actor
 			if (!player.onground && !bNoGravity && !waterlevel)
 			{
 				// [RH] allow very limited movement if not on ground.
-				movefactor *= level.aircontrol;
-				bobfactor*= level.aircontrol;
+				// [AA] but also allow authors to override it.
+				ApplyAirControl(movefactor, bobfactor);
 			}
 
 			fm = cmd.forwardmove;
@@ -1525,15 +1546,15 @@ class PlayerPawn : Actor
 	{
 		let player = self.player;
 		// Morph counter
-		if (player.morphTics)
+		if (Alternative)
 		{
 			if (player.chickenPeck)
 			{ // Chicken attack counter
 				player.chickenPeck -= 3;
 			}
-			if (!--player.morphTics)
+			if (player.MorphTics && !--player.MorphTics)
 			{ // Attempt to undo the chicken/pig
-				player.mo.UndoPlayerMorph(player, MRF_UNDOBYTIMEOUT);
+				Unmorph(self, MRF_UNDOBYTIMEOUT);
 			}
 		}
 	}
@@ -1658,7 +1679,7 @@ class PlayerPawn : Actor
 				player.jumpTics = 0;
 			}
 		}
-		if (player.morphTics && !(player.cheats & CF_PREDICTING))
+		if (Alternative && !(player.cheats & CF_PREDICTING))
 		{
 			MorphPlayerThink ();
 		}
@@ -2039,9 +2060,9 @@ class PlayerPawn : Actor
 		Inventory item, next;
 		let p = player;
 
-		if (p.morphTics != 0)
+		if (Alternative)
 		{ // Undo morph
-			Unmorph(self, 0, true);
+			Unmorph(self, force: true);
 		}
 		// 'self' will be no longer valid from here on in case of an unmorph
 		let me = p.mo;
@@ -2111,7 +2132,7 @@ class PlayerPawn : Actor
 				let it = toDelete[i];
 				if (!it.bDestroyed)
 				{
-					item.DepleteOrDestroy();
+					it.DepleteOrDestroy();
 				}
 			}
 		}
@@ -2664,7 +2685,7 @@ class PSprite : Object native play
 	native Bool firstTic;
 	native bool InterpolateTic;
 	native int Tics;
-	native uint Translation;
+	native TranslationID Translation;
 	native bool bAddWeapon;
 	native bool bAddBob;
 	native bool bPowDouble;
@@ -2687,13 +2708,23 @@ class PSprite : Object native play
 	{
 		if (processPending)
 		{
-			// drop tic count and possibly change state
-			if (Tics != -1)	// a -1 tic count never changes
+			if (Caller)
 			{
-				Tics--;
-				// [BC] Apply double firing speed.
-				if (bPowDouble && Tics && (Owner.mo.FindInventory ("PowerDoubleFiringSpeed", true))) Tics--;
-				if (!Tics && Caller != null) SetState(CurState.NextState);
+				Caller.PSpriteTick(self);
+				if (bDestroyed)
+					return;
+			}
+
+			if (processPending)
+			{
+				// drop tic count and possibly change state
+				if (Tics != -1)	// a -1 tic count never changes
+				{
+					Tics--;
+					// [BC] Apply double firing speed.
+					if (bPowDouble && Tics && (Owner.mo.FindInventory ("PowerDoubleFiringSpeed", true))) Tics--;
+					if (!Tics && Caller != null) SetState(CurState.NextState);
+				}
 			}
 		}
 	}
@@ -2848,23 +2879,15 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 	native clearscope bool HasWeaponsInSlot(int slot) const;
 
 	// The actual implementation is on PlayerPawn where it can be overridden. Use that directly in the future.
-	deprecated("3.7", "MorphPlayer() should be used on a PlayerPawn object") bool MorphPlayer(playerinfo p, Class<PlayerPawn> spawntype, int duration, int style, Class<Actor> enter_flash = null, Class<Actor> exit_flash = null)
+	deprecated("3.7", "MorphPlayer() should be used on a PlayerPawn object") bool MorphPlayer(PlayerInfo activator, class<PlayerPawn> spawnType, int duration, EMorphFlags style, class<Actor> enterFlash = "TeleportFog", class<Actor> exitFlash = "TeleportFog")
 	{
-		if (mo != null)
-		{
-			return mo.MorphPlayer(p, spawntype, duration, style, enter_flash, exit_flash);
-		}
-		return false;
+		return mo ? mo.MorphPlayer(activator, spawnType, duration, style, enterFlash, exitFlash) : false;
 	}
 	
 	// This somehow got its arguments mixed up. 'self' should have been the player to be unmorphed, not the activator
-	deprecated("3.7", "UndoPlayerMorph() should be used on a PlayerPawn object") bool UndoPlayerMorph(playerinfo player, int unmorphflag = 0, bool force = false)
+	deprecated("3.7", "UndoPlayerMorph() should be used on a PlayerPawn object") bool UndoPlayerMorph(PlayerInfo player, EMorphFlags unmorphFlags = 0, bool force = false)
 	{
-		if (player.mo != null)
-		{
- 			return player.mo.UndoPlayerMorph(self, unmorphflag, force);
-		}
-		return false;
+		return player.mo ? player.mo.UndoPlayerMorph(self, unmorphFlags, force) : false;
 	}
 
 	deprecated("3.7", "DropWeapon() should be used on a PlayerPawn object") void DropWeapon()
@@ -2956,7 +2979,16 @@ struct PlayerSkin native
 
 struct Team native
 {
-	const NoTeam = 255;
-	const Max = 16;
+	const NOTEAM = 255;
+	const MAX = 16;
+
 	native String mName;
+
+	native static bool IsValid(uint teamIndex);
+
+	native Color GetPlayerColor() const;
+	native int GetTextColor() const;
+	native TextureID GetLogo() const;
+	native string GetLogoName() const;
+	native bool AllowsCustomPlayerColor() const;
 }

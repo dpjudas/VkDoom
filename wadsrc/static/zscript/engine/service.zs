@@ -14,66 +14,82 @@ class Service abstract
 	}
 
 	// Play variants
-	virtual play String GetString(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual play String GetString(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return "";
 	}
 
-	virtual play int GetInt(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual play int GetInt(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return 0;
 	}
 
-	virtual play double GetDouble(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual play double GetDouble(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return 0.0;
 	}
 
-	virtual play Object GetObject(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual play Object GetObject(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return null;
 	}
+
+	virtual play Name GetName(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
+	{
+		return '';
+	}
+
 
 	// UI variants
-	virtual ui String GetStringUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual ui String GetStringUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return "";
 	}
 
-	virtual ui int GetIntUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual ui int GetIntUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return 0;
 	}
 
-	virtual ui double GetDoubleUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual ui double GetDoubleUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return 0.0;
 	}
 
-	virtual ui Object GetObjectUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual ui Object GetObjectUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return null;
+	}
+
+	virtual ui Name GetNameUI(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
+	{
+		return '';
 	}
 
 	// data/clearscope variants
-	virtual clearscope String GetStringData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual clearscope String GetStringData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return "";
 	}
 
-	virtual clearscope int GetIntData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual clearscope int GetIntData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return 0;
 	}
 
-	virtual clearscope double GetDoubleData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual clearscope double GetDoubleData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return 0.0;
 	}
 
-	virtual clearscope Object GetObjectData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null)
+	virtual clearscope Object GetObjectData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
 	{
 		return null;
+	}
+
+	virtual clearscope Name GetNameData(String request, string stringArg = "", int intArg = 0, double doubleArg = 0, Object objectArg = null, Name nameArg = '')
+	{
+		return '';
 	}
     
     static Service Find(class<Service> serviceName){

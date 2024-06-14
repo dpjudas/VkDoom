@@ -75,7 +75,7 @@ CVAR (String, snd_alresampler, "Default", CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 #define OPENALLIB1 "libopenal.1.dylib"
 #define OPENALLIB2 "OpenAL.framework/OpenAL"
 #else // !__APPLE__
-#define OPENALLIB1 NicePath("$PROGDIR/" OPENALLIB)
+#define OPENALLIB1 NicePath("$PROGDIR/" OPENALLIB).GetChars()
 #define OPENALLIB2 OPENALLIB
 #endif
 
@@ -598,6 +598,7 @@ OpenALSoundRenderer::OpenALSoundRenderer()
 	ALC.EXT_disconnect = !!alcIsExtensionPresent(Device, "ALC_EXT_disconnect");
 	ALC.SOFT_HRTF = !!alcIsExtensionPresent(Device, "ALC_SOFT_HRTF");
 	ALC.SOFT_pause_device = !!alcIsExtensionPresent(Device, "ALC_SOFT_pause_device");
+	ALC.SOFT_output_limiter = !!alcIsExtensionPresent(Device, "ALC_SOFT_output_limiter");
 
 	const ALCchar *current = NULL;
 	if(alcIsExtensionPresent(Device, "ALC_ENUMERATE_ALL_EXT"))
@@ -633,6 +634,11 @@ OpenALSoundRenderer::OpenALSoundRenderer()
 			attribs.Push(ALC_TRUE);
 		else
 			attribs.Push(ALC_DONT_CARE_SOFT);
+	}
+	if(ALC.SOFT_output_limiter)
+	{
+		attribs.Push(ALC_OUTPUT_LIMITER_SOFT);
+		attribs.Push(ALC_TRUE);
 	}
 	// Other attribs..?
 	attribs.Push(0);
@@ -1141,7 +1147,7 @@ SoundHandle OpenALSoundRenderer::LoadSound(uint8_t *sfxdata, int length, int def
 		return retval;
 	}
 
-	std::vector<uint8_t> data;
+	TArray<uint8_t> data;
 	unsigned total = 0;
 	unsigned got;
 

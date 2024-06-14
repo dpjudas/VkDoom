@@ -110,6 +110,8 @@ EXTERN_CVAR (Bool, use_mouse)
 static int WheelDelta;
 extern bool CursorState;
 
+void SetCursorState(bool visible);
+
 extern BOOL paused;
 static bool noidle = false;
 
@@ -334,7 +336,8 @@ LRESULT CALLBACK WndProc (HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (!GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &size, sizeof(RAWINPUTHEADER)) &&
 			size != 0)
 		{
-			uint8_t *buffer = (uint8_t *)alloca(size);
+			TArray<uint8_t> array(size, true);
+			uint8_t *buffer = array.data();
 			if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, buffer, &size, sizeof(RAWINPUTHEADER)) == size)
 			{
 				int code = GET_RAWINPUT_CODE_WPARAM(wParam);
@@ -414,7 +417,7 @@ LRESULT CALLBACK WndProc (HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_SETCURSOR:
 		if (!CursorState)
 		{
-			SetCursor(NULL); // turn off window cursor
+			SetCursorState(false); // turn off window cursor
 			return TRUE;	// Prevent Windows from setting cursor to window class cursor
 		}
 		else
@@ -491,7 +494,7 @@ LRESULT CALLBACK WndProc (HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_ERASEBKGND:
-		return true;
+		return DefWindowProc(hWnd, message, wParam, lParam);
 
 	case WM_DEVICECHANGE:
 		if (wParam == DBT_DEVNODES_CHANGED ||
@@ -691,12 +694,15 @@ void I_PutInClipboard (const char *str)
 
 	auto wstr = WideString(str);
 	HGLOBAL cliphandle = GlobalAlloc (GMEM_DDESHARE, wstr.length() * 2 + 2);
-	if (cliphandle != NULL)
+	if (cliphandle != nullptr)
 	{
 		wchar_t *ptr = (wchar_t *)GlobalLock (cliphandle);
-		wcscpy (ptr, wstr.c_str());
-		GlobalUnlock (cliphandle);
-		SetClipboardData (CF_UNICODETEXT, cliphandle);
+		if (ptr)
+		{
+			wcscpy(ptr, wstr.c_str());
+			GlobalUnlock(cliphandle);
+			SetClipboardData(CF_UNICODETEXT, cliphandle);
+		}
 	}
 	CloseClipboard ();
 }

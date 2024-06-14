@@ -70,34 +70,24 @@ public:
 	VulkanRenderDevice* fb = nullptr;
 	std::list<VkMaterial*>::iterator it;
 
-	VulkanDescriptorSet* GetDescriptorSet(int threadIndex, const FMaterialState& state);
+	int GetBindlessIndex(const FMaterialState& state);
 
 private:
-	VulkanDescriptorSet* GetDescriptorSet(const FMaterialState& state);
-
 	struct DescriptorEntry
 	{
 		int clampmode;
 		intptr_t remap;
-		std::unique_ptr<VulkanDescriptorSet> descriptor;
+		int bindlessIndex;
 
-		DescriptorEntry(int cm, intptr_t f, std::unique_ptr<VulkanDescriptorSet>&& d)
+		DescriptorEntry(int cm, intptr_t f, int index)
 		{
 			clampmode = cm;
 			remap = f;
-			descriptor = std::move(d);
+			bindlessIndex = index;
 		}
 	};
 
-	struct ThreadDescriptorEntry
-	{
-		int clampmode;
-		intptr_t remap;
-		VulkanDescriptorSet* descriptor;
-
-		ThreadDescriptorEntry(int cm, intptr_t f, VulkanDescriptorSet* d) : clampmode(cm), remap(f), descriptor(d) { }
-	};
+	DescriptorEntry& GetDescriptorEntry(const FMaterialState& state);
 
 	std::vector<DescriptorEntry> mDescriptorSets;
-	std::vector<std::vector<ThreadDescriptorEntry>> mThreadDescriptorSets;
 };

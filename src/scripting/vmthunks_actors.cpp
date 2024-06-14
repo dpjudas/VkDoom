@@ -55,6 +55,7 @@
 #include "actorinlines.h"
 #include "p_enemy.h"
 #include "gi.h"
+#include "shadowinlines.h"
 
 DVector2 AM_GetPosition();
 int Net_GetLatency(int *ld, int *ad);
@@ -1227,6 +1228,23 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, LineTrace, LineTrace)
 	ACTION_RETURN_BOOL(P_LineTrace(self,DAngle::fromDeg(angle),distance,DAngle::fromDeg(pitch),flags,offsetz,offsetforward,offsetside,data));
 }
 
+DEFINE_ACTION_FUNCTION(AActor, PerformShadowChecks)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_OBJECT(other, AActor); //If this pointer is null, the trace uses the facing direction instead.
+	PARAM_FLOAT(x);
+	PARAM_FLOAT(y);
+	PARAM_FLOAT(z);
+
+	double penaltyFactor = 0.0;
+	AActor* shadow = PerformShadowChecks(self, other, DVector3(x, y, z), penaltyFactor);
+	if (numret > 2) ret[2].SetFloat(penaltyFactor);
+	if (numret > 1) ret[1].SetObject(shadow);
+	if (numret > 0) ret[0].SetInt(bool(shadow));
+	return numret;
+}
+
+
 static void TraceBleedAngle(AActor *self, int damage, double angle, double pitch)
 {
 	P_TraceBleed(damage, self, DAngle::fromDeg(angle), DAngle::fromDeg(pitch));
@@ -1299,13 +1317,14 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, GetRadiusDamage, P_GetRadiusDamage)
 	PARAM_SELF_PROLOGUE(AActor);
 	PARAM_OBJECT(thing, AActor);
 	PARAM_INT(damage);
-	PARAM_INT(distance);
-	PARAM_INT(fulldmgdistance);
+	PARAM_FLOAT(distance);
+	PARAM_FLOAT(fulldmgdistance);
 	PARAM_BOOL(oldradiusdmg);
-	ACTION_RETURN_INT(P_GetRadiusDamage(self, thing, damage, distance, fulldmgdistance, oldradiusdmg));
+	PARAM_BOOL(circular);
+	ACTION_RETURN_INT(P_GetRadiusDamage(self, thing, damage, distance, fulldmgdistance, oldradiusdmg, circular));
 }
 
-static int RadiusAttack(AActor *self, AActor *bombsource, int bombdamage, int bombdistance, int damagetype, int flags, int fulldamagedistance, int species)
+static int RadiusAttack(AActor *self, AActor *bombsource, int bombdamage, double bombdistance, int damagetype, int flags, double fulldamagedistance, int species)
 {
 	return P_RadiusAttack(self, bombsource, bombdamage, bombdistance, ENamedName(damagetype), flags, fulldamagedistance, ENamedName(species));
 }
@@ -1315,10 +1334,10 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, RadiusAttack, RadiusAttack)
 	PARAM_SELF_PROLOGUE(AActor);
 	PARAM_OBJECT(bombsource, AActor);
 	PARAM_INT(bombdamage);
-	PARAM_INT(bombdistance);
+	PARAM_FLOAT(bombdistance);
 	PARAM_INT(damagetype);
 	PARAM_INT(flags);
-	PARAM_INT(fulldamagedistance);
+	PARAM_FLOAT(fulldamagedistance);
 	PARAM_INT(species);
 	ACTION_RETURN_INT(RadiusAttack(self, bombsource, bombdamage, bombdistance, damagetype, flags, fulldamagedistance, species));
 }
@@ -1538,20 +1557,21 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, LookForPlayers, P_LookForPlayers)
 	ACTION_RETURN_BOOL(P_LookForPlayers(self, allaround, params));
 }
 
-static int CheckMonsterUseSpecials(AActor *self)
+static int CheckMonsterUseSpecials(AActor *self, line_t *blocking)
 {
 	spechit_t spec;
 	int good = 0;
 
 	if (!(self->flags6 & MF6_NOTRIGGER))
 	{
+		auto checkLine = blocking ? blocking : self->BlockingLine;
 		while (spechit.Pop (spec))
 		{
 			// [RH] let monsters push lines, as well as use them
 			if (((self->flags4 & MF4_CANUSEWALLS) && P_ActivateLine (spec.line, self, 0, SPAC_Use)) ||
 				((self->flags2 & MF2_PUSHWALL) && P_ActivateLine (spec.line, self, 0, SPAC_Push)))
 			{
-				good |= spec.line == self->BlockingLine ? 1 : 2;
+				good |= spec.line == checkLine ? 1 : 2;
 			}
 		}
 	}
@@ -1563,8 +1583,9 @@ static int CheckMonsterUseSpecials(AActor *self)
 DEFINE_ACTION_FUNCTION_NATIVE(AActor, CheckMonsterUseSpecials, CheckMonsterUseSpecials)
 {
 	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_POINTER(blocking, line_t);
 
-	ACTION_RETURN_INT(CheckMonsterUseSpecials(self));
+	ACTION_RETURN_INT(CheckMonsterUseSpecials(self, blocking));
 }
 
 DEFINE_ACTION_FUNCTION_NATIVE(AActor, A_Wander, A_Wander)
@@ -1672,28 +1693,11 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, A_BossDeath, A_BossDeath)
 	return 0;
 }
 
-DEFINE_ACTION_FUNCTION_NATIVE(AActor, Substitute, StaticPointerSubstitution)
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, MorphInto, MorphPointerSubstitution)
 {
 	PARAM_SELF_PROLOGUE(AActor);
-	PARAM_OBJECT(replace, AActor);
-	StaticPointerSubstitution(self, replace);
-	return 0;
-}
-
-DEFINE_ACTION_FUNCTION_NATIVE(_PlayerPawn, Substitute, StaticPointerSubstitution)
-{
-	PARAM_SELF_PROLOGUE(AActor);
-	PARAM_OBJECT(replace, AActor);
-	StaticPointerSubstitution(self, replace);
-	return 0;
-}
-
-DEFINE_ACTION_FUNCTION_NATIVE(_MorphedMonster, Substitute, StaticPointerSubstitution)
-{
-	PARAM_SELF_PROLOGUE(AActor);
-	PARAM_OBJECT(replace, AActor);
-	StaticPointerSubstitution(self, replace);
-	return 0;
+	PARAM_OBJECT(to, AActor);
+	ACTION_RETURN_INT(MorphPointerSubstitution(self, to));
 }
 
 DEFINE_ACTION_FUNCTION_NATIVE(AActor, GetSpawnableType, P_GetSpawnableType)
@@ -1859,6 +1863,15 @@ DEFINE_ACTION_FUNCTION(AActor, PlayBounceSound)
 	self->PlayBounceSound(onFloor);
 	return 0;
 }
+
+DEFINE_ACTION_FUNCTION(AActor, ReflectOffActor)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_OBJECT(blocking, AActor);
+
+	ACTION_RETURN_BOOL(P_ReflectOffActor(self, blocking));
+}
+
 
 
 static int isFrozen(AActor *self)
@@ -2045,6 +2058,7 @@ DEFINE_FIELD(AActor, lastbump)
 DEFINE_FIELD(AActor, DesignatedTeam)
 DEFINE_FIELD(AActor, BlockingMobj)
 DEFINE_FIELD(AActor, BlockingLine)
+DEFINE_FIELD(AActor, MovementBlockingLine)
 DEFINE_FIELD(AActor, Blocking3DFloor)
 DEFINE_FIELD(AActor, BlockingCeiling)
 DEFINE_FIELD(AActor, BlockingFloor)
@@ -2108,6 +2122,10 @@ DEFINE_FIELD_NAMED(AActor, ViewAngles.Yaw, viewangle)
 DEFINE_FIELD_NAMED(AActor, ViewAngles.Pitch, viewpitch)
 DEFINE_FIELD_NAMED(AActor, ViewAngles.Roll, viewroll)
 DEFINE_FIELD(AActor, LightLevel)
+DEFINE_FIELD(AActor, ShadowAimFactor)
+DEFINE_FIELD(AActor, ShadowPenaltyFactor)
+DEFINE_FIELD(AActor, AutomapOffsets)
+DEFINE_FIELD(AActor, LandingSpeed)
 
 DEFINE_FIELD_X(FCheckPosition, FCheckPosition, thing);
 DEFINE_FIELD_X(FCheckPosition, FCheckPosition, pos);

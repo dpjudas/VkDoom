@@ -80,7 +80,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(_TexMan, SetCameraToTexture, SetCameraToTexture)
 
 static void SetCameraTextureAspectRatio(const FString &texturename, double aspectScale, bool useTextureRatio)
 {
-	FTextureID textureid = TexMan.CheckForTexture(texturename, ETextureType::Wall, FTextureManager::TEXMAN_Overridable);
+	FTextureID textureid = TexMan.CheckForTexture(texturename.GetChars(), ETextureType::Wall, FTextureManager::TEXMAN_Overridable);
 	if (textureid.isValid())
 	{
 		// Only proceed if the texture actually has a canvas.
@@ -1026,7 +1026,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, SetXOffset, SetXOffset)
 
  static void SetEnvironment(sector_t *self, const FString &env)
  {
-	 self->Level->Zones[self->ZoneNumber].Environment = S_FindEnvironment(env);
+	 self->Level->Zones[self->ZoneNumber].Environment = S_FindEnvironment(env.GetChars());
  }
 
  DEFINE_ACTION_FUNCTION_NATIVE(_Sector, SetEnvironment, SetEnvironment)
@@ -1139,6 +1139,29 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, SetXOffset, SetXOffset)
 	 ACTION_RETURN_INT(self->e->XFloor.attached.Size());
  }
 
+ static int CountSectorTags(const sector_t *self)
+ {
+	 return level.tagManager.CountSectorTags(self);
+ }
+
+ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, CountTags, CountSectorTags)
+ {
+	 PARAM_SELF_STRUCT_PROLOGUE(sector_t);
+	 ACTION_RETURN_INT(level.tagManager.CountSectorTags(self));
+ }
+
+ static int GetSectorTag(const sector_t *self, int index)
+ {
+	 return level.tagManager.GetSectorTag(self, index);
+ }
+
+ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, GetTag, GetSectorTag)
+ {
+	 PARAM_SELF_STRUCT_PROLOGUE(sector_t);
+	 PARAM_INT(index);
+	 ACTION_RETURN_INT(level.tagManager.GetSectorTag(self, index));
+ }
+
  static int Get3DFloorTexture(F3DFloor *self, int pos)
  {
  	 if ( pos )
@@ -1238,6 +1261,29 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, SetXOffset, SetXOffset)
  {
 	 PARAM_SELF_STRUCT_PROLOGUE(line_t);
 	 ACTION_RETURN_INT(LineIndex(self));
+ }
+
+ static int CountLineIDs(const line_t *self)
+ {
+	 return level.tagManager.CountLineIDs(self);
+ }
+
+ DEFINE_ACTION_FUNCTION_NATIVE(_Line, CountIDs, CountLineIDs)
+ {
+	 PARAM_SELF_STRUCT_PROLOGUE(line_t);
+	 ACTION_RETURN_INT(level.tagManager.CountLineIDs(self));
+ }
+
+ static int GetLineID(const line_t *self, int index)
+ {
+	 return level.tagManager.GetLineID(self, index);
+ }
+
+ DEFINE_ACTION_FUNCTION_NATIVE(_Line, GetID, GetLineID)
+ {
+	 PARAM_SELF_STRUCT_PROLOGUE(line_t);
+	 PARAM_INT(index);
+	 ACTION_RETURN_INT(level.tagManager.GetLineID(self, index));
  }
 
  //===========================================================================
@@ -1677,7 +1723,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, SetXOffset, SetXOffset)
  // This is needed to convert the strings to char pointers.
  static void ReplaceTextures(FLevelLocals *self, const FString &from, const FString &to, int flags)
  {
-	 self->ReplaceTextures(from, to, flags);
+	 self->ReplaceTextures(from.GetChars(), to.GetChars(), flags);
  }
 
 DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, ReplaceTextures, ReplaceTextures)
@@ -1686,7 +1732,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, ReplaceTextures, ReplaceTextures)
 	PARAM_STRING(from);
 	PARAM_STRING(to);
 	PARAM_INT(flags);
-	self->ReplaceTextures(from, to, flags);
+	self->ReplaceTextures(from.GetChars(), to.GetChars(), flags);
 	return 0;
 }
 
@@ -2051,7 +2097,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(DBaseStatusBar, Draw, SBar_Draw)
 
 static void SetMugshotState(DBaseStatusBar *self, const FString &statename, bool wait, bool reset)
 {
-	self->mugshot.SetState(statename, wait, reset);
+	self->mugshot.SetState(statename.GetChars(), wait, reset);
 }
 
 DEFINE_ACTION_FUNCTION_NATIVE(DBaseStatusBar, SetMugshotState, SetMugshotState)
@@ -2060,7 +2106,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(DBaseStatusBar, SetMugshotState, SetMugshotState)
 	PARAM_STRING(statename);
 	PARAM_BOOL(wait);
 	PARAM_BOOL(reset);
-	self->mugshot.SetState(statename, wait, reset);
+	self->mugshot.SetState(statename.GetChars(), wait, reset);
 	return 0;
 }
 
@@ -2155,7 +2201,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(DBaseStatusBar, ReceivedWeapon, ReceivedWeapon)
 
 static int GetMugshot(DBaseStatusBar *self, int accuracy, int stateflags, const FString &def_face)
 {
-	auto tex = self->mugshot.GetFace(self->CPlayer, def_face, accuracy, (FMugShot::StateFlags)stateflags);
+	auto tex = self->mugshot.GetFace(self->CPlayer, def_face.GetChars(), accuracy, (FMugShot::StateFlags)stateflags);
 	return (tex ? tex->GetID().GetIndex() : -1);
 }
 
@@ -2568,7 +2614,7 @@ DEFINE_ACTION_FUNCTION(DObject, S_ChangeMusic)
 	PARAM_INT(order);
 	PARAM_BOOL(looping);
 	PARAM_BOOL(force);
-	ACTION_RETURN_BOOL(S_ChangeMusic(music, order, looping, force));
+	ACTION_RETURN_BOOL(S_ChangeMusic(music.GetChars(), order, looping, force));
 }
 
 
@@ -2589,7 +2635,7 @@ DEFINE_ACTION_FUNCTION(_Console, MidPrint)
 	PARAM_STRING(text);
 	PARAM_BOOL(bold);
 
-	const char* txt = text[0] == '$' ? GStrings(&text[1]) : text.GetChars();
+	const char* txt = text[0] == '$' ? GStrings.GetString(&text[1]) : text.GetChars();
 	C_MidPrint(fnt, txt, bold);
 	return 0;
 }
@@ -2717,7 +2763,9 @@ DEFINE_FIELD_X(LevelInfo, level_info_t, sucktime)
 DEFINE_FIELD_X(LevelInfo, level_info_t, flags)
 DEFINE_FIELD_X(LevelInfo, level_info_t, flags2)
 DEFINE_FIELD_X(LevelInfo, level_info_t, flags3)
+DEFINE_FIELD_X(LevelInfo, level_info_t, vkdflags)
 DEFINE_FIELD_X(LevelInfo, level_info_t, Music)
+DEFINE_FIELD_X(LevelInfo, level_info_t, LightningSound)
 DEFINE_FIELD_X(LevelInfo, level_info_t, LevelName)
 DEFINE_FIELD_X(LevelInfo, level_info_t, AuthorName)
 DEFINE_FIELD_X(LevelInfo, level_info_t, musicorder)
@@ -2761,6 +2809,7 @@ DEFINE_FIELD(FLevelLocals, NextSecretMap)
 DEFINE_FIELD(FLevelLocals, F1Pic)
 DEFINE_FIELD(FLevelLocals, AuthorName)
 DEFINE_FIELD(FLevelLocals, maptype)
+DEFINE_FIELD(FLevelLocals, LightningSound)
 DEFINE_FIELD(FLevelLocals, Music)
 DEFINE_FIELD(FLevelLocals, musicorder)
 DEFINE_FIELD(FLevelLocals, skytexture1)
@@ -2805,8 +2854,8 @@ DEFINE_FIELD_BIT(FLevelLocals, flags2, infinite_flight, LEVEL2_INFINITE_FLIGHT)
 DEFINE_FIELD_BIT(FLevelLocals, flags2, no_dlg_freeze, LEVEL2_CONV_SINGLE_UNFREEZE)
 DEFINE_FIELD_BIT(FLevelLocals, flags2, keepfullinventory, LEVEL2_KEEPFULLINVENTORY)
 DEFINE_FIELD_BIT(FLevelLocals, flags3, removeitems, LEVEL3_REMOVEITEMS)
-DEFINE_FIELD_BIT(FLevelLocals, flags9, nousersave, LEVEL9_NOUSERSAVE)
-DEFINE_FIELD_BIT(FLevelLocals, flags9, noautomap, LEVEL9_NOAUTOMAP)
+DEFINE_FIELD_BIT(FLevelLocals, vkdflags, nousersave, VKDLEVELFLAG_NOUSERSAVE)
+DEFINE_FIELD_BIT(FLevelLocals, vkdflags, noautomap, VKDLEVELFLAG_NOAUTOMAP)
 
 DEFINE_FIELD_X(Sector, sector_t, floorplane)
 DEFINE_FIELD_X(Sector, sector_t, ceilingplane)
@@ -2817,7 +2866,7 @@ DEFINE_FIELD_X(Sector, sector_t, SoundTarget)
 DEFINE_FIELD_X(Sector, sector_t, special)
 DEFINE_FIELD_X(Sector, sector_t, lightlevel)
 DEFINE_FIELD_X(Sector, sector_t, seqType)
-DEFINE_FIELD_X(Sector, sector_t, sky)
+DEFINE_FIELD_NAMED_X(Sector, sector_t, skytransfer, sky)
 DEFINE_FIELD_X(Sector, sector_t, SeqName)
 DEFINE_FIELD_X(Sector, sector_t, centerspot)
 DEFINE_FIELD_X(Sector, sector_t, validcount)

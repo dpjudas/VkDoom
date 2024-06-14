@@ -64,10 +64,12 @@ void Net_CheckLastReceived(int);
 
 // [RH] Functions for making and using special "ticcmds"
 void Net_NewMakeTic ();
-void Net_WriteByte (uint8_t);
-void Net_WriteWord (short);
-void Net_WriteLong (int);
+void Net_WriteInt8 (uint8_t);
+void Net_WriteInt16 (int16_t);
+void Net_WriteInt32 (int32_t);
+void Net_WriteInt64(int64_t);
 void Net_WriteFloat (float);
+void Net_WriteDouble(double);
 void Net_WriteString (const char *);
 void Net_WriteBytes (const uint8_t *, int len);
 
@@ -92,6 +94,29 @@ extern	int 			nodeforplayer[MAXPLAYERS];
 
 extern	ticcmd_t		netcmds[MAXPLAYERS][BACKUPTICS];
 extern	int 			ticdup;
+
+class player_t;
+class DObject;
+
+class NetworkEntityManager
+{
+private:
+	inline static TArray<DObject*> s_netEntities = {};
+	inline static TArray<uint32_t> s_openNetIDs = {};
+
+public:
+	NetworkEntityManager() = delete;
+
+	inline static uint32_t WorldNetID = 0u;
+	inline static uint32_t ClientNetIDStart = 1u;
+	inline static uint32_t NetIDStart = MAXPLAYERS + 1u;
+
+	static void InitializeNetworkEntities();
+	static void SetClientNetworkEntity(player_t* const client);
+	static void AddNetworkEntity(DObject* const ent);
+	static void RemoveNetworkEntity(DObject* const ent);
+	static DObject* GetNetworkEntity(const uint32_t id);
+};
 
 // [RH]
 // New generic packet structure:

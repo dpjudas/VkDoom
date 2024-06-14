@@ -41,10 +41,10 @@ FModelVertexBuffer::FModelVertexBuffer(bool needindex, bool singleframe)
 {
 	static const FVertexBufferAttribute format[] =
 	{
-		{ 0, VATTR_VERTEX, VFmt_Float3, (int)myoffsetof(FModelVertex, x) },
+		{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(FModelVertex, x) },
 		{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(FModelVertex, u) },
 		{ 0, VATTR_NORMAL, VFmt_Packed_A2R10G10B10, (int)myoffsetof(FModelVertex, packedNormal) },
-		{ 0, VATTR_LIGHTMAP, VFmt_Float3, (int)myoffsetof(FModelVertex, lu) },
+		{ 0, VATTR_LIGHTMAP, VFmt_Float2, (int)myoffsetof(FModelVertex, lu) },
 		{ 0, VATTR_BONESELECTOR, VFmt_Byte4_UInt, (int)myoffsetof(FModelVertex, boneselector[0])},
 		{ 0, VATTR_BONEWEIGHT, VFmt_Byte4, (int)myoffsetof(FModelVertex, boneweight[0]) },
 		{ 1, VATTR_VERTEX2, VFmt_Float3, (int)myoffsetof(FModelVertex, x) },

@@ -88,7 +88,7 @@ public:
 	// This vertex type is hardware independent and needs conversion when put into a buffer.
 	struct TwoDVertex
 	{
-		float x, y, z;
+		float x, y, z, lindex;
 		float u, v;
 		PalEntry color0;
 
@@ -100,6 +100,7 @@ public:
 			u = 0;
 			v = 0;
 			color0 = 0;
+			lindex = -1.0f;
 		}
 
 		void Set(double xx, double yy, double zz, double uu, double vv, PalEntry col)
@@ -110,6 +111,7 @@ public:
 			u = (float)uu;
 			v = (float)vv;
 			color0 = col;
+			lindex = -1.0f;
 		}
 
 	};
@@ -131,7 +133,7 @@ public:
 		int mIndexCount;
 
 		FGameTexture *mTexture;
-		int mTranslationId;
+		FTranslationID mTranslationId;
 		PalEntry mSpecialColormap[2];
 		int mScissor[4];
 		int mDesaturate;
@@ -192,7 +194,7 @@ public:
 	TArray<TwoDVertex> mVertices;
 	TArray<RenderCommand> mData;
 	int Width, Height;
-	bool isIn2D;
+	bool isIn2D = false;
 	bool locked = false;	// prevents clearing of the data so it can be reused multiple times (useful for screen fades)
 	float screenFade = 1.f;
 	DVector2 offset;
@@ -216,8 +218,8 @@ public:
 	void AddPoly(FGameTexture *texture, FVector2 *points, int npoints,
 		double originx, double originy, double scalex, double scaley,
 		DAngle rotation, const FColormap &colormap, PalEntry flatcolor, double lightlevel, uint32_t *indices, size_t indexcount);
-	void AddPoly(FGameTexture* img, FVector4 *vt, size_t vtcount, const unsigned int *ind, size_t idxcount, int translation, PalEntry color, FRenderStyle style, const IntRect* clip);
-	void FillPolygon(int* rx1, int* ry1, int* xb1, int32_t npoints, int picnum, int palette, int shade, int props, const FVector2& xtex, const FVector2& ytex, const FVector2& otex,
+	void AddPoly(FGameTexture* img, FVector4 *vt, size_t vtcount, const unsigned int *ind, size_t idxcount, FTranslationID translation, PalEntry color, FRenderStyle style, const IntRect* clip);
+	void FillPolygon(int* rx1, int* ry1, int* xb1, int32_t npoints, int pic, int palette, int shade, int props, const FVector2& xtex, const FVector2& ytex, const FVector2& otex,
 		int clipx1, int clipy1, int clipx2, int clipy2);
 	void AddFlatFill(int left, int top, int right, int bottom, FGameTexture *src, int local_origin = false, double flatscale = 1.0, PalEntry color = 0xffffffff, ERenderStyle rs = STYLE_Normal);
 
@@ -317,7 +319,7 @@ public:
 
 	RefCountedPtr<DShape2DBufferInfo> bufferInfo;
 
-	DrawParms* lastParms;
+	DrawParms* lastParms = nullptr;
 
 	void OnDestroy() override;
 };

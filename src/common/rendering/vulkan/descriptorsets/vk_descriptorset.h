@@ -2,6 +2,7 @@
 #pragma once
 
 #include "zvulkan/vulkanobjects.h"
+#include "zvulkan/vulkanbuilders.h"
 #include <list>
 #include "tarray.h"
 
@@ -20,51 +21,77 @@ public:
 	void Deinit();
 	void BeginFrame();
 	void ResetHWTextureSets();
+	void UpdateLevelMeshSet();
 
-	VulkanDescriptorSetLayout* GetRSBufferSetLayout() { return RSBufferSetLayout.get(); }
-	VulkanDescriptorSetLayout* GetFixedSetLayout() { return FixedSetLayout.get(); }
-	VulkanDescriptorSetLayout* GetTextureSetLayout(int numLayers);
+	VulkanDescriptorSetLayout* GetLevelMeshLayout() { return LevelMesh.Layout.get(); }
+	VulkanDescriptorSetLayout* GetRSBufferLayout() { return RSBuffer.Layout.get(); }
+	VulkanDescriptorSetLayout* GetFixedLayout() { return Fixed.Layout.get(); }
+	VulkanDescriptorSetLayout* GetBindlessLayout() { return Bindless.Layout.get(); }
 
-	VulkanDescriptorSet* GetRSBufferDescriptorSet(int threadIndex) { return RSBufferSets[threadIndex].get(); }
-	VulkanDescriptorSet* GetFixedDescriptorSet() { return FixedSet.get(); }
-	VulkanDescriptorSet* GetNullTextureDescriptorSet();
-
-	std::unique_ptr<VulkanDescriptorSet> AllocateTextureDescriptorSet(int numLayers);
+	VulkanDescriptorSet* GetLevelMeshSet() { return LevelMesh.Set.get(); }
+	VulkanDescriptorSet* GetRSBufferSet() { return RSBuffer.Set.get(); }
+	VulkanDescriptorSet* GetFixedSet() { return Fixed.Set.get(); }
+	VulkanDescriptorSet* GetBindlessSet() { return Bindless.Set.get(); }
 
 	VulkanDescriptorSet* GetInput(VkPPRenderPassSetup* passSetup, const TArray<PPTextureInput>& textures, bool bindShadowMapBuffers);
 
 	void AddMaterial(VkMaterial* texture);
 	void RemoveMaterial(VkMaterial* texture);
 
+	void UpdateBindlessDescriptorSet();
+	int AddBindlessTextureIndex(VulkanImageView* imageview, VulkanSampler* sampler);
+
 private:
-	void CreateRSBufferSetLayout();
-	void CreateFixedSetLayout();
+	void CreateLevelMeshLayout();
+	void CreateRSBufferLayout();
+	void CreateFixedLayout();
+	void CreateLevelMeshPool();
 	void CreateRSBufferPool();
-	void CreateFixedSetPool();
+	void CreateFixedPool();
+	void CreateBindlessSet();
 	void UpdateFixedSet();
 
-	std::unique_ptr<VulkanDescriptorSet> AllocatePPDescriptorSet(VulkanDescriptorSetLayout* layout);
+	std::unique_ptr<VulkanDescriptorSet> AllocatePPSet(VulkanDescriptorSetLayout* layout);
 
 	VulkanRenderDevice* fb = nullptr;
 
-	std::unique_ptr<VulkanDescriptorSetLayout> RSBufferSetLayout;
-	std::unique_ptr<VulkanDescriptorSetLayout> FixedSetLayout;
-	std::vector<std::unique_ptr<VulkanDescriptorSetLayout>> TextureSetLayouts;
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
+		std::unique_ptr<VulkanDescriptorPool> Pool;
+		std::unique_ptr<VulkanDescriptorSet> Set;
+	} LevelMesh;
 
-	std::unique_ptr<VulkanDescriptorPool> RSBufferDescriptorPool;
-	std::unique_ptr<VulkanDescriptorPool> FixedDescriptorPool;
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
+		std::unique_ptr<VulkanDescriptorPool> Pool;
+		std::unique_ptr<VulkanDescriptorSet> Set;
+	} RSBuffer;
 
-	std::unique_ptr<VulkanDescriptorPool> PPDescriptorPool;
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
+		std::unique_ptr<VulkanDescriptorPool> Pool;
+		std::unique_ptr<VulkanDescriptorSet> Set;
+	} Fixed;
 
-	int TextureDescriptorSetsLeft = 0;
-	int TextureDescriptorsLeft = 0;
-	std::vector<std::unique_ptr<VulkanDescriptorPool>> TextureDescriptorPools;
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorPool> Pool;
+		std::unique_ptr<VulkanDescriptorSet> Set;
+		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
+		WriteDescriptors Writer;
+		int NextIndex = 0;
+	} Bindless;
 
-	std::vector<std::unique_ptr<VulkanDescriptorSet>> RSBufferSets;
-	std::unique_ptr<VulkanDescriptorSet> FixedSet;
-	std::unique_ptr<VulkanDescriptorSet> NullTextureDescriptorSet;
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorPool> Pool;
+	} Postprocess;
 
 	std::list<VkMaterial*> Materials;
 
-	static const int maxSets = 100;
+	static const int MaxFixedSets = 100;
+	static const int MaxBindlessTextures = 16536;
 };

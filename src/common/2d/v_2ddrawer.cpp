@@ -68,7 +68,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(DShape2DTransform, Clear, Shape2DTransform_Clear)
 
 static void Shape2DTransform_Rotate(DShape2DTransform* self, double angle)
 {
-	self->transform = DMatrix3x3::Rotate2D(DEG2RAD(angle)) * self->transform;
+	self->transform = DMatrix3x3::Rotate2D(angle) * self->transform;
 }
 
 DEFINE_ACTION_FUNCTION_NATIVE(DShape2DTransform, Rotate, Shape2DTransform_Rotate)
@@ -443,7 +443,7 @@ void F2DDrawer::AddTexture(FGameTexture* img, DrawParms& parms)
 	if (img->isWarped()) dg.mFlags |= DTF_Wrap;
 	if (parms.indexed) dg.mFlags |= DTF_Indexed;
 
-	dg.mTranslationId = 0;
+	dg.mTranslationId = NO_TRANSLATION;
 	SetStyle(img, parms, vertexcolor, dg);
 	if (parms.indexed)
 	{
@@ -451,7 +451,7 @@ void F2DDrawer::AddTexture(FGameTexture* img, DrawParms& parms)
 		vertexcolor = 0xffffffff;
 	}
 
-	if (!img->isHardwareCanvas() && parms.TranslationId != -1)
+	if (!img->isHardwareCanvas() && parms.TranslationId != INVALID_TRANSLATION)
 	{
 		dg.mTranslationId = parms.TranslationId;
 	}
@@ -607,7 +607,7 @@ void F2DDrawer::AddShape(FGameTexture* img, DShape2D* shape, DrawParms& parms)
 	dg.mFlags |= DTF_Wrap;
 	dg.mTexture = img;
 
-	dg.mTranslationId = 0;
+	dg.mTranslationId = NO_TRANSLATION;
 	SetStyle(img, parms, vertexcolor, dg);
 
 	if (shape->lastParms == nullptr) {
@@ -624,7 +624,7 @@ void F2DDrawer::AddShape(FGameTexture* img, DShape2D* shape, DrawParms& parms)
 		shape->lastParms = new DrawParms(parms);
 	}
 
-	if (!(img != nullptr && img->isHardwareCanvas()) && parms.TranslationId != -1)
+	if (!(img != nullptr && img->isHardwareCanvas()) && parms.TranslationId != INVALID_TRANSLATION)
 		dg.mTranslationId = parms.TranslationId;
 
 	auto osave = offset;
@@ -796,7 +796,7 @@ void F2DDrawer::AddPoly(FGameTexture *texture, FVector2 *points, int npoints,
 //
 //==========================================================================
 
-void F2DDrawer::AddPoly(FGameTexture* img, FVector4* vt, size_t vtcount, const unsigned int* ind, size_t idxcount, int translation, PalEntry color, FRenderStyle style, const IntRect* clip)
+void F2DDrawer::AddPoly(FGameTexture* img, FVector4* vt, size_t vtcount, const unsigned int* ind, size_t idxcount, FTranslationID translation, PalEntry color, FRenderStyle style, const IntRect* clip)
 {
 	RenderCommand dg;
 
@@ -1217,7 +1217,7 @@ void F2DDrawer::OnFrameDone()
 F2DVertexBuffer::F2DVertexBuffer()
 {
 	static const FVertexBufferAttribute format[] = {
-		{ 0, VATTR_VERTEX, VFmt_Float3, (int)myoffsetof(F2DDrawer::TwoDVertex, x) },
+		{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(F2DDrawer::TwoDVertex, x) },
 		{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(F2DDrawer::TwoDVertex, u) },
 		{ 0, VATTR_COLOR, VFmt_Byte4, (int)myoffsetof(F2DDrawer::TwoDVertex, color0) }
 	};
@@ -1248,7 +1248,7 @@ public:
 
 FCanvas* GetTextureCanvas(const FString& texturename)
 {
-	FTextureID textureid = TexMan.CheckForTexture(texturename, ETextureType::Wall, FTextureManager::TEXMAN_Overridable);
+	FTextureID textureid = TexMan.CheckForTexture(texturename.GetChars(), ETextureType::Wall, FTextureManager::TEXMAN_Overridable);
 	if (textureid.isValid())
 	{
 		// Only proceed if the texture is a canvas texture.

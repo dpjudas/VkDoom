@@ -153,7 +153,7 @@ class AnmPlayer : public MoviePlayer
 {
 	// This doesn't need its own class type
 	anim_t anim;
-	TArray<uint8_t> buffer;
+	FileSys::FileData buffer;
 	int numframes = 0;
 	int curframe = 1;
 	int frametime = 0;
@@ -171,9 +171,10 @@ public:
 		memcpy(frameTicks, frameticks, 3 * sizeof(int));
 		flags = flags_;
 		buffer = fr.ReadPadded(1);
+		if (buffer.size() < 4) return;
 		fr.Close();
 
-		if (ANIM_LoadAnim(&anim, buffer.Data(), buffer.Size() - 1) < 0)
+		if (ANIM_LoadAnim(&anim, buffer.bytes(), buffer.size() - 1) < 0)
 		{
 			return;
 		}
@@ -231,7 +232,6 @@ public:
 
 	~AnmPlayer()
 	{
-		buffer.Reset();
 		animtex.Clean();
 	}
 
@@ -322,11 +322,11 @@ class VpxPlayer : public MoviePlayer
 	unsigned width, height;
 	TArray<uint8_t> Pic;
 	TArray<uint8_t> readBuf;
+	vpx_codec_iface_t *iface;
 	vpx_codec_ctx_t codec{};
 	vpx_codec_iter_t iter = nullptr;
 
-	uint32_t convnumer;
-	uint32_t convdenom;
+	double convrate;
 
 	uint64_t nsecsperframe;
 	uint64_t nextframetime;
@@ -362,10 +362,8 @@ public:
 
 		Pic.Resize(width * height * 4);
 
-
-		// Todo: Support VP9 as well?
 		vpx_codec_dec_cfg_t cfg = { 1, width, height };
-		if (vpx_codec_dec_init(&codec, &vpx_codec_vp8_dx_algo, &cfg, 0))
+		if (vpx_codec_dec_init(&codec, iface, &cfg, 0))
 		{
 			error.Format("Error initializing VPX codec.\n");
 			failed = true;
@@ -388,7 +386,16 @@ public:
 		uint16_t length = fr.ReadUInt16();
 		if (length != 32) return false;
 		fr.Read(&magic, 4);
-		if (magic != MAKE_ID('V', 'P', '8', '0')) return false;
+
+		switch (magic)
+		{
+			case MAKE_ID('V', 'P', '8', '0'):
+				iface = &vpx_codec_vp8_dx_algo; break;
+			case MAKE_ID('V', 'P', '9', '0'):
+				iface = &vpx_codec_vp9_dx_algo; break;
+			default:
+				return false;
+		}
 
 		width = fr.ReadUInt16();
 		height = fr.ReadUInt16();
@@ -398,15 +405,20 @@ public:
 		if (numframes == 0) return false;
 		fr.Seek(4, FileReader::SeekCur);
 
-		if (fpsdenominator > 1000 || fpsnumerator == 0 || fpsdenominator == 0)
+		if (fpsnumerator == 0 || fpsdenominator == 0)
 		{
 			// default to 30 fps if the header does not provide useful info.
 			fpsdenominator = 30;
 			fpsnumerator = 1;
 		}
 
-		convnumer = 120 * fpsnumerator;
-		convdenom = fpsdenominator * origframedelay;
+		if (origframedelay < 1)
+			convrate = 0.0;
+		else
+		{
+			convrate = 120.0 * double(fpsnumerator);
+			convrate /= double(fpsdenominator) * double(origframedelay);
+		}
 
 		nsecsperframe = int64_t(fpsnumerator) * 1'000'000'000 / fpsdenominator;
 		nextframetime = 0;
@@ -475,32 +487,6 @@ public:
 		dest[2] = v;
 	}
 
-	bool CreateNextFrame()
-	{
-		auto img = GetFrameData();
-		if (!img) return false;
-		uint8_t const* const yplane = img->planes[VPX_PLANE_Y];
-		uint8_t const* const uplane = img->planes[VPX_PLANE_U];
-		uint8_t const* const vplane = img->planes[VPX_PLANE_V];
-
-		const int ystride = img->stride[VPX_PLANE_Y];
-		const int ustride = img->stride[VPX_PLANE_U];
-		const int vstride = img->stride[VPX_PLANE_V];
-
-		for (unsigned int y = 0; y < height; y++)
-		{
-			for (unsigned int x = 0; x < width; x++)
-			{
-				uint8_t u = uplane[ustride * (y >> 1) + (x >> 1)];
-				uint8_t v = vplane[vstride * (y >> 1) + (x >> 1)];
-
-				SetPixel(&Pic[(x + y * width) << 2], yplane[ystride * y + x], u, v);
-			}
-		}
-
-		return true;
-	}
-
 	//---------------------------------------------------------------------------
 	//
 	// 
@@ -515,7 +501,7 @@ public:
 		}
 		else if (soundtrack >= 0)
 		{
-			FileReader reader = fileSystem.OpenFileReader(soundtrack);
+			FileReader reader = fileSystem.ReopenFileReader(soundtrack);
 			if (reader.isOpen())
 			{
 				MusicStream = ZMusic_OpenSong(GetMusicReader(reader), MDEV_DEFAULT, nullptr);
@@ -525,7 +511,7 @@ public:
 				Printf(PRINT_BOLD, "Failed to decode %s\n", fileSystem.GetFileFullName(soundtrack, false));
 			}
 		}
-		animtex.SetSize(AnimTexture::YUV, width, height);
+		animtex.SetSize(AnimTexture::VPX, width, height);
 	}
 
 	//---------------------------------------------------------------------------
@@ -533,6 +519,12 @@ public:
 	// 
 	//
 	//---------------------------------------------------------------------------
+
+	bool FormatSupported(vpx_img_fmt_t fmt)
+	{
+		return fmt == VPX_IMG_FMT_I420 || fmt == VPX_IMG_FMT_I444 || fmt == VPX_IMG_FMT_I422 || fmt == VPX_IMG_FMT_I440;
+	}
+
 
 	bool Frame(uint64_t clock) override
 	{
@@ -562,22 +554,38 @@ public:
 		bool stop = false;
 		if (clock >= nextframetime)
 		{
+
+
 			nextframetime += nsecsperframe;
 
-			if (!CreateNextFrame())
-			{
-				Printf(PRINT_BOLD, "Failed reading next frame\n");
-				stop = true;
+			while(clock >= nextframetime)
+			{ // frameskipping
+				auto img = GetFrameData();
+				framenum++;
+				nextframetime += nsecsperframe;
+				if (framenum >= numframes || !img) break;
 			}
-			else
+
+			if (framenum < numframes)
 			{
-				animtex.SetFrame(nullptr, Pic.Data());
+				auto img = GetFrameData();
+
+				if (!img || !FormatSupported(img->fmt))
+				{
+					Printf(PRINT_BOLD, "Failed reading next frame\n");
+					stop = true;
+				}
+				else
+				{
+					animtex.SetFrame(nullptr, img);
+				}
+
+				framenum++;
 			}
-			framenum++;
 			if (framenum >= numframes) stop = true;
 
 			bool nostopsound = (flags & NOSOUNDCUTOFF);
-			int soundframe = convdenom ? Scale(framenum, convnumer, convdenom) : framenum;
+			int soundframe = (convrate > 0.0) ? int(convrate * framenum) : framenum;
 			if (soundframe > lastsoundframe)
 			{
 				if (soundtrack == -1)
@@ -794,7 +802,7 @@ public:
 					if (sound == INVALID_SOUND)
 						soundEngine->StopAllChannels();
 					else
-						soundEngine->StartSound(SOURCE_None, nullptr, nullptr, CHAN_AUTO, nostopsound ? CHANF_UI : CHANF_NONE, sound, 1.f, ATTN_NONE);
+						soundEngine->StartSound(SOURCE_None, nullptr, nullptr, CHAN_AUTO, nostopsound ? CHANF_UI | CHANF_FORCE : CHANF_FORCE, sound, 1.f, ATTN_NONE);
 				}
 			}
 		}
@@ -838,10 +846,10 @@ MoviePlayer* OpenMovie(const char* filename, TArray<int>& ans, const int* framet
 	{
 		auto fn = StripExtension(filename);
 		DefaultExtension(fn, ".ivf");
-		fr = fileSystem.OpenFileReader(fn);
+		fr = fileSystem.ReopenFileReader(fn.GetChars());
 	}
 
-	if (!fr.isOpen()) fr = fileSystem.OpenFileReader(filename);
+	if (!fr.isOpen()) fr = fileSystem.ReopenFileReader(filename);
 	if (!fr.isOpen())
 	{
 		size_t nLen = strlen(filename);
@@ -849,7 +857,7 @@ MoviePlayer* OpenMovie(const char* filename, TArray<int>& ans, const int* framet
 		if (nLen >= 3 && isalpha(filename[0]) && filename[1] == ':' && filename[2] == '/')
 		{
 			filename += 3;
-			fr = fileSystem.OpenFileReader(filename);
+			fr = fileSystem.ReopenFileReader(filename);
 		}
 		if (!fr.isOpen())
 		{
@@ -895,7 +903,7 @@ MoviePlayer* OpenMovie(const char* filename, TArray<int>& ans, const int* framet
 		}
 		return anm;
 	}
-	else if (!memcmp(id, "DKIF\0\0 \0VP80", 12))
+	else if (!memcmp(id, "DKIF\0\0 \0VP80", 12) || !memcmp(id, "DKIF\0\0 \0VP90", 12))
 	{
 		auto anm = new VpxPlayer(fr, ans, frameticks ? frameticks[1] : 0, flags, error);
 		if (!anm->isvalid())
@@ -906,7 +914,7 @@ MoviePlayer* OpenMovie(const char* filename, TArray<int>& ans, const int* framet
 		// VPX files have no sound track, so look for a same-named sound file with a known extension as the soundtrack to be played.
 		static const char* knownSoundExts[] = { "OGG",	"FLAC",	"MP3",	"OPUS", "WAV" };
 		FString name = StripExtension(filename);
-		anm->soundtrack = fileSystem.FindFileWithExtensions(name, knownSoundExts, countof(knownSoundExts));
+		anm->soundtrack = fileSystem.FindFileWithExtensions(name.GetChars(), knownSoundExts, countof(knownSoundExts));
 		return anm;
 	}
 	// add more formats here.
@@ -937,7 +945,7 @@ DEFINE_ACTION_FUNCTION(_MoviePlayer, Create)
 	if (firstframetime == -1) firstframetime = frametime;
 	if (lastframetime == -1) lastframetime = frametime;
 	int frametimes[] = { firstframetime, frametime, lastframetime };
-	auto movie = OpenMovie(filename, *sndinf, frametime == -1? nullptr : frametimes, flags, error);
+	auto movie = OpenMovie(filename.GetChars(), *sndinf, frametime == -1? nullptr : frametimes, flags, error);
 	if (!movie)
 	{
 		Printf(TEXTCOLOR_YELLOW "%s", error.GetChars());

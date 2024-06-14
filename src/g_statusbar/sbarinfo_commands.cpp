@@ -692,7 +692,7 @@ class CommandDrawString : public SBarInfoCommand
 				auto lines = V_BreakLines(font, breakWidth, str.GetChars());
 				for(unsigned i = 0; i < lines.Size();i++)
 				{
-					statusBar->DrawString(font, lines[i].Text, x, y+i*(font->GetHeight()+4), block->XOffset(), block->YOffset(), block->Alpha(), block->FullScreenOffsets(), translation, spacing, shadow, shadowX, shadowY);
+					statusBar->DrawString(font, lines[i].Text.GetChars(), x, y+i*(font->GetHeight()+4), block->XOffset(), block->YOffset(), block->Alpha(), block->FullScreenOffsets(), translation, spacing, shadow, shadowX, shadowY);
 				}
 			}
 			else
@@ -824,10 +824,7 @@ class CommandDrawString : public SBarInfoCommand
 			{
 				strValue = CONSTANT;
 				sc.MustGetToken(TK_StringConst);
-				if(sc.String[0] == '$')
-					str = GStrings[sc.String+1];
-				else
-					str = sc.String;
+				label = sc.String;
 			}
 		}
 		void	Reset()
@@ -923,9 +920,10 @@ class CommandDrawString : public SBarInfoCommand
 					break;
 				}
 				case LOGTEXT:
-					str = GStrings(statusBar->CPlayer->LogText);
+					str = GStrings.GetString(statusBar->CPlayer->LogText);
 					break;
 				default:
+					str = GStrings.localize(label.GetChars());
 					break;
 			}
 		}
@@ -993,6 +991,7 @@ class CommandDrawString : public SBarInfoCommand
 		StringValueType		strValue;
 		int					valueArgument;
 		FString				str;
+		FString				label;
 		StringAlignment		alignment;
 
 	private:
@@ -1183,7 +1182,7 @@ class CommandDrawNumber : public CommandDrawString
 
 						// We have a name, but make sure it exists. If not, send notification so modders
 						// are aware of the situation.
-						FBaseCVar *CVar = FindCVar(cvarName, nullptr);
+						FBaseCVar *CVar = FindCVar(cvarName.GetChars(), nullptr);
 
 						if (CVar != nullptr)
 						{
@@ -1484,7 +1483,7 @@ class CommandDrawNumber : public CommandDrawString
 					break;
 				case INTCVAR:
 				{
-					FBaseCVar *CVar = GetCVar(int(statusBar->CPlayer - players), cvarName);
+					FBaseCVar *CVar = GetCVar(int(statusBar->CPlayer - players), cvarName.GetChars());
 					if (CVar != nullptr)
 					{
 						ECVarType cvartype = CVar->GetRealType();
@@ -1618,7 +1617,7 @@ class CommandDrawMugShot : public SBarInfoCommand
 
 		void	Draw(const SBarInfoMainBlock *block, const DSBarInfo *statusBar)
 		{
-			FGameTexture *face = statusBar->wrapper->mugshot.GetFace(statusBar->CPlayer, defaultFace, accuracy, stateFlags);
+			FGameTexture *face = statusBar->wrapper->mugshot.GetFace(statusBar->CPlayer, defaultFace.GetChars(), accuracy, stateFlags);
 			if (face != NULL)
 				statusBar->DrawGraphic(face, x, y, block->XOffset(), block->YOffset(), block->Alpha(), block->FullScreenOffsets());
 		}
@@ -2954,7 +2953,7 @@ class CommandPlayerClass : public SBarInfoCommandFlowControl
 				bool foundClass = false;
 				for(unsigned int c = 0;c < PlayerClasses.Size();c++)
 				{
-					if(stricmp(sc.String, PlayerClasses[c].Type->GetDisplayName()) == 0)
+					if(stricmp(sc.String, PlayerClasses[c].Type->GetDisplayName().GetChars()) == 0)
 					{
 						foundClass = true;
 						classes.Push(PlayerClasses[c].Type);
@@ -3499,7 +3498,7 @@ class CommandIfCVarInt : public SBarInfoNegatableFlowControl
 			}
 
 			cvarname = sc.String;
-			cvar = FindCVar(cvarname, nullptr);
+			cvar = FindCVar(cvarname.GetChars(), nullptr);
 
 			if (cvar != nullptr)
 			{
@@ -3536,7 +3535,7 @@ class CommandIfCVarInt : public SBarInfoNegatableFlowControl
 			SBarInfoNegatableFlowControl::Tick(block, statusBar, hudChanged);
 
 			bool result = false;
-			cvar = GetCVar(int(statusBar->CPlayer - players), cvarname);
+			cvar = GetCVar(int(statusBar->CPlayer - players), cvarname.GetChars());
 
 			if (cvar != nullptr)
 			{

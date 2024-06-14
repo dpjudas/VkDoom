@@ -35,8 +35,9 @@
 
 bool gameisdead;
 
-#ifdef _WIN32
 #include <cstdarg>
+
+#ifdef _WIN32
 #include <windows.h>
 #include "zstring.h"
 void I_DebugPrint(const char *cp)
@@ -60,7 +61,7 @@ void I_DebugPrintf(const char *fmt,...)
 
 		va_end(args);
 
-		auto wstr = WideString(s);
+		auto wstr = WideString(s.GetChars());
 		OutputDebugStringW(wstr.c_str());
 	}
 }

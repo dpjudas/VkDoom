@@ -208,26 +208,11 @@ DHUDMessage::DHUDMessage (FFont *font, const char *text, float x, float y, int h
 
 	TextColor = textColor;
 	State = 0;
-	SourceText = copystring (text);
+	SourceText = text;
 	VisibilityFlags = 0;
 	Style = STYLE_Translucent;
 	Alpha = 1.;
-	ResetText (SourceText);
-}
-
-//============================================================================
-//
-// DHUDMessage Destructor
-//
-//============================================================================
-
-void DHUDMessage::OnDestroy()
-{
-	if (SourceText != NULL)
-	{
-		delete[] SourceText;
-		SourceText = nullptr;
-	}
+	ResetText (SourceText.GetChars());
 }
 
 //============================================================================
@@ -263,7 +248,7 @@ void DHUDMessage::Serialize(FSerializer &arc)
 
 	if (arc.isReading())
 	{
-		ResetText(SourceText);
+		ResetText(SourceText.GetChars());
 	}
 }
 
@@ -277,7 +262,7 @@ void DHUDMessage::ScreenSizeChanged ()
 {
 	if (HUDWidth == 0)
 	{
-		ResetText (SourceText);
+		ResetText (SourceText.GetChars());
 	}
 }
 
@@ -493,7 +478,7 @@ void DHUDMessage::DoDraw (int linenum, int x, int y, bool clean, int hudheight)
 	if (hudheight == 0)
 	{
 		int scale = active_con_scaletext(twod);
-		DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+		DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 			DTA_VirtualWidth, twod->GetWidth() / scale,
 			DTA_VirtualHeight, twod->GetHeight() / scale,
 			DTA_Alpha, Alpha,
@@ -503,7 +488,7 @@ void DHUDMessage::DoDraw (int linenum, int x, int y, bool clean, int hudheight)
 	}
 	else
 	{
-		DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+		DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 			DTA_VirtualWidth, HUDWidth,
 			DTA_VirtualHeight, hudheight,
 			DTA_ClipLeft, ClipLeft,
@@ -586,7 +571,7 @@ void DHUDMessageFadeOut::DoDraw (int linenum, int x, int y, bool clean, int hudh
 		if (hudheight == 0)
 		{
 			int scale = active_con_scaletext(twod);
-			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 				DTA_VirtualWidth, twod->GetWidth() / scale,
 				DTA_VirtualHeight, twod->GetHeight() / scale,
 				DTA_Alpha, trans,
@@ -596,7 +581,7 @@ void DHUDMessageFadeOut::DoDraw (int linenum, int x, int y, bool clean, int hudh
 		}
 		else
 		{
-			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 				DTA_VirtualWidth, HUDWidth,
 				DTA_VirtualHeight, hudheight,
 				DTA_ClipLeft, ClipLeft,
@@ -675,7 +660,7 @@ void DHUDMessageFadeInOut::DoDraw (int linenum, int x, int y, bool clean, int hu
 		if (hudheight == 0)
 		{
 			int scale = active_con_scaletext(twod);
-			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 				DTA_VirtualWidth, twod->GetWidth() / scale,
 				DTA_VirtualHeight, twod->GetHeight() / scale,
 				DTA_Alpha, trans,
@@ -685,7 +670,7 @@ void DHUDMessageFadeInOut::DoDraw (int linenum, int x, int y, bool clean, int hu
 		}
 		else
 		{
-			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+			DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 				DTA_VirtualWidth, HUDWidth,
 				DTA_VirtualHeight, hudheight,
 				DTA_ClipLeft, ClipLeft,
@@ -859,7 +844,7 @@ void DHUDMessageTypeOnFadeOut::DoDraw (int linenum, int x, int y, bool clean, in
 			if (hudheight == 0)
 			{
 				int scale = active_con_scaletext(twod);
-				DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+				DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 					DTA_VirtualWidth, twod->GetWidth() / scale,
 					DTA_VirtualHeight, twod->GetHeight() / scale,
 					DTA_KeepRatio, true,
@@ -870,7 +855,7 @@ void DHUDMessageTypeOnFadeOut::DoDraw (int linenum, int x, int y, bool clean, in
 			}
 			else
 			{
-				DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text,
+				DrawText(twod, Font, TextColor, x, y, Lines[linenum].Text.GetChars(),
 					DTA_VirtualWidth, HUDWidth,
 					DTA_VirtualHeight, hudheight,
 					DTA_ClipLeft, ClipLeft,

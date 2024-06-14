@@ -36,8 +36,7 @@
 #ifndef __BITMAP_H__
 #define __BITMAP_H__
 
-#include "basics.h"
-
+#include <cstring>
 #include "palentry.h"
 
 struct FCopyInfo;
@@ -110,7 +109,7 @@ public:
 
 	FBitmap(const FBitmap &other) = delete;	// disallow because in nearly all cases this creates an unwanted copy.
 
-	FBitmap(FBitmap &&other)
+	FBitmap(FBitmap &&other) noexcept
 	{
 		data = other.data;
 		Pitch = other.Pitch;
@@ -124,7 +123,7 @@ public:
 
 	FBitmap &operator=(const FBitmap &other) = delete;	// disallow because in nearly all cases this creates an unwanted copy. Use Copy instead.
 
-	FBitmap &operator=(FBitmap &&other)
+	FBitmap &operator=(FBitmap &&other) noexcept
 	{
 		if (data != nullptr && FreeBuffer) delete[] data;
 		data = other.data;
@@ -254,6 +253,8 @@ public:
 		CopyPixelDataRGB(originx, originy, src.GetPixels(), src.GetWidth(), src.GetHeight(), 4, src.GetWidth()*4, 0, CF_BGRA, inf);
 	}
 
+
+	friend class FTexture;
 };
 
 bool ClipCopyPixelRect(const FClipRect *cr, int &originx, int &originy,
@@ -320,9 +321,9 @@ struct cCMYK
 
 struct cYCbCr
 {
-	static __forceinline unsigned char R(const unsigned char * p) { return clamp((int)(p[0] + 1.40200 * (int(p[2]) - 0x80)), 0, 255); }
-	static __forceinline unsigned char G(const unsigned char * p) { return clamp((int)(p[0] - 0.34414 * (int(p[1] - 0x80)) - 0.71414 * (int(p[2]) - 0x80)), 0, 255); }
-	static __forceinline unsigned char B(const unsigned char * p) { return clamp((int)(p[0] + 1.77200 * (int(p[1]) - 0x80)), 0, 255); }
+	static __forceinline unsigned char R(const unsigned char * p) { return std::clamp((int)(p[0] + 1.40200 * (int(p[2]) - 0x80)), 0, 255); }
+	static __forceinline unsigned char G(const unsigned char * p) { return std::clamp((int)(p[0] - 0.34414 * (int(p[1] - 0x80)) - 0.71414 * (int(p[2]) - 0x80)), 0, 255); }
+	static __forceinline unsigned char B(const unsigned char * p) { return std::clamp((int)(p[0] + 1.77200 * (int(p[1]) - 0x80)), 0, 255); }
 	static __forceinline unsigned char A(const unsigned char * p, uint8_t x, uint8_t y, uint8_t z) { return 255; }
 	static __forceinline int Gray(const unsigned char * p) { return (R(p) * 77 + G(p) * 143 + B(p) * 36) >> 8; }
 };
@@ -470,7 +471,7 @@ struct bCopyAlpha
 struct bOverlay
 {	
 	static __forceinline void OpC(uint8_t &d, uint8_t s, uint8_t a, FCopyInfo *i) { d = (s*a + d*(255-a))/255; }
-	static __forceinline void OpA(uint8_t &d, uint8_t s, FCopyInfo *i) { d = max(s,d); }
+	static __forceinline void OpA(uint8_t &d, uint8_t s, FCopyInfo *i) { d = std::max(s,d); }
 	static __forceinline bool ProcessAlpha0() { return false; }
 };
 
@@ -483,21 +484,21 @@ struct bBlend
 
 struct bAdd
 {
-	static __forceinline void OpC(uint8_t &d, uint8_t s, uint8_t a, FCopyInfo *i) { d = min<int>((d*BLENDUNIT + s*i->alpha) >> BLENDBITS, 255); }
+	static __forceinline void OpC(uint8_t &d, uint8_t s, uint8_t a, FCopyInfo *i) { d = std::min<int>((d*BLENDUNIT + s*i->alpha) >> BLENDBITS, 255); }
 	static __forceinline void OpA(uint8_t &d, uint8_t s, FCopyInfo *i) { d = s; }
 	static __forceinline bool ProcessAlpha0() { return false; }
 };
 
 struct bSubtract
 {
-	static __forceinline void OpC(uint8_t &d, uint8_t s, uint8_t a, FCopyInfo *i) { d = max<int>((d*BLENDUNIT - s*i->alpha) >> BLENDBITS, 0); }
+	static __forceinline void OpC(uint8_t &d, uint8_t s, uint8_t a, FCopyInfo *i) { d = std::max<int>((d*BLENDUNIT - s*i->alpha) >> BLENDBITS, 0); }
 	static __forceinline void OpA(uint8_t &d, uint8_t s, FCopyInfo *i) { d = s; }
 	static __forceinline bool ProcessAlpha0() { return false; }
 };
 
 struct bReverseSubtract
 {
-	static __forceinline void OpC(uint8_t &d, uint8_t s, uint8_t a, FCopyInfo *i) { d = max<int>((-d*BLENDUNIT + s*i->alpha) >> BLENDBITS, 0); }
+	static __forceinline void OpC(uint8_t &d, uint8_t s, uint8_t a, FCopyInfo *i) { d = std::max<int>((-d*BLENDUNIT + s*i->alpha) >> BLENDBITS, 0); }
 	static __forceinline void OpA(uint8_t &d, uint8_t s, FCopyInfo *i) { d = s; }
 	static __forceinline bool ProcessAlpha0() { return false; }
 };

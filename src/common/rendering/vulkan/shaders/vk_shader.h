@@ -10,8 +10,6 @@
 #include <list>
 #include <map>
 
-#define SHADER_MIN_REQUIRED_TEXTURE_LAYERS 11
-
 class ShaderIncludeResult;
 class VulkanRenderDevice;
 class VulkanDevice;
@@ -26,11 +24,11 @@ struct MatricesUBO
 	VSMatrix TextureMatrix;
 };
 
-#define MAX_STREAM_DATA ((int)(65536 / sizeof(StreamData)))
+#define MAX_SURFACE_UNIFORMS ((int)(65536 / sizeof(SurfaceUniforms)))
 
-struct StreamUBO
+struct SurfaceUniformsUBO
 {
-	StreamData data[MAX_STREAM_DATA];
+	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
 };
 
 #define MAX_LIGHT_DATA ((int)(65536 / sizeof(FVector4)))
@@ -40,12 +38,19 @@ struct LightBufferUBO
 	FVector4 lights[MAX_LIGHT_DATA];
 };
 
+#define MAX_FOGBALL_DATA ((int)(65536 / sizeof(Fogball)))
+
+struct FogballBufferUBO
+{
+	Fogball fogballs[MAX_FOGBALL_DATA];
+};
+
 struct PushConstants
 {
 	int uDataIndex; // streamdata index
 	int uLightIndex; // dynamic lights
 	int uBoneIndexBase; // bone animation
-	int padding;
+	int uFogballIndex; // fog balls
 };
 
 class VkShaderKey
@@ -63,7 +68,7 @@ public:
 			uint64_t Detailmap : 1;     // uTextureMode & TEXF_Detailmap
 			uint64_t Glowmap : 1;       // uTextureMode & TEXF_Glowmap
 			uint64_t GBufferPass : 1;   // GBUFFER_PASS
-			uint64_t UseShadowmap : 1;  // USE_SHADOWMAPS
+			uint64_t UseShadowmap : 1;  // USE_SHADOWMAP
 			uint64_t UseRaytrace : 1;   // USE_RAYTRACE
 			uint64_t FogBeforeLights : 1; // FOG_BEFORE_LIGHTS
 			uint64_t FogAfterLights : 1;  // FOG_AFTER_LIGHTS
@@ -71,7 +76,10 @@ public:
 			uint64_t SWLightRadial : 1; // SWLIGHT_RADIAL
 			uint64_t SWLightBanded : 1; // SWLIGHT_BANDED
 			uint64_t LightMode : 2;     // LIGHTMODE_DEFAULT, LIGHTMODE_SOFTWARE, LIGHTMODE_VANILLA, LIGHTMODE_BUILD
-			uint64_t Unused : 45;
+			uint64_t UseLevelMesh : 1;  // USE_LEVELMESH
+			uint64_t FogBalls : 1;      // FOGBALLS
+			uint64_t NoFragmentShader : 1;
+			uint64_t Unused : 42;
 		};
 		uint64_t AsQWORD = 0;
 	};
@@ -111,7 +119,7 @@ public:
 	void RemoveVkPPShader(VkPPShader* shader);
 
 private:
-	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *defines);
+	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *defines, bool levelmesh);
 	std::unique_ptr<VulkanShader> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *lightmodel_lump, const char *defines, const VkShaderKey& key);
 
 	ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);

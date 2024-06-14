@@ -488,18 +488,18 @@ DEFINE_ACTION_FUNCTION(DObject, G_SkillPropertyFloat)
 
 const char * G_SkillName()
 {
-	const char *name = AllSkills[gameskill].MenuName;
+	const char *name = AllSkills[gameskill].MenuName.GetChars();
 
 	player_t *player = &players[consoleplayer];
-	const char *playerclass = player->mo->GetInfo()->DisplayName;
+	const char *playerclass = player->mo->GetInfo()->DisplayName.GetChars();
 
 	if (playerclass != NULL)
 	{
 		FString * pmnm = AllSkills[gameskill].MenuNamesForPlayerClass.CheckKey(playerclass);
-		if (pmnm != NULL) name = *pmnm;
+		if (pmnm != NULL) name = pmnm->GetChars();
 	}
 
-	if (*name == '$') name = GStrings(name+1);
+	if (*name == '$') name = GStrings.GetString(name+1);
 	return name;
 }
 

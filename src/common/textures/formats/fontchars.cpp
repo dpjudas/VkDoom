@@ -66,7 +66,7 @@ FFontChar2::FFontChar2(int sourcelump, int sourcepos, int width, int height, int
 //
 //==========================================================================
 
-PalettedPixels FFontChar2::CreatePalettedPixels(int)
+PalettedPixels FFontChar2::CreatePalettedPixels(int, int)
 {
 	auto lump = fileSystem.OpenFileReader(SourceLump);
 	int destSize = Width * Height;
@@ -164,15 +164,13 @@ PalettedPixels FFontChar2::CreatePalettedPixels(int)
 
 	if (destSize < 0)
 	{
-		char name[9];
-		fileSystem.GetFileShortName(name, SourceLump);
-		name[8] = 0;
+		auto name = fileSystem.GetFileShortName(SourceLump);
 		I_FatalError("The font %s is corrupt", name);
 	}
 	return Pixels;
 }
 
-int FFontChar2::CopyPixels(FBitmap* bmp, int conversion)
+int FFontChar2::CopyPixels(FBitmap* bmp, int conversion, int frame)
 {
 	if (conversion == luminance) conversion = normal;	// luminance images have no use as an RGB source.
 	auto ppix = CreatePalettedPixels(conversion);

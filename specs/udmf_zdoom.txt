@@ -1,5 +1,5 @@
 ===============================================================================
-Universal Doom Map Format ZDoom extensions v1.15 - 14.12.2010
+Universal Doom Map Format ZDoom extensions v1.33 15.09.2023
 
 
     Copyright (c) 2008 Christoph Oelckers.
@@ -118,8 +118,11 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       blockuse = <bool>;          // Line blocks all use actions
       blocksight = <bool>;        // Line blocks monster line of sight
       blockhitscan = <bool>;      // Line blocks hitscan attacks
+      blockfloaters = <bool>;     // Line blocks floating monsters' movement.
+      blocklandmonsters = <bool>; // Line blocks walking monsters' movement.
       locknumber = <int>;         // Line special is locked
       arg0str = <string>;         // Alternate string-based version of arg0
+      arg1str = <string>;         // Alternate string-based version of arg1
       moreids = <string>;         // Additional line IDs, specified as a space separated list of numbers (e.g. "2 666 1003 4505")
 
       transparent   = <bool>;     // true = line is a Strife transparent line (alpha 0.25)
@@ -152,6 +155,11 @@ Note: All <bool> fields default to false unless mentioned otherwise.
 
       For lines with ACS specials (80-86 and 226), if arg0str is present and non-null, it
       will be used as the name of the script to execute, and arg0 will be ignored.
+
+      lm_sampledist = <int>;         // ZDRay customizable sampling distance for this line. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_sampledist_top = <int>;     // ZDRay customizable sampling distance for this line's top part. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_sampledist_mid = <int>;     // ZDRay customizable sampling distance for this line's middle part. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_sampledist_bot = <int>;     // ZDRay customizable sampling distance for this line's bottom part. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
    }
 
    sidedef
@@ -221,6 +229,27 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       colorization_top = <int>;     // Sets a colorization record for the upper texture. Colorization records must be defined in TEXTURES.
       colorization_mid = <int>;     // Sets a colorization record for the middle texture. Colorization records must be defined in TEXTURES.
       colorization_bottom = <int>;  // Sets a colorization record for the lower texture. Colorization records must be defined in TEXTURES.
+
+      lm_sampledist = <int>;        // ZDRay customizable sampling distance for this sidedef. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_sampledist_top = <int>;    // ZDRay customizable sampling distance for this sidedef's top part. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_sampledist_mid = <int>;    // ZDRay customizable sampling distance for this sidedef's middle part. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_sampledist_bot = <int>;    // ZDRay customizable sampling distance for this sidedef's bottom part. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0	  
+	  
+	  skew_top = <int>;             // enables skewing of wall textures, the skewing angle will be aligned to one of the 4 planes touching the floor. 
+      skew_middle = <int>;          // Vertical texture alignment defines the position at the leftmost point of the wall.
+      skew_bottom = <int>;          // Possible values: 0 = no skewing, 1 = align to front floor, 2 = align to front ceiling, 3 = align to back floor, 4 = align to back ceiling.
+	                                // Front/Back are relative to the sidedef, not the owning linedef. Default = 0.
+									
+      xscroll  = <float>;           // wall scrolling X speed in map units per tic.
+      yscroll  = <float>;           // wall scrolling Y speed in map units per tic.
+      xscrolltop  = <float>;        // upper wall scrolling X speed in map units per tic.
+      yscrolltop  = <float>;        // upper wall scrolling Y speed in map units per tic.
+      xscrollmid  = <float>;        // mid wall scrolling X speed in map units per tic.
+      yscrollmid  = <float>;        // mid wall scrolling Y speed in map units per tic.
+      xscrollbottom  = <float>;     // lower wall scrolling X speed in map units per tic.
+      yscrollbottom  = <float>;     // lower wall scrolling Y speed in map units per tic.
+									
+
    }
 
    sector
@@ -319,6 +348,38 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       healthfloorgroup = <int>;       // ID of destructible object to synchronize hitpoints (optional, default is 0)
       healthceiling = <int>;          // Amount of hitpoints for this sector (includes ceiling and top-outside linedef sides)
       healthceilinggroup = <int>;     // ID of destructible object to synchronize hitpoints (optional, default is 0)
+      health3d = <int>;               // Amount of hitpoints for this sector (includes 3D floors)
+      health3dgroup = <int>;          // ID of destructible object to synchronize hitpoints (optional, default is 0)
+	  
+      xscrollfloor = <float>;         // X map units per frame to scroll the floor.
+      yscrollfloor = <float>;         // Y map units per frame to scroll the floor.
+      scrollfloormode = <int>;        // Floor scroll mode bit mask (1 = scroll textures, 2 = carry static objects, 4 = carry players, 8 = carry monsters.
+      xscrollceiling = <float>;       // X map units per frame to scroll the ceiling.
+      yscrollceiling = <float>;       // Y map units per frame to scroll the ceiling.
+      scrollceilingmode = <int>;      // ceiling scroll mode bit mask (1 = scroll textures, 2 = carry static objects, 4 = carry players, 8 = carry monsters.
+	  
+	  scroll_ceil_x = <float>;        // deprecated Eternity based alternatives for the above. 
+	  scroll_ceil_y = <float>;        // Due to using unintuitive units of measurement and a more limited feature set they should not be used anymore.	
+	  scroll_ceil_type = <string>;
+	  scroll_floor_x = <float>;
+	  scroll_floor_y = <float>;
+	  scroll_floor_type = <string>;
+	  
+	  friction = <float>;             // sets the sector's friction factor. Must be between 0 and 1.
+	  movefactor = <float>            // sets the sector's movement acceleration factor. Must be > 0.
+	  
+	  skyfloor = <string>             // defines lower sky for this sector.
+	  skyceiling = <string>           // defines upper sky for this sector.
+	  skyfloor2 = <string>             // defines secondary lower sky for this sector. (for lightning or transparent layers)
+	  skyceiling2 = <string>           // defines secondary upper sky for this sector.
+	  
+	  colormap = <string>;            // only provided for backwards compatibility. Do not use in GZDoom projects.
+	  
+      xthrust = <float>;              // applies thrust to actors - x-magnitude
+      ythrust = <float>;              // applies thrust to actors - y-magnitude
+      thrustgroup = <int>;            // specifies which actors get thrusted. Bitfield with (1 = static objects, 2 = player, 4 = monsters, 8 = projectiles, 16 = actors with +WINDTHRUST)
+      thrustlocation = <int>;         // specifies where in the sector actors get thrusted: (1 = on the ground, 2 = in the air, 4 = on the ceiling)
+	  
 
       * Note about dropactors
 
@@ -326,6 +387,9 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       for Doom format maps so any map converter converting to the ZDoomTranslated namespace should
       set this flag for each tagged sector.
 
+      lm_sampledist_floor = <int>;      // ZDRay customizable sampling distance for this sector's floor. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_sampledist_ceiling = <int>;    // ZDRay customizable sampling distance for this sector's ceiling. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 0
+      lm_dynamic = <bool>;              // ZDRay marks a sector's lightmaps as dynamic so that they may be updated in realtime (used for flickering lights, changing a lightmap light's position, color etc). Default = false
    }
 
    thing
@@ -335,7 +399,9 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       conversation = <int>      // Assigns a conversation dialogue to this thing.
                                 // Parameter is the conversation ID, 0 meaning none.
       countsecret = <bool>;     // Picking up this actor counts as a secret.
+      nocount = <bool>;         // When true, object does not count toward kills or items.
       arg0str = <string>;       // Alternate string-based version of arg0
+      arg1str = <string>;       // Alternate string-based version of arg1
       gravity = <float>;        // Set per-actor gravity. Positive values are multiplied with the class's property, 
                                 // negative values are used as their absolute. Default = 1.0.
 
@@ -355,6 +421,12 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       scaley = <float>;         // Vertical scaling on thing. Default = 0 (ignored).
       scale = <float>;          // Vertical and horizontal scaling on thing. Default = 0 (ignored).
       floatbobphase = <int>;    // Sets the thing's floatbobphase. Valid phase values are 0-63. Default = -1 (use actor class default).
+
+      lm_sampledist = <int>;        // ZDRay lightmap sample distance for the entire map. Defines the map units each lightmap texel covers. Must be in powers of two. Default = 8
+      lm_suncolor = <string>;       // ZDRay lightmap sun color in hex. Default = "FFFFFF"
+      SourceRadius = <float>;       // ZDRay lightmap light and raytraced dynamic light soft shadow amount. Higher values produce softer shadows. Default = 5.0
+
+      friendlyseeblocks = <int>;    // How far (in block units) a friendly monster can see other monsters. Default 10
 
       * Note about arg0str
 
@@ -518,6 +590,15 @@ Blocklandmonsters MBF21 flag
 
 1.33 06.11.2021
 Added separate light levels for sidedef tiers (top/mid/bottom)
+
+1.34 11.09.2023
+Added/updated ZDRay/lightmap-related properties.
+
+1.35 15.09.2023
+fixed omissions: Blocklandmonsters and Blockfloaters line flags.
+
+1.36 20.10.2023
+Sidedef skewing properties
 
 ===============================================================================
 EOF
