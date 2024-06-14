@@ -1373,6 +1373,8 @@ IRValue* JitCompiler::EmitVectorComparison(int N, bool check)
 
 		if (i == 0)
 			result = elementresult;
+		else if (check)
+			result = cc.CreateOr(result, elementresult);
 		else
 			result = cc.CreateAnd(result, elementresult);
 	}
