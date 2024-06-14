@@ -26,7 +26,7 @@ public:
 	void AddBuffer(VkHardwareBuffer* buffer);
 	void RemoveBuffer(VkHardwareBuffer* buffer);
 
-	VkRSBuffers* GetRSBuffers(int threadIndex) { return RSBuffers[threadIndex].get(); }
+	VkRSBuffers* GetRSBuffers() { return RSBuffers.get(); }
 
 	struct
 	{
@@ -43,5 +43,5 @@ private:
 	VulkanRenderDevice* fb = nullptr;
 
 	std::list<VkHardwareBuffer*> Buffers;
-	std::vector<std::unique_ptr<VkRSBuffers>> RSBuffers;
+	std::unique_ptr<VkRSBuffers> RSBuffers;
 };

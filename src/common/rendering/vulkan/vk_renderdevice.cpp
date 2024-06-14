@@ -38,11 +38,13 @@
 #include "hw_cvars.h"
 #include "hw_skydome.h"
 #include "flatvertices.h"
+#include "hw_meshbuilder.h"
 
 #include "vk_renderdevice.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_postprocess.h"
-#include "vulkan/accelstructs/vk_raytrace.h"
+#include "vulkan/vk_levelmesh.h"
+#include "vulkan/vk_lightmapper.h"
 #include "vulkan/pipelines/vk_renderpass.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/shaders/vk_shader.h"
@@ -61,16 +63,22 @@
 #include <zvulkan/vulkancompatibledevice.h>
 #include "engineerrors.h"
 #include "c_dispatch.h"
+#include "menu.h"
+#include "cmdlib.h"
 
 FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames, int maxFrames = -1);
 
-EXTERN_CVAR(Bool, r_drawvoxels)
 EXTERN_CVAR(Int, gl_tonemap)
 EXTERN_CVAR(Int, screenblocks)
 EXTERN_CVAR(Bool, cl_capfps)
+EXTERN_CVAR(Bool, r_skipmats)
 
 // Physical device info
 static std::vector<VulkanCompatibleDevice> SupportedDevices;
+int vkversion;
+static TArray<FString> memheapnames;
+static TArray<VmaBudget> membudgets;
+static int hwtexturecount;
 
 CUSTOM_CVAR(Bool, vk_debug, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
 {
@@ -84,11 +92,48 @@ CUSTOM_CVAR(Int, vk_device, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCAL
 	Printf("This won't take effect until " GAMENAME " is restarted.\n");
 }
 
+CUSTOM_CVAR(Bool, vk_rayquery, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
+{
+	Printf("This won't take effect until " GAMENAME " is restarted.\n");
+}
+
 CCMD(vk_listdevices)
 {
 	for (size_t i = 0; i < SupportedDevices.size(); i++)
 	{
 		Printf("#%d - %s\n", (int)i, SupportedDevices[i].Device->Properties.Properties.deviceName);
+	}
+}
+
+CCMD(vk_membudget)
+{
+	for (size_t i = 0; i < membudgets.size(); i++)
+	{
+		if (membudgets[i].budget != 0)
+		{
+			Printf("#%d%s - %d MB used out of %d MB estimated budget (%d%%)\n",
+				i, memheapnames[i].GetChars(),
+				(int)(membudgets[i].usage / (1024 * 1024)),
+				(int)(membudgets[i].budget / (1024 * 1024)),
+				(int)(membudgets[i].usage * 100 / membudgets[i].budget));
+		}
+		else
+		{
+			Printf("#%d %s - %d MB used\n",
+				i, memheapnames[i].GetChars(),
+				(int)(membudgets[i].usage / (1024 * 1024)));
+		}
+	}
+	Printf("%d total hardware textures\n", hwtexturecount);
+}
+
+void I_BuildVKDeviceList(FOptionValues* opt)
+{
+	for (size_t i = 0; i < SupportedDevices.size(); i++)
+	{
+		unsigned int idx = opt->mValues.Reserve(1);
+		opt->mValues[idx].Value = (double)i;
+		opt->mValues[idx].Text = SupportedDevices[i].Device->Properties.Properties.deviceName;
 	}
 }
 
@@ -119,10 +164,22 @@ VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::sha
 {
 	VulkanDeviceBuilder builder;
 	builder.OptionalRayQuery();
+	builder.RequireExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 	builder.Surface(surface);
 	builder.SelectDevice(vk_device);
 	SupportedDevices = builder.FindDevices(surface->Instance);
 	mDevice = builder.Create(surface->Instance);
+
+	bool supportsBindless =
+		mDevice->EnabledFeatures.DescriptorIndexing.descriptorBindingPartiallyBound &&
+		mDevice->EnabledFeatures.DescriptorIndexing.runtimeDescriptorArray &&
+		mDevice->EnabledFeatures.DescriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
+	if (!supportsBindless)
+	{
+		I_FatalError("This GPU does not support the minimum requirements of this application");
+	}
+
+	mUseRayQuery = vk_rayquery && mDevice->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && mDevice->PhysicalDevice.Features.RayQuery.rayQuery;
 }
 
 VulkanRenderDevice::~VulkanRenderDevice()
@@ -134,6 +191,7 @@ VulkanRenderDevice::~VulkanRenderDevice()
 
 	if (mDescriptorSetManager)
 		mDescriptorSetManager->Deinit();
+	mCommands->DeleteFrameObjects();
 	if (mTextureManager)
 		mTextureManager->Deinit();
 	if (mBufferManager)
@@ -162,10 +220,8 @@ void VulkanRenderDevice::InitializeState()
 	default:     vendorstring = "Unknown"; break;
 	}
 
-	hwcaps = RFL_SHADER_STORAGE_BUFFER | RFL_BUFFER_STORAGE;
-	glslversion = 4.50f;
 	uniformblockalignment = (unsigned int)mDevice->PhysicalDevice.Properties.Properties.limits.minUniformBufferOffsetAlignment;
-	maxuniformblock = mDevice->PhysicalDevice.Properties.Properties.limits.maxUniformBufferRange;
+	maxuniformblock = std::min(mDevice->PhysicalDevice.Properties.Properties.limits.maxUniformBufferRange, (uint32_t)1024 * 1024);
 
 	mCommands.reset(new VkCommandBufferManager(this));
 
@@ -181,7 +237,8 @@ void VulkanRenderDevice::InitializeState()
 	mPostprocess.reset(new VkPostprocess(this));
 	mDescriptorSetManager.reset(new VkDescriptorSetManager(this));
 	mRenderPassManager.reset(new VkRenderPassManager(this));
-	mRaytrace.reset(new VkRaytrace(this));
+	mLevelMesh.reset(new VkLevelMesh(this));
+	mLightmapper.reset(new VkLightmapper(this));
 
 	mBufferManager->Init();
 
@@ -191,14 +248,11 @@ void VulkanRenderDevice::InitializeState()
 	mShaderManager.reset(new VkShaderManager(this));
 	mDescriptorSetManager->Init();
 
-	for (int threadIndex = 0; threadIndex < MaxThreads; threadIndex++)
-	{
 #ifdef __APPLE__
-		mRenderState.push_back(std::make_unique<VkRenderStateMolten>(this));
+	mRenderState = std::make_unique<VkRenderStateMolten>(this);
 #else
-		mRenderState.push_back(std::make_unique<VkRenderState>(this, 0));
+	mRenderState = std::make_unique<VkRenderState>(this);
 #endif
-	}
 }
 
 void VulkanRenderDevice::Update()
@@ -213,11 +267,8 @@ void VulkanRenderDevice::Update()
 	Draw2D();
 	twod->Clear();
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->EndRenderPass();
-		renderstate->EndFrame();
-	}
+	mRenderState->EndRenderPass();
+	mRenderState->EndFrame();
 
 	Flush3D.Unclock();
 
@@ -239,19 +290,13 @@ void VulkanRenderDevice::RenderTextureView(FCanvasTexture* tex, std::function<vo
 	VkTextureImage *image = BaseLayer->GetImage(tex, 0, 0);
 	VkTextureImage *depthStencil = BaseLayer->GetDepthStencil(tex);
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->EndRenderPass();
-	}
+	mRenderState->EndRenderPass();
 
 	VkImageTransition()
 		.AddImage(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false)
 		.Execute(mCommands->GetDrawCommands());
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->SetRenderTarget(image, depthStencil->View.get(), image->Image->width, image->Image->height, VK_FORMAT_R8G8B8A8_UNORM, VK_SAMPLE_COUNT_1_BIT);
-	}
+	mRenderState->SetRenderTarget(image, depthStencil->View.get(), image->Image->width, image->Image->height, VK_FORMAT_R8G8B8A8_UNORM, VK_SAMPLE_COUNT_1_BIT);
 
 	IntRect bounds;
 	bounds.left = bounds.top = 0;
@@ -260,19 +305,13 @@ void VulkanRenderDevice::RenderTextureView(FCanvasTexture* tex, std::function<vo
 
 	renderFunc(bounds);
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->EndRenderPass();
-	}
+	mRenderState->EndRenderPass();
 
 	VkImageTransition()
 		.AddImage(image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
 		.Execute(mCommands->GetDrawCommands());
 
-	for (auto& renderstate : mRenderState)
-	{
-		renderstate->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
-	}
+	mRenderState->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
 
 	tex->SetUpdated(true);
 }
@@ -464,28 +503,46 @@ TArray<uint8_t> VulkanRenderDevice::GetScreenshotBuffer(int &pitch, ESSType &col
 
 void VulkanRenderDevice::BeginFrame()
 {
+	vmaSetCurrentFrameIndex(mDevice->allocator, 0);
+	membudgets.Resize(mDevice->PhysicalDevice.Properties.Memory.memoryHeapCount);
+	vmaGetHeapBudgets(mDevice->allocator, membudgets.data());
+	if (memheapnames.size() == 0)
+	{
+		memheapnames.Resize(mDevice->PhysicalDevice.Properties.Memory.memoryHeapCount);
+		for (unsigned int i = 0; i < memheapnames.Size(); i++)
+		{
+			bool deviceLocal = !!(mDevice->PhysicalDevice.Properties.Memory.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT);
+			memheapnames[i] = deviceLocal ? " (device local)" : "";
+		}
+	}
+	hwtexturecount = mTextureManager->GetHWTextureCount();
+
+	if (levelMeshChanged)
+	{
+		levelMeshChanged = false;
+		mLevelMesh->SetLevelMesh(levelMesh);
+
+		if (levelMesh && levelMesh->LMTextureCount > 0)
+		{
+			GetTextureManager()->CreateLightmap(levelMesh->LMTextureSize, levelMesh->LMTextureCount, std::move(levelMesh->LMTextureData));
+			GetLightmapper()->SetLevelMesh(levelMesh);
+		}
+	}
+
 	SetViewportRects(nullptr);
 	mCommands->BeginFrame();
+	mLevelMesh->BeginFrame();
 	mTextureManager->BeginFrame();
 	mScreenBuffers->BeginFrame(screen->mScreenViewport.width, screen->mScreenViewport.height, screen->mSceneViewport.width, screen->mSceneViewport.height);
 	mSaveBuffers->BeginFrame(SAVEPICWIDTH, SAVEPICHEIGHT, SAVEPICWIDTH, SAVEPICHEIGHT);
-	for (auto& renderstate : mRenderState)
-		renderstate->BeginFrame();
+	mRenderState->BeginFrame();
 	mDescriptorSetManager->BeginFrame();
-}
-
-void VulkanRenderDevice::InitLightmap(int LMTextureSize, int LMTextureCount, TArray<uint16_t>& LMTextureData)
-{
-	if (LMTextureData.Size() > 0)
-	{
-		GetTextureManager()->SetLightmap(LMTextureSize, LMTextureCount, LMTextureData);
-		LMTextureData.Reset(); // We no longer need this, release the memory
-	}
+	mLightmapper->BeginFrame();
 }
 
 void VulkanRenderDevice::Draw2D()
 {
-	::Draw2D(twod, *RenderState(0));
+	::Draw2D(twod, *RenderState());
 }
 
 void VulkanRenderDevice::WaitForCommands(bool finish)
@@ -511,6 +568,7 @@ void VulkanRenderDevice::PrintStartupLog()
 	FString apiVersion, driverVersion;
 	apiVersion.Format("%d.%d.%d", VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion), VK_VERSION_PATCH(props.apiVersion));
 	driverVersion.Format("%d.%d.%d", VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion), VK_VERSION_PATCH(props.driverVersion));
+	vkversion = VK_API_VERSION_MAJOR(props.apiVersion) * 100 + VK_API_VERSION_MINOR(props.apiVersion);
 
 	Printf("Vulkan device: " TEXTCOLOR_ORANGE "%s\n", props.deviceName);
 	Printf("Vulkan device type: %s\n", deviceType.GetChars());
@@ -529,9 +587,15 @@ void VulkanRenderDevice::PrintStartupLog()
 	Printf("Min. uniform buffer offset alignment: %" PRIu64 "\n", limits.minUniformBufferOffsetAlignment);
 }
 
-void VulkanRenderDevice::SetLevelMesh(hwrenderer::LevelMesh* mesh)
+void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)
 {
-	mRaytrace->SetLevelMesh(mesh);
+	levelMesh = mesh;
+	levelMeshChanged = true;
+}
+
+void VulkanRenderDevice::UpdateLightmaps(const TArray<LightmapTile*>& tiles)
+{
+	GetLightmapper()->Raytrace(tiles);
 }
 
 void VulkanRenderDevice::SetShadowMaps(const TArray<float>& lights, hwrenderer::LevelAABBTree* tree, bool newTree)
@@ -565,9 +629,9 @@ void VulkanRenderDevice::ImageTransitionScene(bool unknown)
 	mPostprocess->ImageTransitionScene(unknown);
 }
 
-FRenderState* VulkanRenderDevice::RenderState(int threadIndex)
+FRenderState* VulkanRenderDevice::RenderState()
 {
-	return mRenderState[threadIndex].get();
+	return mRenderState.get();
 }
 
 void VulkanRenderDevice::AmbientOccludeScene(float m5)
@@ -577,8 +641,123 @@ void VulkanRenderDevice::AmbientOccludeScene(float m5)
 
 void VulkanRenderDevice::SetSceneRenderTarget(bool useSSAO)
 {
-	for (auto& renderstate : mRenderState)
+	mRenderState->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
+}
+
+int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation)
+{
+	FMaterialState materialState;
+	materialState.mMaterial = material;
+	materialState.mClampMode = clampmode;
+	materialState.mTranslation = translation;
+	return static_cast<VkMaterial*>(material)->GetBindlessIndex(materialState);
+}
+
+int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material)
+{
+	if (levelVertexFormatIndex == -1)
 	{
-		renderstate->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
+		static const std::vector<FVertexBufferAttribute> format =
+		{
+			{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(FFlatVertex, x) },
+			{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(FFlatVertex, u) },
+			{ 0, VATTR_LIGHTMAP, VFmt_Float2, (int)myoffsetof(FFlatVertex, lu) },
+			{ 1, VATTR_UNIFORM_INDEXES, VFmt_Int, 0 }
+		};
+		levelVertexFormatIndex = GetRenderPassManager()->GetVertexFormat({ sizeof(FFlatVertex), sizeof(int32_t) }, format);
 	}
+
+	VkPipelineKey pipelineKey;
+	pipelineKey.DrawType = DT_Triangles;
+	pipelineKey.VertexFormat = levelVertexFormatIndex;
+	pipelineKey.RenderStyle = applyData.RenderStyle;
+	pipelineKey.DepthFunc = applyData.DepthFunc;
+	if (applyData.SpecialEffect > EFF_NONE)
+	{
+		pipelineKey.ShaderKey.SpecialEffect = applyData.SpecialEffect;
+		pipelineKey.ShaderKey.EffectState = 0;
+		pipelineKey.ShaderKey.AlphaTest = false;
+	}
+	else
+	{
+		int effectState = material.mOverrideShader >= 0 ? material.mOverrideShader : (material.mMaterial ? material.mMaterial->GetShaderIndex() : 0);
+		pipelineKey.ShaderKey.SpecialEffect = EFF_NONE;
+		pipelineKey.ShaderKey.EffectState = applyData.TextureEnabled ? effectState : SHADER_NoTexture;
+		if (r_skipmats && pipelineKey.ShaderKey.EffectState >= 3 && pipelineKey.ShaderKey.EffectState <= 4)
+			pipelineKey.ShaderKey.EffectState = 0;
+		pipelineKey.ShaderKey.AlphaTest = surfaceUniforms.uAlphaThreshold >= 0.f;
+	}
+
+	int tempTM = (material.mMaterial && material.mMaterial->Source()->isHardwareCanvas()) ? TM_OPAQUE : TM_NORMAL;
+	int f = applyData.TextureModeFlags;
+	if (!applyData.BrightmapEnabled) f &= ~(TEXF_Brightmap | TEXF_Glowmap);
+	if (applyData.TextureClamp) f |= TEXF_ClampY;
+	int uTextureMode = (applyData.TextureMode == TM_NORMAL && tempTM == TM_OPAQUE ? TM_OPAQUE : applyData.TextureMode) | f;
+
+	pipelineKey.ShaderKey.TextureMode = uTextureMode & 0xffff;
+	pipelineKey.ShaderKey.ClampY = (uTextureMode & TEXF_ClampY) != 0;
+	pipelineKey.ShaderKey.Brightmap = (uTextureMode & TEXF_Brightmap) != 0;
+	pipelineKey.ShaderKey.Detailmap = (uTextureMode & TEXF_Detailmap) != 0;
+	pipelineKey.ShaderKey.Glowmap = (uTextureMode & TEXF_Glowmap) != 0;
+
+	// The way GZDoom handles state is just plain insanity!
+	int fogset = 0;
+	if (applyData.FogEnabled)
+	{
+		if (applyData.FogEnabled == 2)
+		{
+			fogset = -3;	// 2D rendering with 'foggy' overlay.
+		}
+		else if (applyData.FogColor)
+		{
+			fogset = gl_fogmode;
+		}
+		else
+		{
+			fogset = -gl_fogmode;
+		}
+	}
+	pipelineKey.ShaderKey.Simple2D = (fogset == -3);
+	pipelineKey.ShaderKey.FogBeforeLights = (fogset > 0);
+	pipelineKey.ShaderKey.FogAfterLights = (fogset < 0);
+	pipelineKey.ShaderKey.FogRadial = (fogset < -1 || fogset > 1);
+	pipelineKey.ShaderKey.SWLightRadial = (gl_fogmode == 2);
+	pipelineKey.ShaderKey.SWLightBanded = false; // gl_bandedswlight;
+
+	float lightlevel = surfaceUniforms.uLightLevel;
+	if (lightlevel < 0.0)
+	{
+		pipelineKey.ShaderKey.LightMode = 0; // Default
+	}
+	else
+	{
+		/*if (mLightMode == 5)
+			pipelineKey.ShaderKey.LightMode = 3; // Build
+		else if (mLightMode == 16)
+			pipelineKey.ShaderKey.LightMode = 2; // Vanilla
+		else*/
+			pipelineKey.ShaderKey.LightMode = 1; // Software
+	}
+
+	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
+	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
+
+	pipelineKey.ShaderKey.GBufferPass = false;
+	pipelineKey.ShaderKey.UseLevelMesh = true;
+
+	for (unsigned int i = 0, count = levelMeshPipelineKeys.Size(); i < count; i++)
+	{
+		if (levelMeshPipelineKeys[i] == pipelineKey)
+		{
+			return i;
+		}
+	}
+
+	levelMeshPipelineKeys.Push(pipelineKey);
+	return levelMeshPipelineKeys.Size() - 1;
+}
+
+const VkPipelineKey& VulkanRenderDevice::GetLevelMeshPipelineKey(int id) const
+{
+	return levelMeshPipelineKeys[id];
 }

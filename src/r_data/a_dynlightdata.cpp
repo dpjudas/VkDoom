@@ -126,6 +126,7 @@ void FLightDefaults::ApplyProperties(FDynamicLight * light) const
 	light->lighttype = m_type;
 	light->specialf1 = m_Param;
 	light->pArgs = m_Args;
+	light->pSourceRadius = &SourceRadius;
 	light->pLightFlags = &m_lightFlags;
 	if (m_lightFlags & LF_SPOT)
 	{

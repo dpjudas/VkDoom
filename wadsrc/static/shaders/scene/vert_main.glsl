@@ -8,11 +8,15 @@ void main()
 	vec2 parmTexCoord;
 	vec4 parmPosition;
 
+#if defined(USE_LEVELMESH)
+	uDataIndex = aDataIndex;
+#endif
+
 	BonesResult bones = ApplyBones();
 
 	parmTexCoord = aTexCoord;
 	parmPosition = bones.Position;
-	
+
 	#ifndef SIMPLE
 		vec4 worldcoord = ModelMatrix * mix(parmPosition, aVertex2, uInterpolationFactor);
 	#else
@@ -31,7 +35,7 @@ void main()
 	#endif
 
 	#ifndef SIMPLE
-		vLightmap = aLightmap;
+		vLightmap = vec3(aLightmap, aPosition.w);
 
 		pixelpos.xyz = worldcoord.xyz;
 		pixelpos.w = -eyeCoordPos.z/eyeCoordPos.w;

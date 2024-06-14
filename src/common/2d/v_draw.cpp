@@ -831,7 +831,7 @@ static inline FSpecialColormap * ListGetSpecialColormap(VMVa_List &tags)
 //==========================================================================
 
 template<class T>
-bool ParseDrawTextureTags(F2DDrawer *drawer, FGameTexture *img, double x, double y, uint32_t tag, T& tags, DrawParms *parms, int type, PalEntry fill, double fillalpha)
+bool ParseDrawTextureTags(F2DDrawer *drawer, FGameTexture *img, double x, double y, uint32_t tag, T& tags, DrawParms *parms, int type, PalEntry fill, double fillalpha, bool scriptDifferences)
 {
 	INTBOOL boolval;
 	int intval;
@@ -866,7 +866,7 @@ bool ParseDrawTextureTags(F2DDrawer *drawer, FGameTexture *img, double x, double
 	parms->destheight = INT_MAX;
 	parms->Alpha = type == DrawTexture_Fill ? (float)fillalpha : 1.f;
 	parms->fillcolor = type == DrawTexture_Fill ? fill : PalEntry(~0u);
-	parms->TranslationId = -1;
+	parms->TranslationId = INVALID_TRANSLATION;
 	parms->colorOverlay = 0;
 	parms->alphaChannel = false;
 	parms->flipX = false;
@@ -886,6 +886,7 @@ bool ParseDrawTextureTags(F2DDrawer *drawer, FGameTexture *img, double x, double
 	parms->scalex = parms->scaley = 1;
 	parms->cellx = parms->celly = 0;
 	parms->maxstrlen = INT_MAX;
+	parms->localize = scriptDifferences;
 	parms->virtBottom = false;
 	parms->srcx = 0.;
 	parms->srcy = 0.;
@@ -1089,7 +1090,7 @@ bool ParseDrawTextureTags(F2DDrawer *drawer, FGameTexture *img, double x, double
 			break;
 
 		case DTA_TranslationIndex:
-			parms->TranslationId = ListGetInt(tags);
+			parms->TranslationId = FTranslationID::fromInt(ListGetInt(tags));
 			break;
 
 		case DTA_ColorOverlay:
@@ -1323,6 +1324,10 @@ bool ParseDrawTextureTags(F2DDrawer *drawer, FGameTexture *img, double x, double
 			parms->maxstrlen = ListGetInt(tags);
 			break;
 
+		case DTA_Localize:
+			parms->localize = ListGetInt(tags);
+			break;
+
 		case DTA_CellX:
 			parms->cellx = ListGetInt(tags);
 			break;
@@ -1434,8 +1439,8 @@ bool ParseDrawTextureTags(F2DDrawer *drawer, FGameTexture *img, double x, double
 }
 // explicitly instantiate both versions for v_text.cpp.
 
-template bool ParseDrawTextureTags<Va_List>(F2DDrawer* drawer, FGameTexture *img, double x, double y, uint32_t tag, Va_List& tags, DrawParms *parms, int type, PalEntry fill, double fillalpha);
-template bool ParseDrawTextureTags<VMVa_List>(F2DDrawer* drawer, FGameTexture *img, double x, double y, uint32_t tag, VMVa_List& tags, DrawParms *parms, int type, PalEntry fill, double fillalpha);
+template bool ParseDrawTextureTags<Va_List>(F2DDrawer* drawer, FGameTexture *img, double x, double y, uint32_t tag, Va_List& tags, DrawParms *parms, int type, PalEntry fill, double fillalpha, bool scriptDifferences);
+template bool ParseDrawTextureTags<VMVa_List>(F2DDrawer* drawer, FGameTexture *img, double x, double y, uint32_t tag, VMVa_List& tags, DrawParms *parms, int type, PalEntry fill, double fillalpha, bool scriptDifferences);
 
 //==========================================================================
 //
@@ -1786,12 +1791,12 @@ DEFINE_ACTION_FUNCTION(FCanvas, Dim)
 //
 //==========================================================================
 
-void DrawBorder (F2DDrawer *drawer, FTextureID picnum, int x1, int y1, int x2, int y2)
+void DrawBorder (F2DDrawer *drawer, FTextureID texid, int x1, int y1, int x2, int y2)
 {
 	int filltype = (ui_screenborder_classic_scaling) ? -1 : 0;
-	if (picnum.isValid())
+	if (texid.isValid())
 	{
-		drawer->AddFlatFill (x1, y1, x2, y2, TexMan.GetGameTexture(picnum, false), filltype);
+		drawer->AddFlatFill (x1, y1, x2, y2, TexMan.GetGameTexture(texid, false), filltype);
 	}
 	else
 	{

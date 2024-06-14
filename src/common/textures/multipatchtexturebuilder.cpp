@@ -44,6 +44,7 @@
 #include "image.h"
 #include "formats/multipatchtexture.h"
 #include "texturemanager.h"
+#include "m_swap.h"
 
 
 // On the Alpha, accessing the shorts directly if they aren't aligned on a
@@ -136,7 +137,7 @@ struct FPatchLookup
 
 void FMultipatchTextureBuilder::MakeTexture(BuildInfo &buildinfo, ETextureType usetype)
 {
-	buildinfo.texture = new FGameTexture(nullptr, buildinfo.Name);
+	buildinfo.texture = new FGameTexture(nullptr, buildinfo.Name.GetChars());
 	buildinfo.texture->SetUseType(usetype);
 	buildinfo.texture->SetSize(buildinfo.Width, buildinfo.Height);
 	buildinfo.texture->SetOffsets(0, buildinfo.LeftOffset[0], buildinfo.TopOffset[0]);	// These are needed for construction of other multipatch textures.
@@ -284,7 +285,7 @@ void FMultipatchTextureBuilder::AddTexturesLump(const void *lumpdata, int lumpsi
 		}
 
 		// Check whether the amount of names reported is correct.
-		int lumplength = fileSystem.FileLength(patcheslump);
+		uint32_t lumplength = (uint32_t)fileSystem.FileLength(patcheslump);
 		if (numpatches > uint32_t((lumplength - 4) / 8))
 		{
 			Printf("PNAMES lump is shorter than required (%u entries reported but only %d bytes (%d entries) long\n",
@@ -372,7 +373,7 @@ void FMultipatchTextureBuilder::AddTexturesLump(const void *lumpdata, int lumpsi
 		int j;
 		for (j = (int)TexMan.NumTextures() - 1; j >= firstdup; --j)
 		{
-			if (strnicmp(TexMan.GameByIndex(j)->GetName(), (const char *)maptex + offset, 8) == 0)
+			if (strnicmp(TexMan.GameByIndex(j)->GetName().GetChars(), (const char *)maptex + offset, 8) == 0)
 				break;
 		}
 		if (j + 1 == firstdup)
@@ -396,13 +397,13 @@ void FMultipatchTextureBuilder::AddTexturesLumps(int lump1, int lump2, int patch
 
 	if (lump1 >= 0)
 	{
-		FileData texdir = fileSystem.ReadFile(lump1);
-		AddTexturesLump(texdir.GetMem(), fileSystem.FileLength(lump1), lump1, patcheslump, firstdup, true);
+		auto texdir = fileSystem.ReadFile(lump1);
+		AddTexturesLump(texdir.data(), (int)fileSystem.FileLength(lump1), lump1, patcheslump, firstdup, true);
 	}
 	if (lump2 >= 0)
 	{
-		FileData texdir = fileSystem.ReadFile(lump2);
-		AddTexturesLump(texdir.GetMem(), fileSystem.FileLength(lump2), lump2, patcheslump, firstdup, false);
+		auto texdir = fileSystem.ReadFile(lump2);
+		AddTexturesLump(texdir.data(), (int)fileSystem.FileLength(lump2), lump2, patcheslump, firstdup, false);
 	}
 }
 
@@ -777,11 +778,11 @@ void FMultipatchTextureBuilder::ResolvePatches(BuildInfo &buildinfo)
 {
 	for (unsigned i = 0; i < buildinfo.Inits.Size(); i++)
 	{
-		FTextureID texno = TexMan.CheckForTexture(buildinfo.Inits[i].TexName, buildinfo.Inits[i].UseType);
+		FTextureID texno = TexMan.CheckForTexture(buildinfo.Inits[i].TexName.GetChars(), buildinfo.Inits[i].UseType);
 		if (texno == buildinfo.texture->GetID())	// we found ourselves. Try looking for another one with the same name which is not a multipatch texture itself.
 		{
 			TArray<FTextureID> list;
-			TexMan.ListTextures(buildinfo.Inits[i].TexName, list, true);
+			TexMan.ListTextures(buildinfo.Inits[i].TexName.GetChars(), list, true);
 			for (int ii = list.Size() - 1; ii >= 0; ii--)
 			{
 				auto gtex = TexMan.GetGameTexture(list[ii]);

@@ -439,8 +439,8 @@ static bool CheatAddKey (cheatseq_t *cheat, uint8_t key, bool *eat)
 
 static bool Cht_Generic (cheatseq_t *cheat)
 {
-	Net_WriteByte (DEM_GENERICCHEAT);
-	Net_WriteByte (cheat->Args[0]);
+	Net_WriteInt8 (DEM_GENERICCHEAT);
+	Net_WriteInt8 (cheat->Args[0]);
 	return true;
 }
 
@@ -456,7 +456,7 @@ static bool Cht_Music (cheatseq_t *cheat)
 
 static bool Cht_BeholdMenu (cheatseq_t *cheat)
 {
-	Printf ("%s\n", GStrings("STSTR_BEHOLD"));
+	Printf ("%s\n", GStrings.GetString("STSTR_BEHOLD"));
 	return false;
 }
 
@@ -518,7 +518,7 @@ static bool Cht_MyPos (cheatseq_t *cheat)
 static bool Cht_Ticker (cheatseq_t *cheat)
 {
 	ticker = !ticker;
-	Printf ("%s\n", GStrings(ticker ? "TXT_CHEATTICKERON" : "TXT_CHEATTICKEROFF"));
+	Printf ("%s\n", GStrings.GetString(ticker ? "TXT_CHEATTICKERON" : "TXT_CHEATTICKEROFF"));
 	return true;
 }
 

@@ -3,387 +3,1176 @@
 #include "doom_levelmesh.h"
 #include "g_levellocals.h"
 #include "texturemanager.h"
+#include "playsim/p_lnspec.h"
+#include "c_dispatch.h"
+#include "g_levellocals.h"
+#include "a_dynlight.h"
+#include "hw_renderstate.h"
+#include "hw_vertexbuilder.h"
+#include "hwrenderer/scene/hw_drawstructs.h"
+#include "hwrenderer/scene/hw_drawinfo.h"
+#include "hwrenderer/scene/hw_walldispatcher.h"
+#include "hwrenderer/scene/hw_flatdispatcher.h"
+#include <unordered_map>
 
-DoomLevelMesh::DoomLevelMesh(FLevelLocals &doomMap)
+static bool RequireLevelMesh()
 {
-	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
-	{
-		CreateSideSurfaces(doomMap, &doomMap.sides[i]);
-	}
+	if (level.levelMesh)
+		return true;
 
-	CreateSubsectorSurfaces(doomMap);
-
-	for (size_t i = 0; i < Surfaces.Size(); i++)
-	{
-		const Surface &s = Surfaces[i];
-		int numVerts = s.numVerts;
-		unsigned int pos = s.startVertIndex;
-		FVector3* verts = &MeshVertices[pos];
-
-		for (int j = 0; j < numVerts; j++)
-		{
-			MeshUVIndex.Push(j);
-		}
-
-		if (s.type == ST_FLOOR || s.type == ST_CEILING)
-		{
-			for (int j = 2; j < numVerts; j++)
-			{
-				if (!IsDegenerate(verts[0], verts[j - 1], verts[j]))
-				{
-					MeshElements.Push(pos);
-					MeshElements.Push(pos + j - 1);
-					MeshElements.Push(pos + j);
-					MeshSurfaces.Push((int)i);
-				}
-			}
-		}
-		else if (s.type == ST_MIDDLEWALL || s.type == ST_UPPERWALL || s.type == ST_LOWERWALL)
-		{
-			if (!IsDegenerate(verts[0], verts[1], verts[2]))
-			{
-				MeshElements.Push(pos + 0);
-				MeshElements.Push(pos + 1);
-				MeshElements.Push(pos + 2);
-				MeshSurfaces.Push((int)i);
-			}
-			if (!IsDegenerate(verts[1], verts[2], verts[3]))
-			{
-				MeshElements.Push(pos + 3);
-				MeshElements.Push(pos + 2);
-				MeshElements.Push(pos + 1);
-				MeshSurfaces.Push((int)i);
-			}
-		}
-	}
-
-	Collision = std::make_unique<TriangleMeshShape>(MeshVertices.Data(), MeshVertices.Size(), MeshElements.Data(), MeshElements.Size());
+	Printf("No level mesh. Perhaps your level has no lightmap loaded?\n");
+	return false;
 }
 
-void DoomLevelMesh::CreateSideSurfaces(FLevelLocals &doomMap, side_t *side)
+static bool RequireLightmap()
 {
-	sector_t *front;
-	sector_t *back;
+	if (!RequireLevelMesh())
+		return false;
 
-	front = side->sector;
-	back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+	if (level.lightmaps)
+		return true;
 
-	if (IsControlSector(front))
-		return;
+	Printf("Lightmap is not enabled in this level.\n");
+	return false;
+}
 
-	FVector2 v1 = ToFVector2(side->V1()->fPos());
-	FVector2 v2 = ToFVector2(side->V2()->fPos());
+ADD_STAT(lightmap)
+{
+	FString out;
+	DoomLevelMesh* levelMesh = level.levelMesh;
 
-	float v1Top = (float)front->ceilingplane.ZatPoint(v1);
-	float v1Bottom = (float)front->floorplane.ZatPoint(v1);
-	float v2Top = (float)front->ceilingplane.ZatPoint(v2);
-	float v2Bottom = (float)front->floorplane.ZatPoint(v2);
-
-	int typeIndex = side->Index();
-
-	FVector2 dx(v2.X - v1.X, v2.Y - v1.Y);
-	float distance = dx.Length();
-
-	if (back)
+	if (!levelMesh || !level.lightmaps)
 	{
-		for (unsigned int j = 0; j < front->e->XFloor.ffloors.Size(); j++)
-		{
-			F3DFloor *xfloor = front->e->XFloor.ffloors[j];
-
-			// Don't create a line when both sectors have the same 3d floor
-			bool bothSides = false;
-			for (unsigned int k = 0; k < back->e->XFloor.ffloors.Size(); k++)
-			{
-				if (back->e->XFloor.ffloors[k] == xfloor)
-				{
-					bothSides = true;
-					break;
-				}
-			}
-			if (bothSides)
-				continue;
-
-			Surface surf;
-			surf.type = ST_MIDDLEWALL;
-			surf.typeIndex = typeIndex;
-			surf.controlSector = xfloor->model;
-
-			FVector3 verts[4];
-			verts[0].X = verts[2].X = v2.X;
-			verts[0].Y = verts[2].Y = v2.Y;
-			verts[1].X = verts[3].X = v1.X;
-			verts[1].Y = verts[3].Y = v1.Y;
-			verts[0].Z = (float)xfloor->model->floorplane.ZatPoint(v2);
-			verts[1].Z = (float)xfloor->model->floorplane.ZatPoint(v1);
-			verts[2].Z = (float)xfloor->model->ceilingplane.ZatPoint(v2);
-			verts[3].Z = (float)xfloor->model->ceilingplane.ZatPoint(v1);
-
-			surf.startVertIndex = MeshVertices.Size();
-			surf.numVerts = 4;
-			MeshVertices.Push(verts[0]);
-			MeshVertices.Push(verts[1]);
-			MeshVertices.Push(verts[2]);
-			MeshVertices.Push(verts[3]);
-
-			surf.plane = ToPlane(verts[0], verts[1], verts[2]);
-			Surfaces.Push(surf);
-		}
-
-		float v1TopBack = (float)back->ceilingplane.ZatPoint(v1);
-		float v1BottomBack = (float)back->floorplane.ZatPoint(v1);
-		float v2TopBack = (float)back->ceilingplane.ZatPoint(v2);
-		float v2BottomBack = (float)back->floorplane.ZatPoint(v2);
-
-		if (v1Top == v1TopBack && v1Bottom == v1BottomBack && v2Top == v2TopBack && v2Bottom == v2BottomBack)
-		{
-			return;
-		}
-
-		// bottom seg
-		if (v1Bottom < v1BottomBack || v2Bottom < v2BottomBack)
-		{
-			if (IsBottomSideVisible(side))
-			{
-				Surface surf;
-
-				FVector3 verts[4];
-				verts[0].X = verts[2].X = v1.X;
-				verts[0].Y = verts[2].Y = v1.Y;
-				verts[1].X = verts[3].X = v2.X;
-				verts[1].Y = verts[3].Y = v2.Y;
-				verts[0].Z = v1Bottom;
-				verts[1].Z = v2Bottom;
-				verts[2].Z = v1BottomBack;
-				verts[3].Z = v2BottomBack;
-
-				surf.startVertIndex = MeshVertices.Size();
-				surf.numVerts = 4;
-				MeshVertices.Push(verts[0]);
-				MeshVertices.Push(verts[1]);
-				MeshVertices.Push(verts[2]);
-				MeshVertices.Push(verts[3]);
-
-				surf.plane = ToPlane(verts[0], verts[1], verts[2]);
-				surf.type = ST_LOWERWALL;
-				surf.typeIndex = typeIndex;
-				surf.controlSector = nullptr;
-
-				Surfaces.Push(surf);
-			}
-
-			v1Bottom = v1BottomBack;
-			v2Bottom = v2BottomBack;
-		}
-
-		// top seg
-		if (v1Top > v1TopBack || v2Top > v2TopBack)
-		{
-			bool bSky = IsTopSideSky(front, back, side);
-			if (bSky || IsTopSideVisible(side))
-			{
-				Surface surf;
-
-				FVector3 verts[4];
-				verts[0].X = verts[2].X = v1.X;
-				verts[0].Y = verts[2].Y = v1.Y;
-				verts[1].X = verts[3].X = v2.X;
-				verts[1].Y = verts[3].Y = v2.Y;
-				verts[0].Z = v1TopBack;
-				verts[1].Z = v2TopBack;
-				verts[2].Z = v1Top;
-				verts[3].Z = v2Top;
-
-				surf.startVertIndex = MeshVertices.Size();
-				surf.numVerts = 4;
-				MeshVertices.Push(verts[0]);
-				MeshVertices.Push(verts[1]);
-				MeshVertices.Push(verts[2]);
-				MeshVertices.Push(verts[3]);
-
-				surf.plane = ToPlane(verts[0], verts[1], verts[2]);
-				surf.type = ST_UPPERWALL;
-				surf.typeIndex = typeIndex;
-				surf.bSky = bSky;
-				surf.controlSector = nullptr;
-
-				Surfaces.Push(surf);
-			}
-
-			v1Top = v1TopBack;
-			v2Top = v2TopBack;
-		}
+		out.Format("No lightmap");
+		return out;
 	}
 
-	// middle seg
-	if (back == nullptr)
+	uint32_t atlasPixelCount = levelMesh->AtlasPixelCount();
+	auto stats = levelMesh->GatherTilePixelStats();
+
+	out.Format("Surfaces: %u (awaiting updates: %u)\nSurface pixel area to update: %u\nSurface pixel area: %u\nAtlas pixel area:   %u\nAtlas efficiency: %.4f%%",
+		stats.tiles.total, stats.tiles.dirty,
+		stats.pixels.dirty,
+		stats.pixels.total,
+		atlasPixelCount,
+		float(stats.pixels.total) / float(atlasPixelCount) * 100.0f );
+
+	return out;
+}
+
+CCMD(dumplevelmesh)
+{
+	if (!RequireLevelMesh()) return;
+	level.levelMesh->DumpMesh(FString("levelmesh.obj"), FString("levelmesh.mtl"));
+	Printf("Level mesh exported.\n");
+}
+
+CCMD(invalidatelightmap)
+{
+	if (!RequireLightmap()) return;
+
+	int count = 0;
+	for (auto& tile : level.levelMesh->LightmapTiles)
 	{
-		Surface surf;
+		if (!tile.NeedsUpdate)
+			++count;
+		tile.NeedsUpdate = true;
+	}
+	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->LightmapTiles.Size());
+}
 
-		FVector3 verts[4];
-		verts[0].X = verts[2].X = v1.X;
-		verts[0].Y = verts[2].Y = v1.Y;
-		verts[1].X = verts[3].X = v2.X;
-		verts[1].Y = verts[3].Y = v2.Y;
-		verts[0].Z = v1Bottom;
-		verts[1].Z = v2Bottom;
-		verts[2].Z = v1Top;
-		verts[3].Z = v2Top;
+void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
+{
+	if (!RequireLevelMesh()) return;
 
-		surf.startVertIndex = MeshVertices.Size();
-		surf.numVerts = 4;
-		MeshVertices.Push(verts[0]);
-		MeshVertices.Push(verts[1]);
-		MeshVertices.Push(verts[2]);
-		MeshVertices.Push(verts[3]);
+	auto gameTexture = surface->Texture;
 
-		surf.plane = ToPlane(verts[0], verts[1], verts[2]);
-		surf.type = ST_MIDDLEWALL;
-		surf.typeIndex = typeIndex;
-		surf.controlSector = nullptr;
+	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", level.levelMesh->GetSurfaceIndex(surface), surface, surface->Type, surface->TypeIndex, surface->ControlSector ? surface->ControlSector->Index() : -1);
+	if (surface->LightmapTileIndex >= 0)
+	{
+		LightmapTile* tile = &level.levelMesh->LightmapTiles[surface->LightmapTileIndex];
+		Printf("    Atlas page: %d, x:%d, y:%d\n", tile->AtlasLocation.ArrayIndex, tile->AtlasLocation.X, tile->AtlasLocation.Y);
+		Printf("    Pixels: %dx%d (area: %d)\n", tile->AtlasLocation.Width, tile->AtlasLocation.Height, tile->AtlasLocation.Area());
+		Printf("    Sample dimension: %d\n", tile->SampleDimension);
+		Printf("    Needs update?: %d\n", tile->NeedsUpdate);
+	}
+	Printf("    Always update?: %d\n", surface->AlwaysUpdate);
+	Printf("    Sector group: %d\n", surface->SectorGroup);
+	Printf("    Texture: '%s'\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>");
+	Printf("    Alpha: %f\n", surface->Alpha);
+}
 
+FVector3 RayDir(FAngle angle, FAngle pitch)
+{
+	auto pc = float(pitch.Cos());
+	return FVector3{ pc * float(angle.Cos()), pc * float(angle.Sin()), -float(pitch.Sin()) };
+}
+
+DVector3 RayDir(DAngle angle, DAngle pitch)
+{
+	auto pc = pitch.Cos();
+	return DVector3{ pc * (angle.Cos()), pc * (angle.Sin()), -(pitch.Sin()) };
+}
+
+CCMD(surfaceinfo)
+{
+	if (!RequireLevelMesh()) return;
+
+	auto pov = players[consoleplayer].mo;
+	if (!pov)
+	{
+		Printf("players[consoleplayer].mo is null.\n");
+		return;
+	}
+
+	auto posXYZ = FVector3(pov->Pos());
+	posXYZ.Z = float(players[consoleplayer].viewz);
+	auto angle = pov->Angles.Yaw;
+	auto pitch = pov->Angles.Pitch;
+
+	const auto surface = (DoomLevelMeshSurface*)level.levelMesh->Trace(posXYZ, FVector3(RayDir(angle, pitch)), 32000.0f);
+	if (surface)
+	{
+		PrintSurfaceInfo(surface);
+	}
+	else
+	{
+		Printf("No surface was hit.\n");
+	}
+}
+
+EXTERN_CVAR(Float, lm_scale);
+
+/////////////////////////////////////////////////////////////////////////////
+
+DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
+{
+	// Remove the empty mesh added in the LevelMesh constructor
+	Mesh.Vertices.clear();
+	Mesh.Indexes.clear();
+
+	SunColor = doomMap.SunColor; // TODO keep only one copy?
+	SunDirection = doomMap.SunDirection;
+
+	BuildSectorGroups(doomMap);
+	CreatePortals(doomMap);
+
+	LightmapSampleDistance = doomMap.LightmapSampleDistance;
+
+	CreateSurfaces(doomMap);
+	LinkSurfaces(doomMap);
+
+	SortIndexes();
+	BuildTileSurfaceLists();
+
+	Mesh.DynamicIndexStart = Mesh.Indexes.size();
+	UpdateCollision();
+
+	// Assume double the size of the static mesh will be enough for anything dynamic.
+	Mesh.MaxVertices = std::max(Mesh.Vertices.size() * 2, (size_t)10000);
+	Mesh.MaxIndexes = std::max(Mesh.Indexes.size() * 2, (size_t)10000);
+	Mesh.MaxSurfaces = std::max(Mesh.SurfaceIndexes.size() * 2, (size_t)10000);
+	Mesh.MaxUniforms = std::max(Mesh.Uniforms.size() * 2, (size_t)10000);
+	Mesh.MaxSurfaceIndexes = std::max(Mesh.SurfaceIndexes.size() * 2, (size_t)10000);
+	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
+	Mesh.MaxLights = 100'000;
+	Mesh.MaxLightIndexes = 4 * 1024 * 1024;
+}
+
+void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
+{
+	if (Mesh.Lights.Size() != 0)
+		return;
+
+	for (DoomLevelMeshSurface& surface : Surfaces)
+	{
+		surface.LightList.Pos = Mesh.LightIndexes.Size();
+		surface.LightList.Count = 0;
+
+		std::pair<FLightNode*, int> nodePortalGroup = GetSurfaceLightNode(&surface);
+		FLightNode* node = nodePortalGroup.first;
+		int portalgroup = nodePortalGroup.second;
+		if (!node)
+			continue;
+
+		int listpos = 0;
+		while (node)
+		{
+			FDynamicLight* light = node->lightsource;
+			if (light && light->Trace())
+			{
+				int lightindex = GetLightIndex(light, portalgroup);
+				if (lightindex >= 0)
+				{
+					Mesh.LightIndexes.Push(lightindex);
+					surface.LightList.Count++;
+				}
+			}
+			node = node->nextLight;
+		}
+	}
+}
+
+int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
+{
+	int index;
+	for (index = 0; index < FDynamicLight::max_levelmesh_entries && light->levelmesh[index].index != 0; index++)
+	{
+		if (light->levelmesh[index].portalgroup == portalgroup)
+			return light->levelmesh[index].index - 1;
+	}
+	if (index == FDynamicLight::max_levelmesh_entries)
+		return 0;
+
+	DVector3 pos = light->PosRelative(portalgroup);
+
+	LevelMeshLight meshlight;
+	meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
+	meshlight.RelativeOrigin = meshlight.Origin;
+	meshlight.Radius = (float)light->GetRadius();
+	meshlight.Intensity = light->target ? (float)light->target->Alpha : 1.0f;
+	if (light->IsSpot() && light->pSpotInnerAngle && light->pSpotOuterAngle && light->pPitch && light->target)
+	{
+		meshlight.InnerAngleCos = (float)light->pSpotInnerAngle->Cos();
+		meshlight.OuterAngleCos = (float)light->pSpotOuterAngle->Cos();
+
+		DAngle negPitch = -*light->pPitch;
+		DAngle Angle = light->target->Angles.Yaw;
+		double xzLen = negPitch.Cos();
+		meshlight.SpotDir.X = float(-Angle.Cos() * xzLen);
+		meshlight.SpotDir.Y = float(-Angle.Sin() * xzLen);
+		meshlight.SpotDir.Z = float(-negPitch.Sin());
+	}
+	else
+	{
+		meshlight.InnerAngleCos = -1.0f;
+		meshlight.OuterAngleCos = -1.0f;
+		meshlight.SpotDir.X = 0.0f;
+		meshlight.SpotDir.Y = 0.0f;
+		meshlight.SpotDir.Z = 0.0f;
+	}
+	meshlight.Color.X = light->GetRed() * (1.0f / 255.0f);
+	meshlight.Color.Y = light->GetGreen() * (1.0f / 255.0f);
+	meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
+
+	meshlight.SourceRadius = light->GetSourceRadius();
+
+	if (light->Sector)
+		meshlight.SectorGroup = sectorGroup[light->Sector->Index()];
+	else
+		meshlight.SectorGroup = 0;
+
+	int lightindex = Mesh.Lights.Size();
+	light->levelmesh[index].index = lightindex + 1;
+	light->levelmesh[index].portalgroup = portalgroup;
+	Mesh.Lights.Push(meshlight);
+	return lightindex;
+}
+
+void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
+{
+	CreateLights(doomMap);
+#if 0
+	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->Update(doomMap);
+	if (doomMap.lightmaps)
+	{
+		DynamicMesh->SetupTileTransforms();
+		DynamicMesh->PackLightmapAtlas(StaticMesh->LMTextureCount);
+	}
+#endif
+}
+
+bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float dist)
+{
+	FVector3 end = start + direction * dist;
+	auto surface = Trace(start, direction, dist);
+	return surface && surface->IsSky;
+}
+
+std::pair<FLightNode*, int> DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf)
+{
+	FLightNode* node = nullptr;
+	int portalgroup = 0;
+	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
+	{
+		node = doomsurf->Subsector->section->lighthead;
+		portalgroup = doomsurf->Subsector->sector->PortalGroup;
+	}
+	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
+	{
+		bool isPolyLine = !!(doomsurf->Side->Flags & WALLF_POLYOBJ);
+		if (isPolyLine)
+		{
+			subsector_t* subsector = level.PointInRenderSubsector((doomsurf->Side->V1()->fPos() + doomsurf->Side->V2()->fPos()) * 0.5);
+			node = subsector->section->lighthead;
+			portalgroup = subsector->sector->PortalGroup;
+		}
+		else
+		{
+			node = doomsurf->Side->lighthead;
+			portalgroup = doomsurf->Side->sector->PortalGroup;
+		}
+	}
+	return { node, portalgroup };
+}
+
+void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
+{
+	bindings.clear();
+	Sides.clear();
+	Flats.clear();
+	Sides.resize(doomMap.sides.size());
+	Flats.resize(doomMap.sectors.Size());
+
+	// Create surface objects for all sides
+	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
+	{
+		side_t* side = &doomMap.sides[i];
+		bool isPolyLine = !!(side->Flags & WALLF_POLYOBJ);
+		if (isPolyLine)
+			continue;
+
+		UpdateSide(doomMap, i);
+	}
+
+	// Create surfaces for all flats
+	for (unsigned int i = 0; i < doomMap.sectors.Size(); i++)
+	{
+		sector_t* sector = &doomMap.sectors[i];
+		if (sector->subsectors[0]->flags & SSECF_POLYORG)
+			continue;
+		UpdateFlat(doomMap, i);
+	}
+}
+
+void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	side_t* side = &doomMap.sides[sideIndex];
+	seg_t* seg = side->segs[0];
+	if (!seg)
+		return;
+
+	subsector_t* sub = seg->Subsector;
+
+	sector_t* front = side->sector;
+	sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+
+	HWMeshHelper result;
+	HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
+	HWWall wall;
+	wall.sub = sub;
+	wall.Process(&disp, state, seg, front, back);
+
+	// Part 1: solid geometry. This is set up so that there are no transparent parts
+	state.SetDepthFunc(DF_LEqual);
+	state.ClearDepthBias();
+	state.EnableTexture(true);
+	state.EnableBrightmap(true);
+	state.AlphaFunc(Alpha_GEqual, 0.f);
+	CreateWallSurface(side, disp, state, result.list, false, true);
+
+	for (HWWall& portal : result.portals)
+	{
+		WallPortals.Push(portal);
+	}
+
+	CreateWallSurface(side, disp, state, result.portals, true, false);
+
+	/*
+	// final pass: translucent stuff
+	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
+	state.SetRenderStyle(STYLE_Translucent);
+	CreateWallSurface(side, disp, state, result.translucent, false, true);
+	state.AlphaFunc(Alpha_GEqual, 0.f);
+	state.SetRenderStyle(STYLE_Normal);
+	*/
+}
+
+void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
+{
+	sector_t* sector = &doomMap.sectors[sectorIndex];
+	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
+	{
+		HWFlatMeshHelper result;
+		HWFlatDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
+
+		HWFlat flat;
+		flat.section = &section;
+		flat.ProcessSector(&disp, state, sector);
+
+		// Part 1: solid geometry. This is set up so that there are no transparent parts
+		state.SetDepthFunc(DF_LEqual);
+		state.ClearDepthBias();
+		state.EnableTexture(true);
+		state.EnableBrightmap(true);
+		CreateFlatSurface(disp, state, result.list, false, false);
+
+		CreateFlatSurface(disp, state, result.portals, true, false);
+
+		// final pass: translucent stuff
+		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
+		state.SetRenderStyle(STYLE_Translucent);
+		CreateFlatSurface(disp, state, result.translucentborder, false, true);
+		state.SetDepthMask(false);
+		CreateFlatSurface(disp, state, result.translucent, false, true);
+		state.AlphaFunc(Alpha_GEqual, 0.f);
+		state.SetDepthMask(true);
+		state.SetRenderStyle(STYLE_Normal);
+	}
+}
+
+void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent)
+{
+	for (HWWall& wallpart : list)
+	{
+		if (isPortal)
+		{
+			state.SetEffect(EFF_PORTAL);
+			state.EnableTexture(false);
+			state.SetRenderStyle(STYLE_Normal);
+
+			wallpart.MakeVertices(state, false);
+			wallpart.RenderWall(state, HWWall::RWF_BLANK);
+			wallpart.vertcount = 0;
+
+			wallpart.LevelMeshInfo.Type = ST_NONE;
+			wallpart.LevelMeshInfo.ControlSector = nullptr;
+
+			state.SetEffect(EFF_NONE);
+			state.EnableTexture(true);
+		}
+		else
+		{
+			if (wallpart.texture && wallpart.texture->isMasked())
+			{
+				state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+			}
+			else
+			{
+				state.AlphaFunc(Alpha_GEqual, 0.f);
+			}
+
+			wallpart.DrawWall(&disp, state, translucent);
+		}
+
+		int pipelineID = 0;
+		int startVertIndex = Mesh.Vertices.Size();
+		int startElementIndex = Mesh.Indexes.Size();
+		for (auto& it : state.mSortedLists)
+		{
+			const MeshApplyState& applyState = it.first;
+
+			pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
+
+			int uniformsIndex = Mesh.Uniforms.Size();
+			Mesh.Uniforms.Push(applyState.surfaceUniforms);
+			Mesh.Materials.Push(applyState.material);
+
+			for (MeshDrawCommand& command : it.second.mDraws)
+			{
+				for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
+				{
+					Mesh.Vertices.Push(state.mVertices[i]);
+					Mesh.UniformIndexes.Push(uniformsIndex);
+				}
+
+				if (command.DrawType == DT_TriangleFan)
+				{
+					for (int i = 2, count = command.Count; i < count; i++)
+					{
+						Mesh.Indexes.Push(startVertIndex);
+						Mesh.Indexes.Push(startVertIndex + i - 1);
+						Mesh.Indexes.Push(startVertIndex + i);
+					}
+				}
+			}
+		}
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
+		FVector2 v1 = FVector2(side->V1()->fPos());
+		FVector2 v2 = FVector2(side->V2()->fPos());
+		FVector2 N = FVector2(v2.Y - v1.Y, v1.X - v2.X).Unit();
+
+		uint16_t sampleDimension = 0;
+		if (wallpart.LevelMeshInfo.Type == ST_UPPERSIDE)
+		{
+			sampleDimension = side->textures[side_t::top].LightmapSampleDistance;
+		}
+		else if (wallpart.LevelMeshInfo.Type == ST_MIDDLESIDE)
+		{
+			sampleDimension = side->textures[side_t::mid].LightmapSampleDistance;
+		}
+		else if (wallpart.LevelMeshInfo.Type == ST_LOWERSIDE)
+		{
+			sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
+		}
+
+		DoomLevelMeshSurface surf;
+		surf.Type = wallpart.LevelMeshInfo.Type;
+		surf.ControlSector = wallpart.LevelMeshInfo.ControlSector;
+		surf.TypeIndex = side->Index();
+		surf.Side = side;
+		surf.AlwaysUpdate = !!(side->sector->Flags & SECF_LM_DYNAMIC);
+		surf.SectorGroup = sectorGroup[side->sector->Index()];
+		surf.Alpha = float(side->linedef->alpha);
+		surf.MeshLocation.StartVertIndex = startVertIndex;
+		surf.MeshLocation.StartElementIndex = startElementIndex;
+		surf.MeshLocation.NumVerts = Mesh.Vertices.Size() - startVertIndex;
+		surf.MeshLocation.NumElements = Mesh.Indexes.Size() - startElementIndex;
+		surf.Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
+		surf.Texture = wallpart.texture;
+		surf.PipelineID = pipelineID;
+		surf.PortalIndex = isPortal ? linePortals[side->linedef->Index()] : 0;
+		surf.IsSky = isPortal ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
+		surf.Bounds = GetBoundsFromSurface(surf);
+		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, sampleDimension) : -1;
 		Surfaces.Push(surf);
 	}
 }
 
-void DoomLevelMesh::CreateFloorSurface(FLevelLocals &doomMap, subsector_t *sub, sector_t *sector, int typeIndex, bool is3DFloor)
+int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf, uint16_t sampleDimension)
 {
-	Surface surf;
+	if (surf.IsSky)
+		return -1;
 
-	if (!is3DFloor)
+	LightmapTileBinding binding;
+	binding.Type = surf.Type;
+	binding.TypeIndex = surf.TypeIndex;
+	binding.ControlSector = surf.ControlSector ? surf.ControlSector->Index() : (int)0xffffffffUL;
+
+	auto it = bindings.find(binding);
+	if (it != bindings.end())
 	{
-		surf.plane = sector->floorplane;
+		int index = it->second;
+
+		LightmapTile& tile = LightmapTiles[index];
+		tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
+		tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
+		tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
+		tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
+		tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
+		tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
+
+		return index;
 	}
 	else
 	{
-		surf.plane = sector->ceilingplane;
-		surf.plane.FlipVert();
+		int index = LightmapTiles.Size();
+
+		LightmapTile tile;
+		tile.Binding = binding;
+		tile.Bounds = surf.Bounds;
+		tile.Plane = surf.Plane;
+		tile.SampleDimension = GetSampleDimension(surf, sampleDimension);
+
+		LightmapTiles.Push(tile);
+		bindings[binding] = index;
+		return index;
 	}
-
-	surf.numVerts = sub->numlines;
-	surf.startVertIndex = MeshVertices.Size();
-	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
-	FVector3* verts = &MeshVertices[surf.startVertIndex];
-
-	for (int j = 0; j < surf.numVerts; j++)
-	{
-		seg_t *seg = &sub->firstline[(surf.numVerts - 1) - j];
-		FVector2 v1 = ToFVector2(seg->v1->fPos());
-
-		verts[j].X = v1.X;
-		verts[j].Y = v1.Y;
-		verts[j].Z = (float)surf.plane.ZatPoint(verts[j]);
-	}
-
-	surf.type = ST_FLOOR;
-	surf.typeIndex = typeIndex;
-	surf.controlSector = is3DFloor ? sector : nullptr;
-
-	Surfaces.Push(surf);
 }
 
-void DoomLevelMesh::CreateCeilingSurface(FLevelLocals &doomMap, subsector_t *sub, sector_t *sector, int typeIndex, bool is3DFloor)
+int DoomLevelMesh::GetSampleDimension(const DoomLevelMeshSurface& surf, uint16_t sampleDimension)
 {
-	Surface surf;
-	surf.bSky = IsSkySector(sector);
-
-	if (!is3DFloor)
+	if (sampleDimension <= 0)
 	{
-		surf.plane = sector->ceilingplane;
+		sampleDimension = LightmapSampleDistance;
+	}
+
+	sampleDimension = uint16_t(max(int(roundf(float(sampleDimension) / max(1.0f / 4, float(lm_scale)))), 1));
+
+	// Round to nearest power of two
+	uint32_t n = uint16_t(sampleDimension);
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n = (n + 1) >> 1;
+	sampleDimension = uint16_t(n) ? uint16_t(n) : uint16_t(0xFFFF);
+
+	return sampleDimension;
+}
+
+void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent)
+{
+	for (HWFlat& flatpart : list)
+	{
+		if (isSky)
+		{
+			state.SetEffect(EFF_PORTAL);
+			state.EnableTexture(false);
+			state.SetRenderStyle(STYLE_Normal);
+
+			flatpart.DrawSubsectors(&disp, state);
+
+			state.SetEffect(EFF_NONE);
+			state.EnableTexture(true);
+		}
+		else
+		{
+			if (flatpart.texture && flatpart.texture->isMasked())
+			{
+				state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+			}
+			else
+			{
+				state.AlphaFunc(Alpha_GEqual, 0.f);
+			}
+
+			flatpart.DrawFlat(&disp, state, translucent);
+		}
+
+		VSMatrix textureMatrix;
+		textureMatrix.loadIdentity();
+
+		int pipelineID = 0;
+		int uniformsIndex = 0;
+		bool foundDraw = false;
+		for (auto& it : state.mSortedLists)
+		{
+			const MeshApplyState& applyState = it.first;
+
+			pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
+			uniformsIndex = Mesh.Uniforms.Size();
+			textureMatrix = applyState.textureMatrix;
+			Mesh.Uniforms.Push(applyState.surfaceUniforms);
+			Mesh.Materials.Push(applyState.material);
+
+			foundDraw = true;
+			break;
+		}
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
+		if (!foundDraw)
+			continue;
+
+		uint16_t sampleDimension = 0;
+		if (flatpart.ceiling)
+		{
+			sampleDimension = flatpart.sector->planes[sector_t::ceiling].LightmapSampleDistance;
+		}
+		else
+		{
+			sampleDimension = flatpart.sector->planes[sector_t::floor].LightmapSampleDistance;
+		}
+
+		DoomLevelMeshSurface surf;
+		surf.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
+		surf.ControlSector = flatpart.controlsector ? flatpart.controlsector->model : nullptr;
+		surf.AlwaysUpdate = !!(flatpart.sector->Flags & SECF_LM_DYNAMIC);
+		surf.SectorGroup = sectorGroup[flatpart.sector->Index()];
+		surf.Alpha = flatpart.alpha;
+		surf.Texture = flatpart.texture;
+		surf.PipelineID = pipelineID;
+		surf.PortalIndex = sectorPortals[flatpart.ceiling][flatpart.sector->Index()];
+		surf.IsSky = isSky;
+
+		auto plane = surf.ControlSector ? surf.ControlSector->GetSecPlane(!flatpart.ceiling) : flatpart.sector->GetSecPlane(flatpart.ceiling);
+		surf.Plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
+
+		if (surf.ControlSector)
+			surf.Plane = -surf.Plane;
+
+		float skyZ = flatpart.ceiling ? 32768.0f : -32768.0f;
+
+		for (subsector_t* sub : flatpart.section->subsectors)
+		{
+			if (sub->numlines < 3)
+				continue;
+
+			int startVertIndex = Mesh.Vertices.Size();
+			int startElementIndex = Mesh.Indexes.Size();
+
+			for (int i = 0, end = sub->numlines; i < end; i++)
+			{
+				auto& vt = sub->firstline[end - 1 - i].v1;
+
+				FVector3 pt((float)vt->fX(), (float)vt->fY(), isSky ? skyZ : (float)plane.ZatPoint(vt));
+				FVector4 uv = textureMatrix * FVector4(pt.X * (1.0f / 64.0f), pt.Y * (-1.0f / 64.0f), 0.0f, 1.0f);
+
+				FFlatVertex ffv;
+				ffv.x = pt.X;
+				ffv.y = pt.Y;
+				ffv.z = pt.Z;
+				ffv.u = uv.X;
+				ffv.v = uv.Y;
+				ffv.lu = 0.0f;
+				ffv.lv = 0.0f;
+				ffv.lindex = -1.0f;
+
+				Mesh.Vertices.Push(ffv);
+				Mesh.UniformIndexes.Push(uniformsIndex);
+			}
+
+			if (flatpart.ceiling)
+			{
+				for (int i = 2, count = sub->numlines; i < count; i++)
+				{
+					Mesh.Indexes.Push(startVertIndex);
+					Mesh.Indexes.Push(startVertIndex + i - 1);
+					Mesh.Indexes.Push(startVertIndex + i);
+				}
+			}
+			else
+			{
+				for (int i = 2, count = sub->numlines; i < count; i++)
+				{
+					Mesh.Indexes.Push(startVertIndex + i);
+					Mesh.Indexes.Push(startVertIndex + i - 1);
+					Mesh.Indexes.Push(startVertIndex);
+				}
+			}
+
+			surf.TypeIndex = sub->Index();
+			surf.Subsector = sub;
+			surf.MeshLocation.StartVertIndex = startVertIndex;
+			surf.MeshLocation.StartElementIndex = startElementIndex;
+			surf.MeshLocation.NumVerts = sub->numlines;
+			surf.MeshLocation.NumElements = (sub->numlines - 2) * 3;
+			surf.Bounds = GetBoundsFromSurface(surf);
+			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, sampleDimension) : -1;
+			Surfaces.Push(surf);
+		}
+	}
+}
+
+#if 0
+void DoomLevelMesh::CreateDynamicSurfaces(FLevelLocals& doomMap)
+{
+	// Look for polyobjects
+	for (unsigned int i = 0; i < doomMap.lines.Size(); i++)
+	{
+		side_t* side = doomMap.lines[i].sidedef[0];
+		bool isPolyLine = !!(side->Flags & WALLF_POLYOBJ);
+		if (!isPolyLine)
+			continue;
+
+		// Make sure we have a surface array on the polyobj sidedef
+		if (!side->surface)
+		{
+			auto array = std::make_unique<DoomLevelMeshSurface * []>(4);
+			memset(array.get(), 0, sizeof(DoomLevelMeshSurface*));
+			side->surface = array.get();
+			PolyLMSurfaces.Push(std::move(array));
+		}
+
+		CreateSideSurfaces(doomMap, side);
+	}
+}
+#endif
+
+void DoomLevelMesh::SortIndexes()
+{
+	// Order surfaces by pipeline
+	std::unordered_map<int64_t, TArray<int>> pipelineSurfaces;
+	for (size_t i = 0; i < Surfaces.Size(); i++)
+	{
+		DoomLevelMeshSurface* s = &Surfaces[i];
+		pipelineSurfaces[(int64_t(s->PipelineID) << 32) | int64_t(s->IsSky)].Push(i);
+	}
+
+	// Create reorder surface indexes by pipeline and create a draw range for each
+	TArray<uint32_t> sortedIndexes;
+	for (const auto& it : pipelineSurfaces)
+	{
+		LevelSubmeshDrawRange range;
+		range.PipelineID = it.first >> 32;
+		range.Start = sortedIndexes.Size();
+
+		// Move indexes to new array
+		for (unsigned int i : it.second)
+		{
+			DoomLevelMeshSurface& s = Surfaces[i];
+
+			unsigned int start = s.MeshLocation.StartElementIndex;
+			unsigned int count = s.MeshLocation.NumElements;
+
+			s.MeshLocation.StartElementIndex = sortedIndexes.Size();
+
+			for (unsigned int j = 0; j < count; j++)
+			{
+				sortedIndexes.Push(Mesh.Indexes[start + j]);
+			}
+
+			for (unsigned int j = 0; j < count; j += 3)
+			{
+				Mesh.SurfaceIndexes.Push((int)i);
+			}
+		}
+
+		range.Count = sortedIndexes.Size() - range.Start;
+
+		if ((it.first & 1) == 0)
+			DrawList.Push(range);
+		else
+			PortalList.Push(range);
+	}
+
+	Mesh.Indexes.Swap(sortedIndexes);
+}
+
+void DoomLevelMesh::LinkSurfaces(FLevelLocals& doomMap)
+{
+	for (auto& surface : Surfaces)
+	{
+		if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
+		{
+			SetSubsectorLightmap(&surface);
+		}
+		else
+		{
+			SetSideLightmap(&surface);
+		}
+	}
+}
+
+void DoomLevelMesh::SetSubsectorLightmap(DoomLevelMeshSurface* surface)
+{
+	if (surface->Subsector->firstline && surface->Subsector->firstline->sidedef)
+		surface->Subsector->firstline->sidedef->sector->HasLightmaps = true;
+
+	if (!surface->ControlSector)
+	{
+		int index = surface->Type == ST_CEILING ? 1 : 0;
+		surface->Subsector->surface[index][0] = surface;
 	}
 	else
 	{
-		surf.plane = sector->floorplane;
-		surf.plane.FlipVert();
-	}
-
-	surf.numVerts = sub->numlines;
-	surf.startVertIndex = MeshVertices.Size();
-	MeshVertices.Resize(surf.startVertIndex + surf.numVerts);
-	FVector3* verts = &MeshVertices[surf.startVertIndex];
-
-	for (int j = 0; j < surf.numVerts; j++)
-	{
-		seg_t *seg = &sub->firstline[j];
-		FVector2 v1 = ToFVector2(seg->v1->fPos());
-
-		verts[j].X = v1.X;
-		verts[j].Y = v1.Y;
-		verts[j].Z = (float)surf.plane.ZatPoint(verts[j]);
-	}
-
-	surf.type = ST_CEILING;
-	surf.typeIndex = typeIndex;
-	surf.controlSector = is3DFloor ? sector : nullptr;
-
-	Surfaces.Push(surf);
-}
-
-void DoomLevelMesh::CreateSubsectorSurfaces(FLevelLocals &doomMap)
-{
-	for (unsigned int i = 0; i < doomMap.subsectors.Size(); i++)
-	{
-		subsector_t *sub = &doomMap.subsectors[i];
-
-		if (sub->numlines < 3)
+		int index = surface->Type == ST_CEILING ? 0 : 1;
+		const auto& ffloors = surface->Subsector->sector->e->XFloor.ffloors;
+		for (unsigned int i = 0; i < ffloors.Size(); i++)
 		{
-			continue;
-		}
-
-		sector_t *sector = sub->sector;
-		if (!sector || IsControlSector(sector))
-			continue;
-
-		CreateFloorSurface(doomMap, sub, sector, i, false);
-		CreateCeilingSurface(doomMap, sub, sector, i, false);
-
-		for (unsigned int j = 0; j < sector->e->XFloor.ffloors.Size(); j++)
-		{
-			CreateFloorSurface(doomMap, sub, sector->e->XFloor.ffloors[j]->model, i, true);
-			CreateCeilingSurface(doomMap, sub, sector->e->XFloor.ffloors[j]->model, i, true);
+			if (ffloors[i]->model == surface->ControlSector)
+			{
+				surface->Subsector->surface[index][i + 1] = surface;
+			}
 		}
 	}
 }
 
-bool DoomLevelMesh::IsTopSideSky(sector_t* frontsector, sector_t* backsector, side_t* side)
+void DoomLevelMesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 {
-	return IsSkySector(frontsector) && IsSkySector(backsector);
+	if (!surface->ControlSector)
+	{
+		if (surface->Type == ST_UPPERSIDE)
+		{
+			surface->Side->surface[0] = surface;
+		}
+		else if (surface->Type == ST_MIDDLESIDE)
+		{
+			surface->Side->surface[1] = surface;
+			surface->Side->surface[2] = surface;
+		}
+		else if (surface->Type == ST_LOWERSIDE)
+		{
+			surface->Side->surface[3] = surface;
+		}
+	}
+	else
+	{
+		side_t* backside = surface->Side->linedef->sidedef[surface->Side == surface->Side->linedef->sidedef[0]];
+		const auto& ffloors = backside->sector->e->XFloor.ffloors;
+		for (unsigned int i = 0; i < ffloors.Size(); i++)
+		{
+			if (ffloors[i]->model == surface->ControlSector)
+			{
+				backside->surface[4 + i] = surface;
+			}
+		}
+	}
 }
 
-bool DoomLevelMesh::IsTopSideVisible(side_t* side)
+BBox DoomLevelMesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const
 {
-	auto tex = TexMan.GetGameTexture(side->GetTexture(side_t::top), true);
-	return tex && tex->isValid();
+	BBox bounds;
+	bounds.Clear();
+	for (int i = int(surface.MeshLocation.StartVertIndex); i < int(surface.MeshLocation.StartVertIndex) + surface.MeshLocation.NumVerts; i++)
+	{
+		FVector3 v = Mesh.Vertices[(int)i].fPos();
+		bounds.min.X = std::min(bounds.min.X, v.X);
+		bounds.min.Y = std::min(bounds.min.Y, v.Y);
+		bounds.min.Z = std::min(bounds.min.Z, v.Z);
+		bounds.max.X = std::max(bounds.max.X, v.X);
+		bounds.max.Y = std::max(bounds.max.Y, v.Y);
+		bounds.max.Z = std::max(bounds.max.Z, v.Z);
+	}
+	return bounds;
 }
 
-bool DoomLevelMesh::IsBottomSideVisible(side_t* side)
+void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const
 {
-	auto tex = TexMan.GetGameTexture(side->GetTexture(side_t::bottom), true);
-	return tex && tex->isValid();
+	auto f = fopen(objFilename.GetChars(), "w");
+
+	fprintf(f, "# DoomLevelMesh debug export\n");
+	fprintf(f, "# Vertices: %u, Indexes: %u, Surfaces: %u\n", Mesh.Vertices.Size(), Mesh.Indexes.Size(), Surfaces.Size());
+	fprintf(f, "mtllib %s\n", mtlFilename.GetChars());
+
+	double scale = 1 / 10.0;
+
+	for (const auto& v : Mesh.Vertices)
+	{
+		fprintf(f, "v %f %f %f\n", v.x * scale, v.y * scale, v.z * scale);
+	}
+
+	for (const auto& v : Mesh.Vertices)
+	{
+		fprintf(f, "vt %f %f\n", v.lu, v.lv);
+	}
+
+	auto name = [](DoomLevelMeshSurfaceType type) -> const char* {
+		switch (type)
+		{
+		case ST_CEILING:
+			return "ceiling";
+		case ST_FLOOR:
+			return "floor";
+		case ST_LOWERSIDE:
+			return "lowerside";
+		case ST_UPPERSIDE:
+			return "upperside";
+		case ST_MIDDLESIDE:
+			return "middleside";
+		case ST_NONE:
+			return "none";
+		default:
+			break;
+		}
+		return "error";
+		};
+
+
+	uint32_t lastSurfaceIndex = -1;
+
+
+	bool useErrorMaterial = false;
+	int highestUsedAtlasPage = -1;
+
+	for (unsigned i = 0, count = Mesh.Indexes.Size(); i + 2 < count; i += 3)
+	{
+		auto index = Mesh.SurfaceIndexes[i / 3];
+
+		if (index != lastSurfaceIndex)
+		{
+			lastSurfaceIndex = index;
+
+			if (unsigned(index) >= Surfaces.Size())
+			{
+				fprintf(f, "o Surface[%d] (bad index)\n", index);
+				fprintf(f, "usemtl error\n");
+
+				useErrorMaterial = true;
+			}
+			else
+			{
+				const auto& surface = Surfaces[index];
+				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.TypeIndex, surface.IsSky ? " sky" : "");
+
+				if (surface.LightmapTileIndex >= 0)
+				{
+					auto& tile = LightmapTiles[surface.LightmapTileIndex];
+					fprintf(f, "usemtl lightmap%d\n", tile.AtlasLocation.ArrayIndex);
+
+					if (tile.AtlasLocation.ArrayIndex > highestUsedAtlasPage)
+					{
+						highestUsedAtlasPage = tile.AtlasLocation.ArrayIndex;
+					}
+				}
+			}
+		}
+
+		// fprintf(f, "f %d %d %d\n", MeshElements[i] + 1, MeshElements[i + 1] + 1, MeshElements[i + 2] + 1);
+		fprintf(f, "f %d/%d %d/%d %d/%d\n",
+			Mesh.Indexes[i + 0] + 1, Mesh.Indexes[i + 0] + 1,
+			Mesh.Indexes[i + 1] + 1, Mesh.Indexes[i + 1] + 1,
+			Mesh.Indexes[i + 2] + 1, Mesh.Indexes[i + 2] + 1);
+
+	}
+
+	fclose(f);
+
+	// material
+
+	f = fopen(mtlFilename.GetChars(), "w");
+
+	fprintf(f, "# DoomLevelMesh debug export\n");
+
+	if (useErrorMaterial)
+	{
+		fprintf(f, "# Surface indices that are referenced, but do not exists in the 'Surface' array\n");
+		fprintf(f, "newmtl error\nKa 1 0 0\nKd 1 0 0\nKs 1 0 0\n");
+	}
+
+	for (int page = 0; page <= highestUsedAtlasPage; ++page)
+	{
+		fprintf(f, "newmtl lightmap%d\n", page);
+		fprintf(f, "Ka 1 1 1\nKd 1 1 1\nKs 0 0 0\n");
+		fprintf(f, "map_Ka lightmap%d.png\n", page);
+		fprintf(f, "map_Kd lightmap%d.png\n", page);
+	}
+
+	fclose(f);
 }
 
-bool DoomLevelMesh::IsSkySector(sector_t* sector)
+void DoomLevelMesh::BuildSectorGroups(const FLevelLocals& doomMap)
 {
-	return sector->GetTexture(sector_t::ceiling) == skyflatnum;
+	int groupIndex = 0;
+
+	TArray<sector_t*> queue;
+
+	sectorGroup.Resize(doomMap.sectors.Size());
+	memset(sectorGroup.Data(), 0, sectorGroup.Size() * sizeof(int));
+
+	for (int i = 0, count = doomMap.sectors.Size(); i < count; ++i)
+	{
+		auto* sector = &doomMap.sectors[i];
+
+		auto& currentSectorGroup = sectorGroup[sector->Index()];
+		if (currentSectorGroup == 0)
+		{
+			currentSectorGroup = ++groupIndex;
+
+			queue.Push(sector);
+
+			while (queue.Size() > 0)
+			{
+				auto* sector = queue.Last();
+				queue.Pop();
+
+				for (auto& line : sector->Lines)
+				{
+					auto otherSector = line->frontsector == sector ? line->backsector : line->frontsector;
+					if (otherSector && otherSector != sector)
+					{
+						auto& id = sectorGroup[otherSector->Index()];
+
+						if (id == 0)
+						{
+							id = groupIndex;
+							queue.Push(otherSector);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (developer >= 5)
+	{
+		Printf("DoomLevelMesh::BuildSectorGroups created %d groups.", groupIndex);
+	}
 }
 
-bool DoomLevelMesh::IsControlSector(sector_t* sector)
+void DoomLevelMesh::CreatePortals(FLevelLocals& doomMap)
 {
-	//return sector->controlsector;
-	return false;
-}
+	std::map<LevelMeshPortal, int, IdenticalPortalComparator> transformationIndices;
+	transformationIndices.emplace(LevelMeshPortal{}, 0); // first portal is an identity matrix
 
-bool DoomLevelMesh::IsDegenerate(const FVector3 &v0, const FVector3 &v1, const FVector3 &v2)
-{
-	// A degenerate triangle has a zero cross product for two of its sides.
-	float ax = v1.X - v0.X;
-	float ay = v1.Y - v0.Y;
-	float az = v1.Z - v0.Z;
-	float bx = v2.X - v0.X;
-	float by = v2.Y - v0.Y;
-	float bz = v2.Z - v0.Z;
-	float crossx = ay * bz - az * by;
-	float crossy = az * bx - ax * bz;
-	float crossz = ax * by - ay * bx;
-	float crosslengthsqr = crossx * crossx + crossy * crossy + crossz * crossz;
-	return crosslengthsqr <= 1.e-6f;
+	sectorPortals[0].Resize(doomMap.sectors.Size());
+	sectorPortals[1].Resize(doomMap.sectors.Size());
+
+	for (unsigned int i = 0, count = doomMap.sectors.Size(); i < count; i++)
+	{
+		sector_t* sector = &doomMap.sectors[i];
+		for (int plane = 0; plane < 2; plane++)
+		{
+			auto d = sector->GetPortalDisplacement(plane);
+			if (!d.isZero())
+			{
+				// Note: Y and Z is swapped in the shader due to how the hwrenderer was implemented
+				VSMatrix transformation;
+				transformation.loadIdentity();
+				transformation.translate((float)d.X, 0.0f, (float)d.Y);
+
+				int targetSectorGroup = 0;
+				auto portalDestination = sector->GetPortal(plane)->mDestination;
+				if (portalDestination)
+				{
+					targetSectorGroup = sectorGroup[portalDestination->Index()];
+				}
+
+				LevelMeshPortal portal;
+				portal.transformation = transformation;
+				portal.sourceSectorGroup = sectorGroup[i];
+				portal.targetSectorGroup = targetSectorGroup;
+
+				auto& index = transformationIndices[portal];
+				if (index == 0) // new transformation was created
+				{
+					index = Portals.Size();
+					Portals.Push(portal);
+				}
+
+				sectorPortals[plane][i] = index;
+			}
+			else
+			{
+				sectorPortals[plane][i] = 0;
+			}
+		}
+	}
+
+	linePortals.Resize(doomMap.lines.Size());
+	for (unsigned int i = 0, count = doomMap.lines.Size(); i < count; i++)
+	{
+		linePortals[i] = 0;
+
+		line_t* sourceLine = &doomMap.lines[i];
+		if (sourceLine->isLinePortal())
+		{
+			VSMatrix transformation;
+			transformation.loadIdentity();
+
+			auto targetLine = sourceLine->getPortalDestination();
+			if (!targetLine || !sourceLine->frontsector || !targetLine->frontsector)
+				continue;
+
+			double z = 0;
+
+			// auto xy = surface.Side->linedef->getPortalDisplacement(); // Works only for static portals... ugh
+			auto sourceXYZ = DVector2((sourceLine->v1->fX() + sourceLine->v2->fX()) / 2, (sourceLine->v2->fY() + sourceLine->v1->fY()) / 2);
+			auto targetXYZ = DVector2((targetLine->v1->fX() + targetLine->v2->fX()) / 2, (targetLine->v2->fY() + targetLine->v1->fY()) / 2);
+
+			// floor or ceiling alignment
+			auto alignment = sourceLine->GetLevel()->linePortals[sourceLine->portalindex].mAlign;
+			if (alignment != PORG_ABSOLUTE)
+			{
+				int plane = alignment == PORG_FLOOR ? 1 : 0;
+
+				auto& sourcePlane = plane ? sourceLine->frontsector->floorplane : sourceLine->frontsector->ceilingplane;
+				auto& targetPlane = plane ? targetLine->frontsector->floorplane : targetLine->frontsector->ceilingplane;
+
+				auto tz = targetPlane.ZatPoint(targetXYZ);
+				auto sz = sourcePlane.ZatPoint(sourceXYZ);
+
+				z = tz - sz;
+			}
+
+			// Note: Y and Z is swapped in the shader due to how the hwrenderer was implemented
+			transformation.rotate((float)sourceLine->getPortalAngleDiff().Degrees(), 0.0f, 1.0f, 0.0f);
+			transformation.translate((float)(targetXYZ.X - sourceXYZ.X), (float)z, (float)(targetXYZ.Y - sourceXYZ.Y));
+
+			int targetSectorGroup = 0;
+			if (auto sector = targetLine->frontsector ? targetLine->frontsector : targetLine->backsector)
+			{
+				targetSectorGroup = sectorGroup[sector->Index()];
+			}
+
+			LevelMeshPortal portal;
+			portal.transformation = transformation;
+			portal.sourceSectorGroup = sectorGroup[sourceLine->frontsector->Index()];
+			portal.targetSectorGroup = targetSectorGroup;
+
+			auto& index = transformationIndices[portal];
+			if (index == 0) // new transformation was created
+			{
+				index = Portals.Size();
+				Portals.Push(portal);
+			}
+
+			linePortals[i] = index;
+		}
+	}
 }

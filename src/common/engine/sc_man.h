@@ -1,6 +1,7 @@
 #ifndef __SC_MAN_H__
 #define __SC_MAN_H__
 
+#include <vector>
 #include "zstring.h"
 #include "tarray.h"
 #include "name.h"
@@ -70,9 +71,11 @@ public:
 	void Open(const char *lumpname);
 	bool OpenFile(const char *filename);
 	void OpenMem(const char *name, const char *buffer, int size);
-	void OpenMem(const char *name, const TArray<uint8_t> &buffer)
+	template<class T>
+	void OpenMem(const char* name, const T& buffer)
 	{
-		OpenMem(name, (const char*)buffer.Data(), buffer.Size());
+		static_assert(sizeof(typename T::value_type) == 1);
+		OpenMem(name, (const char*)buffer.data(), (int)buffer.size());
 	}
 	void OpenString(const char *name, FString buffer);
 	void OpenLumpNum(int lump);
@@ -189,6 +192,7 @@ public:
 
 	void ScriptError(const char *message, ...) GCCPRINTF(2,3);
 	void ScriptMessage(const char *message, ...) GCCPRINTF(2,3);
+	void SetPrependMessage(const FString& message) { PrependMessage = message; }
 
 	bool isText();
 
@@ -235,6 +239,7 @@ protected:
 	bool StateOptions;
 	bool Escape;
 	VersionInfo ParseVersion = { 0, 0, 0 };	// no ZScript extensions by default
+	FString PrependMessage = "";
 
 
 	bool ScanValue(bool allowfloat, bool evaluate);

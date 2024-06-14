@@ -26,17 +26,19 @@
 #include "vulkan/buffers/vk_buffer.h"
 #include <zvulkan/vulkanbuilders.h>
 #include "flatvertices.h"
+#include "cmdlib.h"
 
 VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 {
-	static const FVertexBufferAttribute format[] =
+	static std::vector<FVertexBufferAttribute> format =
 	{
-		{ 0, VATTR_VERTEX, VFmt_Float3, (int)myoffsetof(FFlatVertex, x) },
+		{ 0, VATTR_VERTEX, VFmt_Float4, (int)myoffsetof(FFlatVertex, x) },
 		{ 0, VATTR_TEXCOORD, VFmt_Float2, (int)myoffsetof(FFlatVertex, u) },
-		{ 0, VATTR_LIGHTMAP, VFmt_Float3, (int)myoffsetof(FFlatVertex, lu) },
+		{ 0, VATTR_LIGHTMAP, VFmt_Float2, (int)myoffsetof(FFlatVertex, lu) },
 	};
+	static std::vector<size_t> bufferStrides = { sizeof(FFlatVertex), sizeof(FFlatVertex) };
 
-	Flatbuffer.VertexFormat = fb->GetRenderPassManager()->GetVertexFormat(1, 3, sizeof(FFlatVertex), format);
+	Flatbuffer.VertexFormat = fb->GetRenderPassManager()->GetVertexFormat(bufferStrides, format);
 
 	Flatbuffer.VertexBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_UNKNOWN, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -55,8 +57,8 @@ VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 		.DebugName("Flatbuffer.IndexBuffer")
 		.Create(fb->GetDevice());
 
-	MatrixBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(MatricesUBO), 50000);
-	StreamBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(StreamUBO), 300);
+	MatrixBuffer = std::make_unique<VkMatrixBufferWriter>(fb);
+	SurfaceUniformsBuffer = std::make_unique<VkSurfaceUniformsBufferWriter>(fb);
 
 	Viewpoint.BlockAlign = (sizeof(HWViewpointUniforms) + fb->uniformblockalignment - 1) / fb->uniformblockalignment * fb->uniformblockalignment;
 
@@ -92,6 +94,21 @@ VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 		.Create(fb->GetDevice());
 
 	Bonebuffer.Data = Bonebuffer.SSO->Map(0, Bonebuffer.SSO->size);
+
+	Fogballbuffer.UBO = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_UNKNOWN, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
+		.MemoryType(
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+		.Size(Fogballbuffer.Count * sizeof(Fogball))
+		.DebugName("Fogballbuffer.UBO")
+		.Create(fb->GetDevice());
+
+	Fogballbuffer.Data = Fogballbuffer.UBO->Map(0, Fogballbuffer.UBO->size);
+
+	OcclusionQuery.QueryPool = QueryPoolBuilder()
+		.QueryType(VK_QUERY_TYPE_OCCLUSION, OcclusionQuery.MaxQueries)
+		.Create(fb->GetDevice());
 }
 
 VkRSBuffers::~VkRSBuffers()
@@ -112,6 +129,10 @@ VkRSBuffers::~VkRSBuffers()
 	if (Bonebuffer.SSO)
 		Bonebuffer.SSO->Unmap();
 	Bonebuffer.SSO.reset();
+
+	if (Fogballbuffer.UBO)
+		Fogballbuffer.UBO->Unmap();
+	Fogballbuffer.UBO.reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -148,38 +169,40 @@ uint32_t VkStreamBuffer::NextStreamDataBlock()
 	return mStreamDataOffset;
 }
 
-VkStreamBufferWriter::VkStreamBufferWriter(VkRSBuffers* rsbuffers)
+/////////////////////////////////////////////////////////////////////////////
+
+VkSurfaceUniformsBufferWriter::VkSurfaceUniformsBufferWriter(VulkanRenderDevice* fb)
 {
-	mBuffer = rsbuffers->StreamBuffer.get();
+	mBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(SurfaceUniformsUBO), 300);
 }
 
-bool VkStreamBufferWriter::Write(const StreamData& data)
+bool VkSurfaceUniformsBufferWriter::Write(const SurfaceUniforms& data)
 {
 	mDataIndex++;
-	if (mDataIndex == MAX_STREAM_DATA)
+	if (mDataIndex == MAX_SURFACE_UNIFORMS)
 	{
 		mDataIndex = 0;
-		mStreamDataOffset = mBuffer->NextStreamDataBlock();
-		if (mStreamDataOffset == 0xffffffff)
+		mOffset = mBuffer->NextStreamDataBlock();
+		if (mOffset == 0xffffffff)
 			return false;
 	}
 	uint8_t* ptr = (uint8_t*)mBuffer->Data;
-	memcpy(ptr + mStreamDataOffset + sizeof(StreamData) * mDataIndex, &data, sizeof(StreamData));
+	memcpy(ptr + mOffset + sizeof(SurfaceUniforms) * mDataIndex, &data, sizeof(SurfaceUniforms));
 	return true;
 }
 
-void VkStreamBufferWriter::Reset()
+void VkSurfaceUniformsBufferWriter::Reset()
 {
-	mDataIndex = MAX_STREAM_DATA - 1;
-	mStreamDataOffset = 0;
+	mDataIndex = MAX_SURFACE_UNIFORMS - 1;
+	mOffset = 0;
 	mBuffer->Reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 
-VkMatrixBufferWriter::VkMatrixBufferWriter(VkRSBuffers* rsbuffers)
+VkMatrixBufferWriter::VkMatrixBufferWriter(VulkanRenderDevice* fb)
 {
-	mBuffer = rsbuffers->MatrixBuffer.get();
+	mBuffer = std::make_unique<VkStreamBuffer>(fb, sizeof(MatricesUBO), 50000);
 }
 
 bool VkMatrixBufferWriter::Write(const MatricesUBO& matrices)

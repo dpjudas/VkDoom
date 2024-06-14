@@ -34,6 +34,8 @@
 #include "hw_portal.h"
 #include "hw_renderstate.h"
 #include "hw_drawinfo.h"
+#include "hw_drawcontext.h"
+#include "hw_walldispatcher.h"
 #include "po_man.h"
 #include "models.h"
 #include "hw_clock.h"
@@ -41,14 +43,19 @@
 #include "flatvertices.h"
 #include "hw_vrmodes.h"
 #include "hw_clipper.h"
-#include "hw_meshcache.h"
 #include "v_draw.h"
-#include "a_corona.h"
 #include "texturemanager.h"
 #include "actorinlines.h"
 #include "g_levellocals.h"
+#include "hw_lighting.h"
 
 EXTERN_CVAR(Float, r_visibility)
+EXTERN_CVAR(Int, lm_background_updates);
+EXTERN_CVAR(Float, r_actorspriteshadowdist)
+EXTERN_CVAR(Bool, gl_portals)
+
+CVAR(Bool, lm_always_update, false, 0)
+
 CVAR(Bool, gl_bandedswlight, false, CVAR_ARCHIVE)
 CVAR(Bool, gl_sort_textures, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, gl_no_skyclear, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
@@ -60,54 +67,10 @@ CVAR(Float, gl_mask_sprite_threshold, 0.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 CVAR(Bool, gl_coronas, true, CVAR_ARCHIVE);
 
-CVAR(Bool, gl_meshcache, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+CVAR(Bool, gl_levelmesh, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
 sector_t * hw_FakeFlat(sector_t * sec, sector_t * dest, area_t in_area, bool back);
 
-//==========================================================================
-//
-//
-//
-//==========================================================================
-
-class FDrawInfoList
-{
-public:
-	TDeletingArray<HWDrawInfo *> mList;
-
-	HWDrawInfo * GetNew();
-	void Release(HWDrawInfo *);
-};
-
-
-FDrawInfoList di_list;
-
-//==========================================================================
-//
-// Try to reuse the lists as often as possible as they contain resources that
-// are expensive to create and delete.
-//
-// Note: If multithreading gets used, this class needs synchronization.
-//
-//==========================================================================
-
-HWDrawInfo *FDrawInfoList::GetNew()
-{
-	if (mList.Size() > 0)
-	{
-		HWDrawInfo *di;
-		mList.Pop(di);
-		return di;
-	}
-	return new HWDrawInfo();
-}
-
-void FDrawInfoList::Release(HWDrawInfo * di)
-{
-	di->ClearBuffers();
-	di->Level = nullptr;
-	mList.Push(di);
-}
 
 //==========================================================================
 //
@@ -115,31 +78,22 @@ void FDrawInfoList::Release(HWDrawInfo * di)
 //
 //==========================================================================
 
-HWDrawInfo *HWDrawInfo::StartDrawInfo(FLevelLocals *lev, HWDrawInfo *parent, FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms)
+HWDrawInfo *HWDrawInfo::StartDrawInfo(HWDrawContext* drawctx, FLevelLocals *lev, HWDrawInfo *parent, FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms)
 {
-	HWDrawInfo *di = di_list.GetNew();
+	HWDrawInfo *di = drawctx->di_list.GetNew();
 	di->Level = lev;
 	di->StartScene(parentvp, uniforms);
 	return di;
 }
 
-
-//==========================================================================
-//
-//
-//
-//==========================================================================
-
-static Clipper staticClipper;		// Since all scenes are processed sequentially we only need one clipper.
-static HWDrawInfo * gl_drawinfo;	// This is a linked list of all active DrawInfos and needed to free the memory arena after the last one goes out of scope.
-
 void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms)
 {
-	staticClipper.Clear();
-	mClipper = &staticClipper;
+	drawctx->staticClipper.Clear();
+	mClipper = &drawctx->staticClipper;
 
 	Viewpoint = parentvp;
-	lightmode = Level->lightMode;
+	lightmode = getRealLightmode(Level, true);
+
 	if (uniforms)
 	{
 		VPUniforms = *uniforms;
@@ -153,7 +107,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		VPUniforms.mViewMatrix.loadIdentity();
 		VPUniforms.mNormalViewMatrix.loadIdentity();
 		VPUniforms.mViewHeight = viewheight;
-		if (gl_lightmode == 5)
+		if (lightmode == ELightMode::Build)
 		{
 			VPUniforms.mGlobVis = 1 / 64.f;
 			VPUniforms.mPalLightLevels = 32 | (static_cast<int>(gl_fogmode) << 8) | ((int)lightmode << 16);
@@ -164,7 +118,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 			VPUniforms.mPalLightLevels = static_cast<int>(gl_bandedswlight) | (static_cast<int>(gl_fogmode) << 8) | ((int)lightmode << 16);
 		}
 		VPUniforms.mClipLine.X = -10000000.0f;
-		VPUniforms.mShadowmapFilter = static_cast<int>(gl_shadowmap_filter);
+		VPUniforms.mShadowFilter = static_cast<int>(gl_light_shadow_filter);
 		VPUniforms.mLightBlendMode = (level.info ? (int)level.info->lightblendmode : 0);
 	}
 	mClipper->SetViewpoint(Viewpoint);
@@ -174,14 +128,16 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 	for (int i = 0; i < GLDL_TYPES; i++) drawlists[i].Reset();
 	hudsprites.Clear();
 	Coronas.Clear();
+	Fogballs.Clear();
+	VisibleTiles.Clear();
 	vpIndex = 0;
 
 	// Fullbright information needs to be propagated from the main view.
 	if (outer != nullptr) FullbrightFlags = outer->FullbrightFlags;
 	else FullbrightFlags = 0;
 
-	outer = gl_drawinfo;
-	gl_drawinfo = this;
+	outer = drawctx->gl_drawinfo;
+	drawctx->gl_drawinfo = this;
 
 }
 
@@ -193,13 +149,13 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 
 HWDrawInfo *HWDrawInfo::EndDrawInfo()
 {
-	assert(this == gl_drawinfo);
+	assert(this == drawctx->gl_drawinfo);
 	for (int i = 0; i < GLDL_TYPES; i++) drawlists[i].Reset();
-	gl_drawinfo = outer;
-	di_list.Release(this);
-	if (gl_drawinfo == nullptr)
-		ResetRenderDataAllocator();
-	return gl_drawinfo;
+	drawctx->gl_drawinfo = outer;
+	drawctx->di_list.Release(this);
+	if (drawctx->gl_drawinfo == nullptr)
+		drawctx->ResetRenderDataAllocator();
+	return drawctx->gl_drawinfo;
 }
 
 
@@ -421,7 +377,7 @@ HWPortal * HWDrawInfo::FindPortal(const void * src)
 
 HWDecal *HWDrawInfo::AddDecal(bool onmirror)
 {
-	auto decal = (HWDecal*)RenderDataAllocator.Alloc(sizeof(HWDecal));
+	auto decal = (HWDecal*)drawctx->RenderDataAllocator.Alloc(sizeof(HWDecal));
 	Decals[onmirror ? 1 : 0].Push(decal);
 	return decal;
 }
@@ -441,14 +397,105 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	mClipper->SafeAddClipRangeRealAngles(vp.Angles.Yaw.BAMs() + a1, vp.Angles.Yaw.BAMs() - a1);
 
 	// reset the portal manager
-	portalState.StartFrame();
+	drawctx->portalState.StartFrame();
 
 	ProcessAll.Clock();
 
 	// clip the scene and fill the drawlists
 
-	if (!gl_meshcache)
+	if (gl_levelmesh && !outer)
+	{
+		// Give the DrawInfo the viewpoint in fixed point because that's what the nodes are.
+		viewx = FLOAT2FIXED(Viewpoint.Pos.X);
+		viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
+
+		validcount++;	// used for processing sidedefs only once by the renderer.
+
+		auto& portals = level.levelMesh->WallPortals;
+
+		// draw level into depth buffer
+		state.SetColorMask(false);
+		state.SetCulling(Cull_CW);
+		state.DrawLevelMeshSurfaces(true);
+		if (gl_portals)
+		{
+			state.SetDepthBias(1, 128);
+			state.DrawLevelMeshPortals(true);
+			state.SetDepthBias(0, 0);
+		}
+
+		// use occlusion queries on all portals in level to decide which are visible
+		int queryStart = state.GetNextQueryIndex();
+		state.SetDepthMask(false);
+		state.EnableTexture(false);
+		state.SetEffect(EFF_PORTAL);
+		for (HWWall& wall : portals)
+		{
+			state.BeginQuery();
+
+			wall.MakeVertices(state, false);
+			wall.RenderWall(state, HWWall::RWF_BLANK);
+			wall.vertcount = 0;
+
+			state.EndQuery();
+		}
+		state.SetEffect(EFF_NONE);
+		state.EnableTexture(gl_texture);
+		state.SetColorMask(true);
+		state.SetDepthMask(true);
+		int queryEnd = state.GetNextQueryIndex();
+
+		// draw opaque level so the GPU has something to do while we examine the query results
+		state.DrawLevelMeshSurfaces(false);
+		if (!gl_portals)
+		{
+			state.SetDepthBias(1, 128);
+			state.DrawLevelMeshPortals(false);
+			state.SetDepthBias(0, 0);
+		}
+		state.SetCulling(Cull_None);
+
+		// retrieve the query results and use them to fill the portal manager with portals
+		state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);
+		for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
+		{
+			bool portalVisible = QueryResultsBuffer[i];
+			if (portalVisible)
+			{
+				PutWallPortal(portals[i], state);
+			}
+		}
+
+		// Draw sprites
+		auto it = level.GetThinkerIterator<AActor>();
+		AActor* thing;
+		while ((thing = it.Next()) != nullptr)
+		{
+			HWSprite sprite;
+
+			if (R_ShouldDrawSpriteShadow(thing))
+			{
+				double dist = (thing->Pos() - vp.Pos).LengthSquared();
+				double check = r_actorspriteshadowdist;
+				if (dist <= check * check)
+				{
+					sprite.Process(this, state, thing, thing->Sector, in_area, false, true);
+				}
+			}
+
+			sprite.Process(this, state, thing, thing->Sector, in_area, false);
+		}
+
+		// Process all the sprites on the current portal's back side which touch the portal.
+		if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
+
+		if (drawpsprites)
+			PreparePlayerSprites(Viewpoint.sector, in_area, state);
+	}
+	else
+	{
 		RenderBSP(Level->HeadNode(), drawpsprites, state);
+	}
 
 	// And now the crappy hacks that have to be done to avoid rendering anomalies.
 	// These cannot be multithreaded when the time comes because all these depend
@@ -459,8 +506,134 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	PrepareUnhandledMissingTextures(state);
 	DispatchRenderHacks(state);
 
+	// Sort fogballs by view order
+	FVector3 campos(vp.Pos);
+	std::sort(Fogballs.begin(), Fogballs.end(), [&](const Fogball& a, const Fogball& b) -> bool {
+		FVector3 rayA = a.Position - campos;
+		FVector3 rayB = b.Position - campos;
+		float distSqrA = rayA | rayA;
+		float distSqrB = rayB | rayB;
+		return distSqrA > distSqrB;
+		});
+
 	ProcessAll.Unclock();
 
+}
+
+void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
+{
+	HWWallDispatcher ddi(this);
+
+	int portaltype = wall.portaltype;
+	int portalplane = wall.portalplane;
+
+	HWSkyInfo skyinfo;
+	if (portaltype == PORTALTYPE_SKY)
+	{
+		skyinfo.init(this, wall.frontsector, sector_t::ceiling, wall.frontsector->skytransfer, wall.Colormap.FadeColor);
+		wall.sky = &skyinfo;
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
+	}
+	else if (portaltype == PORTALTYPE_SECTORSTACK)
+	{
+		// To do: this seems to need AddSubsectorToPortal?
+
+		//if (screen->instack[1 - portalplane])
+		//	return;
+		//wall.PutPortal(&ddi, state, portaltype, portalplane);
+	}
+	else if (portaltype == PORTALTYPE_PLANEMIRROR)
+	{
+		auto vpz = Viewpoint.Pos.Z;
+		if ((portalplane == sector_t::ceiling && vpz > wall.frontsector->ceilingplane.fD()) || (portalplane == sector_t::floor && vpz < -wall.frontsector->floorplane.fD()))
+			return;
+		wall.planemirror = (portalplane == sector_t::ceiling) ? &wall.frontsector->ceilingplane : &wall.frontsector->floorplane;
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
+	}
+	else if (portaltype == PORTALTYPE_HORIZON)
+	{
+		HWHorizonInfo hi;
+		auto vpz = ddi.di->Viewpoint.Pos.Z;
+		if (vpz < wall.frontsector->GetPlaneTexZ(sector_t::ceiling))
+		{
+			if (vpz > wall.frontsector->GetPlaneTexZ(sector_t::floor))
+				wall.zbottom[1] = wall.zbottom[0] = vpz;
+
+			hi.plane.GetFromSector(wall.frontsector, sector_t::ceiling);
+			hi.lightlevel = hw_ClampLight(wall.frontsector->GetCeilingLight());
+			hi.colormap = wall.frontsector->Colormap;
+			hi.specialcolor = wall.frontsector->SpecialColors[sector_t::ceiling];
+			if (wall.frontsector->e->XFloor.ffloors.Size())
+			{
+				auto light = P_GetPlaneLight(wall.frontsector, &wall.frontsector->ceilingplane, true);
+
+				if (!(wall.frontsector->GetFlags(sector_t::ceiling) & PLANEF_ABSLIGHTING)) hi.lightlevel = hw_ClampLight(*light->p_lightlevel);
+				hi.colormap.CopyLight(light->extra_colormap);
+			}
+
+			if (ddi.isFullbrightScene()) hi.colormap.Clear();
+			wall.horizon = &hi;
+			wall.PutPortal(&ddi, state, portaltype, portalplane);
+		}
+		if (vpz > wall.frontsector->GetPlaneTexZ(sector_t::floor))
+		{
+			wall.zbottom[1] = wall.zbottom[0] = wall.frontsector->GetPlaneTexZ(sector_t::floor);
+
+			hi.plane.GetFromSector(wall.frontsector, sector_t::floor);
+			hi.lightlevel = hw_ClampLight(wall.frontsector->GetFloorLight());
+			hi.colormap = wall.frontsector->Colormap;
+			hi.specialcolor = wall.frontsector->SpecialColors[sector_t::floor];
+
+			if (wall.frontsector->e->XFloor.ffloors.Size())
+			{
+				auto light = P_GetPlaneLight(wall.frontsector, &wall.frontsector->floorplane, false);
+
+				if (!(wall.frontsector->GetFlags(sector_t::floor) & PLANEF_ABSLIGHTING)) hi.lightlevel = hw_ClampLight(*light->p_lightlevel);
+				hi.colormap.CopyLight(light->extra_colormap);
+			}
+
+			if (ddi.isFullbrightScene()) hi.colormap.Clear();
+			wall.horizon = &hi;
+			wall.PutPortal(&ddi, state, portaltype, portalplane);
+		}
+	}
+	else if (portaltype == PORTALTYPE_SKYBOX)
+	{
+		FSectorPortal* sportal = wall.frontsector->ValidatePortal(portalplane);
+		if (sportal != nullptr && sportal->mFlags & PORTSF_INSKYBOX) sportal = nullptr;	// no recursions, delete it here to simplify the following code
+		wall.secportal = sportal;
+		if (sportal)
+		{
+			wall.PutPortal(&ddi, state, portaltype, portalplane);
+		}
+	}
+	else if (portaltype == PORTALTYPE_MIRROR)
+	{
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
+	}
+	else if (portaltype == PORTALTYPE_LINETOLINE)
+	{
+		wall.lineportal = wall.seg->linedef->getPortal()->mGroup;
+		wall.PutPortal(&ddi, state, portaltype, portalplane);
+	}
+}
+
+void HWDrawInfo::UpdateLightmaps()
+{
+	if (!outer && VisibleTiles.Size() < unsigned(lm_background_updates))
+	{
+		for (auto& e : level.levelMesh->LightmapTiles)
+		{
+			if (e.NeedsUpdate)
+			{
+				VisibleTiles.Push(&e);
+
+				if (VisibleTiles.Size() >= unsigned(lm_background_updates))
+					break;
+			}
+		}
+	}
+	screen->UpdateLightmaps(VisibleTiles);
 }
 
 //-----------------------------------------------------------------------------
@@ -475,6 +648,8 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 {
 	const auto &vp = Viewpoint;
 	RenderAll.Clock();
+
+	UpdateLightmaps();
 
 	state.SetLightMode((int)lightmode);
 
@@ -502,33 +677,16 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	drawlists[GLDL_PLAINWALLS].DrawWalls(this, state, false);
 	drawlists[GLDL_PLAINFLATS].DrawFlats(this, state, false);
 
-	if (gl_meshcache && meshcache.Opaque)
-	{
-		meshcache.Opaque->Draw(state);
-	}
-
 	// Part 2: masked geometry. This is set up so that only pixels with alpha>gl_mask_threshold will show
 	state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
 	drawlists[GLDL_MASKEDWALLS].DrawWalls(this, state, false);
 	drawlists[GLDL_MASKEDFLATS].DrawFlats(this, state, false);
-
-	if (gl_meshcache && meshcache.Translucent)
-	{
-		meshcache.Translucent->Draw(state);
-	}
 
 	// Part 3: masked geometry with polygon offset. This list is empty most of the time so only waste time on it when in use.
 	if (drawlists[GLDL_MASKEDWALLSOFS].Size() > 0)
 	{
 		state.SetDepthBias(-1, -128);
 		drawlists[GLDL_MASKEDWALLSOFS].DrawWalls(this, state, false);
-		state.ClearDepthBias();
-	}
-
-	if (gl_meshcache && meshcache.TranslucentDepthBiased)
-	{
-		state.SetDepthBias(-1, -128);
-		meshcache.TranslucentDepthBiased->Draw(state);
 		state.ClearDepthBias();
 	}
 
@@ -582,7 +740,7 @@ void HWDrawInfo::RenderPortal(HWPortal *p, FRenderState &state, bool usestencil)
 {
 	auto gp = static_cast<HWPortal *>(p);
 	gp->SetupStencil(this, state, usestencil);
-	auto new_di = StartDrawInfo(this->Level, this, Viewpoint, &VPUniforms);
+	auto new_di = StartDrawInfo(drawctx, this->Level, this, Viewpoint, &VPUniforms);
 	new_di->mCurrentPortal = gp;
 	state.SetLightIndex(-1);
 	gp->DrawContents(new_di, state);
@@ -593,7 +751,7 @@ void HWDrawInfo::RenderPortal(HWPortal *p, FRenderState &state, bool usestencil)
 
 }
 
-void HWDrawInfo::DrawCorona(FRenderState& state, ACorona* corona, double dist)
+void HWDrawInfo::DrawCorona(FRenderState& state, AActor* corona, float coronaFade, double dist)
 {
 	spriteframe_t* sprframe = &SpriteFrames[sprites[corona->sprite].spriteframes + (size_t)corona->SpawnState->GetFrame()];
 	FTextureID patch = sprframe->Texture[0];
@@ -613,7 +771,7 @@ void HWDrawInfo::DrawCorona(FRenderState& state, ACorona* corona, double dist)
 	float screenX = halfViewportWidth + clipPos.X * invW * halfViewportWidth;
 	float screenY = halfViewportHeight - clipPos.Y * invW * halfViewportHeight;
 
-	float alpha = corona->CoronaFade * float(corona->Alpha);
+	float alpha = coronaFade * float(corona->Alpha);
 
 	// distance-based fade - looks better IMO
 	float distNearFadeStart = float(corona->RenderRadius()) * 0.1f;
@@ -628,11 +786,12 @@ void HWDrawInfo::DrawCorona(FRenderState& state, ACorona* corona, double dist)
 	alpha *= distFade;
 
 	state.SetColorAlpha(0xffffff, alpha, 0);
-	if (isSoftwareLighting()) state.SetSoftLightLevel(255);
+	if (isSoftwareLighting(lightmode)) state.SetSoftLightLevel(255);
 	else state.SetNoSoftLightLevel();
 
 	state.SetLightIndex(-1);
 	state.SetRenderStyle(corona->RenderStyle);
+	state.SetTextureMode(TM_NORMAL); // This is needed because the next line doesn't always set the mode...
 	state.SetTextureMode(corona->RenderStyle);
 
 	state.SetMaterial(tex, UF_Sprite, CTF_Expand, CLAMP_XY_NOMIP, 0, 0);
@@ -683,8 +842,9 @@ void HWDrawInfo::DrawCoronas(FRenderState& state)
 	float timeElapsed = (screen->FrameTime - LastFrameTime) / 1000.0f;
 	LastFrameTime = screen->FrameTime;
 
-	for (ACorona* corona : Coronas)
+	for (AActor* corona : Coronas)
 	{
+		auto& coronaFade = corona->specialf1;
 		auto cPos = corona->Vec3Offset(0., 0., corona->Height * 0.5);
 		DVector3 direction = Viewpoint.Pos - cPos;
 		double dist = direction.Length();
@@ -699,15 +859,15 @@ void HWDrawInfo::DrawCoronas(FRenderState& state)
 		FTraceResults results;
 		if (!Trace(cPos, corona->Sector, direction, dist, MF_SOLID, ML_BLOCKEVERYTHING, corona, results, 0, CheckForViewpointActor, &Viewpoint))
 		{
-			corona->CoronaFade = std::min(corona->CoronaFade + timeElapsed * fadeSpeed, 1.0f);
+			coronaFade = std::min(coronaFade + timeElapsed * fadeSpeed, 1.0);
 		}
 		else
 		{
-			corona->CoronaFade = std::max(corona->CoronaFade - timeElapsed * fadeSpeed, 0.0f);
+			coronaFade = std::max(coronaFade - timeElapsed * fadeSpeed, 0.0);
 		}
 
-		if (corona->CoronaFade > 0.0f)
-			DrawCorona(state, corona, dist);
+		if (coronaFade > 0.0f)
+			DrawCorona(state, corona, (float)coronaFade, dist);
 	}
 
 	state.SetTextureMode(TM_NORMAL);
@@ -838,8 +998,14 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 		CreateScene(false, state);
 	}
 
+	if (!outer) // Fogballs have no portal support. Always use the outermost scene's fogballs for now
+	{
+		int fogballIndex = state.UploadFogballs(Fogballs);
+		state.SetFogballIndex(fogballIndex);
+	}
+
 	state.SetDepthMask(true);
-	if (!gl_no_skyclear) portalState.RenderFirstSkyPortal(recursion, this, state);
+	if (!gl_no_skyclear && !gl_levelmesh) drawctx->portalState.RenderFirstSkyPortal(recursion, this, state);
 
 	RenderScene(state);
 
@@ -852,11 +1018,16 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	// Handle all portals after rendering the opaque objects but before
 	// doing all translucent stuff
 	recursion++;
-	portalState.EndFrame(this, state);
+	drawctx->portalState.EndFrame(this, state);
 	recursion--;
-	RenderTranslucent(state);
-}
 
+	RenderTranslucent(state);
+
+	if (!outer)
+	{
+		state.SetFogballIndex(-1);
+	}
+}
 
 //-----------------------------------------------------------------------------
 //
@@ -866,7 +1037,7 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 
 void HWDrawInfo::ProcessScene(bool toscreen, FRenderState& state)
 {
-	portalState.BeginScene();
+	drawctx->portalState.BeginScene();
 
 	int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
 	CurrentMapSections.Set(mapsection);
@@ -885,7 +1056,7 @@ void HWDrawInfo::AddSubsectorToPortal(FSectorPortalGroup *ptg, subsector_t *sub)
 	auto portal = FindPortal(ptg);
 	if (!portal)
 	{
-        portal = new HWSectorStackPortal(&portalState, ptg);
+        portal = new HWSectorStackPortal(&drawctx->portalState, ptg);
 		Portals.Push(portal);
 	}
     auto ptl = static_cast<HWSectorStackPortal*>(portal);

@@ -50,6 +50,7 @@
 #include "c_cvars.h"
 #include "imagehelpers.h"
 #include "v_video.h"
+#include "v_font.h"
 
 // Wrappers to keep the definitions of these classes out of here.
 IHardwareTexture* CreateHardwareTexture(int numchannels);
@@ -321,7 +322,6 @@ bool FTexture::ProcessData(unsigned char* buffer, int w, int h, bool ispatch)
 //	Initializes the buffer for the texture data
 //
 //===========================================================================
-void V_ApplyLuminosityTranslation(int translation, uint8_t *buffer, int size);
 
 FTextureBuffer FTexture::CreateTexBuffer(int translation, int flags)
 {
@@ -354,20 +354,32 @@ FTextureBuffer FTexture::CreateTexBuffer(int translation, int flags)
 
 		if (!checkonly)
 		{
-			buffer = new unsigned char[W * (H + 1) * 4];
-			memset(buffer, 0, W * (H + 1) * 4);
-
 			auto remap = translation <= 0 || IsLuminosityTranslation(translation) ? nullptr : GPalette.TranslationToTable(translation);
 			if (remap && remap->Inactive) remap = nullptr;
 			if (remap) translation = remap->Index;
-			FBitmap bmp(buffer, W * 4, W, H);
 
 			int trans;
 			auto Pixels = GetBgraBitmap(remap ? remap->Palette : nullptr, &trans);
-			bmp.Blit(exx, exx, Pixels);
+			
+			if(!exx && Pixels.ClipRect.x == 0 && Pixels.ClipRect.y == 0 && Pixels.ClipRect.width == Pixels.Width && Pixels.ClipRect.height == Pixels.Height && (Pixels.FreeBuffer || !IsLuminosityTranslation(translation)))
+			{
+				buffer = Pixels.data;
+				result.mFreeBuffer = Pixels.FreeBuffer;
+				Pixels.FreeBuffer = false;
+			}
+			else
+			{
+				buffer = new unsigned char[W * (H + 1) * 4];
+				memset(buffer, 0, W * (H + 1) * 4);
+
+				FBitmap bmp(buffer, W * 4, W, H);
+
+				bmp.Blit(exx, exx, Pixels);
+			}
+			
 			if (IsLuminosityTranslation(translation))
 			{
-				V_ApplyLuminosityTranslation(translation, buffer, W * H);
+				V_ApplyLuminosityTranslation(LuminosityTranslationDesc::fromInt(translation), buffer, W * H);
 			}
 
 			if (remap == nullptr)

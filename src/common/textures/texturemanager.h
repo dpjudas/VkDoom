@@ -88,6 +88,15 @@ public:
 		}
 	}
 
+	//==========================================================================
+	//
+	// link a texture with a given lump
+	//
+	//==========================================================================
+
+	TMap<int, FGameTexture*> linkedMap;
+	void SetLinkedTexture(int lump, FGameTexture* tex);
+	FGameTexture* GetLinkedTexture(int lump);
 
 	enum
 	{
@@ -137,7 +146,7 @@ public:
 	void AddTextures(void (*progressFunc_)(), void (*checkForHacks)(BuildInfo&), void (*customtexturehandler)() = nullptr);
 	void DeleteAll();
 
-	void ReplaceTexture (FTextureID picnum, FGameTexture *newtexture, bool free);
+	void ReplaceTexture (FTextureID texid, FGameTexture *newtexture, bool free);
 
 	int NumTextures () const { return (int)Textures.Size(); }
 

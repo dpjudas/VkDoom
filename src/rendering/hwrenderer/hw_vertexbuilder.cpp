@@ -195,7 +195,7 @@ static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plan
 	ffv.lindex = -1.0f;
 }
 
-static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plane, float llu, float llv, int llindex)
+static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plane, float llu, float llv, float llindex)
 {
 	ffv.x = (float)vt->fX();
 	ffv.y = (float)vt->fY();
@@ -204,7 +204,7 @@ static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plan
 	ffv.v = -(float)vt->fY() / 64.f;
 	ffv.lu = llu;
 	ffv.lv = llv;
-	ffv.lindex = (float)llindex;
+	ffv.lindex = llindex;
 }
 
 //==========================================================================
@@ -214,7 +214,7 @@ static void SetFlatVertex(FFlatVertex& ffv, vertex_t* vt, const secplane_t& plan
 //
 //==========================================================================
 
-static int CreateIndexedSectorVerticesLM(FRenderState& renderstate, sector_t* sec, const secplane_t& plane, int floor, int h, int lightmapIndex)
+static int CreateIndexedSectorVerticesLM(sector_t* sec, const secplane_t& plane, int floor, int h, int lightmapIndex)
 {
 	int i, pos;
 	float diff;
@@ -236,54 +236,61 @@ static int CreateIndexedSectorVerticesLM(FRenderState& renderstate, sector_t* se
 	int idx = ibo_data.Reserve((pos - 2 * sec->subsectorcount) * 3);
 
 	// Create the actual vertices.
-	for (i = 0, pos = 0; i < sec->subsectorcount; i++)
+	auto sections = sec->Level->sections.SectionsForSector(sec);
+	pos = 0;
+	for(auto& section : sections)
 	{
-		subsector_t* sub = sec->subsectors[i];
-		LightmapSurface* lightmap = &sub->lightmap[h][lightmapIndex];
-		if (lightmap->Type != ST_NULL)
+		for(auto& sub : section.subsectors)
 		{
-			float* luvs = lightmap->TexCoords;
-			int lindex = lightmap->LightmapNum;
-			for (unsigned int j = 0; j < sub->numlines; j++)
+			// vertices
+			DoomLevelMeshSurface* lightmap = sub->surface[h].Size() > lightmapIndex ? sub->surface[h][lightmapIndex] : nullptr;
+			if (lightmap && lightmap->Type != ST_NONE) // surface may be missing if the subsector is degenerate triangle
 			{
-				SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane, luvs[j * 2], luvs[j * 2 + 1], lindex);
-				vbo_shadowdata[vi + pos].z += diff;
-				pos++;
+				FFlatVertex* luvs = &level.levelMesh->Mesh.Vertices[lightmap->MeshLocation.StartVertIndex];
+				for (unsigned int j = 0, end = sub->numlines; j < end; j++)
+				{
+					SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane, luvs[end - 1 - j].lu, luvs[end - 1 - j].lv, luvs[end - 1 - j].lindex);
+					vbo_shadowdata[vi + pos].z += diff;
+					pos++;
+				}
 			}
-		}
-		else
-		{
-			for (unsigned int j = 0; j < sub->numlines; j++)
+			else
 			{
-				SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane);
-				vbo_shadowdata[vi + pos].z += diff;
-				pos++;
+				for (unsigned int j = 0; j < sub->numlines; j++)
+				{
+					SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane);
+					vbo_shadowdata[vi + pos].z += diff;
+					pos++;
+				}
 			}
 		}
 	}
 
 	// Create the indices for the subsectors
-	for (i = 0, pos = 0; i < sec->subsectorcount; i++)
+	pos = 0;
+	for (auto& section : sections)
 	{
-		subsector_t* sub = sec->subsectors[i];
-		int firstndx = vi + pos;
-		for (unsigned int k = 2; k < sub->numlines; k++)
+		for (auto& sub : section.subsectors)
 		{
-			ibo_data[idx++] = firstndx;
-			ibo_data[idx++] = firstndx + k - 1;
-			ibo_data[idx++] = firstndx + k;
+			int firstndx = vi + pos;
+			for (unsigned int k = 2; k < sub->numlines; k++)
+			{
+				ibo_data[idx++] = firstndx;
+				ibo_data[idx++] = firstndx + k - 1;
+				ibo_data[idx++] = firstndx + k;
+			}
+			pos += sub->numlines;
 		}
-		pos += sec->subsectors[i]->numlines;
 	}
 
 	sec->ibocount = ibo_data.Size() - rt;
 	return rt;
 }
 
-static int CreateIndexedSectorVertices(FRenderState& renderstate, sector_t* sec, const secplane_t& plane, int floor, VertexContainer& verts, int h, int lightmapIndex)
+static int CreateIndexedSectorVertices(sector_t* sec, const secplane_t& plane, int floor, VertexContainer& verts, int h, int lightmapIndex)
 {
 	if (sec->HasLightmaps && lightmapIndex != -1)
-		return CreateIndexedSectorVerticesLM(renderstate, sec, plane, floor, h, lightmapIndex);
+		return CreateIndexedSectorVerticesLM(sec, plane, floor, h, lightmapIndex);
 
 	auto& vbo_shadowdata = sector_vertices;
 	unsigned vi = vbo_shadowdata.Reserve(verts.vertices.Size());
@@ -313,21 +320,21 @@ static int CreateIndexedSectorVertices(FRenderState& renderstate, sector_t* sec,
 //
 //==========================================================================
 
-static int CreateIndexedVertices(FRenderState& renderstate, int h, sector_t* sec, const secplane_t& plane, int floor, VertexContainers& verts)
+static int CreateIndexedVertices(int h, sector_t* sec, const secplane_t& plane, int floor, VertexContainers& verts)
 {
 	auto& vbo_shadowdata = sector_vertices;
 	sec->vboindex[h] = vbo_shadowdata.Size();
 	// First calculate the vertices for the sector itself
 	sec->vboheight[h] = sec->GetPlaneTexZ(h);
 	sec->ibocount = verts[sec->Index()].indices.Size();
-	sec->iboindex[h] = CreateIndexedSectorVertices(renderstate, sec, plane, floor, verts[sec->Index()], h, 0);
+	sec->iboindex[h] = CreateIndexedSectorVertices(sec, plane, floor, verts[sec->Index()], h, 0);
 
 	// Next are all sectors using this one as heightsec
 	TArray<sector_t*>& fakes = sec->e->FakeFloor.Sectors;
 	for (unsigned g = 0; g < fakes.Size(); g++)
 	{
 		sector_t* fsec = fakes[g];
-		fsec->iboindex[2 + h] = CreateIndexedSectorVertices(renderstate, fsec, plane, false, verts[fsec->Index()], h, -1);
+		fsec->iboindex[2 + h] = CreateIndexedSectorVertices(fsec, plane, false, verts[fsec->Index()], h, -1);
 	}
 
 	// and finally all attached 3D floors
@@ -345,7 +352,7 @@ static int CreateIndexedVertices(FRenderState& renderstate, int h, sector_t* sec
 
 			if (dotop || dobottom)
 			{
-				auto ndx = CreateIndexedSectorVertices(renderstate, fsec, plane, false, verts[fsec->Index()], h, ffloorIndex + 1);
+				auto ndx = CreateIndexedSectorVertices(fsec, plane, false, verts[fsec->Index()], h, ffloorIndex + 1);
 				if (dotop) ffloor->top.vindex = ndx;
 				if (dobottom) ffloor->bottom.vindex = ndx;
 			}
@@ -362,7 +369,7 @@ static int CreateIndexedVertices(FRenderState& renderstate, int h, sector_t* sec
 //
 //==========================================================================
 
-static void CreateIndexedFlatVertices(FRenderState& renderstate, TArray<sector_t>& sectors)
+static void CreateIndexedFlatVertices(TArray<sector_t>& sectors)
 {
 	auto verts = BuildVertices(sectors);
 
@@ -391,7 +398,7 @@ static void CreateIndexedFlatVertices(FRenderState& renderstate, TArray<sector_t
 	{
 		for (auto& sec : sectors)
 		{
-			CreateIndexedVertices(renderstate, h, &sec, sec.GetSecPlane(h), h == sector_t::floor, verts);
+			CreateIndexedVertices(h, &sec, sec.GetSecPlane(h), h == sector_t::floor, verts);
 		}
 	}
 
@@ -440,10 +447,10 @@ static void UpdatePlaneVertices(FRenderState& renderstate, sector_t* sec, int pl
 //
 //==========================================================================
 
-static void CreateVertices(FRenderState& renderstate, TArray<sector_t>& sectors)
+static void CreateVertices(TArray<sector_t>& sectors)
 {
 	sector_vertices.Clear();
-	CreateIndexedFlatVertices(renderstate, sectors);
+	CreateIndexedFlatVertices(sectors);
 }
 
 //==========================================================================
@@ -491,6 +498,6 @@ void CheckUpdate(FRenderState& renderstate, sector_t* sector)
 void CreateVBO(FRenderState& renderstate, TArray<sector_t>& sectors)
 {
 	sector_vertices.Clear();
-	CreateVertices(renderstate, sectors);
+	CreateVertices(sectors);
 	renderstate.SetShadowData(sector_vertices, sector_indexes);
 }

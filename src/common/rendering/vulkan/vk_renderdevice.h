@@ -14,13 +14,16 @@ class VkCommandBufferManager;
 class VkDescriptorSetManager;
 class VkRenderPassManager;
 class VkFramebufferManager;
-class VkRaytrace;
+class VkLevelMesh;
+class VkLightmapper;
 class VkRenderState;
 class VkStreamBuffer;
 class VkHardwareDataBuffer;
 class VkHardwareTexture;
 class VkRenderBuffers;
 class VkPostprocess;
+class VkPipelineKey;
+class VkRenderPassSetup;
 
 class VulkanRenderDevice : public SystemBaseFrameBuffer
 {
@@ -37,12 +40,14 @@ public:
 	VkFramebufferManager* GetFramebufferManager() { return mFramebufferManager.get(); }
 	VkDescriptorSetManager* GetDescriptorSetManager() { return mDescriptorSetManager.get(); }
 	VkRenderPassManager *GetRenderPassManager() { return mRenderPassManager.get(); }
-	VkRaytrace* GetRaytrace() { return mRaytrace.get(); }
-	VkRenderState *GetRenderState(int threadIndex) { return mRenderState[threadIndex].get(); }
+	VkLevelMesh* GetLevelMesh() { return mLevelMesh.get(); }
+	VkLightmapper* GetLightmapper() { return mLightmapper.get(); }
+	VkRenderState *GetRenderState() { return mRenderState.get(); }
 	VkPostprocess *GetPostprocess() { return mPostprocess.get(); }
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
-	FRenderState* RenderState(int threadIndex) override;
+	FRenderState* RenderState() override;
 
+	bool IsRayQueryEnabled() const { return mUseRayQuery; }
 	bool IsVulkan() override { return true; }
 
 	void Update() override;
@@ -56,12 +61,12 @@ public:
 	void SetTextureFilterMode() override;
 	void StartPrecaching() override;
 	void BeginFrame() override;
-	void InitLightmap(int LMTextureSize, int LMTextureCount, TArray<uint16_t>& LMTextureData) override;
 	void BlurScene(float amount) override;
 	void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) override;
 	void AmbientOccludeScene(float m5) override;
 	void SetSceneRenderTarget(bool useSSAO) override;
-	void SetLevelMesh(hwrenderer::LevelMesh* mesh) override;
+	void SetLevelMesh(LevelMesh* mesh) override;
+	void UpdateLightmaps(const TArray<LightmapTile*>& tiles) override;
 	void SetShadowMaps(const TArray<float>& lights, hwrenderer::LevelAABBTree* tree, bool newTree) override;
 	void SetSaveBuffers(bool yes) override;
 	void ImageTransitionScene(bool unknown) override;
@@ -85,7 +90,11 @@ public:
 
 	void WaitForCommands(bool finish) override;
 
-	std::mutex ThreadMutex;
+	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
+
+	int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) override;
+
+	const VkPipelineKey& GetLevelMeshPipelineKey(int id) const;
 
 private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
@@ -104,12 +113,20 @@ private:
 	std::unique_ptr<VkPostprocess> mPostprocess;
 	std::unique_ptr<VkDescriptorSetManager> mDescriptorSetManager;
 	std::unique_ptr<VkRenderPassManager> mRenderPassManager;
-	std::unique_ptr<VkRaytrace> mRaytrace;
-	std::vector<std::unique_ptr<VkRenderState>> mRenderState;
+	std::unique_ptr<VkLevelMesh> mLevelMesh;
+	std::unique_ptr<VkLightmapper> mLightmapper;
+	std::unique_ptr<VkRenderState> mRenderState;
 
 	VkRenderBuffers *mActiveRenderBuffers = nullptr;
 
 	bool mVSync = false;
+	bool mUseRayQuery = false;
+
+	LevelMesh* levelMesh = nullptr;
+	bool levelMeshChanged = true;
+
+	int levelVertexFormatIndex = -1;
+	TArray<VkPipelineKey> levelMeshPipelineKeys;
 };
 
 class CVulkanError : public CEngineError

@@ -1,14 +1,15 @@
 #pragma once
 
+#include "basics.h"
 
 
 struct FModelVertex
 {
 	float x, y, z;	// world position
+	float lindex;	// lightmap texture index
 	float u, v;		// texture coordinates
 	unsigned packedNormal;	// normal vector as GL_INT_2_10_10_10_REV.
 	float lu, lv;	// lightmap texture coordinates
-	float lindex;	// lightmap texture index
 	uint8_t boneselector[4];
 	uint8_t boneweight[4];
 

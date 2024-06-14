@@ -24,7 +24,7 @@
 #include "vk_pprenderpass.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_renderdevice.h"
-#include "vulkan/accelstructs/vk_raytrace.h"
+#include "vulkan/vk_levelmesh.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/samplers/vk_samplers.h"
@@ -35,11 +35,12 @@
 #include "hw_viewpointuniforms.h"
 #include "v_2ddrawer.h"
 #include "i_specialpaths.h"
+#include "cmdlib.h"
 
 VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 {
 	FString path = M_GetCachePath(true);
-	CreatePath(path);
+	CreatePath(path.GetChars());
 	CacheFilename = path + "/pipelinecache.zdpc";
 
 	PipelineCacheBuilder builder;
@@ -48,7 +49,7 @@ VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 	try
 	{
 		FileReader fr;
-		if (fr.OpenFile(CacheFilename))
+		if (fr.OpenFile(CacheFilename.GetChars()))
 		{
 			std::vector<uint8_t> data;
 			data.resize(fr.GetLength());
@@ -70,7 +71,7 @@ VkRenderPassManager::~VkRenderPassManager()
 	try
 	{
 		auto data = PipelineCache->GetCacheData();
-		std::unique_ptr<FileWriter> fw(FileWriter::Open(CacheFilename));
+		std::unique_ptr<FileWriter> fw(FileWriter::Open(CacheFilename.GetChars()));
 		if (fw)
 			fw->Write(data.data(), data.size());
 	}
@@ -93,39 +94,30 @@ VkRenderPassSetup *VkRenderPassManager::GetRenderPass(const VkRenderPassKey &key
 	return item.get();
 }
 
-int VkRenderPassManager::GetVertexFormat(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute *attrs)
+int VkRenderPassManager::GetVertexFormat(const std::vector<size_t>& bufferStrides, const std::vector<FVertexBufferAttribute>& attrs)
 {
 	for (size_t i = 0; i < VertexFormats.size(); i++)
 	{
 		const auto &f = VertexFormats[i];
-		if (f.Attrs.size() == (size_t)numAttributes && f.NumBindingPoints == numBindingPoints && f.Stride == stride)
+		if (f.BufferStrides.size() == bufferStrides.size() &&
+			f.Attrs.size() == attrs.size() &&
+			memcmp(f.BufferStrides.data(), bufferStrides.data(), bufferStrides.size() * sizeof(size_t)) == 0 &&
+			memcmp(f.Attrs.data(), attrs.data(), attrs.size() * sizeof(FVertexBufferAttribute)) == 0)
 		{
-			bool matches = true;
-			for (int j = 0; j < numAttributes; j++)
-			{
-				if (memcmp(&f.Attrs[j], &attrs[j], sizeof(FVertexBufferAttribute)) != 0)
-				{
-					matches = false;
-					break;
-				}
-			}
-
-			if (matches)
-				return (int)i;
+			return (int)i;
 		}
 	}
 
 	VkVertexFormat fmt;
-	fmt.NumBindingPoints = numBindingPoints;
-	fmt.Stride = stride;
+	fmt.BufferStrides = bufferStrides;
+	fmt.Attrs = attrs;
 	fmt.UseVertexData = 0;
-	for (int j = 0; j < numAttributes; j++)
+	for (const FVertexBufferAttribute& attr : fmt.Attrs)
 	{
-		if (attrs[j].location == VATTR_COLOR)
+		if (attr.location == VATTR_COLOR)
 			fmt.UseVertexData |= 1;
-		else if (attrs[j].location == VATTR_NORMAL)
+		else if (attr.location == VATTR_NORMAL)
 			fmt.UseVertexData |= 2;
-		fmt.Attrs.push_back(attrs[j]);
 	}
 	VertexFormats.push_back(fmt);
 	return (int)VertexFormats.size() - 1;
@@ -136,22 +128,18 @@ VkVertexFormat *VkRenderPassManager::GetVertexFormat(int index)
 	return &VertexFormats[index];
 }
 
-VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(int numLayers)
+VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(bool levelmesh)
 {
-	if (PipelineLayouts.size() <= (size_t)numLayers)
-		PipelineLayouts.resize(numLayers + 1);
-
-	auto &layout = PipelineLayouts[numLayers];
+	auto &layout = PipelineLayouts[levelmesh];
 	if (layout)
 		return layout.get();
 
 	auto descriptors = fb->GetDescriptorSetManager();
 
 	PipelineLayoutBuilder builder;
-	builder.AddSetLayout(descriptors->GetFixedSetLayout());
-	builder.AddSetLayout(descriptors->GetRSBufferSetLayout());
-	if (numLayers != 0)
-		builder.AddSetLayout(descriptors->GetTextureSetLayout(numLayers));
+	builder.AddSetLayout(descriptors->GetFixedLayout());
+	builder.AddSetLayout(levelmesh ? descriptors->GetLevelMeshLayout() : descriptors->GetRSBufferLayout());
+	builder.AddSetLayout(descriptors->GetBindlessLayout());
 	builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants));
 	builder.DebugName("VkRenderPassManager.PipelineLayout");
 	layout = builder.Create(fb->GetDevice());
@@ -246,12 +234,13 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 
 	VkShaderProgram *program = fb->GetShaderManager()->Get(key.ShaderKey);
 	builder.AddVertexShader(program->vert.get());
-	builder.AddFragmentShader(program->frag.get());
+	if (program->frag)
+		builder.AddFragmentShader(program->frag.get());
 
 	const VkVertexFormat &vfmt = *fb->GetRenderPassManager()->GetVertexFormat(key.VertexFormat);
 
-	for (int i = 0; i < vfmt.NumBindingPoints; i++)
-		builder.AddVertexBufferBinding(i, vfmt.Stride);
+	for (int i = 0; i < vfmt.BufferStrides.size(); i++)
+		builder.AddVertexBufferBinding(i, vfmt.BufferStrides[i]);
 
 	const static VkFormat vkfmts[] = {
 		VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -260,7 +249,8 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 		VK_FORMAT_R32_SFLOAT,
 		VK_FORMAT_R8G8B8A8_UNORM,
 		VK_FORMAT_A2B10G10R10_SNORM_PACK32,
-		VK_FORMAT_R8G8B8A8_UINT
+		VK_FORMAT_R8G8B8A8_UINT,
+		VK_FORMAT_R32_SINT
 	};
 
 	bool inputLocations[VATTR_MAX] = {};
@@ -310,13 +300,18 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	// main.vp addresses this by patching up gl_Position.z, which has the side effect of flipping the sign of the front face calculations.
 	builder.Cull(key.CullMode == Cull_None ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT, key.CullMode == Cull_CW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE);
 
-	builder.ColorWriteMask((VkColorComponentFlags)key.ColorMask);
 	builder.Stencil(VK_STENCIL_OP_KEEP, op2vk[key.StencilPassOp], VK_STENCIL_OP_KEEP, VK_COMPARE_OP_EQUAL, 0xffffffff, 0xffffffff, 0);
-	BlendMode(builder, key.RenderStyle);
-	builder.SubpassColorAttachmentCount(PassKey.DrawBuffers);
+
+	ColorBlendAttachmentBuilder blendbuilder;
+	blendbuilder.ColorWriteMask((VkColorComponentFlags)key.ColorMask);
+	BlendMode(blendbuilder, key.RenderStyle);
+
+	for (int i = 0; i < PassKey.DrawBuffers; i++)
+		builder.AddColorBlendAttachment(blendbuilder.Create());
+
 	builder.RasterizationSamples((VkSampleCountFlagBits)PassKey.Samples);
 
-	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.NumTextureLayers));
+	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.UseLevelMesh));
 	builder.RenderPass(GetRenderPass(0));
 	builder.DebugName("VkRenderPassSetup.Pipeline");
 
@@ -325,7 +320,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 
 /////////////////////////////////////////////////////////////////////////////
 
-GraphicsPipelineBuilder& BlendMode(GraphicsPipelineBuilder& builder, const FRenderStyle& style)
+ColorBlendAttachmentBuilder& BlendMode(ColorBlendAttachmentBuilder& builder, const FRenderStyle& style)
 {
 	// Just in case Vulkan doesn't do this optimization itself
 	if (style.BlendOp == STYLEOP_Add && style.SrcAlpha == STYLEALPHA_One && style.DestAlpha == STYLEALPHA_Zero && style.Flags == 0)

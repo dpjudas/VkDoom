@@ -118,7 +118,7 @@ void iCopyColors(uint8_t *pout, const uint8_t *pin, int count, int step, FCopyIn
 				a = TSrc::A(pin, tr, tg, tb);
 				if (TBlend::ProcessAlpha0() || a)
 				{
-					int gray = clamp<int>(TSrc::Gray(pin),0,255);
+					int gray = std::clamp<int>(TSrc::Gray(pin),0,255);
 
 					PalEntry pe = cm->GrayscaleToColor[gray];
 					TBlend::OpC(pout[TDest::RED], pe.r , a, inf);
@@ -257,21 +257,21 @@ bool ClipCopyPixelRect(const FClipRect *cr, int &originx, int &originy,
 		step_y = pstep_y;
 		break;
 
-	case 1: // rotate 90° right
+	case 1: // rotate 90Â° right
 		pixxoffset = 0;
 		pixyoffset = srcheight - 1;
 		step_x = -pstep_y;
 		step_y = pstep_x;
 		break;
 
-	case 2:	// rotate 180°
+	case 2:	// rotate 180Â°
 		pixxoffset = srcwidth - 1;
 		pixyoffset = srcheight - 1;
 		step_x = -pstep_x;
 		step_y = -pstep_y;
 		break;
 
-	case 3: // rotate 90° left
+	case 3: // rotate 90Â° left
 		pixxoffset = srcwidth - 1;
 		pixyoffset = 0;
 		step_x = pstep_y;
@@ -285,7 +285,7 @@ bool ClipCopyPixelRect(const FClipRect *cr, int &originx, int &originy,
 		step_y = pstep_y;
 		break;
 
-	case 5:	// flip horizontally and rotate 90° right
+	case 5:	// flip horizontally and rotate 90Â° right
 		pixxoffset = srcwidth - 1;
 		pixyoffset = srcheight - 1;
 		step_x = -pstep_y;
@@ -299,7 +299,7 @@ bool ClipCopyPixelRect(const FClipRect *cr, int &originx, int &originy,
 		step_y = -pstep_y;
 		break;
 
-	case 7:	// flip horizontally and rotate 90° left
+	case 7:	// flip horizontally and rotate 90Â° left
 		pixxoffset = 0;
 		pixyoffset = 0;
 		step_x = pstep_y;

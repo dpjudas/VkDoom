@@ -32,6 +32,7 @@
 #include "g_level.h"
 #include "g_levellocals.h"
 #include "actorinlines.h"
+#include "hw_drawcontext.h"
 #include "hw_dynlightdata.h"
 #include "hw_shadowmap.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
@@ -51,7 +52,7 @@ class ActorTraceStaticLight
 public:
 	ActorTraceStaticLight(AActor* actor) : Actor(actor)
 	{
-		if (Actor && Actor->Pos() != Actor->StaticLightsTraceCache.Pos)
+		if (Actor && (Actor->Pos() != Actor->StaticLightsTraceCache.Pos || (Actor->Sector && (Actor->Sector->Flags & SECF_LM_DYNAMIC))))
 		{
 			Actor->StaticLightsTraceCache.Pos = Actor->Pos();
 			Actor->StaticLightsTraceCache.Bits = 0;
@@ -73,7 +74,7 @@ public:
 		}
 		else
 		{
-			bool traceResult = level.levelMesh->Trace(FVector3((float)light->Pos.X, (float)light->Pos.Y, (float)light->Pos.Z), FVector3(-L.X, -L.Y, -L.Z), dist);
+			bool traceResult = !level.levelMesh->Trace(FVector3((float)light->Pos.X, (float)light->Pos.Y, (float)light->Pos.Z), FVector3(-L.X, -L.Y, -L.Z), dist);
 			Actor->StaticLightsTraceCache.Bits |= ((uint64_t)traceResult) << CurrentBit;
 			CurrentBit++;
 			return traceResult;
@@ -82,7 +83,7 @@ public:
 
 	bool TraceSunVisibility(float x, float y, float z)
 	{
-		if (level.LMTextureCount == 0 || !Actor)
+		if (!level.lightmaps || !Actor)
 			return false;
 
 		if (!ActorMoved && CurrentBit < 64)
@@ -93,7 +94,7 @@ public:
 		}
 		else
 		{
-			bool traceResult = level.levelMesh->TraceSky(FVector3(x, y, z), level.SunDirection, 10000.0f);
+			bool traceResult = level.levelMesh->TraceSky(FVector3(x, y, z), level.SunDirection, 65536.0f);
 			Actor->StaticLightsTraceCache.Bits |= ((uint64_t)traceResult) << CurrentBit;
 			CurrentBit++;
 			return traceResult;
@@ -217,17 +218,14 @@ void HWDrawInfo::GetDynSpriteLight(AActor *thing, particle_t *particle, float *o
 	}
 }
 
-// static so that we build up a reserve (memory allocations stop)
-// For multithread processing each worker thread needs its own copy, though.
-static thread_local TArray<FDynamicLight*> addedLightsArray; 
 
-void hw_GetDynModelLight(AActor *self, FDynLightData &modellightdata)
+void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &modellightdata)
 {
 	modellightdata.Clear();
 
 	if (self)
 	{
-		auto &addedLights = addedLightsArray;	// avoid going through the thread local storage for each use.
+		auto &addedLights = drawctx->addedLightsArray;
 
 		addedLights.Clear();
 

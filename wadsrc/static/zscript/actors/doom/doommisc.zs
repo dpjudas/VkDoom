@@ -62,7 +62,8 @@ class BulletPuff : Actor
 		+ALLOWPARTICLES
 		+RANDOMIZE
 		+ZDOOMTRANS
-		+FORCEXYBILLBOARD
+		RenderStyle "Translucent";
+		Alpha 0.5;
 		VSpeed 1;
 		Mass 5;
 	}
@@ -72,7 +73,7 @@ class BulletPuff : Actor
 		PUFF A 4 Bright;
 		PUFF B 4;
 	Melee:
-		PUFF CD 4 A_SetRenderStyle(0.7, STYLE_Translucent);
+		PUFF CD 4;
 		Stop;
 	}
 }

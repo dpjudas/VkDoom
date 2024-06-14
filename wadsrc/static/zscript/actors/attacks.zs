@@ -569,7 +569,7 @@ extend class Actor
 	//
 	//==========================================================================
 
-	int A_Explode(int damage = -1, int distance = -1, int flags = XF_HURTSOURCE, bool alert = false, int fulldamagedistance = 0, int nails = 0, int naildamage = 10, class<Actor> pufftype = "BulletPuff", name damagetype = "none")
+	int A_Explode(int damage = -1, double distance = -1.0, int flags = XF_HURTSOURCE, bool alert = false, double fulldamagedistance = 0.0, int nails = 0, int naildamage = 10, class<Actor> pufftype = "BulletPuff", name damagetype = "none")
 	{
 
 		if (damage < 0)	// get parameters from metadata
@@ -606,6 +606,9 @@ extend class Actor
 		if (flags & XF_HURTSOURCE)	pflags |= RADF_HURTSOURCE;
 		if (flags & XF_NOTMISSILE)	pflags |= RADF_SOURCEISSPOT;
 		if (flags & XF_THRUSTZ)	pflags |= RADF_THRUSTZ;
+		if (flags & XF_THRUSTLESS) pflags |= RADF_THRUSTLESS;
+		if (flags & XF_NOALLIES) pflags |= RADF_NOALLIES;
+		if (flags & XF_CIRCULAR) pflags |= RADF_CIRCULAR;
 
 		int count = RadiusAttack (target, damage, distance, damagetype, pflags, fulldamagedistance);
 		if (!(flags & XF_NOSPLASH)) CheckSplash(distance);
@@ -623,7 +626,7 @@ extend class Actor
 	}
 
 	deprecated("2.3", "For Dehacked use only")
-	void A_RadiusDamage(int dam, int dist)
+	void A_RadiusDamage(int dam, double dist)
 	{
 		A_Explode(dam, dist);
 	}
@@ -634,10 +637,10 @@ extend class Actor
 	//
 	//==========================================================================
 
-	void A_RadiusThrust(int force = 128, int distance = -1, int flags = RTF_AFFECTSOURCE, int fullthrustdistance = 0, name species = "None")
+	void A_RadiusThrust(int force = 128, double distance = -1.0, int flags = RTF_AFFECTSOURCE, double fullthrustdistance = 0.0, name species = "None")
 	{
 		if (force == 0) force = 128;
-		if (distance <= 0) distance = abs(force);
+		if (distance <= 0.0) distance = abs(force);
 		bool nothrust = false;
 
 		if (target)

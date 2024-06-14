@@ -26,6 +26,8 @@
 #include "hw_renderstate.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
+#include "doom_levelmesh.h"
+#include "g_levellocals.h"
 
 EXTERN_CVAR(Bool, gl_seamless)
 
@@ -193,6 +195,28 @@ void HWWall::SplitRightEdge(FFlatVertex *&ptr)
 
 int HWWall::CreateVertices(FFlatVertex *&ptr, bool split)
 {
+	if (surface && surface->LightmapTileIndex >= 0)
+	{
+		LightmapTile* tile = &level.levelMesh->LightmapTiles[surface->LightmapTileIndex];
+		FVector2 lolft = tile->ToUV(FVector3(glseg.x1, glseg.y1, zbottom[0]), level.levelMesh->LMTextureSize);
+		FVector2 uplft = tile->ToUV(FVector3(glseg.x1, glseg.y1, ztop[0]), level.levelMesh->LMTextureSize);
+		FVector2 uprgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, ztop[1]), level.levelMesh->LMTextureSize);
+		FVector2 lorgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, zbottom[1]), level.levelMesh->LMTextureSize);
+		lightuv[LOLFT] = { lolft.X, lolft.Y };
+		lightuv[UPLFT] = { uplft.X, uplft.Y };
+		lightuv[UPRGT] = { uprgt.X, uprgt.Y };
+		lightuv[LORGT] = { lorgt.X, lorgt.Y };
+		lindex = (float)tile->AtlasLocation.ArrayIndex;
+	}
+	else
+	{
+		lightuv[LOLFT] = { 0.0f, 0.0f };
+		lightuv[UPLFT] = { 0.0f, 0.0f };
+		lightuv[UPRGT] = { 0.0f, 0.0f };
+		lightuv[LORGT] = { 0.0f, 0.0f };
+		lindex = -1.0f;
+	}
+
 	auto oo = ptr;
 	ptr->Set(glseg.x1, zbottom[0], glseg.y1, tcs[LOLFT].u, tcs[LOLFT].v, lightuv[LOLFT].u, lightuv[LOLFT].v, lindex);
 	ptr++;
@@ -283,7 +307,7 @@ int HWWall::CountVertices()
 //
 //==========================================================================
 
-void HWWall::MakeVertices(HWDrawInfo *di, FRenderState& state, bool nosplit)
+void HWWall::MakeVertices(FRenderState& state, bool nosplit)
 {
 	if (vertcount == 0)
 	{

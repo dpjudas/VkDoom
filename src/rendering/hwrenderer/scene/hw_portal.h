@@ -30,7 +30,7 @@ struct HWSkyInfo
 	{
 		return !!memcmp(this, &inf, sizeof(*this));
 	}
-	void init(HWDrawInfo *di, int sky1, PalEntry fadecolor);
+	void init(HWDrawInfo *di, sector_t* sec, int skypos, int sky1, PalEntry fadecolor);
 };
 
 struct HWHorizonInfo
@@ -55,7 +55,7 @@ class HWPortal
 		STP_AllInOne
 	};
 
-	ActorRenderFlags savedvisibility;
+	ActorRenderFlags savedvisibility = {};
 	TArray<unsigned int> mPrimIndices;
 	unsigned int mTopCap = ~0u, mBottomCap = ~0u;
 
@@ -130,7 +130,6 @@ struct FPortalSceneState
 	void RenderPortal(HWPortal *p, FRenderState &state, bool usestencil, HWDrawInfo *outer_di);
 };
 
-extern FPortalSceneState portalState;
 
     
 class HWScenePortalBase : public HWPortal

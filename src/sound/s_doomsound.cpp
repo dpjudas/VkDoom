@@ -66,6 +66,7 @@
 #include "g_game.h"
 #include "s_music.h"
 #include "v_draw.h"
+#include "m_argv.h"
 
 // PUBLIC DATA DEFINITIONS -------------------------------------------------
 
@@ -153,11 +154,11 @@ static FString LookupMusic(const char* musicname, int& order)
 		// handle dehacked replacement.
 		// Any music name defined this way needs to be prefixed with 'D_' because
 		// Doom.exe does not contain the prefix so these strings don't either.
-		const char* mus_string = GStrings[musicname + 1];
+		const char* mus_string = GStrings.CheckString(musicname + 1);
 		if (mus_string != nullptr)
 		{
 			DEH_Music << "D_" << mus_string;
-			musicname = DEH_Music;
+			musicname = DEH_Music.GetChars();
 		}
 	}
 
@@ -176,36 +177,17 @@ static FString LookupMusic(const char* musicname, int& order)
 
 //==========================================================================
 //
-// OpenMusic
+// FindMusic
 //
-// opens a FileReader for the music - used as a callback to keep
-// implementation details out of the core player.
+// loops up a music resource according to the engine's rules
 //
 //==========================================================================
 
-static FileReader OpenMusic(const char* musicname)
+static int FindMusic(const char* musicname)
 {
-	FileReader reader;
-	if (!FileExists(musicname))
-	{
-		int lumpnum;
-		lumpnum = fileSystem.CheckNumForFullName(musicname);
-		if (lumpnum == -1) lumpnum = fileSystem.CheckNumForName(musicname, ns_music);
-		if (lumpnum == -1)
-		{
-			Printf("Music \"%s\" not found\n", musicname);
-		}
-		else if (fileSystem.FileLength(lumpnum) != 0)
-		{
-			reader = fileSystem.ReopenFileReader(lumpnum);
-		}
-	}
-	else
-	{
-		// Load an external file.
-		reader.OpenFile(musicname);
-	}
-	return reader;
+	int lumpnum = fileSystem.CheckNumForFullName(musicname);
+	if (lumpnum == -1) lumpnum = fileSystem.CheckNumForName(musicname, FileSys::ns_music);
+	return lumpnum;
 }
 
 //==========================================================================
@@ -219,7 +201,7 @@ static FileReader OpenMusic(const char* musicname)
 void S_Init()
 {
 	// Hook up the music player with the engine specific customizations.
-	static MusicCallbacks cb = { LookupMusic, OpenMusic };
+	static MusicCallbacks cb = { LookupMusic, FindMusic };
 	S_SetMusicCallbacks(&cb);
 
 	// Must be up before I_InitSound.
@@ -229,14 +211,15 @@ void S_Init()
 	}
 
 	I_InitSound();
-	I_InitMusic();
+	I_InitMusic(Args->CheckParm("-nomusic") || Args->CheckParm("-nosound"));
 
 	// Heretic and Hexen have sound curve lookup tables. Doom does not.
 	int curvelump = fileSystem.CheckNumForName("SNDCURVE");
 	TArray<uint8_t> curve;
 	if (curvelump >= 0)
 	{
-		curve = fileSystem.GetFileData(curvelump);
+		curve.Resize(fileSystem.FileLength(curvelump));
+		fileSystem.ReadFile(curvelump, curve.Data());
 	}
 	soundEngine->Init(curve);
 }
@@ -312,7 +295,7 @@ void S_Start()
 			if (LocalSndInfo.IsNotEmpty())
 			{
 				// Now parse the local SNDINFO
-				int j = fileSystem.CheckNumForFullName(LocalSndInfo, true);
+				int j = fileSystem.CheckNumForFullName(LocalSndInfo.GetChars(), true);
 				if (j >= 0) S_AddLocalSndInfo(j);
 			}
 
@@ -326,7 +309,7 @@ void S_Start()
 
 		if (parse_ss)
 		{
-			S_ParseSndSeq(LocalSndSeq.IsNotEmpty() ? fileSystem.CheckNumForFullName(LocalSndSeq, true) : -1);
+			S_ParseSndSeq(LocalSndSeq.IsNotEmpty() ? fileSystem.CheckNumForFullName(LocalSndSeq.GetChars(), true) : -1);
 		}
 
 		LastLocalSndInfo = LocalSndInfo;
@@ -944,7 +927,7 @@ static void CalcSectorSoundOrg(const DVector3& listenpos, const sector_t* sec, i
 			// Find the closest point on the sector's boundary lines and use
 			// that as the perceived origin of the sound.
 			DVector2 xy;
-			sec->ClosestPoint(listenpos, xy);
+			sec->ClosestPoint(listenpos.XY(), xy);
 			pos.X = (float)xy.X;
 			pos.Z = (float)xy.Y;
 		}
@@ -987,7 +970,7 @@ static void CalcPolyobjSoundOrg(const DVector3& listenpos, const FPolyObj* poly,
 	sector_t* sec;
 
 	DVector2 ppos;
-	poly->ClosestPoint(listenpos, ppos, &side);
+	poly->ClosestPoint(listenpos.XY(), ppos, &side);
 	pos.X = (float)ppos.X;
 	pos.Z = (float)ppos.Y;
 	sec = side->sector;
@@ -1167,7 +1150,10 @@ bool DoomSoundEngine::ValidatePosVel(int sourcetype, const void* source, const F
 TArray<uint8_t> DoomSoundEngine::ReadSound(int lumpnum)
 {
 	auto wlump = fileSystem.OpenFileReader(lumpnum);
-	return wlump.Read();
+	TArray<uint8_t> buffer(wlump.GetLength(), true);
+	auto len = wlump.Read(buffer.data(), buffer.size());
+	buffer.Resize(len);
+	return buffer;
 }
 
 //==========================================================================
@@ -1240,9 +1226,8 @@ void DoomSoundEngine::NoiseDebug()
 		color = (chan->ChanFlags & CHANF_LOOP) ? CR_BROWN : CR_GREY;
 
 		// Name
-		fileSystem.GetFileShortName(temp, S_sfx[chan->SoundID.index()].lumpnum);
-		temp[8] = 0;
-		DrawText(twod, NewConsoleFont, color, 0, y, temp, TAG_DONE);
+		auto tname = fileSystem.GetFileShortName(S_sfx[chan->SoundID.index()].lumpnum);
+		DrawText(twod, NewConsoleFont, color, 0, y, tname, TAG_DONE);
 
 		if (!(chan->ChanFlags & CHANF_IS3D))
 		{
@@ -1335,10 +1320,8 @@ ADD_STAT(sounddebug)
 
 void DoomSoundEngine::PrintSoundList()
 {
-	char lumpname[9];
 	unsigned int i;
 
-	lumpname[8] = 0;
 	for (i = 0; i < soundEngine->GetNumSounds(); i++)
 	{
 		const sfxinfo_t* sfx = soundEngine->GetSfx(FSoundID::fromInt(i));
@@ -1358,8 +1341,7 @@ void DoomSoundEngine::PrintSoundList()
 		}
 		else if (S_sfx[i].lumpnum != -1)
 		{
-			fileSystem.GetFileShortName(lumpname, sfx->lumpnum);
-			Printf("%3d. %s (%s)\n", i, sfx->name.GetChars(), lumpname);
+			Printf("%3d. %s (%s)\n", i, sfx->name.GetChars(), fileSystem.GetFileShortName(sfx->lumpnum));
 		}
 		else if (S_sfx[i].link != sfxinfo_t::NO_LINK)
 		{

@@ -72,7 +72,7 @@ static void DoSaveKeys (FConfigFile *config, const char *section, FKeySection *k
 	FKeyBindings *bindings = dbl? &DoubleBindings : &Bindings;
 	for (unsigned i = 0; i < keysection->mActions.Size(); ++i)
 	{
-		bindings->ArchiveBindings (config, keysection->mActions[i].mAction);
+		bindings->ArchiveBindings (config, keysection->mActions[i].mAction.GetChars());
 	}
 }
 
@@ -165,13 +165,13 @@ void D_LoadWadSettings ()
 
 	while ((lump = fileSystem.FindLump ("KEYCONF", &lastlump)) != -1)
 	{
-		FileData data = fileSystem.ReadFile (lump);
-		const char *eof = (char *)data.GetMem() + fileSystem.FileLength (lump);
-		const char *conf = (char *)data.GetMem();
+		auto data = fileSystem.ReadFile (lump);
+		const char* conf = data.string();
+		const char *eof = conf + data.size();
 
 		while (conf < eof)
 		{
-			size_t i;
+			size_t i = 0;
 
 			// Fetch a line to execute
 			command.Clear();
@@ -179,14 +179,14 @@ void D_LoadWadSettings ()
 			{
 				command.Push(conf[i]);
 			}
-			if (i == 0)
+			if (i == 0) // Blank line
 			{
 				conf++;
 				continue;
 			}
 			command.Push(0);
 			conf += i;
-			if (*conf == '\n')
+			if (conf >= eof || *conf == '\n')
 			{
 				conf++;
 			}

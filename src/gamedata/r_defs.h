@@ -39,8 +39,10 @@
 #include "fcolormap.h"
 #include "r_sky.h"
 #include "p_terrain.h"
+#include "p_effect.h"
 
 #include "hwrenderer/data/buffers.h"
+#include "hwrenderer/data/hw_levelmesh.h"
 
 // Some more or less basic data types
 // we depend on.
@@ -60,7 +62,7 @@ struct sector_t;
 class AActor;
 struct FSection;
 struct FLevelLocals;
-struct LightmapSurface;
+struct DoomLevelMeshSurface;
 
 const uint16_t NO_INDEX = 0xffffu;
 const uint32_t NO_SIDE = 0xffffffffu;
@@ -363,9 +365,19 @@ public:
 		return (D + normal.X*pos.X + normal.Y*pos.Y) * negiC;
 	}
 
+	double ZatPoint(const DVector3& pos) const
+	{
+		return (D + normal.X * pos.X + normal.Y * pos.Y) * negiC;
+	}
+
 	double ZatPoint(const FVector2 &pos) const
 	{
 		return (D + normal.X*pos.X + normal.Y*pos.Y) * negiC;
+	}
+
+	double ZatPoint(const FVector3& pos) const
+	{
+		return (D + normal.X * pos.X + normal.Y * pos.Y) * negiC;
 	}
 
 	double ZatPoint(const vertex_t *v) const
@@ -510,6 +522,7 @@ enum
 	SECF_EXIT1			= 4096,
 	SECF_EXIT2			= 8192,
 	SECF_KILLMONSTERS	= 16384,
+	SECF_LM_DYNAMIC		= 32768, // Lightmap needs to be dynamically updated in this sector
 
 	SECF_WASSECRET		= 1 << 30,	// a secret that was discovered
 	SECF_SECRET			= 1 << 31,	// a secret sector
@@ -656,6 +669,8 @@ struct sector_t
 		float GlowHeight;
 		FTextureID Texture;
 		TextureManipulation TextureFx;
+		FTextureID skytexture[2];
+		uint16_t LightmapSampleDistance;
 	};
 
 
@@ -679,10 +694,10 @@ struct sector_t
 
 	int		special;					// map-defined sector special type
 
-	int			sky;						// MBF sky transfer info.
+	int			skytransfer;						// MBF sky transfer info.
 	int 		validcount;					// if == validcount, already checked
 
-	uint32_t bottommap, midmap, topmap;		// killough 4/4/98: dynamic colormaps
+	uint32_t selfmap, bottommap, midmap, topmap;		// killough 4/4/98: dynamic colormaps
 											// [RH] these can also be blend values if
 											//		the alpha mask is non-zero
 
@@ -814,7 +829,6 @@ public:
 
 	int CheckSpriteGlow(int lightlevel, const DVector3 &pos);
 	bool GetWallGlow(float *topglowcolor, float *bottomglowcolor);
-
 
 	void SetXOffset(int pos, double o)
 	{
@@ -1014,6 +1028,11 @@ public:
 		return pos == floor? floorplane:ceilingplane;
 	}
 
+	const secplane_t& GetSecPlane(int pos) const
+	{
+		return pos == floor ? floorplane : ceilingplane;
+	}
+
 	bool isSecret() const
 	{
 		return !!(Flags & SECF_SECRET);
@@ -1183,6 +1202,15 @@ struct side_t
 		walltop = 0,
 		wallbottom = 1,
 	};
+	enum ESkew
+	{
+		skew_none = 0,
+		skew_front_floor = 1,
+		skew_front_ceiling = 2,
+		skew_back_floor = 3,
+		skew_back_ceiling = 4
+	};
+
 	struct part
 	{
 		enum EPartFlags
@@ -1198,11 +1226,13 @@ struct side_t
 		double xScale;
 		double yScale;
 		TObjPtr<DInterpolation*> interpolation;
-		int flags;
+		int16_t flags;
+		int8_t skew;
 		FTextureID texture;
 		TextureManipulation TextureFx;
 		PalEntry SpecialColors[2];
 		PalEntry AdditiveColor;
+		uint16_t LightmapSampleDistance;
 
 
 		void InitFrom(const part &other)
@@ -1227,7 +1257,7 @@ struct side_t
 	uint16_t	Flags;
 	int			UDMFIndex;		// needed to access custom UDMF fields which are stored in loading order.
 	FLightNode * lighthead;		// all dynamic lights that may affect this wall
-	LightmapSurface* lightmap;
+	TArrayView<DoomLevelMeshSurface*> surface; // all mesh surfaces belonging to this sidedef
 	seg_t **segs;	// all segs belonging to this sidedef in ascending order. Used for precise rendering
 	int numsegs;
 	int sidenum;
@@ -1490,6 +1520,8 @@ struct line_t : public linebase_t
 	int			healthgroup; // [ZZ] this is the "destructible object" id
 	int			linenum;
 
+	uint16_t	LightmapSampleDistance[3]; // Used only as storage during map loading.
+
 	void setAlpha(double a)
 	{
 		alpha = a;
@@ -1641,8 +1673,8 @@ struct subsector_t
 	int Index() const { return subsectornum; }
 									// 2: has one-sided walls
 	FPortalCoverage	portalcoverage[2];
-
-	LightmapSurface *lightmap[2];
+	TArray<DVisualThinker *> sprites;
+	TArrayView<DoomLevelMeshSurface*> surface[2]; // all mesh surfaces belonging to this subsector
 };
 
 
@@ -1685,28 +1717,6 @@ struct FMiniBSP
 	TArray<seg_t> Segs;
 	TArray<subsector_t> Subsectors;
 	TArray<vertex_t> Verts;
-};
-
-// Lightmap data
-
-enum SurfaceType
-{
-	ST_NULL,
-	ST_MIDDLEWALL,
-	ST_UPPERWALL,
-	ST_LOWERWALL,
-	ST_CEILING,
-	ST_FLOOR
-};
-
-struct LightmapSurface
-{
-	SurfaceType Type;
-	subsector_t *Subsector;
-	side_t *Side;
-	sector_t *ControlSector;
-	uint32_t LightmapNum;
-	float *TexCoords;
 };
 
 //

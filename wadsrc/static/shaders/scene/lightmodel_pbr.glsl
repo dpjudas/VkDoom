@@ -106,7 +106,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 
 				if (attenuation > 0.0)
 				{
-					attenuation *= shadowAttenuation(lightpos, lightcolor.a);
+					attenuation *= shadowAttenuation(lightpos, lightcolor.a, lightspot2.z);
 
 					vec3 radiance = lightcolor.rgb * attenuation;
 
@@ -146,7 +146,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 
 				if (attenuation > 0.0)
 				{
-					attenuation *= shadowAttenuation(lightpos, lightcolor.a);
+					attenuation *= shadowAttenuation(lightpos, lightcolor.a, lightspot2.z);
 
 					vec3 radiance = lightcolor.rgb * attenuation;
 

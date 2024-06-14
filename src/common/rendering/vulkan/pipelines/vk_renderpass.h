@@ -11,10 +11,11 @@
 #include <map>
 
 class VulkanRenderDevice;
-class GraphicsPipelineBuilder;
+class ColorBlendAttachmentBuilder;
 class VkPPShader;
 class VkPPRenderPassKey;
 class VkPPRenderPassSetup;
+class ColorBlendAttachmentBuilder;
 
 class VkPipelineKey
 {
@@ -39,12 +40,12 @@ public:
 	};
 
 	int VertexFormat = 0;
-	int NumTextureLayers = 0;
+	int Padding0 = 0;
 
 	VkShaderKey ShaderKey;
 	FRenderStyle RenderStyle;
 
-	int Padding = 0; // for 64 bit alignment
+	int Padding1 = 0; // for 64 bit alignment
 
 	bool operator<(const VkPipelineKey &other) const { return memcmp(this, &other, sizeof(VkPipelineKey)) < 0; }
 	bool operator==(const VkPipelineKey &other) const { return memcmp(this, &other, sizeof(VkPipelineKey)) == 0; }
@@ -90,13 +91,12 @@ private:
 class VkVertexFormat
 {
 public:
-	int NumBindingPoints;
-	size_t Stride;
+	std::vector<size_t> BufferStrides;
 	std::vector<FVertexBufferAttribute> Attrs;
 	int UseVertexData;
 };
 
-GraphicsPipelineBuilder& BlendMode(GraphicsPipelineBuilder& builder, const FRenderStyle& style);
+ColorBlendAttachmentBuilder& BlendMode(ColorBlendAttachmentBuilder& builder, const FRenderStyle& style);
 
 class VkRenderPassManager
 {
@@ -107,9 +107,9 @@ public:
 	void RenderBuffersReset();
 
 	VkRenderPassSetup *GetRenderPass(const VkRenderPassKey &key);
-	int GetVertexFormat(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute *attrs);
+	int GetVertexFormat(const std::vector<size_t>& bufferStrides, const std::vector<FVertexBufferAttribute>& attrs);
 	VkVertexFormat *GetVertexFormat(int index);
-	VulkanPipelineLayout* GetPipelineLayout(int numLayers);
+	VulkanPipelineLayout* GetPipelineLayout(bool levelmesh);
 
 	VkPPRenderPassSetup* GetPPRenderPass(const VkPPRenderPassKey& key);
 
@@ -119,7 +119,7 @@ private:
 	VulkanRenderDevice* fb = nullptr;
 
 	std::map<VkRenderPassKey, std::unique_ptr<VkRenderPassSetup>> RenderPassSetup;
-	std::vector<std::unique_ptr<VulkanPipelineLayout>> PipelineLayouts;
+	std::unique_ptr<VulkanPipelineLayout> PipelineLayouts[2];
 	std::vector<VkVertexFormat> VertexFormats;
 
 	std::map<VkPPRenderPassKey, std::unique_ptr<VkPPRenderPassSetup>> PPRenderPassSetup;

@@ -156,7 +156,15 @@ CUSTOM_CVAR(Int, am_cheat, 0, 0)
 
 
 CVAR(Int, am_rotate, 0, CVAR_ARCHIVE);
-CVAR(Int, am_overlay, 0, CVAR_ARCHIVE);
+CUSTOM_CVAR(Int, am_overlay, 0, CVAR_ARCHIVE)
+{
+	// stop overlay if we're told not to use it anymore.
+	if (automapactive && viewactive && (self == 0))
+	{
+		automapactive = false;
+		viewactive = true;
+	}
+}
 CVAR(Bool, am_showsecrets, true, CVAR_ARCHIVE);
 CVAR(Bool, am_showmonsters, true, CVAR_ARCHIVE);
 CVAR(Bool, am_showitems, true, CVAR_ARCHIVE);
@@ -208,19 +216,19 @@ CCMD(am_togglefollow)
 	am_followplayer = !am_followplayer;
 	if (primaryLevel && primaryLevel->automap)
 		primaryLevel->automap->ResetFollowLocation();
-	Printf("%s\n", GStrings(am_followplayer ? "AMSTR_FOLLOWON" : "AMSTR_FOLLOWOFF"));
+	Printf("%s\n", GStrings.GetString(am_followplayer ? "AMSTR_FOLLOWON" : "AMSTR_FOLLOWOFF"));
 }
 
 CCMD(am_togglegrid)
 {
 	am_showgrid = !am_showgrid;
-	Printf("%s\n", GStrings(am_showgrid ? "AMSTR_GRIDON" : "AMSTR_GRIDOFF"));
+	Printf("%s\n", GStrings.GetString(am_showgrid ? "AMSTR_GRIDON" : "AMSTR_GRIDOFF"));
 }
 
 CCMD(am_toggletexture)
 {
 	am_textured = !am_textured;
-	Printf("%s\n", GStrings(am_textured ? "AMSTR_TEXON" : "AMSTR_TEXOFF"));
+	Printf("%s\n", GStrings.GetString(am_textured ? "AMSTR_TEXON" : "AMSTR_TEXOFF"));
 }
 
 CCMD(am_setmark)
@@ -230,7 +238,7 @@ CCMD(am_setmark)
 		int m = primaryLevel->automap->addMark();
 		if (m >= 0)
 		{
-			Printf("%s %d\n", GStrings("AMSTR_MARKEDSPOT"), m);
+			Printf("%s %d\n", GStrings.GetString("AMSTR_MARKEDSPOT"), m);
 		}
 	}
 }
@@ -239,7 +247,7 @@ CCMD(am_clearmarks)
 {
 	if (primaryLevel && primaryLevel->automap && primaryLevel->automap->clearMarks())
 	{
-		Printf("%s\n", GStrings("AMSTR_MARKSCLEARED"));
+		Printf("%s\n", GStrings.GetString("AMSTR_MARKSCLEARED"));
 	}
 }
 
@@ -792,9 +800,9 @@ void FMapInfoParser::ParseAMColors(bool overlay)
 				{
 					sc.MustGetToken(TK_StringConst);
 					FString color = sc.String;
-					FString colorName = V_GetColorStringByName(color);
+					FString colorName = V_GetColorStringByName(color.GetChars());
 					if(!colorName.IsEmpty()) color = colorName;
-					int colorval = V_GetColorFromString(color);
+					int colorval = V_GetColorFromString(color.GetChars());
 					cset.c[i].FromRGB(RPART(colorval), GPART(colorval), BPART(colorval)); 
 					colorset = true;
 					break;
@@ -872,10 +880,10 @@ void AM_StaticInit()
 	CheatKey.Clear();
 	EasyKey.Clear();
 
-	if (gameinfo.mMapArrow.IsNotEmpty()) AM_ParseArrow(MapArrow, gameinfo.mMapArrow);
-	if (gameinfo.mCheatMapArrow.IsNotEmpty()) AM_ParseArrow(CheatMapArrow, gameinfo.mCheatMapArrow);
-	AM_ParseArrow(CheatKey, gameinfo.mCheatKey);
-	AM_ParseArrow(EasyKey, gameinfo.mEasyKey);
+	if (gameinfo.mMapArrow.IsNotEmpty()) AM_ParseArrow(MapArrow, gameinfo.mMapArrow.GetChars());
+	if (gameinfo.mCheatMapArrow.IsNotEmpty()) AM_ParseArrow(CheatMapArrow, gameinfo.mCheatMapArrow.GetChars());
+	AM_ParseArrow(CheatKey, gameinfo.mCheatKey.GetChars());
+	AM_ParseArrow(EasyKey, gameinfo.mEasyKey.GetChars());
 	if (MapArrow.Size() == 0) I_FatalError("No automap arrow defined");
 
 	char namebuf[9];
@@ -996,7 +1004,7 @@ class DAutomap :public DAutomapBase
 	void calcMinMaxMtoF();
 
 	void DrawMarker(FGameTexture *tex, double x, double y, int yadjust,
-		INTBOOL flip, double xscale, double yscale, int translation, double alpha, uint32_t fillcolor, FRenderStyle renderstyle);
+		INTBOOL flip, double xscale, double yscale, FTranslationID translation, double alpha, uint32_t fillcolor, FRenderStyle renderstyle);
 
 	void rotatePoint(double *x, double *y);
 	void rotate(double *x, double *y, DAngle an);
@@ -1360,7 +1368,7 @@ void DAutomap::LevelInit ()
 	}
 	else
 	{
-		mapback = TexMan.CheckForTexture(Level->info->MapBackground, ETextureType::MiscPatch);
+		mapback = TexMan.CheckForTexture(Level->info->MapBackground.GetChars(), ETextureType::MiscPatch);
 	}
 
 	clearMarks();
@@ -1547,7 +1555,7 @@ void DAutomap::Ticker ()
 	if (!automapactive)
 		return;
 
-	if ((primaryLevel->flags9 & LEVEL9_NOAUTOMAP))
+	if ((primaryLevel->vkdflags & VKDLEVELFLAG_NOAUTOMAP))
 	{
 		AM_ToggleMap();
 		return;
@@ -2018,6 +2026,9 @@ void DAutomap::drawSubsectors()
 	PalEntry flatcolor;
 	mpoint_t originpt;
 
+	auto lm = getRealLightmode(Level, false);
+	bool softlightramp = !V_IsHardwareRenderer() || lm == ELightMode::Doom || lm == ELightMode::DoomDark;
+
 	auto &subsectors = Level->subsectors;
 	for (unsigned i = 0; i < subsectors.Size(); ++i)
 	{
@@ -2192,15 +2203,14 @@ void DAutomap::drawSubsectors()
 			// Why the +12? I wish I knew, but experimentation indicates it
 			// is necessary in order to best reproduce Doom's original lighting.
 			double fadelevel;
-
-			if (!V_IsHardwareRenderer() || primaryLevel->lightMode == ELightMode::DoomDark || primaryLevel->lightMode == ELightMode::Doom || primaryLevel->lightMode == ELightMode::ZDoomSoftware || primaryLevel->lightMode == ELightMode::DoomSoftware)
+			if (softlightramp)
 			{
 				double map = (NUMCOLORMAPS * 2.) - ((floorlight + 12) * (NUMCOLORMAPS / 128.));
 				fadelevel = clamp((map - 12) / NUMCOLORMAPS, 0.0, 1.0);
 			}
 			else
 			{
-				// The hardware renderer's light modes 0, 1 and 4 use a linear light scale which must be used here as well. Otherwise the automap gets too dark.
+				// for the hardware renderer's light modes that use a linear light scale this must do the same. Otherwise the automap gets too dark.
 				fadelevel = 1. - clamp(floorlight, 0, 255) / 255.f;
 			}
 
@@ -2812,7 +2822,7 @@ void DAutomap::drawPlayers ()
 		int numarrowlines;
 
 		double vh = players[consoleplayer].viewheight;
-		DVector2 pos = players[consoleplayer].camera->InterpolatedPosition(r_viewpoint.TicFrac);
+		DVector2 pos = players[consoleplayer].camera->InterpolatedPosition(r_viewpoint.TicFrac).XY();
 		pt.x = pos.X;
 		pt.y = pos.Y;
 		if (am_rotate == 1 || (am_rotate == 2 && viewactive))
@@ -2956,7 +2966,8 @@ void DAutomap::drawThings ()
 			if (am_cheat > 0 || !(t->flags6 & MF6_NOTONAUTOMAP)
 				|| (am_thingrenderstyles && !(t->renderflags & RF_INVISIBLE) && !(t->flags6 & MF6_NOTONAUTOMAP)))
 			{
-				DVector3 pos = t->InterpolatedPosition(r_viewpoint.TicFrac) + t->Level->Displacements.getOffset(sec.PortalGroup, MapPortalGroup);
+				DVector3 fracPos = t->InterpolatedPosition(r_viewpoint.TicFrac);
+				FVector2 pos = FVector2(float(fracPos.X),float(fracPos.Y)) + FVector2(t->Level->Displacements.getOffset(sec.PortalGroup, MapPortalGroup)) + FVector2(t->AutomapOffsets);
 				p.x = pos.X;
 				p.y = pos.Y;
 
@@ -2966,14 +2977,14 @@ void DAutomap::drawThings ()
 					spriteframe_t *frame;
 					int rotation = 0;
 
-					// try all modes backwards until a valid texture has been found.	
+					// try all modes backwards until a valid texture has been found.
 					for(int show = am_showthingsprites; show > 0 && texture == nullptr; show--)
 					{
 						const spritedef_t& sprite = sprites[t->sprite];
 						const size_t spriteIndex = sprite.spriteframes + (show > 1 ? t->frame : 0);
 
 						frame = &SpriteFrames[spriteIndex];
-						DAngle angle = DAngle::fromDeg(270. + 22.5) - t->InterpolatedAngles(r_viewpoint.TicFrac).Yaw;
+						DAngle angle = DAngle::fromDeg(270.) - t->InterpolatedAngles(r_viewpoint.TicFrac).Yaw - t->SpriteRotation; 
 						if (frame->Texture[0] != frame->Texture[1]) angle += DAngle::fromDeg(180. / 16);
 						if (am_rotate == 1 || (am_rotate == 2 && viewactive))
 						{
@@ -3078,7 +3089,7 @@ void DAutomap::drawThings ()
 //=============================================================================
 
 void DAutomap::DrawMarker (FGameTexture *tex, double x, double y, int yadjust,
-	INTBOOL flip, double xscale, double yscale, int translation, double alpha, uint32_t fillcolor, FRenderStyle renderstyle)
+	INTBOOL flip, double xscale, double yscale, FTranslationID translation, double alpha, uint32_t fillcolor, FRenderStyle renderstyle)
 {
 	if (tex == nullptr || !tex->isValid())
 	{
@@ -3101,7 +3112,7 @@ void DAutomap::DrawMarker (FGameTexture *tex, double x, double y, int yadjust,
 		DTA_ClipLeft, f_x,
 		DTA_ClipRight, f_x + f_w,
 		DTA_FlipX, flip,
-		DTA_TranslationIndex, translation,
+		DTA_TranslationIndex, translation.index(),
 		DTA_Alpha, alpha,
 		DTA_FillColor, fillcolor,
 		DTA_RenderStyle, renderstyle.AsDWORD,
@@ -3132,7 +3143,7 @@ void DAutomap::drawMarks ()
 			if (font == nullptr)
 			{
 				DrawMarker(TexMan.GetGameTexture(marknums[i], true), markpoints[i].x, markpoints[i].y, -3, 0,
-					1, 1, 0, 1, 0, LegacyRenderStyles[STYLE_Normal]);
+					1, 1, NO_TRANSLATION, 1, 0, LegacyRenderStyles[STYLE_Normal]);
 			}
 			else
 			{
@@ -3453,7 +3464,7 @@ void AM_ToggleMap()
 	if (!primaryLevel || !primaryLevel->automap)
 		return;
 
-	if (!automapactive && (primaryLevel->flags9 & LEVEL9_NOAUTOMAP))
+	if (!automapactive && (primaryLevel->vkdflags & VKDLEVELFLAG_NOAUTOMAP))
 		return;
 
 	if (!automapactive)

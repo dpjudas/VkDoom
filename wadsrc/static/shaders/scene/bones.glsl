@@ -26,7 +26,7 @@ void AddWeightedBone(uint boneIndex, float weight, inout vec4 position, inout ve
 	{
 		mat4 transform = bones[uBoneIndexBase + int(boneIndex)];
 		mat3 rotation = mat3(transform);
-		position += (transform * aPosition) * weight;
+		position += (transform * vec4(aPosition.xyz, 1.0)) * weight;
 		normal += (rotation * aNormal.xyz) * weight;
 	}
 }
@@ -53,7 +53,7 @@ BonesResult ApplyBones()
 	}
 	else
 	{
-		result.Position = aPosition;
+		result.Position = vec4(aPosition.xyz, 1.0);
 		result.Normal = GetAttrNormal();
 	}
 	return result;
@@ -64,7 +64,7 @@ BonesResult ApplyBones()
 BonesResult ApplyBones()
 {
 	BonesResult result;
-	result.Position = aPosition;
+	result.Position = vec4(aPosition.xyz, 1.0);
 	return result;
 }
 

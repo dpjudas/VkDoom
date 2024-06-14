@@ -35,13 +35,19 @@ JitFuncPtr JitCompile(VMScriptFunction* sfunc)
 	}
 	catch (...)
 	{
-		Printf("%s: Unexpected JIT error encountered\n", sfunc->PrintableName.GetChars());
+		Printf("%s: Unexpected JIT error encountered\n", sfunc->PrintableName);
 		throw;
 	}
 }
 
 void JitDumpLog(FILE* file, VMScriptFunction* sfunc)
 {
+	if(sfunc->VarFlags & VARF_Abstract)
+	{
+		// Printf(TEXTCOLOR_ORANGE "Skipping abstract function during JIT dump: %s\n", sfunc->PrintableName.GetChars());
+		return;
+	}
+
 	try
 	{
 		if (sfunc->VarFlags & VARF_Abstract)
@@ -241,8 +247,8 @@ void JitCompiler::Setup()
 	//cc.comment("", 0);
 
 	IRFunctionType* functype = ircontext->getFunctionType(int32Ty, { int8PtrTy, int8PtrTy, int32Ty, int8PtrTy, int32Ty });
-	irfunc = ircontext->createFunction(functype, sfunc->PrintableName.GetChars());
-	irfunc->fileInfo.push_back({ sfunc->PrintableName.GetChars(), sfunc->SourceFileName.GetChars() });
+	irfunc = ircontext->createFunction(functype, sfunc->PrintableName);
+	irfunc->fileInfo.push_back({ sfunc->PrintableName, sfunc->SourceFileName.GetChars() });
 
 	args = irfunc->args[1];
 	numargs = irfunc->args[2];
@@ -353,7 +359,7 @@ void JitCompiler::SetupSimpleFrame()
 
 	if (errorDetails)
 	{
-		I_FatalError("JIT: inconsistent number of %s for function %s", errorDetails, sfunc->PrintableName.GetChars());
+		I_FatalError("JIT: inconsistent number of %s for function %s", errorDetails, sfunc->PrintableName);
 	}
 
 	for (int i = regd; i < sfunc->NumRegD; i++)
@@ -553,7 +559,7 @@ static int CastS2I(FString* b) { return (int)b->ToLong(); }
 static double CastS2F(FString* b) { return b->ToDouble(); }
 static int CastS2N(FString* b) { return b->Len() == 0 ? NAME_None : FName(*b).GetIndex(); }
 static void CastN2S(FString* a, int b) { FName name = FName(ENamedName(b)); *a = name.IsValidName() ? name.GetChars() : ""; }
-static int CastS2Co(FString* b) { return V_GetColor(*b); }
+static int CastS2Co(FString* b) { return V_GetColor(b->GetChars()); }
 static void CastCo2S(FString* a, int b) { PalEntry c(b); a->Format("%02x %02x %02x", c.r, c.g, c.b); }
 static int CastS2So(FString* b) { return S_FindSound(*b).index(); }
 static void CastSo2S(FString* a, int b) { *a = soundEngine->GetSoundName(FSoundID::fromInt(b)); }

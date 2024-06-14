@@ -48,7 +48,7 @@ public:
 		Height = 1;
 	}
 
-	int CopyPixels(FBitmap *bmp, int conversion) override
+	int CopyPixels(FBitmap *bmp, int conversion, int frame = 0) override
 	{
 		PalEntry *pe = (PalEntry*)bmp->GetPixels();
 		for (int i = 0; i < 256; i++)
@@ -102,7 +102,7 @@ sector_t *SWSceneDrawer::RenderView(player_t *player)
 			fbtex.reset(MakeGameTexture(new FWrapperTexture(screen->GetWidth(), screen->GetHeight(), V_IsTrueColor()), nullptr, ETextureType::SWCanvas));
 			GetSystemTexture()->AllocateBuffer(screen->GetWidth(), screen->GetHeight(), V_IsTrueColor() ? 4 : 1);
 			auto mat = FMaterial::ValidateTexture(fbtex.get(), false);
-			mat->AddTextureLayer(PaletteTexture, false);
+			mat->AddTextureLayer(PaletteTexture, false, MaterialLayerSampling::Default);
 
 			Canvas.reset();
 			Canvas.reset(new DCanvas(screen->GetWidth(), screen->GetHeight(), V_IsTrueColor()));

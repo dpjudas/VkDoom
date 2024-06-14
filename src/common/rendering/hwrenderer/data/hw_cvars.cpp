@@ -56,7 +56,7 @@ CUSTOM_CVAR(Int, gl_fogmode, 2, CVAR_ARCHIVE | CVAR_NOINITCALL)
 CVAR(Bool, gl_portals, true, 0)
 CVAR(Bool,gl_mirrors,true,0)	// This is for debugging only!
 CVAR(Bool,gl_mirror_envmap, true, CVAR_GLOBALCONFIG|CVAR_ARCHIVE)
-CVAR(Bool, gl_seamless, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
+CVAR(Bool, gl_seamless, true, 0) // This is for debugging only now! The level mesh requires no holes in the level to properly detect portals.
 
 CUSTOM_CVAR(Int, r_mirror_recursions,4,CVAR_GLOBALCONFIG|CVAR_ARCHIVE)
 {
@@ -115,7 +115,7 @@ CVAR(Int, gl_satformula, 1, CVAR_ARCHIVE|CVAR_GLOBALCONFIG);
 // Texture CVARs
 //
 //==========================================================================
-CUSTOM_CVARD(Float, gl_texture_filter_anisotropic, 8.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL, "changes the OpenGL texture anisotropy setting")
+CUSTOM_CVARD(Float, gl_texture_filter_anisotropic, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL, "changes the texture anisotropy setting")
 {
 	screen->SetTextureFilterMode();
 }
@@ -128,8 +128,28 @@ CUSTOM_CVARD(Int, gl_texture_filter, 6, CVAR_ARCHIVE|CVAR_GLOBALCONFIG|CVAR_NOIN
 
 CVAR(Bool, gl_precache, true, CVAR_ARCHIVE)
 
+CUSTOM_CVAR(Int, gl_light_shadows, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+{
+	if (self < 0 || self > 3)
+		self = 1;
+}
 
-CUSTOM_CVAR(Int, gl_shadowmap_filter, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CUSTOM_CVAR(Int, gl_light_shadow_filter, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 {
 	if (self < 0 || self > 8) self = 1;
+}
+
+CUSTOM_CVAR(Int, gl_shadowmap_quality, 512, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+{
+	switch (self)
+	{
+	case 128:
+	case 256:
+	case 512:
+	case 1024:
+		break;
+	default:
+		self = 128;
+		break;
+	}
 }

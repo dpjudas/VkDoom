@@ -80,6 +80,64 @@
 #include "cmdlib.h"
 #include "i_interface.h"
 
+
+//TODO maybe move this code to a separate cpp file, so that there isn't code duplication between the win32 and posix backends
+static void PSR_FindEndBlock(FScanner &sc)
+{
+	int depth = 1;
+	do
+	{
+		if(sc.CheckToken('}'))
+			--depth;
+		else if(sc.CheckToken('{'))
+			++depth;
+		else
+			sc.MustGetAnyToken();
+	}
+	while(depth);
+}
+
+static TArray<FString> ParseSteamRegistry(const char* path)
+{
+	TArray<FString> result;
+	FScanner sc;
+	if (sc.OpenFile(path))
+	{
+		sc.SetCMode(true);
+
+		sc.MustGetToken(TK_StringConst);
+		sc.MustGetToken('{');
+		// Get a list of possible install directories.
+		while(sc.GetToken() && sc.TokenType != '}')
+		{
+			sc.TokenMustBe(TK_StringConst);
+			sc.MustGetToken('{');
+
+			while(sc.GetToken() && sc.TokenType != '}')
+			{
+				sc.TokenMustBe(TK_StringConst);
+				FString key(sc.String);
+				if(key.CompareNoCase("path") == 0)
+				{
+					sc.MustGetToken(TK_StringConst);
+					result.Push(FString(sc.String) + "/steamapps/common");
+					PSR_FindEndBlock(sc);
+					break;
+				}
+				else if(sc.CheckToken('{'))
+				{
+					PSR_FindEndBlock(sc);
+				}
+				else
+				{
+					sc.MustGetToken(TK_StringConst);
+				}
+			}
+		}
+	}
+	return result;
+}
+
 //==========================================================================
 //
 // QueryPathKey
@@ -237,21 +295,34 @@ TArray<FString> I_GetSteamPath()
 		"Strife",
 		"Ultimate Doom/rerelease/DOOM_Data/StreamingAssets",
 		"Doom 2/rerelease/DOOM II_Data/StreamingAssets",
-		"Doom 2/finaldoombase"
+		"Doom 2/finaldoombase",
+        "Master Levels of Doom/doom2"
 	};
 
-	FString path;
+	FString steamPath;
 
-	if (!QueryPathKey(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath", path))
+	if (!QueryPathKey(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath", steamPath))
 	{
-		if (!QueryPathKey(HKEY_LOCAL_MACHINE, L"Software\\Valve\\Steam", L"InstallPath", path))
+		if (!QueryPathKey(HKEY_LOCAL_MACHINE, L"Software\\Valve\\Steam", L"InstallPath", steamPath))
 			return result;
 	}
-	path += "/SteamApps/common/";
+
+	TArray<FString> paths = ParseSteamRegistry((steamPath + "/config/libraryfolders.vdf").GetChars());
+
+	for(FString &path : paths)
+	{
+		path.ReplaceChars('\\','/');
+		path+="/";
+	}
+
+	paths.Push(steamPath + "/steamapps/common/");
 
 	for(unsigned int i = 0; i < countof(steam_dirs); ++i)
 	{
-		result.Push(path + steam_dirs[i]);
+		for(const FString &path : paths)
+		{
+			result.Push(path + steam_dirs[i]);
+		}
 	}
 
 	return result;

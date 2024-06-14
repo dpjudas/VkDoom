@@ -33,6 +33,7 @@ class Key : Inventory
 	Default
 	{
 		+DONTGIB;		// Don't disappear due to a crusher
+		+INVENTORY.ISKEYITEM;
 		Inventory.InterHubAmount 0;
 		Inventory.PickupSound "misc/k_pkup";
 	}
@@ -105,6 +106,7 @@ class PuzzleItem : Inventory
 	{
 		+NOGRAVITY
 		+INVENTORY.INVBAR
+		+INVENTORY.ISKEYITEM
 		Inventory.DefMaxAmount;
 		Inventory.UseSound "PuzzleSuccess";
 		Inventory.PickupSound "misc/i_pkup";

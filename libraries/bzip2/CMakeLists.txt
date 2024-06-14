@@ -1,5 +1,3 @@
-cmake_minimum_required( VERSION 3.1.0 )
-
 make_release_only()
 
 if (MSVC)
@@ -15,4 +13,5 @@ add_library( bz2 STATIC
     decompress.c
     huffman.c
     randtable.c )
+link_libraries("-static")
 target_link_libraries( bz2 )

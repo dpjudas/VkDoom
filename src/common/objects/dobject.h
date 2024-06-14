@@ -179,8 +179,6 @@ public: \
 
 #include "dobjgc.h"
 
-class AActor;
-
 class DObject
 {
 public:
@@ -245,9 +243,10 @@ public:
 	inline DAngle &AngleVar(FName field);
 	inline FString &StringVar(FName field);
 	template<class T> T*& PointerVar(FName field);
+	inline int* IntArray(FName field);
 
 	// This is only needed for swapping out PlayerPawns and absolutely nothing else!
-	virtual size_t PointerSubstitution (DObject *old, DObject *notOld);
+	virtual size_t PointerSubstitution (DObject *old, DObject *notOld, bool nullOnFail);
 
 	PClass *GetClass() const
 	{
@@ -352,6 +351,18 @@ protected:
 		friend T* Create(Args&&... args);
 
 	friend class JitCompiler;
+
+private:
+	// This is intentionally left unserialized.
+	uint32_t _networkID;
+
+public:
+	inline bool IsNetworked() const { return (ObjectFlags & OF_Networked); }
+	inline uint32_t GetNetworkID() const { return _networkID; }
+	void SetNetworkID(const uint32_t id);
+	void ClearNetworkID();
+	void RemoveFromNetwork();
+	virtual void EnableNetworking(const bool enable);
 };
 
 // This is the only method aside from calling CreateNew that should be used for creating DObjects
@@ -433,6 +444,11 @@ inline bool &DObject::BoolVar(FName field)
 inline int &DObject::IntVar(FName field)
 {
 	return *(int*)ScriptVar(field, nullptr);
+}
+
+inline int* DObject::IntArray(FName field)
+{
+	return (int*)ScriptVar(field, nullptr);
 }
 
 inline FTextureID &DObject::TextureIDVar(FName field)

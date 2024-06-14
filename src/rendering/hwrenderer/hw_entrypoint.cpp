@@ -47,10 +47,13 @@
 #include "hwrenderer/scene/hw_fakeflat.h"
 #include "hwrenderer/scene/hw_clipper.h"
 #include "hwrenderer/scene/hw_portal.h"
-#include "hwrenderer/scene/hw_meshcache.h"
+#include "hwrenderer/scene/hw_drawcontext.h"
 #include "hw_vrmodes.h"
 
 EXTERN_CVAR(Bool, cl_capfps)
+EXTERN_CVAR(Float, r_visibility)
+EXTERN_CVAR(Bool, gl_bandedswlight)
+
 extern bool NoInterpolateView;
 
 static SWSceneDrawer *swdrawer;
@@ -95,7 +98,6 @@ void CollectLights(FLevelLocals* Level)
 	}
 }
 
-
 //-----------------------------------------------------------------------------
 //
 // Renders one viewpoint in a scene
@@ -104,11 +106,11 @@ void CollectLights(FLevelLocals* Level)
 
 sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bounds, float fov, float ratio, float fovratio, bool mainview, bool toscreen)
 {
-	auto& RenderState = *screen->RenderState(0);
+	auto& RenderState = *screen->RenderState();
 
 	R_SetupFrame(mainvp, r_viewwindow, camera);
 
-	if (mainview && toscreen && !(camera->Level->flags3 & LEVEL3_NOSHADOWMAP) && camera->Level->HasDynamicLights && gl_light_shadowmap && screen->allowSSBO() && (screen->hwcaps & RFL_SHADER_STORAGE_BUFFER))
+	if (mainview && toscreen && !(camera->Level->flags3 & LEVEL3_NOSHADOWMAP) && camera->Level->HasDynamicLights && gl_light_shadows > 0)
 	{
 		screen->mShadowMap->SetAABBTree(camera->Level->aabbTree);
 		screen->mShadowMap->SetCollectLights([=] {
@@ -123,13 +125,13 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		screen->mShadowMap->SetCollectLights(nullptr);
 	}
 
-	screen->SetLevelMesh(camera->Level->levelMesh);
-
-	meshcache.Update(mainvp);
-
 	// Update the attenuation flag of all light defaults for each viewpoint.
 	// This function will only do something if the setting differs.
 	FLightDefaults::SetAttenuationForLevel(!!(camera->Level->flags3 & LEVEL3_ATTENUATE));
+
+	static HWDrawContext mainthread_drawctx;
+
+	hw_ClearFakeFlat(&mainthread_drawctx);
 
 	// Render (potentially) multiple views for stereo 3d
 	// Fixme. The view offsetting should be done with a static table and not require setup of the entire render state for the mode.
@@ -143,13 +145,13 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 
 		if (mainview) // Bind the scene frame buffer and turn on draw buffers used by ssao
 		{
-			bool useSSAO = (gl_ssao != 0);
+			bool useSSAO = (gl_ssao != 0 || gl_shownormals);
 			screen->SetSceneRenderTarget(useSSAO);
 			RenderState.SetPassType(useSSAO ? GBUFFER_PASS : NORMAL_PASS);
 			RenderState.EnableDrawBuffers(RenderState.GetPassDrawBufferCount(), true);
 		}
 
-		auto di = HWDrawInfo::StartDrawInfo(mainvp.ViewLevel, nullptr, mainvp, nullptr);
+		auto di = HWDrawInfo::StartDrawInfo(&mainthread_drawctx, mainvp.ViewLevel, nullptr, mainvp, nullptr);
 		auto& vp = di->Viewpoint;
 
 		di->Set3DViewport(RenderState);
@@ -168,7 +170,7 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
 		di->SetupView(RenderState, vp.Pos.X, vp.Pos.Y, vp.Pos.Z, false, false);
 
-		di->ProcessScene(toscreen, *screen->RenderState(0));
+		di->ProcessScene(toscreen, *screen->RenderState());
 
 		if (mainview)
 		{
@@ -264,7 +266,7 @@ void WriteSavePic(player_t* player, FileWriter* file, int width, int height)
 		bounds.top = 0;
 		bounds.width = width;
 		bounds.height = height;
-		auto& RenderState = *screen->RenderState(0);
+		auto& RenderState = *screen->RenderState();
 
 		// we must be sure the GPU finished reading from the buffer before we fill it with new data.
 		screen->WaitForCommands(false);
@@ -274,7 +276,6 @@ void WriteSavePic(player_t* player, FileWriter* file, int width, int height)
 		screen->ImageTransitionScene(true);
 
 		hw_postprocess.SetTonemapMode(level.info ? level.info->tonemap : ETonemapMode::None);
-		hw_ClearFakeFlat();
 		RenderState.ResetVertices();
 		RenderState.SetFlatVertexBuffer();
 
@@ -312,7 +313,7 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 
 sector_t* RenderView(player_t* player)
 {
-	auto RenderState = screen->RenderState(0);
+	auto RenderState = screen->RenderState();
 	RenderState->SetFlatVertexBuffer();
 	RenderState->ResetVertices();
 	hw_postprocess.SetTonemapMode(level.info ? level.info->tonemap : ETonemapMode::None);
@@ -327,8 +328,6 @@ sector_t* RenderView(player_t* player)
 	}
 	else
 	{
-		hw_ClearFakeFlat();
-
 		iter_dlightf = iter_dlight = draw_dlight = draw_dlightf = 0;
 
 		checkBenchActive();
@@ -356,7 +355,7 @@ sector_t* RenderView(player_t* player)
 				screen->RenderTextureView(canvas->Tex, [=](IntRect& bounds)
 					{
 						screen->SetViewportRects(&bounds);
-						Draw2D(&canvas->Drawer, *screen->RenderState(0), 0, 0, canvas->Tex->GetWidth(), canvas->Tex->GetHeight());
+						Draw2D(&canvas->Drawer, *screen->RenderState(), 0, 0, canvas->Tex->GetWidth(), canvas->Tex->GetHeight());
 						canvas->Drawer.Clear();
 					});
 				canvas->Tex->SetUpdated(true);

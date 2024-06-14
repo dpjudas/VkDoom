@@ -63,9 +63,9 @@ float intersect_triangle_ray(RayBBox ray, int a, out float barycentricB, out flo
 	int start_element = nodes[a].element_index;
 
 	vec3 p[3];
-	p[0] = vertices[elements[start_element]].xyz;
-	p[1] = vertices[elements[start_element + 1]].xyz;
-	p[2] = vertices[elements[start_element + 2]].xyz;
+	p[0] = vertices[elements[start_element]].pos.xyz;
+	p[1] = vertices[elements[start_element + 1]].pos.xyz;
+	p[2] = vertices[elements[start_element + 2]].pos.xyz;
 
 	// Moeller-Trumbore ray-triangle intersection algorithm:
 
@@ -167,47 +167,30 @@ bool traceHit(vec3 origin, vec3 direction, float dist)
 
 #endif
 
-vec2 softshadow[9 * 3] = vec2[](
-	vec2( 0.0, 0.0),
-	vec2(-2.0,-2.0),
-	vec2( 2.0, 2.0),
-	vec2( 2.0,-2.0),
-	vec2(-2.0, 2.0),
-	vec2(-1.0,-1.0),
-	vec2( 1.0, 1.0),
-	vec2( 1.0,-1.0),
-	vec2(-1.0, 1.0),
-
-	vec2( 0.0, 0.0),
-	vec2(-1.5,-1.5),
-	vec2( 1.5, 1.5),
-	vec2( 1.5,-1.5),
-	vec2(-1.5, 1.5),
-	vec2(-0.5,-0.5),
-	vec2( 0.5, 0.5),
-	vec2( 0.5,-0.5),
-	vec2(-0.5, 0.5),
-
-	vec2( 0.0, 0.0),
-	vec2(-1.25,-1.75),
-	vec2( 1.75, 1.25),
-	vec2( 1.25,-1.75),
-	vec2(-1.75, 1.75),
-	vec2(-0.75,-0.25),
-	vec2( 0.25, 0.75),
-	vec2( 0.75,-0.25),
-	vec2(-0.25, 0.75)
-);
-
-float traceShadow(vec4 lightpos, int quality)
+vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi) 
 {
-	vec3 origin = pixelpos.xzy;
-	vec3 target = lightpos.xzy + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
+    const float goldenAngle = radians(180.0) * (3.0 - sqrt(5.0));
+    float sampleIndexF = float(sampleIndex);
+    float sampleCountF = float(sampleCount);
+    
+    float r = sqrt((sampleIndexF + 0.5) / sampleCountF);  // Assuming index and count are positive
+    float theta = sampleIndexF * goldenAngle + phi;
+    
+    float sine = sin(theta);
+    float cosine = cos(theta);
+    
+    return vec2(cosine, sine) * r;
+}
+
+float traceShadow(vec4 lightpos, int quality, float sourceRadius)
+{
+	vec3 origin = pixelpos.xyz;
+	vec3 target = lightpos.xyz + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
 
 	vec3 direction = normalize(target - origin);
 	float dist = distance(origin, target);
 
-	if (quality == 0)
+	if (quality == 0 || sourceRadius == 0)
 	{
 		return traceHit(origin, direction, dist) ? 0.0 : 1.0;
 	}
@@ -218,21 +201,22 @@ float traceShadow(vec4 lightpos, int quality)
 		vec3 ydir = cross(direction, xdir);
 
 		float sum = 0.0;
-		int step_count = quality * 9;
-		for (int i = 0; i <= step_count; i++)
+		int step_count = quality * 4;
+		for (int i = 0; i < step_count; i++)
 		{
-			vec3 pos = target + xdir * softshadow[i].x + ydir * softshadow[i].y;
+			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * sourceRadius;
+			vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
 			sum += traceHit(origin, normalize(pos - origin), dist) ? 0.0 : 1.0;
 		}
 		return sum / step_count;
 	}
 }
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA)
+float shadowAttenuation(vec4 lightpos, float lightcolorA, float sourceRadius)
 {
 	if (lightpos.w > 1000000.0)
 		return 1.0; // Sunlight
-	return traceShadow(lightpos, uShadowmapFilter);
+	return traceShadow(lightpos, uShadowmapFilter, sourceRadius);
 }
 
 #elif defined(USE_SHADOWMAP)
@@ -362,7 +346,7 @@ float shadowmapAttenuation(vec4 lightpos, float shadowIndex)
 	}
 }
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA)
+float shadowAttenuation(vec4 lightpos, float lightcolorA, float sourceRadius)
 {
 	if (lightpos.w > 1000000.0)
 		return 1.0; // Sunlight
@@ -376,7 +360,7 @@ float shadowAttenuation(vec4 lightpos, float lightcolorA)
 
 #else
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA)
+float shadowAttenuation(vec4 lightpos, float lightcolorA, float sourceRadius)
 {
 	return 1.0;
 }

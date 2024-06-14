@@ -186,6 +186,10 @@ static void PrecacheLevel(FLevelLocals *Level)
 	{
 		AddToList(hitlist.Data(), Level->sectors[i].GetTexture(sector_t::floor), FTextureManager::HIT_Flat);
 		AddToList(hitlist.Data(), Level->sectors[i].GetTexture(sector_t::ceiling), FTextureManager::HIT_Flat);
+		AddToList(hitlist.Data(), Level->sectors[i].planes[0].skytexture[0], FTextureManager::HIT_Wall);
+		AddToList(hitlist.Data(), Level->sectors[i].planes[0].skytexture[1], FTextureManager::HIT_Wall);
+		AddToList(hitlist.Data(), Level->sectors[i].planes[1].skytexture[0], FTextureManager::HIT_Wall);
+		AddToList(hitlist.Data(), Level->sectors[i].planes[1].skytexture[1], FTextureManager::HIT_Wall);
 	}
 
 	for (i = Level->sides.Size() - 1; i >= 0; i--)
@@ -213,12 +217,12 @@ static void PrecacheLevel(FLevelLocals *Level)
 
 	for (auto n : gameinfo.PrecachedTextures)
 	{
-		FTextureID tex = TexMan.CheckForTexture(n, ETextureType::Wall, checkForTextureFlags);
+		FTextureID tex = TexMan.CheckForTexture(n.GetChars(), ETextureType::Wall, checkForTextureFlags);
 		if (tex.Exists()) AddToList(hitlist.Data(), tex, FTextureManager::HIT_Wall);
 	}
 	for (unsigned i = 0; i < Level->info->PrecacheTextures.Size(); i++)
 	{
-		FTextureID tex = TexMan.CheckForTexture(Level->info->PrecacheTextures[i], ETextureType::Wall, checkForTextureFlags);
+		FTextureID tex = TexMan.CheckForTexture(Level->info->PrecacheTextures[i].GetChars(), ETextureType::Wall, checkForTextureFlags);
 		if (tex.Exists()) AddToList(hitlist.Data(), tex, FTextureManager::HIT_Wall);
 	}
 
@@ -285,7 +289,7 @@ void FLevelLocals::ClearLevelData(bool fullgc)
 		auto it = GetThinkerIterator<AActor>(NAME_None, STAT_TRAVELLING);
 		for (AActor *actor = it.Next(); actor != nullptr; actor = it.Next())
 		{
-			actor->BlockingLine = nullptr;
+			actor->BlockingLine = actor->MovementBlockingLine = nullptr;
 			actor->BlockingFloor = actor->BlockingCeiling = actor->Blocking3DFloor = nullptr;
 		}
 	}
@@ -375,7 +379,7 @@ void FLevelLocals::ClearLevelData(bool fullgc)
 	if (levelMesh) delete levelMesh;
 	aabbTree = nullptr;
 	levelMesh = nullptr;
-	if (screen)
+	if (screen && screen->mShadowMap)
 		screen->mShadowMap->SetAABBTree(nullptr);
 }
 
@@ -451,7 +455,7 @@ void P_SetupLevel(FLevelLocals *Level, int position, bool newGame)
 	// Free all level data from the previous map
 	P_FreeLevelData();
 
-	MapData *map = P_OpenMapData(Level->MapName, true);
+	MapData *map = P_OpenMapData(Level->MapName.GetChars(), true);
 	if (map == nullptr)
 	{
 		I_Error("Unable to open map '%s'\n", Level->MapName.GetChars());
@@ -474,6 +478,8 @@ void P_SetupLevel(FLevelLocals *Level, int position, bool newGame)
 	MapLoader loader(Level);
 	loader.LoadLevel(map, Level->MapName.GetChars(), position);
 	delete map;
+
+	screen->SetLevelMesh(Level->levelMesh);
 
 	// if deathmatch, randomly spawn the active players
 	if (deathmatch)

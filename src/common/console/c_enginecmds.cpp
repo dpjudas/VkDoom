@@ -50,10 +50,11 @@
 #include "filesystem.h"
 #include "gstrings.h"
 #include "version.h"
-#include "findfile.h"
+#include "fs_findfile.h"
 #include "md5.h"
 #include "i_specialpaths.h"
 #include "i_system.h"
+#include "cmdlib.h"
 
 extern FILE* Logfile;
 
@@ -79,7 +80,7 @@ CCMD (print)
 		Printf ("print <name>: Print a string from the string table\n");
 		return;
 	}
-	const char *str = GStrings[argv[1]];
+	const char *str = GStrings.CheckString(argv[1]);
 	if (str == NULL)
 	{
 		Printf ("%s unknown\n", argv[1]);
@@ -178,75 +179,44 @@ UNSAFE_CCMD (crashout)
 
 UNSAFE_CCMD (dir)
 {
-	FString dir, path;
-	const char *match;
-	findstate_t c_file;
-	void *file;
-
-	FString curdir = I_GetCWD();
-	if (curdir.IsEmpty())
-	{
-		Printf ("Current path too long\n");
-		return;
-	}
+	FString path;
 
 	if (argv.argc() > 1)
 	{
 		path = NicePath(argv[1]);
-		if (!I_ChDir(path))
-		{
-			match = path;
-			dir = ExtractFilePath(path);
-			if (dir[0] != '\0')
-			{
-				match += dir.Len();
-			}
-			else
-			{
-				dir = "./";
-			}
-			if (match[0] == '\0')
-			{
-				match = "*";
-			}
-			if (!I_ChDir(dir))
-			{
-				Printf ("%s not found\n", dir.GetChars());
-				return;
-			}
-		}
-		else
-		{
-			match = "*";
-			dir = path;
-		}
 	}
 	else
 	{
-		match = "*";
-		dir = curdir;
+		path = I_GetCWD();;
 	}
-	if (dir[dir.Len()-1] != '/')
+	auto base = ExtractFileBase(path.GetChars(), true);
+	FString bpath;
+	if (base.IndexOfAny("*?") >= 0)
 	{
-		dir += '/';
+		bpath = ExtractFilePath(path.GetChars());
 	}
-
-	if ( (file = I_FindFirst (match, &c_file)) == ((void *)(-1)))
-		Printf ("Nothing matching %s%s\n", dir.GetChars(), match);
 	else
 	{
-		Printf ("Listing of %s%s:\n", dir.GetChars(), match);
-		do
-		{
-			if (I_FindAttr (&c_file) & FA_DIREC)
-				Printf (PRINT_BOLD, "%s <dir>\n", I_FindName (&c_file));
-			else
-				Printf ("%s\n", I_FindName (&c_file));
-		} while (I_FindNext (file, &c_file) == 0);
-		I_FindClose (file);
+		base = "*";
+		bpath = path;
 	}
 
-	I_ChDir(curdir);
+	FileSys::FileList list;
+	if (!FileSys::ScanDirectory(list, bpath.GetChars(), base.GetChars(), true))
+	{ 
+		Printf ("Nothing matching %s\n", path.GetChars());
+	}
+	else
+	{
+		Printf ("Listing of %s:\n", path.GetChars());
+		for(auto& entry : list)
+		{
+			if (entry.isDirectory)
+				Printf (PRINT_BOLD, "%s <dir>\n", entry.FileName.c_str());
+			else
+				Printf ("%s\n", entry.FileName.c_str());
+		}
+	}
 }
 
 //==========================================================================
@@ -274,7 +244,7 @@ CCMD (wdir)
 	{
 		if (wadnum == -1 || fileSystem.GetFileContainer(i) == wadnum)
 		{
-			Printf ("%10d %s\n", fileSystem.FileLength(i), fileSystem.GetFileFullName(i));
+			Printf ("%10ld %s\n", fileSystem.FileLength(i), fileSystem.GetFileFullName(i));
 		}
 	}
 }
@@ -334,7 +304,7 @@ CCMD(printlocalized)
 				return;
 			}
 		}
-		Printf("%s\n", GStrings(argv[1]));
+		Printf("%s\n", GStrings.GetString(argv[1]));
 	}
 
 }

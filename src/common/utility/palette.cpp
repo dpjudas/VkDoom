@@ -33,12 +33,16 @@
 */
 
 #include <algorithm>
+#include <cfloat>
+#include <cmath>
 #include "palutil.h"
 #include "palentry.h"
 #include "sc_man.h"
 #include "files.h"
 #include "filesystem.h"
 #include "printf.h"
+#include "m_swap.h"
+#include "cmdlib.h"
 
 #include "m_png.h"
 
@@ -662,9 +666,8 @@ int V_GetColorFromString(const char* cstr, FScriptPosition* sc)
 
 FString V_GetColorStringByName(const char* name, FScriptPosition* sc)
 {
-	FileData rgbNames;
-	char* rgbEnd;
-	char* rgb, * endp;
+	const char* rgbEnd;
+	const char* rgb, * endp;
 	int rgblump;
 	int c[3], step;
 	size_t namelen;
@@ -679,9 +682,9 @@ FString V_GetColorStringByName(const char* name, FScriptPosition* sc)
 		return FString();
 	}
 
-	rgbNames = fileSystem.ReadFile(rgblump);
-	rgb = (char*)rgbNames.GetMem();
-	rgbEnd = rgb + fileSystem.FileLength(rgblump);
+	auto rgbNames = fileSystem.ReadFile(rgblump);
+	rgb = rgbNames.string();
+	rgbEnd = rgb + rgbNames.size();
 	step = 0;
 	namelen = strlen(name);
 
@@ -704,7 +707,7 @@ FString V_GetColorStringByName(const char* name, FScriptPosition* sc)
 		}
 		else if (step < 3)
 		{ // collect RGB values
-			c[step++] = strtoul(rgb, &endp, 10);
+			c[step++] = strtoul(rgb, (char**)&endp, 10);
 			if (endp == rgb)
 			{
 				break;
@@ -758,7 +761,7 @@ int V_GetColor(const char* str, FScriptPosition* sc)
 
 	if (!string.IsEmpty())
 	{
-		res = V_GetColorFromString(string, sc);
+		res = V_GetColorFromString(string.GetChars(), sc);
 	}
 	else
 	{
@@ -928,12 +931,12 @@ int ReadPalette(int lumpnum, uint8_t* buffer)
 	{
 		return 0;
 	}
-	FileData lump = fileSystem.ReadFile(lumpnum);
-	uint8_t* lumpmem = (uint8_t*)lump.GetMem();
+	auto lump =  fileSystem.ReadFile(lumpnum);
+	auto lumpmem = lump.bytes();
 	memset(buffer, 0, 768);
 
 	FileReader fr;
-	fr.OpenMemory(lumpmem, lump.GetSize());
+	fr.OpenMemory(lumpmem, lump.size());
 	auto png = M_VerifyPNG(fr);
 	if (png)
 	{
@@ -963,7 +966,7 @@ int ReadPalette(int lumpnum, uint8_t* buffer)
 	{
 		FScanner sc;
 
-		sc.OpenMem(fileSystem.GetFileFullName(lumpnum), (char*)lumpmem, int(lump.GetSize()));
+		sc.OpenMem(fileSystem.GetFileFullName(lumpnum), (char*)lumpmem, int(lump.size()));
 		sc.MustGetString();
 		sc.MustGetNumber();	// version - ignore
 		sc.MustGetNumber();
@@ -981,7 +984,7 @@ int ReadPalette(int lumpnum, uint8_t* buffer)
 	}
 	else
 	{
-		memcpy(buffer, lumpmem, min<size_t>(768, lump.GetSize()));
+		memcpy(buffer, lumpmem, min<size_t>(768, lump.size()));
 		return 256;
 	}
 }

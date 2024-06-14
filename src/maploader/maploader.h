@@ -2,8 +2,8 @@
 
 #include "nodebuild.h"
 #include "g_levellocals.h"
+#include "files.h"
 
-class FileReader;
 struct FStrifeDialogueNode;
 struct FStrifeDialogueReply;
 struct Response;
@@ -152,7 +152,7 @@ private:
 	// Polyobjects
 	void InitSideLists();
 	void IterFindPolySides(FPolyObj *po, side_t *side);
-	void SpawnPolyobj(int index, int tag, int type);
+	void SpawnPolyobj(int index, int tag, int type, int damage);
 	void TranslateToStartSpot(int tag, const DVector2 &origin);
 	void InitPolyBlockMap(void);
 
@@ -194,7 +194,7 @@ private:
 	void SpawnSpecials();
 	void InitSectorSpecial(sector_t *sector, int special);
 	void SpawnLights(sector_t *sector);
-	void CreateScroller(EScroll type, double dx, double dy, sector_t *affectee, int accel, EScrollPos scrollpos = EScrollPos::scw_all);
+	void CreateScroller(EScroll type, double dx, double dy, sector_t *sect, side_t* side, int accel, EScrollPos scrollpos = EScrollPos::scw_all, int scrollmode = 15/*SCROLL_All*/);
 	void SpawnScrollers();
 	void SpawnFriction();
 	void SpawnPushers();
@@ -212,6 +212,10 @@ private:
 	void Spawn3DFloors ();
 
 	void SetTexture(side_t *side, int position, const char *name, FMissingTextureTracker &track);
+	void SetTexture(side_t* side, int position, const FString& name, FMissingTextureTracker& track)
+	{
+		SetTexture(side, position, name.GetChars(), track);
+	}
 	void SetTexture(sector_t *sector, int index, int position, const char *name, FMissingTextureTracker &track, bool truncate);
 	void SetTexture(side_t *side, int position, uint32_t *blend, const char *name);
 	void SetTextureNoErr(side_t *side, int position, uint32_t *color, const char *name, bool *validcolor, bool isFog);
@@ -304,9 +308,8 @@ public:
 	void SetSlopes();
 	void CopySlopes();
 
-	void SetSubsectorLightmap(const LightmapSurface &surface);
-	void SetSideLightmap(const LightmapSurface &surface);
-	void LoadLightmap(MapData *map);
+	void InitLevelMesh(MapData* map);
+	bool LoadLightmap(MapData* map);
 
 	void LoadLevel(MapData *map, const char *lumpname, int position);
 

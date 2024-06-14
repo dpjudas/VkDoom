@@ -389,7 +389,7 @@ void PPFXAA::Render(PPRenderState *renderstate)
 
 int PPFXAA::GetMaxVersion()
 {
-	return screen->glslversion >= 4.f ? 400 : 330;
+	return 460;
 }
 
 void PPFXAA::CreateShaders()
@@ -722,7 +722,7 @@ void PPAmbientOcclusion::UpdateTextures(int width, int height)
 
 void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneWidth, int sceneHeight)
 {
-	if (gl_ssao == 0 || sceneWidth == 0 || sceneHeight == 0)
+	if ((gl_ssao == 0 && !gl_shownormals) || sceneWidth == 0 || sceneHeight == 0)
 	{
 		return;
 	}
@@ -813,7 +813,7 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 	renderstate->Draw();
 
 	// Blur SSAO texture
-	if (gl_ssao_debug < 2)
+	if (gl_ssao_debug < 2 && !gl_shownormals)
 	{
 		renderstate->Clear();
 		renderstate->Shader = &BlurHorizontal;
@@ -839,13 +839,13 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 	renderstate->Shader = gl_multisample > 1 ? &CombineMS : &Combine;
 	renderstate->Uniforms.Set(combineUniforms);
 	renderstate->Viewport = screen->mSceneViewport;
-	if (gl_ssao_debug < 4)
-		renderstate->SetInputTexture(0, &Ambient0, PPFilterMode::Linear);
+	renderstate->SetInputTexture(0, &Ambient0, PPFilterMode::Linear);
+	if (gl_ssao_debug < 4 && !gl_shownormals)
+		renderstate->SetInputSceneFog(1);
 	else
-		renderstate->SetInputSceneNormal(0, PPFilterMode::Linear);
-	renderstate->SetInputSceneFog(1);
+		renderstate->SetInputSceneNormal(1, PPFilterMode::Linear);
 	renderstate->SetOutputSceneColor();
-	if (gl_ssao_debug != 0)
+	if (gl_ssao_debug != 0 || gl_shownormals)
 		renderstate->SetNoBlend();
 	else
 		renderstate->SetAlphaBlend();
@@ -1016,7 +1016,7 @@ void PPCustomShaderInstance::SetTextures(PPRenderState *renderstate)
 	while (it.NextPair(pair))
 	{
 		FString name = pair->Value;
-		auto gtex = TexMan.GetGameTexture(TexMan.CheckForTexture(name, ETextureType::Any), true);
+		auto gtex = TexMan.GetGameTexture(TexMan.CheckForTexture(name.GetChars(), ETextureType::Any), true);
 		if (gtex && gtex->isValid())
 		{
 			// Why does this completely circumvent the normal way of handling textures?

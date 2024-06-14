@@ -264,27 +264,37 @@ static struct TicSpecial
 		if (streamptr)
 		{
 			CheckSpace (1);
-			WriteByte (it, &streamptr);
+			WriteInt8 (it, &streamptr);
 		}
 		return *this;
 	}
 
-	TicSpecial &operator << (short it)
+	TicSpecial &operator << (int16_t it)
 	{
 		if (streamptr)
 		{
 			CheckSpace (2);
-			WriteWord (it, &streamptr);
+			WriteInt16 (it, &streamptr);
 		}
 		return *this;
 	}
 
-	TicSpecial &operator << (int it)
+	TicSpecial &operator << (int32_t it)
 	{
 		if (streamptr)
 		{
 			CheckSpace (4);
-			WriteLong (it, &streamptr);
+			WriteInt32 (it, &streamptr);
+		}
+		return *this;
+	}
+
+	TicSpecial& operator << (int64_t it)
+	{
+		if (streamptr)
+		{
+			CheckSpace(8);
+			WriteInt64(it, &streamptr);
 		}
 		return *this;
 	}
@@ -295,6 +305,16 @@ static struct TicSpecial
 		{
 			CheckSpace (4);
 			WriteFloat (it, &streamptr);
+		}
+		return *this;
+	}
+
+	TicSpecial& operator << (double it)
+	{
+		if (streamptr)
+		{
+			CheckSpace(8);
+			WriteDouble(it, &streamptr);
 		}
 		return *this;
 	}
@@ -791,7 +811,7 @@ void GetPackets (void)
 					{
 						if (playeringame[i])
 						{
-							int resend = ReadLong (&foo);
+							int resend = ReadInt32 (&foo);
 							if (i != consoleplayer)
 							{
 								resendto[nodeforplayer[i]] = resend;
@@ -1246,7 +1266,7 @@ void NetUpdate (void)
 					// the other players.
 					if (l == 0)
 					{
-						WriteWord (localcmds[localstart].consistancy, &cmddata);
+						WriteInt16 (localcmds[localstart].consistancy, &cmddata);
 						// [RH] Write out special "ticcmds" before real ticcmd
 						if (specials.used[start])
 						{
@@ -1261,7 +1281,7 @@ void NetUpdate (void)
 						int len;
 						uint8_t *spec;
 
-						WriteWord (netcmds[playerbytes[l]][start].consistancy, &cmddata);
+						WriteInt16 (netcmds[playerbytes[l]][start].consistancy, &cmddata);
 						spec = NetSpecs[playerbytes[l]][start].GetData (&len);
 						if (spec != NULL)
 						{
@@ -1406,7 +1426,6 @@ struct ArbitrateData
 bool DoArbitrate (void *userdata)
 {
 	ArbitrateData *data = (ArbitrateData *)userdata;
-	char *s;
 	uint8_t *stream;
 	int version;
 	int node;
@@ -1468,10 +1487,8 @@ bool DoArbitrate (void *userdata)
 			NetMode = netbuffer[2];
 
 			stream = &netbuffer[3];
-			s = ReadString (&stream);
-			startmap = s;
-			delete[] s;
-			rngseed = ReadLong (&stream);
+			startmap = ReadStringConst(&stream);
+			rngseed = ReadInt32 (&stream);
 			C_ReadCVars (&stream);
 		}
 		else if (netbuffer[0] == NCMD_SETUP+3)
@@ -1538,8 +1555,8 @@ bool DoArbitrate (void *userdata)
 		netbuffer[1] = (uint8_t)doomcom.ticdup;
 		netbuffer[2] = NetMode;
 		stream = &netbuffer[3];
-		WriteString (startmap, &stream);
-		WriteLong (rngseed, &stream);
+		WriteString (startmap.GetChars(), &stream);
+		WriteInt32 (rngseed, &stream);
 		C_WriteCVars (&stream, CVAR_SERVERINFO, true);
 
 		SendSetup (data->playersdetected, data->gotsetup, int(stream - netbuffer));
@@ -1782,7 +1799,7 @@ void D_QuitNetGame (void)
 		for (i = 0; i < MAXPLAYERS; ++i)
 		{
 			if (playeringame[i] && i != consoleplayer)
-				WriteLong (resendto[nodeforplayer[i]], &foo);
+				WriteInt32 (resendto[nodeforplayer[i]], &foo);
 		}
 		k = int(foo - netbuffer);
 	}
@@ -2050,22 +2067,32 @@ void Net_NewMakeTic (void)
 	specials.NewMakeTic ();
 }
 
-void Net_WriteByte (uint8_t it)
+void Net_WriteInt8 (uint8_t it)
 {
 	specials << it;
 }
 
-void Net_WriteWord (short it)
+void Net_WriteInt16 (int16_t it)
 {
 	specials << it;
 }
 
-void Net_WriteLong (int it)
+void Net_WriteInt32 (int32_t it)
+{
+	specials << it;
+}
+
+void Net_WriteInt64(int64_t it)
 {
 	specials << it;
 }
 
 void Net_WriteFloat (float it)
+{
+	specials << it;
+}
+
+void Net_WriteDouble(double it)
 {
 	specials << it;
 }
@@ -2166,7 +2193,7 @@ static int RemoveClass(FLevelLocals *Level, const PClass *cls)
 void Net_DoCommand (int type, uint8_t **stream, int player)
 {
 	uint8_t pos = 0;
-	char *s = NULL;
+	const char* s = nullptr;
 	int i;
 
 	switch (type)
@@ -2174,10 +2201,9 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 	case DEM_SAY:
 		{
 			const char *name = players[player].userinfo.GetName();
-			uint8_t who = ReadByte (stream);
+			uint8_t who = ReadInt8 (stream);
 
-			s = ReadString (stream);
-			CleanseString (s);
+			s = ReadStringConst(stream);
 			if (((who & 1) == 0) || players[player].userinfo.GetTeam() == TEAM_NONE)
 			{ // Said to everyone
 				if (who & 2)
@@ -2206,18 +2232,15 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 		break;
 
 	case DEM_MUSICCHANGE:
-		s = ReadString (stream);
-		S_ChangeMusic (s);
+		S_ChangeMusic(ReadStringConst(stream));
 		break;
 
 	case DEM_PRINT:
-		s = ReadString (stream);
-		Printf ("%s", s);
+		Printf("%s", ReadStringConst(stream));
 		break;
 
 	case DEM_CENTERPRINT:
-		s = ReadString (stream);
-		C_MidPrint (nullptr, s);
+		C_MidPrint(nullptr, ReadStringConst(stream));
 		break;
 
 	case DEM_UINFCHANGED:
@@ -2233,11 +2256,11 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 		break;
 
 	case DEM_GIVECHEAT:
-		s = ReadString (stream);
-		cht_Give (&players[player], s, ReadLong (stream));
+		s = ReadStringConst(stream);
+		cht_Give (&players[player], s, ReadInt32 (stream));
 		if (player != consoleplayer)
 		{
-			FString message = GStrings("TXT_X_CHEATS");
+			FString message = GStrings.GetString("TXT_X_CHEATS");
 			message.Substitute("%s", players[player].userinfo.GetName());
 			Printf("%s: give %s\n", message.GetChars(), s);
 		}
@@ -2245,36 +2268,36 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 		break;
 
 	case DEM_TAKECHEAT:
-		s = ReadString (stream);
-		cht_Take (&players[player], s, ReadLong (stream));
+		s = ReadStringConst(stream);
+		cht_Take (&players[player], s, ReadInt32 (stream));
 		break;
 
 	case DEM_SETINV:
-		s = ReadString(stream);
-		i = ReadLong(stream);
-		cht_SetInv(&players[player], s, i, !!ReadByte(stream));
+		s = ReadStringConst(stream);
+		i = ReadInt32(stream);
+		cht_SetInv(&players[player], s, i, !!ReadInt8(stream));
 		break;
 
 	case DEM_WARPCHEAT:
 		{
 			int x, y, z;
-			x = ReadWord (stream);
-			y = ReadWord (stream);
-			z = ReadWord (stream);
+			x = ReadInt16 (stream);
+			y = ReadInt16 (stream);
+			z = ReadInt16 (stream);
 			P_TeleportMove (players[player].mo, DVector3(x, y, z), true);
 		}
 		break;
 
 	case DEM_GENERICCHEAT:
-		cht_DoCheat (&players[player], ReadByte (stream));
+		cht_DoCheat (&players[player], ReadInt8 (stream));
 		break;
 
 	case DEM_CHANGEMAP2:
-		pos = ReadByte (stream);
+		pos = ReadInt8 (stream);
 		/* intentional fall-through */
 	case DEM_CHANGEMAP:
 		// Change to another map without disconnecting other players
-		s = ReadString (stream);
+		s = ReadStringConst(stream);
 		// Using LEVEL_NOINTERMISSION tends to throw the game out of sync.
 		// That was a long time ago. Maybe it works now?
 		primaryLevel->flags |= LEVEL_CHANGEMAPCHEAT;
@@ -2319,10 +2342,10 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 	case DEM_INVUSE:
 	case DEM_INVDROP:
 		{
-			uint32_t which = ReadLong (stream);
+			uint32_t which = ReadInt32 (stream);
 			int amt = -1;
 
-			if (type == DEM_INVDROP) amt = ReadLong(stream);
+			if (type == DEM_INVDROP) amt = ReadInt32(stream);
 
 			if (gamestate == GS_LEVEL && !paused
 				&& players[player].playerstate != PST_DEAD)
@@ -2361,13 +2384,13 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 			uint8_t special = 0;
 			int args[5];
 
-			s = ReadString (stream);
+			s = ReadStringConst(stream);
 			if (type >= DEM_SUMMON2 && type <= DEM_SUMMONFOE2)
 			{
-				angle = ReadWord(stream);
-				tid = ReadWord(stream);
-				special = ReadByte(stream);
-				for(i = 0; i < 5; i++) args[i] = ReadLong(stream);
+				angle = ReadInt16(stream);
+				tid = ReadInt16(stream);
+				special = ReadInt8(stream);
+				for(i = 0; i < 5; i++) args[i] = ReadInt32(stream);
 			}
 
 			typeinfo = PClass::FindActor(s);
@@ -2425,12 +2448,12 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 		break;
 
 	case DEM_SPRAY:
-		s = ReadString(stream);
+		s = ReadStringConst(stream);
 		SprayDecal(players[player].mo, s);
 		break;
 
 	case DEM_MDK:
-		s = ReadString(stream);
+		s = ReadStringConst(stream);
 		cht_DoMDK(&players[player], s);
 		break;
 
@@ -2453,17 +2476,14 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 	case DEM_SAVEGAME:
 		if (gamestate == GS_LEVEL)
 		{
-			s = ReadString (stream);
-			savegamefile = s;
-			delete[] s;
-			s = ReadString (stream);
-			savedescription = s;
+			savegamefile = ReadStringConst(stream);
+			savedescription = ReadStringConst(stream);
 			if (player != consoleplayer)
 			{
 				// Paths sent over the network will be valid for the system that sent
 				// the save command. For other systems, the path needs to be changed.
-				FString basename = ExtractFileBase(savegamefile, true);
-				savegamefile = G_BuildSaveName (basename);
+				FString basename = ExtractFileBase(savegamefile.GetChars(), true);
+				savegamefile = G_BuildSaveName (basename.GetChars());
 			}
 		}
 		gameaction = ga_savegame;
@@ -2481,7 +2501,7 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 		{
 			break;
 		}
-		Net_WriteByte (DEM_DOAUTOSAVE);
+		Net_WriteInt8 (DEM_DOAUTOSAVE);
 		break;
 
 	case DEM_DOAUTOSAVE:
@@ -2516,8 +2536,8 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 	case DEM_RUNSCRIPT:
 	case DEM_RUNSCRIPT2:
 		{
-			int snum = ReadWord (stream);
-			int argn = ReadByte (stream);
+			int snum = ReadInt16 (stream);
+			int argn = ReadInt8 (stream);
 
 			RunScript(stream, players[player].mo, snum, argn, (type == DEM_RUNSCRIPT2) ? ACS_ALWAYS : 0);
 		}
@@ -2525,8 +2545,8 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_RUNNAMEDSCRIPT:
 		{
-			s = ReadString(stream);
-			int argn = ReadByte(stream);
+			s = ReadStringConst(stream);
+			int argn = ReadInt8(stream);
 
 			RunScript(stream, players[player].mo, -FName(s).GetIndex(), argn & 127, (argn & 128) ? ACS_ALWAYS : 0);
 		}
@@ -2534,13 +2554,13 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_RUNSPECIAL:
 		{
-			int snum = ReadWord(stream);
-			int argn = ReadByte(stream);
+			int snum = ReadInt16(stream);
+			int argn = ReadInt8(stream);
 			int arg[5] = { 0, 0, 0, 0, 0 };
 
 			for (i = 0; i < argn; ++i)
 			{
-				int argval = ReadLong(stream);
+				int argval = ReadInt32(stream);
 				if ((unsigned)i < countof(arg))
 				{
 					arg[i] = argval;
@@ -2564,8 +2584,8 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_MORPHEX:
 		{
-			s = ReadString (stream);
-			FString msg = cht_Morph (players + player, PClass::FindActor (s), false);
+			s = ReadStringConst(stream);
+			FString msg = cht_Morph (players + player, PClass::FindActor(s), false);
 			if (player == consoleplayer)
 			{
 				Printf ("%s\n", msg[0] != '\0' ? msg.GetChars() : "Morph failed.");
@@ -2575,7 +2595,7 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_ADDCONTROLLER:
 		{
-			uint8_t playernum = ReadByte (stream);
+			uint8_t playernum = ReadInt8 (stream);
 			players[playernum].settings_controller = true;
 
 			if (consoleplayer == playernum || consoleplayer == Net_Arbitrator)
@@ -2585,7 +2605,7 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_DELCONTROLLER:
 		{
-			uint8_t playernum = ReadByte (stream);
+			uint8_t playernum = ReadInt8 (stream);
 			players[playernum].settings_controller = false;
 
 			if (consoleplayer == playernum || consoleplayer == Net_Arbitrator)
@@ -2595,7 +2615,7 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_KILLCLASSCHEAT:
 		{
-			s = ReadString (stream);
+			s = ReadStringConst(stream);
 			int killcount = 0;
 			PClassActor *cls = PClass::FindActor(s);
 
@@ -2618,7 +2638,7 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 		break;
 	case DEM_REMOVE:
 	{
-		s = ReadString(stream);
+		s = ReadStringConst(stream);
 		int removecount = 0;
 		PClassActor *cls = PClass::FindActor(s);
 		if (cls != NULL && cls->IsDescendantOf(RUNTIME_CLASS(AActor)))
@@ -2650,14 +2670,14 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 			int pnum;
 			if (type == DEM_SETSLOTPNUM)
 			{
-				pnum = ReadByte(stream);
+				pnum = ReadInt8(stream);
 			}
 			else
 			{
 				pnum = player;
 			}
-			unsigned int slot = ReadByte(stream);
-			int count = ReadByte(stream);
+			unsigned int slot = ReadInt8(stream);
+			int count = ReadInt8(stream);
 			if (slot < NUM_WEAPON_SLOTS)
 			{
 				players[pnum].weapons.ClearSlot(slot);
@@ -2672,7 +2692,7 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_ADDSLOT:
 		{
-			int slot = ReadByte(stream);
+			int slot = ReadInt8(stream);
 			PClassActor *wpn = Net_ReadWeapon(stream);
 			players[player].weapons.AddSlot(slot, wpn, player == consoleplayer);
 		}
@@ -2680,15 +2700,15 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_ADDSLOTDEFAULT:
 		{
-			int slot = ReadByte(stream);
+			int slot = ReadInt8(stream);
 			PClassActor *wpn = Net_ReadWeapon(stream);
 			players[player].weapons.AddSlotDefault(slot, wpn, player == consoleplayer);
 		}
 		break;
 
 	case DEM_SETPITCHLIMIT:
-		players[player].MinPitch = DAngle::fromDeg(-ReadByte(stream));		// up
-		players[player].MaxPitch = DAngle::fromDeg(ReadByte(stream));		// down
+		players[player].MinPitch = DAngle::fromDeg(-ReadInt8(stream));		// up
+		players[player].MaxPitch = DAngle::fromDeg(ReadInt8(stream));		// down
 		break;
 
 	case DEM_REVERTCAMERA:
@@ -2702,12 +2722,12 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 
 	case DEM_NETEVENT:
 		{
-			s = ReadString(stream);
-			int argn = ReadByte(stream);
+			s = ReadStringConst(stream);
+			int argn = ReadInt8(stream);
 			int arg[3] = { 0, 0, 0 };
 			for (int i = 0; i < 3; i++)
-				arg[i] = ReadLong(stream);
-			bool manual = !!ReadByte(stream);
+				arg[i] = ReadInt32(stream);
+			bool manual = !!ReadInt8(stream);
 			primaryLevel->localEventManager->Console(player, s, arg[0], arg[1], arg[2], manual, false);
 		}
 		break;
@@ -2715,14 +2735,29 @@ void Net_DoCommand (int type, uint8_t **stream, int player)
 	case DEM_ENDSCREENJOB:
 		EndScreenJob();
 		break;
+
+	case DEM_ZSC_CMD:
+		{
+			FName cmd = ReadStringConst(stream);
+			unsigned int size = ReadInt16(stream);
+
+			TArray<uint8_t> buffer = {};
+			if (size)
+			{
+				buffer.Grow(size);
+				for (unsigned int i = 0u; i < size; ++i)
+					buffer.Push(ReadInt8(stream));
+			}
+
+			FNetworkCommand netCmd = { player, cmd, buffer };
+			primaryLevel->localEventManager->NetCommand(netCmd);
+		}
+	break;
 		
 	default:
 		I_Error ("Unknown net command: %d", type);
 		break;
 	}
-
-	if (s)
-		delete[] s;
 }
 
 // Used by DEM_RUNSCRIPT, DEM_RUNSCRIPT2, and DEM_RUNNAMEDSCRIPT
@@ -2739,13 +2774,13 @@ static void RunScript(uint8_t **stream, AActor *pawn, int snum, int argn, int al
 	
 	for (i = 0; i < argn; ++i)
 	{
-		int argval = ReadLong(stream);
+		int argval = ReadInt32(stream);
 		if ((unsigned)i < countof(arg))
 		{
 			arg[i] = argval;
 		}
 	}
-	P_StartScript(pawn->Level, pawn, NULL, snum, primaryLevel->MapName, arg, min<int>(countof(arg), argn), ACS_NET | always);
+	P_StartScript(pawn->Level, pawn, NULL, snum, primaryLevel->MapName.GetChars(), arg, min<int>(countof(arg), argn), ACS_NET | always);
 }
 
 void Net_SkipCommand (int type, uint8_t **stream)
@@ -2774,6 +2809,11 @@ void Net_SkipCommand (int type, uint8_t **stream)
 
 		case DEM_NETEVENT:
 			skip = strlen((char *)(*stream)) + 15;
+			break;
+
+		case DEM_ZSC_CMD:
+			skip = strlen((char*)(*stream)) + 1;
+			skip += (((*stream)[skip] << 8) | (*stream)[skip + 1]) + 2;
 			break;
 
 		case DEM_SUMMON2:
@@ -2925,6 +2965,174 @@ int Net_GetLatency(int *ld, int *ad)
 	return severity;
 }
 
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+void NetworkEntityManager::InitializeNetworkEntities()
+{
+	if (!s_netEntities.Size())
+		s_netEntities.AppendFill(nullptr, NetIDStart); // Allocate the first 0-8 slots for the world and clients.
+}
+
+// Clients need special handling since they always go in slots 1 - MAXPLAYERS.
+void NetworkEntityManager::SetClientNetworkEntity(player_t* const client)
+{
+	AActor* const mo = client->mo;
+	const uint32_t id = ClientNetIDStart + mo->Level->PlayerNum(client);
+
+	// If resurrecting, we need to swap the corpse's position with the new pawn's
+	// position so it's no longer considered the client's body.
+	DObject* const oldBody = s_netEntities[id];
+	if (oldBody != nullptr)
+	{
+		if (oldBody == mo)
+			return;
+
+		const uint32_t curID = mo->GetNetworkID();
+		
+		s_netEntities[curID] = oldBody;
+		oldBody->ClearNetworkID();
+		oldBody->SetNetworkID(curID);
+
+		mo->ClearNetworkID();
+	}
+	else
+	{
+		RemoveNetworkEntity(mo); // Free up its current id.
+	}
+
+	s_netEntities[id] = mo;
+	mo->SetNetworkID(id);
+}
+
+void NetworkEntityManager::AddNetworkEntity(DObject* const ent)
+{
+	if (ent->IsNetworked())
+		return;
+
+	// Slot 0 is reserved for the world.
+	// Clients go in the first 1 - MAXPLAYERS slots
+	// Everything else is first come first serve.
+	uint32_t id = WorldNetID;
+	if (s_openNetIDs.Size())
+	{
+		s_openNetIDs.Pop(id);
+		s_netEntities[id] = ent;
+	}
+	else
+	{
+		id = s_netEntities.Push(ent);
+	}
+
+	ent->SetNetworkID(id);
+}
+
+void NetworkEntityManager::RemoveNetworkEntity(DObject* const ent)
+{
+	if (!ent->IsNetworked())
+		return;
+
+	const uint32_t id = ent->GetNetworkID();
+	if (id == WorldNetID)
+		return;
+
+	assert(s_netEntities[id] == ent);
+	if (id >= NetIDStart)
+		s_openNetIDs.Push(id);
+	s_netEntities[id] = nullptr;
+	ent->ClearNetworkID();
+}
+
+DObject* NetworkEntityManager::GetNetworkEntity(const uint32_t id)
+{
+	if (id == WorldNetID || id >= s_netEntities.Size())
+		return nullptr;
+
+	return s_netEntities[id];
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+void DObject::SetNetworkID(const uint32_t id)
+{
+	if (!IsNetworked())
+	{
+		ObjectFlags |= OF_Networked;
+		_networkID = id;
+	}
+}
+
+void DObject::ClearNetworkID()
+{
+	ObjectFlags &= ~OF_Networked;
+	_networkID = NetworkEntityManager::WorldNetID;
+}
+
+void DObject::EnableNetworking(const bool enable)
+{
+	if (enable)
+		NetworkEntityManager::AddNetworkEntity(this);
+	else
+		NetworkEntityManager::RemoveNetworkEntity(this);
+}
+
+void DObject::RemoveFromNetwork()
+{
+	NetworkEntityManager::RemoveNetworkEntity(this);
+}
+
+static unsigned int GetNetworkID(DObject* const self)
+{
+	return self->GetNetworkID();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, GetNetworkID, GetNetworkID)
+{
+	PARAM_SELF_PROLOGUE(DObject);
+
+	ACTION_RETURN_INT(self->GetNetworkID());
+}
+
+static void EnableNetworking(DObject* const self, const bool enable)
+{
+	self->EnableNetworking(enable);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, EnableNetworking, EnableNetworking)
+{
+	PARAM_SELF_PROLOGUE(DObject);
+	PARAM_BOOL(enable);
+
+	self->EnableNetworking(enable);
+	return 0;
+}
+
+static DObject* GetNetworkEntity(const unsigned int id)
+{
+	return NetworkEntityManager::GetNetworkEntity(id);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, GetNetworkEntity, GetNetworkEntity)
+{
+	PARAM_PROLOGUE;
+	PARAM_UINT(id);
+
+	ACTION_RETURN_OBJECT(NetworkEntityManager::GetNetworkEntity(id));
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
 // [RH] List "ping" times
 CCMD (pings)
 {
@@ -2983,11 +3191,11 @@ static void Network_Controller (int playernum, bool add)
 	}
 
 	if (add)
-		Net_WriteByte (DEM_ADDCONTROLLER);
+		Net_WriteInt8 (DEM_ADDCONTROLLER);
 	else
-		Net_WriteByte (DEM_DELCONTROLLER);
+		Net_WriteInt8 (DEM_DELCONTROLLER);
 
-	Net_WriteByte (playernum);
+	Net_WriteInt8 (playernum);
 }
 
 //==========================================================================

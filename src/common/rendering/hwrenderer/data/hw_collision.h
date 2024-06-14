@@ -23,6 +23,7 @@
 #pragma once
 
 #include "common/utility/vectors.h"
+#include "flatvertices.h"
 #include <vector>
 #include <cmath>
 
@@ -86,7 +87,7 @@ public:
 class TriangleMeshShape
 {
 public:
-	TriangleMeshShape(const FVector3 *vertices, int num_vertices, const unsigned int *elements, int num_elements);
+	TriangleMeshShape(const FFlatVertex *vertices, int num_vertices, const unsigned int *elements, int num_elements);
 
 	int get_min_depth() const;
 	int get_max_depth() const;
@@ -121,7 +122,7 @@ public:
 	int get_root() const { return root; }
 
 private:
-	const FVector3 *vertices = nullptr;
+	const FFlatVertex* vertices = nullptr;
 	const int num_vertices = 0;
 	const unsigned int *elements = nullptr;
 	int num_elements = 0;

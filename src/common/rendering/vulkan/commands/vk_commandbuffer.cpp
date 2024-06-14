@@ -25,6 +25,7 @@
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_postprocess.h"
 #include "vulkan/framebuffers/vk_framebuffer.h"
+#include "vulkan/descriptorsets/vk_descriptorset.h"
 #include <zvulkan/vulkanswapchain.h>
 #include <zvulkan/vulkanbuilders.h>
 #include "hw_clock.h"
@@ -112,7 +113,7 @@ void VkCommandBufferManager::BeginFrame()
 {
 	if (mNextTimestampQuery > 0)
 	{
-		GetDrawCommands()->resetQueryPool(mTimestampQueryPool.get(), 0, mNextTimestampQuery);
+		GetTransferCommands()->resetQueryPool(mTimestampQueryPool.get(), 0, mNextTimestampQuery);
 		mNextTimestampQuery = 0;
 	}
 }
@@ -150,8 +151,10 @@ void VkCommandBufferManager::FlushCommands(VulkanCommandBuffer** commands, size_
 
 void VkCommandBufferManager::FlushCommands(bool finish, bool lastsubmit, bool uploadOnly)
 {
+	fb->GetDescriptorSetManager()->UpdateBindlessDescriptorSet();
+
 	if (!uploadOnly)
-		fb->GetRenderState(0)->EndRenderPass();
+		fb->GetRenderState()->EndRenderPass();
 
 	std::unique_lock<std::mutex> lock(mMutex);
 
@@ -201,7 +204,8 @@ void VkCommandBufferManager::WaitForCommands(bool finish, bool uploadOnly)
 
 	if (finish)
 	{
-		fb->FPSLimit();
+		if (!fb->GetVSync())
+			fb->FPSLimit();
 		fb->GetFramebufferManager()->QueuePresent();
 	}
 
@@ -231,7 +235,7 @@ void VkCommandBufferManager::DeleteFrameObjects(bool uploadOnly)
 		DrawDeleteList = std::make_unique<DeleteList>();
 }
 
-void VkCommandBufferManager::PushGroup(const FString& name)
+void VkCommandBufferManager::PushGroup(VulkanCommandBuffer* cmdbuffer, const FString& name)
 {
 	if (!gpuStatActive)
 		return;
@@ -242,13 +246,13 @@ void VkCommandBufferManager::PushGroup(const FString& name)
 		q.name = name;
 		q.startIndex = mNextTimestampQuery++;
 		q.endIndex = 0;
-		GetDrawCommands()->writeTimestamp(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, mTimestampQueryPool.get(), q.startIndex);
+		cmdbuffer->writeTimestamp(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, mTimestampQueryPool.get(), q.startIndex);
 		mGroupStack.push_back(timeElapsedQueries.size());
 		timeElapsedQueries.push_back(q);
 	}
 }
 
-void VkCommandBufferManager::PopGroup()
+void VkCommandBufferManager::PopGroup(VulkanCommandBuffer* cmdbuffer)
 {
 	if (!gpuStatActive || mGroupStack.empty())
 		return;
@@ -259,7 +263,7 @@ void VkCommandBufferManager::PopGroup()
 	if (mNextTimestampQuery < MaxTimestampQueries && fb->GetDevice()->GraphicsTimeQueries)
 	{
 		q.endIndex = mNextTimestampQuery++;
-		GetDrawCommands()->writeTimestamp(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, mTimestampQueryPool.get(), q.endIndex);
+		cmdbuffer->writeTimestamp(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, mTimestampQueryPool.get(), q.endIndex);
 	}
 }
 

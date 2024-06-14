@@ -141,6 +141,7 @@ enum EChaseFlags
 	CHF_NOPOSTATTACKTURN =				128,
 	CHF_STOPIFBLOCKED =					256,
 	CHF_DONTIDLE =						512,
+	CHF_DONTLOOKALLAROUND =				1024,
 
 	CHF_DONTTURN = CHF_NORANDOMTURN | CHF_NOPOSTATTACKTURN | CHF_STOPIFBLOCKED
 };
@@ -231,6 +232,8 @@ enum EMorphFlags
 	MRF_UNDOBYTIMEOUT		= 0x00001000,
 	MRF_UNDOALWAYS			= 0x00002000,
 	MRF_TRANSFERTRANSLATION = 0x00004000,
+	MRF_KEEPARMOR			= 0x00008000,
+	MRF_IGNOREINVULN		= 0x00010000,
 	MRF_STANDARDUNDOING	= MRF_UNDOBYTOMEOFPOWER | MRF_UNDOBYCHAOSDEVICE | MRF_UNDOBYTIMEOUT,
 };
 
@@ -261,7 +264,9 @@ enum EExplodeFlags
 	XF_EXPLICITDAMAGETYPE = 8,
 	XF_NOSPLASH = 16,
 	XF_THRUSTZ = 32,
-
+	XF_THRUSTLESS = 64,
+	XF_NOALLIES = 128,
+	XF_CIRCULAR = 256,
 };
 
 // Flags for A_RadiusThrust
@@ -363,6 +368,14 @@ enum ERadiusGiveFlags
 	RGF_EXFILTER	=	1 << 15,
 	RGF_EXSPECIES	=	1 << 16,
 	RGF_EITHER		=	1 << 17,
+};
+
+// SetAnimation flags
+enum ESetAnimationFlags
+{
+	SAF_INSTANT = 1 << 0,
+	SAF_LOOP = 1 << 1,
+	SAF_NOOVERRIDE = 1 << 2,
 };
 
 // Change model flags
@@ -653,6 +666,7 @@ enum EQuakeFlags
 	QF_GROUNDONLY =		1 << 7,
 	QF_AFFECTACTORS =	1 << 8,
 	QF_SHAKEONLY =		1 << 9,
+	QF_DAMAGEFALLOFF =	1 << 10,
 };
 
 // A_CheckProximity flags
@@ -690,17 +704,18 @@ enum ECheckBlockFlags
 
 enum EParticleFlags
 {
-	SPF_FULLBRIGHT =	    1,
-	SPF_RELPOS =		    1 << 1,
-	SPF_RELVEL =		    1 << 2,
-	SPF_RELACCEL =		    1 << 3,
-	SPF_RELANG =		    1 << 4,
-	SPF_NOTIMEFREEZE =	    1 << 5,
-	SPF_ROLL =			    1 << 6,
-	SPF_REPLACE =		    1 << 7,
-	SPF_NO_XY_BILLBOARD =	1 << 8,
+	SPF_FULLBRIGHT				= 1 << 0,
+	SPF_RELPOS					= 1 << 1,
+	SPF_RELVEL					= 1 << 2,
+	SPF_RELACCEL				= 1 << 3,
+	SPF_RELANG					= 1 << 4,
+	SPF_NOTIMEFREEZE			= 1 << 5,
+	SPF_ROLL					= 1 << 6,
+	SPF_REPLACE					= 1 << 7,
+	SPF_NO_XY_BILLBOARD			= 1 << 8,
+	SPF_LOCAL_ANIM				= 1 << 9,
 
-	SPF_RELATIVE =	SPF_RELPOS|SPF_RELVEL|SPF_RELACCEL|SPF_RELANG
+	SPF_RELATIVE				= SPF_RELPOS|SPF_RELVEL|SPF_RELACCEL|SPF_RELANG
 };
 
 //Flags for A_FaceMovementDirection
@@ -1145,8 +1160,9 @@ enum EPlayerCheats
 	CF_PREDICTING		= 1 << 13,		// [RH] Player movement is being predicted
 	CF_INTERPVIEW		= 1 << 14,		// [RH] view was changed outside of input, so interpolate one frame
 	CF_INTERPVIEWANGLES	= 1 << 15,		// [MR] flag for interpolating view angles without interpolating the entire frame
-	CF_SCALEDNOLERP		= 1 << 15,		// [MR] flag for applying angles changes in the ticrate without interpolating the frame
 	CF_NOFOVINTERP		= 1 << 16,		// [B] Disable FOV interpolation when instantly zooming
+	CF_SCALEDNOLERP		= 1 << 17,		// [MR] flag for applying angles changes in the ticrate without interpolating the frame
+	CF_NOVIEWPOSINTERP	= 1 << 18,		// Disable view position interpolation.
 
 	CF_EXTREMELYDEAD	= 1 << 22,		// [RH] Reliably let the status bar know about extreme deaths.
 
@@ -1227,7 +1243,10 @@ enum RadiusDamageFlags
 	RADF_SOURCEISSPOT = 4,
 	RADF_NODAMAGE = 8,
 	RADF_THRUSTZ = 16,
-	RADF_OLDRADIUSDAMAGE = 32
+	RADF_OLDRADIUSDAMAGE = 32,
+	RADF_THRUSTLESS = 64,
+	RADF_NOALLIES = 128,
+	RADF_CIRCULAR = 256
 };
 
 enum IntermissionSequenceType
@@ -1263,6 +1282,7 @@ enum EChangeLevelFlags
 	CHANGELEVEL_NOINTERMISSION = 16,
 	CHANGELEVEL_RESETHEALTH = 32,
 	CHANGELEVEL_PRERAISEWEAPON = 64,
+	CHANGELEVEL_NOAUTOSAVE = 128,
 };
 
 enum ELevelFlags
@@ -1379,6 +1399,10 @@ enum ELevelFlags
 	LEVEL3_AVOIDMELEE			= 0x00020000,	// global flag needed for proper MBF support.
 	LEVEL3_NOJUMPDOWN			= 0x00040000,	// only for MBF21. Inverse of MBF's dog_jumping flag.
 	LEVEL3_LIGHTCREATED			= 0x00080000,	// a light had been created in the last frame
+
+	VKDLEVELFLAG_NOUSERSAVE			= 0x00000001,
+	VKDLEVELFLAG_NOAUTOMAP			= 0x00000002,
+	VKDLEVELFLAG_NOAUTOSAVEONENTER	= 0x00000004,	// don't make an autosave when entering a map
 };
 
 // [RH] Compatibility flags.
@@ -1449,3 +1473,32 @@ const M_2_PI     = 0.63661977236758134308; // 2/pi
 const M_2_SQRTPI = 1.12837916709551257390; // 2/sqrt(pi)
 const M_SQRT2    = 1.41421356237309504880; // sqrt(2)
 const M_SQRT1_2  = 0.70710678118654752440; // 1/sqrt(2)
+
+// Used by Actor.FallAndSink
+const WATER_SINK_FACTOR         = 0.125;
+const WATER_SINK_SMALL_FACTOR   = 0.25;
+const WATER_SINK_SPEED          = 0.5;
+const WATER_JUMP_SPEED          = 3.5;
+
+
+// for SetModelFlag/ClearModelFlag
+enum EModelFlags
+{
+	// [BB] Color translations for the model skin are ignored. This is
+	// useful if the skin texture is not using the game palette.
+	MDL_IGNORETRANSLATION			= 1<<0,
+	MDL_PITCHFROMMOMENTUM			= 1<<1,
+	MDL_ROTATING					= 1<<2,
+	MDL_INTERPOLATEDOUBLEDFRAMES	= 1<<3,
+	MDL_NOINTERPOLATION				= 1<<4,
+	MDL_USEACTORPITCH				= 1<<5,
+	MDL_USEACTORROLL				= 1<<6,
+	MDL_BADROTATION					= 1<<7,
+	MDL_DONTCULLBACKFACES			= 1<<8,
+	MDL_USEROTATIONCENTER			= 1<<9,
+	MDL_NOPERPIXELLIGHTING			= 1<<10, // forces a model to not use per-pixel lighting. useful for voxel-converted-to-model objects.
+	MDL_SCALEWEAPONFOV				= 1<<11,	// scale weapon view model with higher user FOVs
+	MDL_MODELSAREATTACHMENTS		= 1<<12,	// any model index after 0 is treated as an attachment, and therefore will use the bone results of index 0
+	MDL_CORRECTPIXELSTRETCH			= 1<<13,	// ensure model does not distort with pixel stretch when pitch/roll is applied
+	MDL_FORCECULLBACKFACES			= 1<<14,
+};
