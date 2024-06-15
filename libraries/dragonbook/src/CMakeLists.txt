@@ -12,11 +12,13 @@ set(LIB_SOURCES
 	dragonbook/IRBasicBlock.h
 	dragonbook/IRFunction.h
 	dragonbook/IRInstValidator.h
+	dragonbook/IRStackToRegisterPass.h
 	dragonbook/JITRuntime.h
 	ir/IRContext.cpp
 	ir/IRBuilder.cpp
 	ir/IRFunction.cpp
 	ir/IRInstValidator.cpp
+	ir/IRStackToRegisterPass.cpp
 	jit/JITRuntime.cpp
 	jit/NativeSymbolResolver.cpp
 	jit/NativeSymbolResolver.h

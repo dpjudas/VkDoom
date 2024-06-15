@@ -29,7 +29,7 @@ enum class MachineInstOpcode
 	divss, divsd, idiv64, idiv32, idiv16, idiv8,
 	div64, div32, div16, div8,
 	ucomisd, ucomiss, cmp64, cmp32, cmp16, cmp8,
-	setl, setb, seta, setg, setle, setbe, setae, setge, sete, setne,
+	setl, setb, seta, setg, setle, setbe, setae, setge, sete, setne, setp, setnp,
 	cvtsd2ss, cvtss2sd,
 	cvttsd2si, cvttss2si,
 	cvtsi2sd, cvtsi2ss,
@@ -186,5 +186,5 @@ enum class RegisterName : int
 	xmm13,
 	xmm14,
 	xmm15,
-	vregstart = 128
+	vregstart = 100
 };

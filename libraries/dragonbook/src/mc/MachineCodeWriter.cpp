@@ -140,6 +140,8 @@ void MachineCodeWriter::opcode(MachineInst* inst)
 	case MachineInstOpcode::setge: setge(inst); break;
 	case MachineInstOpcode::sete: sete(inst); break;
 	case MachineInstOpcode::setne: setne(inst); break;
+	case MachineInstOpcode::setp: setp(inst); break;
+	case MachineInstOpcode::setnp: setnp(inst); break;
 	case MachineInstOpcode::cvtsd2ss: cvtsd2ss(inst); break;
 	case MachineInstOpcode::cvtss2sd: cvtss2sd(inst); break;
 	case MachineInstOpcode::cvttsd2si: cvttsd2si(inst); break;
@@ -877,6 +879,16 @@ void MachineCodeWriter::sete(MachineInst* inst)
 void MachineCodeWriter::setne(MachineInst* inst)
 {
 	emitInstM(OpFlags::Rex, { 0x0f, 0x95 }, 8, inst);
+}
+
+void MachineCodeWriter::setp(MachineInst* inst)
+{
+	emitInstM(OpFlags::Rex, { 0x0f, 0x9a }, 8, inst);
+}
+
+void MachineCodeWriter::setnp(MachineInst* inst)
+{
+	emitInstM(OpFlags::Rex, { 0x0f, 0x9b }, 8, inst);
 }
 
 void MachineCodeWriter::cvtsd2ss(MachineInst* inst)

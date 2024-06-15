@@ -145,6 +145,8 @@ void AssemblyWriter::opcode(MachineInst* inst)
 	case MachineInstOpcode::setge: setge(inst); break;
 	case MachineInstOpcode::sete: sete(inst); break;
 	case MachineInstOpcode::setne: setne(inst); break;
+	case MachineInstOpcode::setp: setp(inst); break;
+	case MachineInstOpcode::setnp: setnp(inst); break;
 	case MachineInstOpcode::cvtsd2ss: cvtsd2ss(inst); break;
 	case MachineInstOpcode::cvtss2sd: cvtss2sd(inst); break;
 	case MachineInstOpcode::cvttsd2si: cvttsd2si(inst); break;
@@ -789,6 +791,16 @@ void AssemblyWriter::sete(MachineInst* inst)
 void AssemblyWriter::setne(MachineInst* inst)
 {
 	writeInst("setne", inst);
+}
+
+void AssemblyWriter::setp(MachineInst* inst)
+{
+	writeInst("setp", inst);
+}
+
+void AssemblyWriter::setnp(MachineInst* inst)
+{
+	writeInst("setnp", inst);
 }
 
 void AssemblyWriter::cvtsd2ss(MachineInst* inst)

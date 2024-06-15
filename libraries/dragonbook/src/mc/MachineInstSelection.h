@@ -90,7 +90,7 @@ private:
 	void callWin64(IRInstCall* node);
 	void callUnix64(IRInstCall* node);
 
-	void simpleCompareInst(IRInstBinary* node, MachineInstOpcode opSet);
+	void simpleCompareInst(IRInstBinary* node, MachineInstOpcode opSet, MachineInstOpcode opSet2 = MachineInstOpcode::nop, MachineInstOpcode opSet3 = MachineInstOpcode::nop);
 	void simpleBinaryInst(IRInstBinary* node, const MachineInstOpcode* binaryOps);
 	void shiftBinaryInst(IRInstBinary* node, const MachineInstOpcode* binaryOps);
 	void divBinaryInst(IRInstBinary* node, const MachineInstOpcode* binaryOps, bool remainder, bool zeroext);

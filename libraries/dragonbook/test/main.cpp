@@ -158,6 +158,308 @@ public:
 		Test(name, create, run);
 	}
 
+	template<typename T>
+	void NaNTest(std::string name, std::function<IRValue* (IRBuilder*, IRValue*, IRValue*)> codegen, std::function<bool(T, T)> cppversion)
+	{
+		auto create = [=](IRContext* context)
+			{
+				IRType* type = GetIRType<T>(context);
+				IRFunction* func = context->createFunction(context->getFunctionType(context->getInt1Ty(), { type, type }), name);
+
+				IRBuilder builder;
+				builder.SetInsertPoint(func->createBasicBlock("entry"));
+				builder.CreateRet(codegen(&builder, func->args[0], func->args[1]));
+			};
+
+		auto run = [=](JITRuntime* jit)
+			{
+				auto ptr = reinterpret_cast<int8_t(*)(T, T)>(jit->getPointerToFunction(name));
+				for (int i = 0; i < 10; i++)
+				{
+					auto a = RandomValue<T>();
+					auto b = std::numeric_limits<T>::quiet_NaN();
+					if ((ptr(a, b) != (int8_t)cppversion(a, b)))
+					{
+						ptr(a, b); // for debug breakpoint
+						return false;
+					}
+				}
+				return true;
+			};
+
+		Test(name, create, run);
+	}
+
+	template<typename T>
+	void Load(std::string name)
+	{
+		auto create = [=](IRContext* context)
+		{
+			IRType* type = GetIRType<T>(context);
+			IRType* ptrtype = type->getPointerTo(context);
+			IRFunction* func = context->createFunction(context->getFunctionType(type, { ptrtype }), name);
+
+			IRBuilder builder;
+			builder.SetInsertPoint(func->createBasicBlock("entry"));
+			builder.CreateRet(builder.CreateLoad(func->args[0]));
+		};
+
+		auto run = [=](JITRuntime* jit)
+		{
+			auto ptr = reinterpret_cast<T(*)(T*)>(jit->getPointerToFunction(name));
+			for (int i = 0; i < 10; i++)
+			{
+				auto a = RandomValue<T>();
+				auto b = ptr(&a);
+				if (a != b)
+				{
+					ptr(&a); // for debug breakpoint
+					return false;
+				}
+			}
+			return true;
+		};
+
+		Test(name, create, run);
+	}
+
+	template<typename T>
+	void Store(std::string name)
+	{
+		auto create = [=](IRContext* context)
+		{
+			IRType* type = GetIRType<T>(context);
+			IRType* ptrtype = type->getPointerTo(context);
+			IRFunction* func = context->createFunction(context->getFunctionType(context->getVoidTy(), { type, ptrtype }), name);
+
+			IRBuilder builder;
+			builder.SetInsertPoint(func->createBasicBlock("entry"));
+			builder.CreateStore(func->args[0], func->args[1]);
+			builder.CreateRetVoid();
+		};
+
+		auto run = [=](JITRuntime* jit)
+		{
+			auto ptr = reinterpret_cast<void(*)(T, T*)>(jit->getPointerToFunction(name));
+			for (int i = 0; i < 10; i++)
+			{
+				auto a = RandomValue<T>();
+				auto b = RandomValue<T>();
+				ptr(a, &b);
+				if (a != b)
+				{
+					ptr(a, &b); // for debug breakpoint
+					return false;
+				}
+			}
+			return true;
+		};
+
+		Test(name, create, run);
+	}
+
+	template<typename T>
+	void FPConstants(std::string name)
+	{
+		auto create = [=](IRContext* context)
+		{
+			IRType* type = GetIRType<T>(context);
+			IRFunction* func = context->createFunction(context->getFunctionType(type, { type }), name);
+
+			IRBuilder builder;
+			builder.SetInsertPoint(func->createBasicBlock("entry"));
+			auto result = builder.CreateFMul(func->args[0], context->getConstantFloat(type, 1.0));
+			result = builder.CreateFMul(result, context->getConstantFloat(type, 2.0));
+			result = builder.CreateFMul(result, context->getConstantFloat(type, 3.0));
+			result = builder.CreateFMul(result, context->getConstantFloat(type, 4.0));
+			builder.CreateRet(result);
+		};
+
+		auto run = [=](JITRuntime* jit)
+		{
+			auto ptr = reinterpret_cast<T(*)(T)>(jit->getPointerToFunction(name));
+
+			if ((ptr(T(10)) != T(10) * T(1) * T(2) * T(3) * T(4)))
+			{
+				ptr(T(10)); // for debug breakpoint
+				return false;
+			}
+			return true;
+		};
+
+		Test(name, create, run);
+	}
+
+	template<typename T>
+	void RegisterSpillI(std::string name)
+	{
+		int random[10] = { 5,8,2,4,1,0,4,5,7,3 };
+		auto create = [=](IRContext* context)
+		{
+			IRType* type = GetIRType<T>(context);
+			IRFunction* func = context->createFunction(context->getFunctionType(type, { type, type, type, type }), name);
+
+			IRValue* alloca0 = func->createAlloca(type, context->getConstantInt(1), "alloca0");
+			IRValue* alloca1 = func->createAlloca(type, context->getConstantInt(1), "alloca1");
+			IRValue* alloca2 = func->createAlloca(type, context->getConstantInt(1), "alloca2");
+			IRValue* alloca3 = func->createAlloca(type, context->getConstantInt(1), "alloca3");
+
+			IRBuilder builder;
+			builder.SetInsertPoint(func->createBasicBlock("entry"));
+
+			builder.CreateStore(func->args[0], alloca0);
+			builder.CreateStore(func->args[1], alloca1);
+			builder.CreateStore(func->args[2], alloca2);
+			builder.CreateStore(func->args[3], alloca3);
+
+			std::vector<IRValue*> values = { func->args[0], func->args[1], func->args[2], func->args[3] };
+			for (int i = 0; i < 25; i++)
+			{
+				IRValue* result = values[0];
+				for (size_t j = 1; j < values.size(); j++)
+				{
+					result = builder.CreateAdd(result, values[(j + random[j % 10]) % values.size()]);
+				}
+				values.push_back(result);
+			}
+			auto bb = func->createBasicBlock("bb");
+			builder.CreateBr(bb);
+			builder.SetInsertPoint(bb);
+			for (int i = 0; i < 25; i++)
+			{
+				IRValue* result = values[0];
+				for (size_t j = 1; j < values.size(); j++)
+				{
+					result = builder.CreateAdd(result, values[(j + random[j % 10]) % values.size()]);
+				}
+				values.push_back(result);
+			}
+
+			IRValue* result = values.back();
+			result = builder.CreateAdd(result, builder.CreateLoad(alloca0));
+			result = builder.CreateAdd(result, builder.CreateLoad(alloca1));
+			result = builder.CreateAdd(result, builder.CreateLoad(alloca2));
+			result = builder.CreateAdd(result, builder.CreateLoad(alloca3));
+			builder.CreateRet(result);
+		};
+
+		auto run = [=](JITRuntime* jit)
+		{
+			auto ptr = reinterpret_cast<T(*)(T, T, T, T)>(jit->getPointerToFunction(name));
+
+			std::vector<T> values = { T(1), T(2), T(3), T(4) };
+			for (int i = 0; i < 50; i++)
+			{
+				T result = values[0];
+				for (size_t j = 1; j < values.size(); j++)
+				{
+					result = result + values[(j + random[j % 10]) % values.size()];
+				}
+				values.push_back(result);
+			}
+
+			T result = values.back();
+			result += T(1);
+			result += T(2);
+			result += T(3);
+			result += T(4);
+
+			if (ptr(T(1), T(2), T(3), T(4)) != result)
+			{
+				ptr(T(1), T(2), T(3), T(4)); // for debug breakpoint
+				return false;
+			}
+			return true;
+		};
+
+		Test(name, create, run);
+	}
+
+	template<typename T>
+	void RegisterSpillF(std::string name)
+	{
+		int random[10] = { 5,8,2,4,1,0,4,5,7,3 };
+		auto create = [=](IRContext* context)
+		{
+			IRType* type = GetIRType<T>(context);
+			IRFunction* func = context->createFunction(context->getFunctionType(type, { type, type, type, type }), name);
+
+			IRValue* alloca0 = func->createAlloca(type, context->getConstantInt(1), "alloca0");
+			IRValue* alloca1 = func->createAlloca(type, context->getConstantInt(1), "alloca1");
+			IRValue* alloca2 = func->createAlloca(type, context->getConstantInt(1), "alloca2");
+			IRValue* alloca3 = func->createAlloca(type, context->getConstantInt(1), "alloca3");
+
+			IRBuilder builder;
+			builder.SetInsertPoint(func->createBasicBlock("entry"));
+
+			builder.CreateStore(func->args[0], alloca0);
+			builder.CreateStore(func->args[1], alloca1);
+			builder.CreateStore(func->args[2], alloca2);
+			builder.CreateStore(func->args[3], alloca3);
+
+			std::vector<IRValue*> values = { func->args[0], func->args[1], func->args[2], func->args[3] };
+			for (int i = 0; i < 25; i++)
+			{
+				IRValue* result = values[0];
+				for (size_t j = 1; j < values.size(); j++)
+				{
+					result = builder.CreateFAdd(result, values[(j + random[j%10])%values.size()]);
+				}
+				values.push_back(result);
+			}
+			auto bb = func->createBasicBlock("bb");
+			builder.CreateBr(bb);
+			builder.SetInsertPoint(bb);
+			for (int i = 0; i < 25; i++)
+			{
+				IRValue* result = values[0];
+				for (size_t j = 1; j < values.size(); j++)
+				{
+					result = builder.CreateFAdd(result, values[(j + random[j % 10]) % values.size()]);
+				}
+				values.push_back(result);
+			}
+
+			IRValue* result = values.back();
+			result = builder.CreateFAdd(result, builder.CreateLoad(alloca0));
+			result = builder.CreateFAdd(result, builder.CreateLoad(alloca1));
+			result = builder.CreateFAdd(result, builder.CreateLoad(alloca2));
+			result = builder.CreateFAdd(result, builder.CreateLoad(alloca3));
+			builder.CreateRet(result);
+		};
+
+		auto run = [=](JITRuntime* jit)
+		{
+			auto ptr = reinterpret_cast<T(*)(T,T,T,T)>(jit->getPointerToFunction(name));
+
+			std::vector<T> values = { T(1), T(2), T(3), T(4) };
+			for (int i = 0; i < 50; i++)
+			{
+				T result = values[0];
+				for (size_t j = 1; j < values.size(); j++)
+				{
+					result = result + values[(j + random[j % 10]) % values.size()];
+				}
+				values.push_back(result);
+			}
+
+			T result = values.back();
+			result += T(1);
+			result += T(2);
+			result += T(3);
+			result += T(4);
+
+			if (ptr(T(1), T(2), T(3), T(4)) != result)
+			{
+				ptr(T(1), T(2), T(3), T(4)); // for debug breakpoint
+				return false;
+			}
+			return true;
+		};
+
+		Test(name, create, run);
+	}
+
 	void Run()
 	{
 		std::cout << "Creating tests" << std::endl;
@@ -208,8 +510,8 @@ private:
 	template<> uint32_t RandomValue<uint32_t>() { return ((uint32_t)rand()) << 16; }
 	template<> int64_t RandomValue<int64_t>() { return ((int64_t)rand()) << 32; }
 	template<> uint64_t RandomValue<uint64_t>() { return ((uint64_t)rand()) << 32; }
-	template<> float RandomValue<float>() { return (float)rand(); }
-	template<> double RandomValue<double>() { return (double)rand(); }
+	template<> float RandomValue<float>() { return (float)rand() + 0.5f; }
+	template<> double RandomValue<double>() { return (double)rand() + 0.5; }
 
 	std::vector<std::unique_ptr<InstructionTest>> tests;
 };
@@ -393,6 +695,44 @@ int main(int argc, char** argv)
 		tester.Compare<double>("fcmpuge_double", [](auto cc, auto a, auto b) { return cc->CreateFCmpUGE(a, b); }, [](double a, double b) { return a >= b; });
 		tester.Compare<double>("fcmpueq_double", [](auto cc, auto a, auto b) { return cc->CreateFCmpUEQ(a, b); }, [](double a, double b) { return a == b; });
 		tester.Compare<double>("fcmpune_double", [](auto cc, auto a, auto b) { return cc->CreateFCmpUNE(a, b); }, [](double a, double b) { return a != b; });
+
+		tester.NaNTest<float>("fcmpult_float_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpULT(a, b); }, [](float a, float b) { return a < b; });
+		tester.NaNTest<float>("fcmpugt_float_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUGT(a, b); }, [](float a, float b) { return a > b; });
+		tester.NaNTest<float>("fcmpule_float_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpULE(a, b); }, [](float a, float b) { return a <= b; });
+		tester.NaNTest<float>("fcmpuge_float_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUGE(a, b); }, [](float a, float b) { return a >= b; });
+		tester.NaNTest<float>("fcmpueq_float_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUEQ(a, b); }, [](float a, float b) { return a == b; });
+		tester.NaNTest<float>("fcmpune_float_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUNE(a, b); }, [](float a, float b) { return a != b; });
+
+		tester.NaNTest<double>("fcmpult_double_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpULT(a, b); }, [](double a, double b) { return a < b; });
+		tester.NaNTest<double>("fcmpugt_double_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUGT(a, b); }, [](double a, double b) { return a > b; });
+		tester.NaNTest<double>("fcmpule_double_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpULE(a, b); }, [](double a, double b) { return a <= b; });
+		tester.NaNTest<double>("fcmpuge_double_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUGE(a, b); }, [](double a, double b) { return a >= b; });
+		tester.NaNTest<double>("fcmpueq_double_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUEQ(a, b); }, [](double a, double b) { return a == b; });
+		tester.NaNTest<double>("fcmpune_double_NaN", [](auto cc, auto a, auto b) { return cc->CreateFCmpUNE(a, b); }, [](double a, double b) { return a != b; });
+
+		tester.Load<uint8_t>("load_i8");
+		tester.Load<uint16_t>("load_i16");
+		tester.Load<uint32_t>("load_i32");
+		tester.Load<uint64_t>("load_i64");
+		tester.Load<float>("load_float");
+		tester.Load<double>("load_double");
+
+		tester.Store<uint8_t>("store_i8");
+		tester.Store<uint16_t>("store_i16");
+		tester.Store<uint32_t>("store_i32");
+		tester.Store<uint64_t>("store_i64");
+		tester.Store<float>("store_float");
+		tester.Store<double>("store_double");
+
+		tester.FPConstants<float>("fpconstants_float");
+		tester.FPConstants<double>("fpconstants_double");
+
+		tester.RegisterSpillI<uint8_t>("registerspill_i8");
+		tester.RegisterSpillI<uint16_t>("registerspill_i16");
+		tester.RegisterSpillI<uint32_t>("registerspill_i32");
+		tester.RegisterSpillI<uint64_t>("registerspill_i64");
+		tester.RegisterSpillF<float>("registerspill_float");
+		tester.RegisterSpillF<double>("registerspill_double");
 
 		tester.Run();
 

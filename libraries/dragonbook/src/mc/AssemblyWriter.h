@@ -125,6 +125,8 @@ private:
 	void setge(MachineInst* inst);
 	void sete(MachineInst* inst);
 	void setne(MachineInst* inst);
+	void setp(MachineInst* inst);
+	void setnp(MachineInst* inst);
 	void cvtsd2ss(MachineInst* inst);
 	void cvtss2sd(MachineInst* inst);
 	void cvttsd2si(MachineInst* inst);

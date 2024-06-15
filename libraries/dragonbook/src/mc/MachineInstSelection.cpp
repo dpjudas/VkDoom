@@ -286,7 +286,7 @@ void MachineInstSelection::inst(IRInstICmpULT* node)
 
 void MachineInstSelection::inst(IRInstFCmpULT* node)
 {
-	simpleCompareInst(node, MachineInstOpcode::setb);
+	simpleCompareInst(node, MachineInstOpcode::setb, MachineInstOpcode::setnp, MachineInstOpcode::and8);
 }
 
 void MachineInstSelection::inst(IRInstICmpSGT* node)
@@ -301,7 +301,7 @@ void MachineInstSelection::inst(IRInstICmpUGT* node)
 
 void MachineInstSelection::inst(IRInstFCmpUGT* node)
 {
-	simpleCompareInst(node, MachineInstOpcode::seta);
+	simpleCompareInst(node, MachineInstOpcode::seta, MachineInstOpcode::setnp, MachineInstOpcode::and8);
 }
 
 void MachineInstSelection::inst(IRInstICmpSLE* node)
@@ -316,7 +316,7 @@ void MachineInstSelection::inst(IRInstICmpULE* node)
 
 void MachineInstSelection::inst(IRInstFCmpULE* node)
 {
-	simpleCompareInst(node, MachineInstOpcode::setbe);
+	simpleCompareInst(node, MachineInstOpcode::setbe, MachineInstOpcode::setnp, MachineInstOpcode::and8);
 }
 
 void MachineInstSelection::inst(IRInstICmpSGE* node)
@@ -331,7 +331,7 @@ void MachineInstSelection::inst(IRInstICmpUGE* node)
 
 void MachineInstSelection::inst(IRInstFCmpUGE* node)
 {
-	simpleCompareInst(node, MachineInstOpcode::setae);
+	simpleCompareInst(node, MachineInstOpcode::setae, MachineInstOpcode::setnp, MachineInstOpcode::and8);
 }
 
 void MachineInstSelection::inst(IRInstICmpEQ* node)
@@ -341,7 +341,7 @@ void MachineInstSelection::inst(IRInstICmpEQ* node)
 
 void MachineInstSelection::inst(IRInstFCmpUEQ* node)
 {
-	simpleCompareInst(node, MachineInstOpcode::sete);
+	simpleCompareInst(node, MachineInstOpcode::sete, MachineInstOpcode::setnp, MachineInstOpcode::and8);
 }
 
 void MachineInstSelection::inst(IRInstICmpNE* node)
@@ -351,7 +351,7 @@ void MachineInstSelection::inst(IRInstICmpNE* node)
 
 void MachineInstSelection::inst(IRInstFCmpUNE* node)
 {
-	simpleCompareInst(node, MachineInstOpcode::setne);
+	simpleCompareInst(node, MachineInstOpcode::setne, MachineInstOpcode::setp, MachineInstOpcode::or8);
 }
 
 void MachineInstSelection::inst(IRInstAnd* node)
@@ -486,7 +486,10 @@ void MachineInstSelection::inst(IRInstUIToFP* node)
 	if (isConstantInt(node->value))
 	{
 		auto dst = newReg(node);
-		emitInst(movOps[dstDataSizeType], dst, node->value, dstDataSizeType);
+		if (dstDataSizeType == 0)
+			emitInst(movOps[dstDataSizeType], dst, newConstant((double)getConstantValueInt(node->value)));
+		else // if (dstDataSizeType == 1)
+			emitInst(movOps[dstDataSizeType], dst, newConstant((float)getConstantValueInt(node->value)));
 	}
 	else if (srcDataSizeType != 2) // zero extend required
 	{
@@ -514,7 +517,10 @@ void MachineInstSelection::inst(IRInstSIToFP* node)
 	if (isConstantInt(node->value))
 	{
 		auto dst = newReg(node);
-		emitInst(movOps[dstDataSizeType], dst, node->value, dstDataSizeType);
+		if (dstDataSizeType == 0)
+			emitInst(movOps[dstDataSizeType], dst, newConstant((double)(int64_t)getConstantValueInt(node->value)));
+		else // if (dstDataSizeType == 1)
+			emitInst(movOps[dstDataSizeType], dst, newConstant((float)(int64_t)getConstantValueInt(node->value)));
 	}
 	else if (srcDataSizeType != dstDataSizeType + 2) // sign extend required
 	{
@@ -847,7 +853,7 @@ void MachineInstSelection::callUnix64(IRInstCall* node)
 	}
 }
 
-void MachineInstSelection::simpleCompareInst(IRInstBinary* node, MachineInstOpcode opSet)
+void MachineInstSelection::simpleCompareInst(IRInstBinary* node, MachineInstOpcode opSet, MachineInstOpcode opSet2, MachineInstOpcode opSet3)
 {
 	static const MachineInstOpcode movOps[] = { MachineInstOpcode::movsd, MachineInstOpcode::movss, MachineInstOpcode::mov64, MachineInstOpcode::mov32, MachineInstOpcode::mov16, MachineInstOpcode::mov8 };
 	static const MachineInstOpcode cmpOps[] = { MachineInstOpcode::ucomisd, MachineInstOpcode::ucomiss, MachineInstOpcode::cmp64, MachineInstOpcode::cmp32, MachineInstOpcode::cmp16, MachineInstOpcode::cmp8 };
@@ -884,8 +890,18 @@ void MachineInstSelection::simpleCompareInst(IRInstBinary* node, MachineInstOpco
 		emitInst(cmpOps[dataSizeType], src1, node->operand2, dataSizeType);
 	}
 
-	// Move result flag to register
-	emitInst(opSet, dst);
+	if (opSet2 == MachineInstOpcode::nop)
+	{
+		// Move result flag to register
+		emitInst(opSet, dst);
+	}
+	else
+	{
+		auto temp = newTempReg(MachineRegClass::gp);
+		emitInst(opSet, temp);
+		emitInst(opSet2, dst);
+		emitInst(opSet3, dst, temp);
+	}
 }
 
 void MachineInstSelection::simpleBinaryInst(IRInstBinary* node, const MachineInstOpcode* binaryOps)
@@ -1286,6 +1302,16 @@ MachineFunction* MachineInstSelection::dumpinstructions(IRFunction* sfunc)
 		RegisterName::xmm12, RegisterName::xmm13, RegisterName::xmm14, RegisterName::xmm15
 	};
 
+	std::vector<MachineInstOpcode> xmmBinaryOps =
+	{
+		MachineInstOpcode::movss, MachineInstOpcode::movsd,
+		MachineInstOpcode::addss, MachineInstOpcode::addsd,
+		MachineInstOpcode::subss, MachineInstOpcode::subsd,
+		MachineInstOpcode::mulss, MachineInstOpcode::mulsd,
+		MachineInstOpcode::divss, MachineInstOpcode::divsd,
+		MachineInstOpcode::ucomiss, MachineInstOpcode::ucomisd
+	};
+
 	std::vector<MachineInstOpcode> intBinaryOps =
 	{
 		MachineInstOpcode::mov64, MachineInstOpcode::mov32, MachineInstOpcode::mov16, MachineInstOpcode::mov8,
@@ -1332,7 +1358,140 @@ MachineFunction* MachineInstSelection::dumpinstructions(IRFunction* sfunc)
 	// Load/store tests:
 
 	// Register/register tests:
+
+	for (MachineInstOpcode opcode : { MachineInstOpcode::cvtsd2ss, MachineInstOpcode::cvtss2sd })
+	{
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::xmm0;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::xmm0;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
+	for (MachineInstOpcode opcode : { MachineInstOpcode::cvttsd2si, MachineInstOpcode::cvttss2si })
+	{
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::rax;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::r15;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::xmm0;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::xmm15;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
+	for (MachineInstOpcode opcode : { MachineInstOpcode::cvtsi2sd, MachineInstOpcode::cvtsi2ss })
+	{
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::rax;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::r15;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::xmm0;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : gpRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::xmm15;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
 /*
+	for (MachineInstOpcode opcode : xmmBinaryOps)
+	{
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			operand2.registerIndex = (int)RegisterName::xmm0;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1, operand2;
+			operand1.type = MachineOperandType::reg;
+			operand2.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)RegisterName::xmm0;
+			operand2.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
+
 	for (MachineInstOpcode opcode : intUnaryOps)
 	{
 		for (RegisterName regname : gpRegs)
@@ -1413,8 +1572,21 @@ MachineFunction* MachineInstSelection::dumpinstructions(IRFunction* sfunc)
 			selection.emitInst(opcode, operand1, operand2);
 		}
 	}
-*/
+
 	// Register/constant tests:
+
+	int opcodeindex = 0;
+	for (MachineInstOpcode opcode : xmmBinaryOps)
+	{
+		MachineOperand operand2 = (opcodeindex++ % 2 == 1) ? selection.newConstant(1.234) : selection.newConstant(1.234f);
+		for (RegisterName regname : xmmRegs)
+		{
+			MachineOperand operand1;
+			operand1.type = MachineOperandType::reg;
+			operand1.registerIndex = (int)regname;
+			selection.emitInst(opcode, operand1, operand2);
+		}
+	}
 
 	for (MachineInstOpcode opcode : intBinaryOps)
 	{
@@ -1439,7 +1611,7 @@ MachineFunction* MachineInstSelection::dumpinstructions(IRFunction* sfunc)
 			selection.emitInst(opcode, operand1, operand2);
 		}
 	}
-
+*/
 	// Register/global tests:
 
 

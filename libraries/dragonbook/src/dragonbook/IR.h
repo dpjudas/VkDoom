@@ -8,3 +8,4 @@
 #include "IRInst.h"
 #include "IRBuilder.h"
 #include "IRInstVisitor.h"
+#include "IRStackToRegisterPass.h"
