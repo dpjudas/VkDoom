@@ -29,13 +29,13 @@ vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
 
 #if defined(USE_SOFTSHADOWS)
 
-			if (light.SourceRadius != 0.0)
+			if (light.SoftShadowRadius != 0.0)
 			{
 				vec3 v = (abs(dir.x) > abs(dir.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
 				vec3 xdir = normalize(cross(dir, v));
 				vec3 ydir = cross(dir, xdir);
 
-				float lightsize = light.SourceRadius;
+				float lightsize = light.SoftShadowRadius;
 				int step_count = 10;
 				for (int i = 0; i < step_count; i++)
 				{

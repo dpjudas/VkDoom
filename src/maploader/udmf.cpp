@@ -518,7 +518,7 @@ public:
 		th->Alpha = -1;
 		th->Health = 1;
 		th->FloatbobPhase = -1;
-		th->SourceRadius = -1.0;
+		th->SoftShadowRadius = -1.0;
 		sc.MustGetToken('{');
 		while (!sc.CheckToken('}'))
 		{
@@ -792,8 +792,8 @@ public:
 				th->friendlyseeblocks = CheckInt(key);
 				break;
 
-			case NAME_SourceRadius:
-				th->SourceRadius = (float)CheckFloat(key);
+			case NAME_SoftShadowRadius:
+				th->SoftShadowRadius = (float)CheckFloat(key);
 				break;
 
 			case NAME_lm_suncolor:

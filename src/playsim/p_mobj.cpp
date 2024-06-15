@@ -6046,8 +6046,8 @@ AActor *FLevelLocals::SpawnMapThing (FMapThing *mthing, int position)
 	if (mthing->fillcolor)
 		mobj->fillcolor = (mthing->fillcolor & 0xffffff) | (ColorMatcher.Pick((mthing->fillcolor & 0xff0000) >> 16,
 			(mthing->fillcolor & 0xff00) >> 8, (mthing->fillcolor & 0xff)) << 24);
-	if (mthing->SourceRadius >= 0.0)
-		mobj->SourceRadius = mthing->SourceRadius;
+	if (mthing->SoftShadowRadius >= 0.0)
+		mobj->SoftShadowRadius = mthing->SoftShadowRadius;
 
 	// allow color strings for lights and reshuffle the args for spot lights
 	if (i->IsDescendantOf(NAME_DynamicLight))
