@@ -4,6 +4,7 @@ set(LIB_SOURCES
 	dragonbook.h
 	dragonbook/IR.h
 	dragonbook/IRContext.h
+	dragonbook/IRBlockAllocator.h
 	dragonbook/IRBuilder.h
 	dragonbook/IRValue.h
 	dragonbook/IRType.h
@@ -56,11 +57,11 @@ endif()
 # Set up flags for MSVC
 if (MSVC)
 	set(CMAKE_CXX_FLAGS "/MP ${CMAKE_CXX_FLAGS}") # Use all cores for compilation
-else()
-	set(CMAKE_CXX_FLAGS "-std=gnu++14 ${CMAKE_CXX_FLAGS}")
 endif()
 
 add_library(dragonbook STATIC ${LIB_SOURCES} ${NOT_COMPILED_SOURCES})
+
+set_target_properties(dragonbook PROPERTIES CXX_STANDARD 17)
 
 target_link_libraries(dragonbook ${LIB_LIBS})
 

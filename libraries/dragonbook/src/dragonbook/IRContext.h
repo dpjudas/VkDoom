@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include "JITRuntime.h"
+#include "IRBlockAllocator.h"
 
 class IRType;
 class IRPointerType;
@@ -71,43 +72,37 @@ public:
 	template<typename T, typename... Types>
 	T* newType(Types&&... args)
 	{
-		allocatedTypes.push_back(std::make_unique<T>(std::forward<Types>(args)...));
-		return static_cast<T*>(allocatedTypes.back().get());
+		return new(allocatedTypes.alloc(sizeof(T))) T(std::forward<Types>(args)...);
 	}
 
 	template<typename T, typename... Types>
 	T* newValue(Types&&... args)
 	{
-		allocatedValues.push_back(std::make_unique<T>(std::forward<Types>(args)...));
-		return static_cast<T*>(allocatedValues.back().get());
+		return new(allocatedValues.alloc(sizeof(T))) T(std::forward<Types>(args)...);
 	}
 
 	template<typename... Types>
 	IRBasicBlock* newBasicBlock(Types&&... args)
 	{
-		allocatedBBs.push_back(std::make_unique<IRBasicBlock>(std::forward<Types>(args)...));
-		return allocatedBBs.back().get();
+		return new(allocatedBBs.alloc(sizeof(IRBasicBlock))) IRBasicBlock(std::forward<Types>(args)...);
 	}
 
 	template<typename... Types>
 	MachineFunction* newMachineFunction(Types&&... args)
 	{
-		allocatedMachineFunctions.push_back(std::make_unique<MachineFunction>(std::forward<Types>(args)...));
-		return allocatedMachineFunctions.back().get();
+		return new(allocatedMachineFunctions.alloc(sizeof(MachineFunction))) MachineFunction(std::forward<Types>(args)...);
 	}
 
 	template<typename... Types>
 	MachineBasicBlock* newMachineBasicBlock(Types&&... args)
 	{
-		allocatedMachineBBs.push_back(std::make_unique<MachineBasicBlock>(std::forward<Types>(args)...));
-		return allocatedMachineBBs.back().get();
+		return new(allocatedMachineBBs.alloc(sizeof(MachineBasicBlock))) MachineBasicBlock(std::forward<Types>(args)...);
 	}
 
 	template<typename... Types>
 	MachineInst* newMachineInst(Types&&... args)
 	{
-		allocatedMachineInsts.push_back(std::make_unique<MachineInst>(std::forward<Types>(args)...));
-		return allocatedMachineInsts.back().get();
+		return new(allocatedMachineInsts.alloc(sizeof(MachineInst))) MachineInst(std::forward<Types>(args)...);
 	}
 
 private:
@@ -127,12 +122,15 @@ private:
 	std::vector<IRConstantStruct *> constantStructs;
 	std::map<IRValue *, void *> globalMappings;
 
-	std::vector<std::unique_ptr<IRType>> allocatedTypes;
-	std::vector<std::unique_ptr<IRValue>> allocatedValues;
-	std::vector<std::unique_ptr<IRBasicBlock>> allocatedBBs;
-	std::vector<std::unique_ptr<MachineFunction>> allocatedMachineFunctions;
-	std::vector<std::unique_ptr<MachineBasicBlock>> allocatedMachineBBs;
-	std::vector<std::unique_ptr<MachineInst>> allocatedMachineInsts;
+	IRBlockAllocator<IRType> allocatedTypes;
+	IRBlockAllocator<IRValue> allocatedValues;
+	IRBlockAllocator<IRBasicBlock> allocatedBBs;
+	IRBlockAllocator<MachineFunction> allocatedMachineFunctions;
+	IRBlockAllocator<MachineBasicBlock> allocatedMachineBBs;
+	IRBlockAllocator<MachineInst> allocatedMachineInsts;
 
 	friend class JITRuntime;
+
+	IRContext(const IRContext&) = delete;
+	IRContext& operator=(const IRContext&) = delete;
 };
