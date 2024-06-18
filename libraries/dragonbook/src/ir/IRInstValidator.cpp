@@ -344,6 +344,10 @@ void IRInstValidator::inst(IRInstAlloca* node)
 		throw std::runtime_error("The array size must be a constant");
 }
 
+void IRInstValidator::inst(IRInstPhi* node)
+{
+}
+
 void IRInstValidator::intUnaryInst(IRInstUnary* node)
 {
 	ValueType vt = getValueType(node->operand->type);

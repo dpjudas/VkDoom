@@ -20,6 +20,11 @@ IRInstAlloca* IRBuilder::CreateAlloca(IRType* type, IRValue* arraySize, const st
 	return add<IRInstAlloca>(bb->function->context, type, arraySize, name);
 }
 
+IRInstPhi* IRBuilder::CreatePhi(IRType* type, const std::vector<std::pair<IRBasicBlock*, IRValue*>>& values)
+{
+	return add<IRInstPhi>(type, values);
+}
+
 IRInstCall *IRBuilder::CreateCall(IRValue *func, const std::vector<IRValue *> &args)
 {
 	return add<IRInstCall>(func, args);

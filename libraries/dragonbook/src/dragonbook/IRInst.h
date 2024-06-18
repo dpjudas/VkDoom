@@ -291,3 +291,13 @@ public:
 	IRValue *arraySize;
 	std::string name;
 };
+
+class IRInstPhi : public IRInst
+{
+public:
+	IRInstPhi(IRType* type, const std::vector<std::pair<IRBasicBlock*, IRValue*>>& values) : IRInst(type), values(values) { }
+
+	void visit(IRInstVisitor* visitor) { visitor->inst(this); }
+
+	std::vector<std::pair<IRBasicBlock*, IRValue*>> values;
+};

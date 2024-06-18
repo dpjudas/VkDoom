@@ -20,6 +20,7 @@ public:
 	IRInstStore *CreateStore(IRValue *, IRValue *);
 
 	IRInstAlloca* CreateAlloca(IRType* type, IRValue* arraySize, const std::string& name = {});
+	IRInstPhi* CreatePhi(IRType* type, const std::vector<std::pair<IRBasicBlock*, IRValue*>>& values);
 
 	IRInstCall *CreateCall(IRValue *func, const std::vector<IRValue *> &args = {});
 

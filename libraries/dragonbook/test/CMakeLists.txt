@@ -12,8 +12,6 @@ include_directories(. ../src)
 
 if (WIN32)
 	add_definitions(-DWIN32 -D_WIN32)
-else()
-	set(CMAKE_CXX_FLAGS "-std=gnu++14 ${CMAKE_CXX_FLAGS}")
 endif()
 
 # Set up flags for MSVC
@@ -22,5 +20,7 @@ if (MSVC)
 endif()
 
 add_executable(dragontest ${TEST_SOURCES})
+
+set_target_properties(dragontest PROPERTIES CXX_STANDARD 17)
 
 target_link_libraries(dragontest ${TEST_LIBS})

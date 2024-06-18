@@ -56,6 +56,7 @@ class IRInstCondBr;
 class IRInstRet;
 class IRInstRetVoid;
 class IRInstAlloca;
+class IRInstPhi;
 
 class IRInstVisitor
 {
@@ -115,4 +116,5 @@ public:
 	virtual void inst(IRInstRet *node) = 0;
 	virtual void inst(IRInstRetVoid *node) = 0;
 	virtual void inst(IRInstAlloca *node) = 0;
+	virtual void inst(IRInstPhi* node) = 0;
 };

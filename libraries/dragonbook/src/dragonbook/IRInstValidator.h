@@ -66,6 +66,7 @@ public:
 	void inst(IRInstRet *node) override;
 	void inst(IRInstRetVoid *node) override;
 	void inst(IRInstAlloca *node) override;
+	void inst(IRInstPhi* node) override;
 
 private:
 	void intUnaryInst(IRInstUnary* node);

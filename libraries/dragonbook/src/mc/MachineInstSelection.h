@@ -68,6 +68,7 @@ private:
 	void inst(IRInstRet* node) override;
 	void inst(IRInstRetVoid* node) override;
 	void inst(IRInstAlloca* node) override;
+	void inst(IRInstPhi* node) override;
 
 	bool isConstant(IRValue* value) const { return dynamic_cast<IRConstant*>(value); }
 	bool isConstantInt(IRValue* value) const { return dynamic_cast<IRConstantInt*>(value); }
@@ -99,6 +100,8 @@ private:
 	void pushValueOperand(MachineInst* inst, IRValue* operand, int dataSizeType);
 	void pushBBOperand(MachineInst* inst, IRBasicBlock* bb);
 
+	void emitPhi(IRBasicBlock* target);
+
 	void emitInst(MachineInstOpcode opcode, const MachineOperand& operand1, const MachineOperand& operand2, const MachineOperand& operand3);
 	void emitInst(MachineInstOpcode opcode, const MachineOperand& operand1, IRValue* operand2, int dataSizeType, const MachineOperand& operand3);
 	void emitInst(MachineInstOpcode opcode, const MachineOperand& operand1, const MachineOperand& operand2);
@@ -129,6 +132,7 @@ private:
 	IRContext* context;
 	IRFunction* sfunc;
 	MachineFunction* mfunc = nullptr;
+	IRBasicBlock* irbb = nullptr;
 	MachineBasicBlock* bb = nullptr;
 	std::map<IRBasicBlock*, MachineBasicBlock*> bbMap;
 
