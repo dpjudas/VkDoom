@@ -25,6 +25,26 @@ IRContext::~IRContext()
 {
 }
 
+IRBasicBlock* IRContext::newBasicBlock(IRFunction* func, std::string comment)
+{
+	return new(allocatedBBs.alloc(sizeof(IRBasicBlock))) IRBasicBlock(func, std::move(comment));
+}
+
+MachineFunction* IRContext::newMachineFunction(std::string name)
+{
+	return new(allocatedMachineFunctions.alloc(sizeof(MachineFunction))) MachineFunction(std::move(name));
+}
+
+MachineBasicBlock* IRContext::newMachineBasicBlock()
+{
+	return new(allocatedMachineBBs.alloc(sizeof(MachineBasicBlock))) MachineBasicBlock();
+}
+
+MachineInst* IRContext::newMachineInst()
+{
+	return new(allocatedMachineInsts.alloc(sizeof(MachineInst))) MachineInst();
+}
+
 std::string IRContext::getFunctionAssembly(IRFunction* func)
 {
 	MachineFunction* mcfunc = MachineInstSelection::codegen(func);

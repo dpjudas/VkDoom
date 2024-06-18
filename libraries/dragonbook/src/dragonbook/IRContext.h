@@ -81,29 +81,10 @@ public:
 		return new(allocatedValues.alloc(sizeof(T))) T(std::forward<Types>(args)...);
 	}
 
-	template<typename... Types>
-	IRBasicBlock* newBasicBlock(Types&&... args)
-	{
-		return new(allocatedBBs.alloc(sizeof(IRBasicBlock))) IRBasicBlock(std::forward<Types>(args)...);
-	}
-
-	template<typename... Types>
-	MachineFunction* newMachineFunction(Types&&... args)
-	{
-		return new(allocatedMachineFunctions.alloc(sizeof(MachineFunction))) MachineFunction(std::forward<Types>(args)...);
-	}
-
-	template<typename... Types>
-	MachineBasicBlock* newMachineBasicBlock(Types&&... args)
-	{
-		return new(allocatedMachineBBs.alloc(sizeof(MachineBasicBlock))) MachineBasicBlock(std::forward<Types>(args)...);
-	}
-
-	template<typename... Types>
-	MachineInst* newMachineInst(Types&&... args)
-	{
-		return new(allocatedMachineInsts.alloc(sizeof(MachineInst))) MachineInst(std::forward<Types>(args)...);
-	}
+	IRBasicBlock* newBasicBlock(IRFunction* func, std::string comment);
+	MachineFunction* newMachineFunction(std::string name = {});
+	MachineBasicBlock* newMachineBasicBlock();
+	MachineInst* newMachineInst();
 
 private:
 	IRType *voidType = nullptr;
