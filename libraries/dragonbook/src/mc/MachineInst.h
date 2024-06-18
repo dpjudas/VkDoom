@@ -150,6 +150,7 @@ public:
 	int frameBaseOffset = 0;
 	int spillBaseOffset = 0;
 	bool dynamicStackAllocations = false;
+	std::vector<std::string> fileInfo;
 };
 
 enum class RegisterName : int

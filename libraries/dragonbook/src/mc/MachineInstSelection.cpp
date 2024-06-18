@@ -8,6 +8,7 @@ MachineFunction* MachineInstSelection::codegen(IRFunction* sfunc)
 
 	MachineInstSelection selection(sfunc);
 	selection.mfunc = sfunc->context->newMachineFunction(sfunc->name);
+	selection.mfunc->fileInfo = sfunc->fileInfo;
 	selection.mfunc->type = dynamic_cast<IRFunctionType*>(sfunc->type);
 	selection.mfunc->prolog = sfunc->context->newMachineBasicBlock();
 	selection.mfunc->epilog = sfunc->context->newMachineBasicBlock();

@@ -30,7 +30,18 @@ public:
 
 	const std::vector<FunctionEntry>& getFunctionTable() const { return functionTable; };
 
+	struct DebugInfo
+	{
+		size_t offset = 0;
+		int fileIndex = -1;
+		int lineNumber = -1;
+	};
+	const std::vector<DebugInfo>& getDebugInfo() const { return debugInfo; }
+	const std::vector<std::string>& getFileInfo() const { return fileInfo; }
+
 private:
+	std::vector<DebugInfo> debugInfo;
+	std::vector<std::string> fileInfo;
 	std::vector<uint8_t> code;
 	std::vector<uint8_t> data;
 	std::vector<uint8_t> unwindData;

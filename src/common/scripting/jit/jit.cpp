@@ -248,7 +248,7 @@ void JitCompiler::Setup()
 
 	IRFunctionType* functype = ircontext->getFunctionType(int32Ty, { int8PtrTy, int8PtrTy, int32Ty, int8PtrTy, int32Ty });
 	irfunc = ircontext->createFunction(functype, sfunc->PrintableName);
-	irfunc->fileInfo.push_back({ sfunc->PrintableName, sfunc->SourceFileName.GetChars() });
+	irfunc->fileInfo.push_back(sfunc->SourceFileName.GetChars());
 
 	args = irfunc->args[1];
 	numargs = irfunc->args[2];

@@ -211,7 +211,7 @@ private:
 	void setR(X64Instruction& x64inst, const MachineOperand& operand);
 	void setR(X64Instruction& x64inst, int modopcode);
 
-	void writeInst(int flags, std::initializer_list<int> opcode, const X64Instruction& x64inst);
+	void writeInst(int flags, std::initializer_list<int> opcode, const X64Instruction& x64inst, MachineInst* debugInfo);
 	void writeOpcode(int flags, std::initializer_list<int> opcode, int rexR, int rexX, int rexB);
 	void writeModRM(int mod, int modreg, int rm);
 	void writeSIB(int scale, int index, int base);

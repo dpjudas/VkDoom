@@ -230,6 +230,8 @@ void JITRuntime::add(MachineCodeHolder* codeholder)
 			functionTable[entry.func->name] = (void*)entry.external;
 		}
 	}
+
+	addDebugInfo(baseaddr, codeholder);
 #endif
 }
 
@@ -316,6 +318,8 @@ void JITRuntime::add(MachineCodeHolder* codeholder)
 			functionTable[entry.func->name] = (void*)entry.external;
 		}
 	}
+
+	addDebugInfo(baseaddr, codeholder);
 }
 
 void* JITRuntime::virtualAlloc(size_t size)
@@ -331,6 +335,35 @@ void JITRuntime::virtualFree(void* ptr)
 }
 
 #endif
+
+void JITRuntime::addDebugInfo(uint8_t* baseaddr, MachineCodeHolder* codeholder)
+{
+	for (const auto& entry : codeholder->getFunctionTable())
+	{
+		if (entry.external)
+			continue;
+
+		JitFuncInfo funcinfo;
+		funcinfo.printableName = entry.func->name;
+		funcinfo.startAddr = baseaddr + entry.beginAddress;
+		funcinfo.endAddr = baseaddr + entry.endAddress;
+
+		uint8_t* codeaddr = baseaddr + entry.beginAddress;
+		funcinfo.instructions.reserve(codeholder->getDebugInfo().size());
+		for (const auto& holderInstInfo : codeholder->getDebugInfo())
+		{
+			JitInstInfo instInfo;
+			instInfo.offset = codeaddr + holderInstInfo.offset;
+			instInfo.fileIndex = holderInstInfo.fileIndex;
+			instInfo.lineNumber = holderInstInfo.lineNumber;
+			funcinfo.instructions.push_back(instInfo);
+		}
+
+		funcinfo.files = codeholder->getFileInfo();
+
+		debugInfo.push_back(std::move(funcinfo));
+	}
+}
 
 void* JITRuntime::allocJitMemory(size_t size)
 {
@@ -376,29 +409,27 @@ std::vector<JITStackFrame> JITRuntime::captureStackTrace(int framesToSkip, bool 
 
 JITStackFrame JITRuntime::getStackFrame(NativeSymbolResolver* nativeSymbols, void* pc)
 {
-	/*for (unsigned int i = 0; i < JitDebugInfo.Size(); i++)
+	for (const JitFuncInfo& info : debugInfo)
 	{
-		const auto& info = JitDebugInfo[i];
-		if (pc >= info.start && pc < info.end)
+		if (pc >= info.startAddr && pc < info.endAddr)
 		{
-			return PCToStackFrameInfo((uint8_t*)pc, &info);
+			const JitInstInfo* lineInfo = nullptr;
+			for (const JitInstInfo& inst : info.instructions)
+			{
+				if (pc >= inst.offset)
+					lineInfo = &inst;
+			}
+
+			JITStackFrame frame;
+			frame.PrintableName = info.printableName;
+			if (lineInfo)
+			{
+				frame.FileName = debugFilenames[lineInfo->fileIndex];
+				frame.LineNumber = lineInfo->lineNumber;
+			}
+			return frame;
 		}
-	}*/
+	}
 
 	return nativeSymbols ? nativeSymbols->GetName(pc) : JITStackFrame();
 }
-/*
-JITStackFrame PCToStackFrameInfo(uint8_t* pc, const JitFuncInfo* info)
-{
-	int PCIndex = int(pc - ((uint8_t*)(info->start)));
-	if (info->LineInfo.Size() == 1) return info->LineInfo[0].LineNumber;
-	for (unsigned i = 1; i < info->LineInfo.Size(); i++)
-	{
-		if (info->LineInfo[i].InstructionIndex >= PCIndex)
-		{
-			return info->LineInfo[i - 1].LineNumber;
-		}
-	}
-	return -1;
-}
-*/

@@ -4,6 +4,8 @@
 
 void MachineCodeWriter::codegen()
 {
+	codeholder->fileInfo = sfunc->fileInfo;
+
 	funcBeginAddress = codeholder->code.size();
 
 	basicblock(sfunc->prolog);
@@ -193,7 +195,7 @@ void MachineCodeWriter::lea(MachineInst* inst)
 		setM(x64inst, inst->operands[1], true);
 	}
 
-	writeInst(OpFlags::RexW, { 0x8d }, x64inst);
+	writeInst(OpFlags::RexW, { 0x8d }, x64inst, inst);
 }
 
 void MachineCodeWriter::loadss(MachineInst* inst)
@@ -1022,7 +1024,7 @@ void MachineCodeWriter::emitInstMI(int flags, int opcode, int modopcode, int imm
 	setR(x64inst, modopcode);
 	setM(x64inst, inst->operands[0], memptr);
 	setI(x64inst, immsize, inst->operands[1]);
-	writeInst(flags, { opcode }, x64inst);
+	writeInst(flags, { opcode }, x64inst, inst);
 }
 
 void MachineCodeWriter::emitInstMR(int flags, int opcode, MachineInst* inst, bool memptr)
@@ -1030,7 +1032,7 @@ void MachineCodeWriter::emitInstMR(int flags, int opcode, MachineInst* inst, boo
 	X64Instruction x64inst;
 	setM(x64inst, inst->operands[0], memptr);
 	setR(x64inst, inst->operands[1]);
-	writeInst(flags, { opcode }, x64inst);
+	writeInst(flags, { opcode }, x64inst, inst);
 }
 
 void MachineCodeWriter::emitInstM(int flags, int opcode, MachineInst* inst, bool memptr)
@@ -1053,7 +1055,7 @@ void MachineCodeWriter::emitInstM(int flags, std::initializer_list<int> opcode, 
 	X64Instruction x64inst;
 	setR(x64inst, modopcode);
 	setM(x64inst, inst->operands[0], memptr);
-	writeInst(flags, opcode, x64inst);
+	writeInst(flags, opcode, x64inst, inst);
 }
 
 void MachineCodeWriter::emitInstMC(int flags, int opcode, MachineInst* inst, bool memptr)
@@ -1068,7 +1070,7 @@ void MachineCodeWriter::emitInstMC(int flags, int opcode, int modopcode, Machine
 	X64Instruction x64inst;
 	setR(x64inst, modopcode);
 	setM(x64inst, inst->operands[0], memptr);
-	writeInst(flags, { opcode }, x64inst);
+	writeInst(flags, { opcode }, x64inst, inst);
 }
 
 void MachineCodeWriter::emitInstRM(int flags, int opcode, MachineInst* inst, bool memptr)
@@ -1081,7 +1083,7 @@ void MachineCodeWriter::emitInstRM(int flags, std::initializer_list<int> opcode,
 	X64Instruction x64inst;
 	setR(x64inst, inst->operands[0]);
 	setM(x64inst, inst->operands[1], memptr);
-	writeInst(flags, opcode, x64inst);
+	writeInst(flags, opcode, x64inst, inst);
 }
 
 void MachineCodeWriter::emitInstRMI(int flags, int opcode, int immsize, MachineInst* inst, bool memptr)
@@ -1090,7 +1092,7 @@ void MachineCodeWriter::emitInstRMI(int flags, int opcode, int immsize, MachineI
 	setR(x64inst, inst->operands[0]);
 	setM(x64inst, inst->operands[0], memptr);
 	setI(x64inst, immsize, inst->operands[1]);
-	writeInst(flags, { opcode }, x64inst);
+	writeInst(flags, { opcode }, x64inst, inst);
 }
 
 void MachineCodeWriter::emitInstSSE_RM(int flags, std::initializer_list<int> opcode, MachineInst* inst, bool memptr)
@@ -1098,7 +1100,7 @@ void MachineCodeWriter::emitInstSSE_RM(int flags, std::initializer_list<int> opc
 	X64Instruction x64inst;
 	setR(x64inst, inst->operands[0]);
 	setM(x64inst, inst->operands[1], memptr);
-	writeInst(flags, { opcode }, x64inst);
+	writeInst(flags, { opcode }, x64inst, inst);
 
 	if (inst->operands[1].type == MachineOperandType::constant)
 	{
@@ -1115,7 +1117,7 @@ void MachineCodeWriter::emitInstSSE_MR(int flags, std::initializer_list<int> opc
 	X64Instruction x64inst;
 	setM(x64inst, inst->operands[0], memptr);
 	setR(x64inst, inst->operands[1]);
-	writeInst(flags, { opcode }, x64inst);
+	writeInst(flags, { opcode }, x64inst, inst);
 }
 
 int MachineCodeWriter::getPhysReg(const MachineOperand& operand)
@@ -1231,8 +1233,17 @@ void MachineCodeWriter::setR(X64Instruction& x64inst, int modopcode)
 	x64inst.modreg = modopcode;
 }
 
-void MachineCodeWriter::writeInst(int flags, std::initializer_list<int> opcode, const X64Instruction& x64inst)
+void MachineCodeWriter::writeInst(int flags, std::initializer_list<int> opcode, const X64Instruction& x64inst, MachineInst* debugInfo)
 {
+	if (debugInfo->lineNumber != -1)
+	{
+		MachineCodeHolder::DebugInfo info;
+		info.offset = codeholder->code.size();
+		info.fileIndex = debugInfo->fileIndex;
+		info.lineNumber = debugInfo->lineNumber;
+		codeholder->debugInfo.push_back(info);
+	}
+
 	writeOpcode(flags, { opcode }, x64inst.modreg >> 3, x64inst.index >> 3, (x64inst.rm | x64inst.base) >> 3);
 	writeModRM(x64inst.mod, x64inst.modreg, x64inst.rm);
 	if (x64inst.sib) writeSIB(x64inst.scale, x64inst.index, x64inst.base);

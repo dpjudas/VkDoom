@@ -45,6 +45,8 @@ private:
 
 	JITStackFrame getStackFrame(NativeSymbolResolver* nativeSymbols, void* frame);
 
+	void addDebugInfo(uint8_t* baseaddr, MachineCodeHolder* codeholder);
+
 	std::map<std::string, void*> functionTable;
 	std::map<std::string, size_t> globalTable;
 	std::vector<uint8_t> globals;
@@ -53,4 +55,22 @@ private:
 	std::vector<uint8_t*> frames;
 	size_t blockPos = 0;
 	size_t blockSize = 0;
+
+	struct JitInstInfo
+	{
+		void* offset = nullptr;
+		int fileIndex = -1;
+		int lineNumber = -1;
+	};
+
+	struct JitFuncInfo
+	{
+		std::string printableName;
+		void* startAddr = nullptr;
+		void* endAddr = nullptr;
+		std::vector<JitInstInfo> instructions;
+		std::vector<std::string> files;
+	};
+	std::vector<JitFuncInfo> debugInfo;
+	std::vector<std::string> debugFilenames;
 };
