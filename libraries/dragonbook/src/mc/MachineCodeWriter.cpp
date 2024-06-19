@@ -1100,7 +1100,7 @@ void MachineCodeWriter::emitInstSSE_RM(int flags, std::initializer_list<int> opc
 	X64Instruction x64inst;
 	setR(x64inst, inst->operands[0]);
 	setM(x64inst, inst->operands[1], memptr);
-	writeInst(flags, { opcode }, x64inst, inst);
+	writeInst(flags, opcode, x64inst, inst);
 
 	if (inst->operands[1].type == MachineOperandType::constant)
 	{
@@ -1117,7 +1117,7 @@ void MachineCodeWriter::emitInstSSE_MR(int flags, std::initializer_list<int> opc
 	X64Instruction x64inst;
 	setM(x64inst, inst->operands[0], memptr);
 	setR(x64inst, inst->operands[1]);
-	writeInst(flags, { opcode }, x64inst, inst);
+	writeInst(flags, opcode, x64inst, inst);
 }
 
 int MachineCodeWriter::getPhysReg(const MachineOperand& operand)
@@ -1244,7 +1244,7 @@ void MachineCodeWriter::writeInst(int flags, std::initializer_list<int> opcode, 
 		codeholder->debugInfo.push_back(info);
 	}
 
-	writeOpcode(flags, { opcode }, x64inst.modreg >> 3, x64inst.index >> 3, (x64inst.rm | x64inst.base) >> 3);
+	writeOpcode(flags, opcode, x64inst.modreg >> 3, x64inst.index >> 3, (x64inst.rm | x64inst.base) >> 3);
 	writeModRM(x64inst.mod, x64inst.modreg, x64inst.rm);
 	if (x64inst.sib) writeSIB(x64inst.scale, x64inst.index, x64inst.base);
 	if (x64inst.dispsize > 0) writeImm(x64inst.dispsize, x64inst.disp);
