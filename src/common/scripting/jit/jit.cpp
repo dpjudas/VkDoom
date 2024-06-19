@@ -651,10 +651,11 @@ void JitCompiler::CreateNativeFunctions()
 	mulQV3 = CreateNativeFunction(voidTy, { doublePtrTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy, doubleTy }, "__MULQV3", &MULQV3);
 }
 
-IRFunction* JitCompiler::CreateNativeFunction(IRType* returnType, std::vector<IRType*> args, const char* name, void* ptr)
+template<typename T>
+IRFunction* JitCompiler::CreateNativeFunction(IRType* returnType, std::vector<IRType*> args, const char* name, T* ptr)
 {
 	IRFunctionType* functype = ircontext->getFunctionType(returnType, args);
 	IRFunction* func = ircontext->createFunction(functype, name);
-	ircontext->addGlobalMapping(func, ptr);
+	ircontext->addGlobalMapping(func, reinterpret_cast<void*>(ptr));
 	return func;
 }

@@ -73,7 +73,9 @@ private:
 
 	void GetTypes();
 	void CreateNativeFunctions();
-	IRFunction* CreateNativeFunction(IRType* returnType, std::vector<IRType*> args, const char* name, void* ptr);
+
+	template<typename T>
+	IRFunction* CreateNativeFunction(IRType* returnType, std::vector<IRType*> args, const char* name, T* ptr);
 
 	template <typename Func>
 	void EmitComparisonOpcode(Func jmpFunc)
