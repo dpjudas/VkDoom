@@ -30,7 +30,7 @@ struct JitLabel
 class JitCompiler
 {
 public:
-	JitCompiler(IRContext* ircontext, VMScriptFunction* sfunc) : ircontext(ircontext), sfunc(sfunc) { }
+	JitCompiler(IRContext* ircontext, VMScriptFunction* sfunc) : sfunc(sfunc), ircontext(ircontext) { }
 
 	IRFunction* Codegen();
 
