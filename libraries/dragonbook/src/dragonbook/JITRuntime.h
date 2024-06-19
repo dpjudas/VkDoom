@@ -72,5 +72,4 @@ private:
 		std::vector<std::string> files;
 	};
 	std::vector<JitFuncInfo> debugInfo;
-	std::vector<std::string> debugFilenames;
 };

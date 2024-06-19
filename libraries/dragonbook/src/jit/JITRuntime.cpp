@@ -424,7 +424,7 @@ JITStackFrame JITRuntime::getStackFrame(NativeSymbolResolver* nativeSymbols, voi
 			frame.PrintableName = info.printableName;
 			if (lineInfo)
 			{
-				frame.FileName = debugFilenames[lineInfo->fileIndex];
+				frame.FileName = info.files[lineInfo->fileIndex];
 				frame.LineNumber = lineInfo->lineNumber;
 			}
 			return frame;
