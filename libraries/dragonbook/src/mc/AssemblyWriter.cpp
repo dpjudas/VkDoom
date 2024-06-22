@@ -223,7 +223,7 @@ void AssemblyWriter::writeInst(const char* name, MachineInst* inst, int ptrindex
 	std::string optext = opoutput.str();
 	output << optext.c_str();
 
-	if (!inst->comment.empty())
+	if (!inst->comment.empty() || inst->lineNumber >= 0)
 	{
 		size_t count = optext.length();
 		for (size_t i = 16 + count; i < 48; i++)
@@ -231,6 +231,11 @@ void AssemblyWriter::writeInst(const char* name, MachineInst* inst, int ptrindex
 
 		output << "; ";
 		output << inst->comment.c_str();
+		if (inst->lineNumber >= 0)
+		{
+			if (!inst->comment.empty()) output << ", ";
+			output << "line " << inst->lineNumber;
+		}
 	}
 
 	output << std::endl;
