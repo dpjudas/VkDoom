@@ -1,11 +1,17 @@
 
 #pragma once
 
+#include <map>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "zvulkan/vulkanobjects.h"
 #include "zvulkan/vulkanbuilders.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vulkan/pipelines/vk_renderpass.h"
+#include "vulkan/vulkan_core.h"
 
 class VkTextureImage
 {

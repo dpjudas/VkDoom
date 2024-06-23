@@ -1,6 +1,9 @@
 #pragma once
 
 #include "vectors.h"
+#include "fcolormap.h"
+#include "palentry.h"
+#include "renderstyle.h"
 
 class DPSprite;
 class player_t;
@@ -9,6 +12,8 @@ enum area_t : int;
 struct FSpriteModelFrame;
 struct HWDrawInfo;
 class FGameTexture;
+class FRenderState;
+struct sector_t;
 
 
 struct WeaponPosition2D

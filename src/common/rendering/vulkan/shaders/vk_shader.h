@@ -1,14 +1,19 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <string.h>
 #include <memory>
+#include <list>
+#include <map>
 
 #include "vectors.h"
 #include "matrix.h"
 #include "name.h"
 #include "hw_renderstate.h"
-#include <list>
-#include <map>
+#include "hw_surfaceuniforms.h"
+#include "zstring.h"
+#include "zvulkan/vulkanobjects.h"
 
 class ShaderIncludeResult;
 class VulkanRenderDevice;

@@ -7,12 +7,16 @@
 #define SHADED_TEXTURE -1
 #define DIRECT_PALETTE -2
 
+#include <zvulkan/vulkanobjects.h>
+#include <stdint.h>
+#include <list>
+#include <vector>
+
 #include "tarray.h"
 #include "hw_ihwtexture.h"
-#include <zvulkan/vulkanobjects.h>
 #include "vk_imagetransition.h"
 #include "hw_material.h"
-#include <list>
+#include "vulkan/vulkan_core.h"
 
 struct FMaterialState;
 class VulkanDescriptorSet;
@@ -21,6 +25,7 @@ class VulkanImageView;
 class VulkanBuffer;
 class VulkanRenderDevice;
 class FGameTexture;
+class FTexture;
 
 class VkHardwareTexture : public IHardwareTexture
 {

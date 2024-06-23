@@ -20,20 +20,21 @@
 //--------------------------------------------------------------------------
 //
 
-#include "p_local.h"
+#include <assert.h>
+#include <math.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <algorithm>
+
 #include "p_lnspec.h"
 #include "a_dynlight.h"
-#include "a_sharedglobal.h"
 #include "r_defs.h"
 #include "r_sky.h"
 #include "r_utility.h"
-#include "p_maputl.h"
 #include "doomdata.h"
 #include "g_levellocals.h"
-#include "actorinlines.h"
 #include "texturemanager.h"
 #include "hw_dynlightdata.h"
-#include "hw_material.h"
 #include "hw_cvars.h"
 #include "hw_clock.h"
 #include "hw_lighting.h"
@@ -42,8 +43,28 @@
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_portal.h"
 #include "hw_renderstate.h"
-#include "hw_skydome.h"
 #include "hw_walldispatcher.h"
+#include "basics.h"
+#include "c_cvars.h"
+#include "doom_levelmesh.h"
+#include "doomdef.h"
+#include "fcolormap.h"
+#include "floatrect.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "matrix.h"
+#include "p_3dfloors.h"
+#include "palentry.h"
+#include "palettecontainer.h"
+#include "portal.h"
+#include "r_sections.h"
+#include "renderstyle.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "textures.h"
+#include "v_video.h"
+#include "vectors.h"
+#include "xs_Float.h"
 
 void SetGlowPlanes(FRenderState &state, const secplane_t& top, const secplane_t& bottom)
 {

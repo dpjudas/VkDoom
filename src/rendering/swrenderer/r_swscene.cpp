@@ -25,12 +25,13 @@
 **
 */
 
+#include <stddef.h>
+#include <functional>
+
 #include "hw_ihwtexture.h"
 #include "hw_material.h"
 #include "swrenderer/r_renderer.h"
 #include "r_swscene.h"
-#include "filesystem.h"
-#include "d_player.h"
 #include "bitmap.h"
 #include "swrenderer/scene/r_light.h"
 #include "image.h"
@@ -38,6 +39,19 @@
 #include "texturemanager.h"
 #include "d_main.h"
 #include "v_draw.h"
+#include "gametexture.h"
+#include "palentry.h"
+#include "palettecontainer.h"
+#include "palutil.h"
+#include "r_utility.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "textures.h"
+#include "v_2ddrawer.h"
+#include "v_video.h"
+
+class player_t;
+struct sector_t;
 
 class FSWPaletteTexture : public FImageSource
 {

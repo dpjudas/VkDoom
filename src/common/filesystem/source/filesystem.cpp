@@ -36,17 +36,25 @@
 
 // HEADER FILES ------------------------------------------------------------
 
-#include <miniz.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <inttypes.h>
+#include <assert.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "resourcefile.h"
 #include "fs_filesystem.h"
 #include "fs_findfile.h"
 #include "md5.hpp"
 #include "fs_stringpool.h"
+#include "fs_files.h"
 
 namespace FileSys {
 	

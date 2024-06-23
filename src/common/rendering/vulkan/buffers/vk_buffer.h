@@ -1,8 +1,12 @@
 
 #pragma once
 
-#include "zvulkan/vulkanobjects.h"
+#include <stddef.h>
 #include <list>
+#include <memory>
+
+#include "zvulkan/vulkanobjects.h"
+#include "vulkan/buffers/vk_hwbuffer.h"
 
 class VulkanRenderDevice;
 class VkHardwareBuffer;

@@ -2,7 +2,15 @@
 
 #include <zvulkan/vulkandevice.h>
 #include <zvulkan/vulkanobjects.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <memory>
+#include <mutex>
+#include <utility>
+#include <vector>
+
 #include "zstring.h"
+#include "vulkan/vulkan_core.h"
 
 class VulkanRenderDevice;
 

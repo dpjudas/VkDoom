@@ -1,12 +1,18 @@
 
 #pragma once
 
-#include "hwrenderer/postprocessing/hw_postprocess.h"
 #include <zvulkan/vulkanobjects.h>
+#include <stddef.h>
 #include <list>
+#include <memory>
+#include <vector>
+
+#include "hwrenderer/postprocessing/hw_postprocess.h"
+#include "zstring.h"
 
 class VulkanRenderDevice;
 class ShaderIncludeResult;
+class VulkanShader;
 
 class VkPPShader : public PPShaderBackend
 {

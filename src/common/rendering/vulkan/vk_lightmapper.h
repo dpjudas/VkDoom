@@ -1,8 +1,18 @@
 #pragma once
 
+#include <dp_rect_pack.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <memory>
+
 #include "common/rendering/hwrenderer/data/hw_levelmesh.h"
 #include "zvulkan/vulkanobjects.h"
-#include <dp_rect_pack.h>
+#include "hw_lightmaptile.h"
+#include "tarray.h"
+#include "vectors.h"
+#include "vulkan/vulkan_core.h"
+
+class LevelMesh;
 
 typedef dp::rect_pack::RectPacker<int> RectPacker;
 

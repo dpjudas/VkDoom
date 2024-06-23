@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <memory>
 #include "vectors.h"
+#include "textures.h"
 #include "floatrect.h"
 #include "refcounted.h"
 #include "xs_Float.h"
@@ -11,7 +12,6 @@
 
 // 15 because 0th texture is our texture
 #define MAX_CUSTOM_HW_SHADER_TEXTURES 15
-class FTexture;
 class ISoftwareTexture;
 class FMaterial;
 

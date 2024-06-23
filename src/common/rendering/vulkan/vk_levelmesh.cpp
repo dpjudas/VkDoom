@@ -21,12 +21,32 @@
 */
 
 #include "vk_levelmesh.h"
+
+#include <assert.h>
+#include <string.h>
+#include <utility>
+#include <vector>
+
 #include "zvulkan/vulkanbuilders.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "hw_levelmesh.h"
 #include "hw_material.h"
-#include "texturemanager.h"
+#include "flatvertices.h"
+#include "gametexture.h"
+#include "hw_collision.h"
+#include "hw_levelmeshlight.h"
+#include "hw_levelmeshportal.h"
+#include "hw_levelmeshsurface.h"
+#include "hw_materialstate.h"
+#include "hw_surfaceuniforms.h"
+#include "matrix.h"
+#include "textures.h"
+#include "vulkan/vulkan_core.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
+#include "zvulkan/volk/volk.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
 
 VkLevelMesh::VkLevelMesh(VulkanRenderDevice* fb) : fb(fb)
 {

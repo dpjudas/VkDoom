@@ -21,15 +21,22 @@
 */
 
 #include "vk_commandbuffer.h"
+
+#include <zvulkan/vulkanbuilders.h>
+#include <algorithm>
+#include <limits>
+
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/vk_renderstate.h"
-#include "vulkan/vk_postprocess.h"
 #include "vulkan/framebuffers/vk_framebuffer.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
-#include <zvulkan/vulkanswapchain.h>
-#include <zvulkan/vulkanbuilders.h>
 #include "hw_clock.h"
-#include "v_video.h"
+#include "basics.h"
+#include "stats.h"
+#include "zvulkan/volk/volk.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
+#include "zvulkan/vulkanobjects.h"
 
 extern int rendered_commandbuffers;
 int current_rendered_commandbuffers;

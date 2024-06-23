@@ -21,12 +21,23 @@
 */
 
 #include "vk_ppshader.h"
+
+#include <zvulkan/vulkanbuilders.h>
+#include <functional>
+#include <string>
+#include <utility>
+
 #include "vk_shader.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
-#include <zvulkan/vulkanbuilders.h>
 #include "filesystem.h"
 #include "cmdlib.h"
+#include "engineerrors.h"
+#include "fs_filesystem.h"
+#include "vulkan/vulkan_core.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
+#include "zvulkan/vulkanobjects.h"
 
 VkPPShader::VkPPShader(VulkanRenderDevice* fb, PPShader *shader) : fb(fb)
 {

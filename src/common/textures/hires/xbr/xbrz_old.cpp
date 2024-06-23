@@ -15,9 +15,13 @@
 
 #include "xbrz_old.h"
 
+#include <bits/std_abs.h>
 #include <cassert>
 #include <cmath>
 #include <algorithm>
+#include <type_traits>
+
+#include "xbr/xbrz_config_old.h"
 
 namespace
 {

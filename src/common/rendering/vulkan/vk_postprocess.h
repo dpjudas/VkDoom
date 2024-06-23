@@ -9,13 +9,15 @@
 #include "zvulkan/vulkanobjects.h"
 #include "zvulkan/vulkanbuilders.h"
 #include "vulkan/textures/vk_imagetransition.h"
+#include "vulkan/vulkan_core.h"
 
 class FString;
-
 class VkPPShader;
 class VkPPTexture;
 class PipelineBarrier;
 class VulkanRenderDevice;
+class VkTextureImage;
+struct IntRect;
 
 class VkPostprocess
 {

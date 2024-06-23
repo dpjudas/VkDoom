@@ -25,11 +25,15 @@
 **
 */
 
+#include <stddef.h>
+#include <stdint.h>
+#include <cmath>
+#include <utility>
+
 #include "c_dispatch.h"
 #include "p_maputl.h"
 #include "hw_portal.h"
 #include "hw_clipper.h"
-#include "d_player.h"
 #include "r_sky.h"
 #include "g_levellocals.h"
 #include "hw_renderstate.h"
@@ -38,6 +42,21 @@
 #include "hw_lighting.h"
 #include "hw_drawcontext.h"
 #include "texturemanager.h"
+#include "c_cvars.h"
+#include "dobjgc.h"
+#include "gametexture.h"
+#include "matrix.h"
+#include "palettecontainer.h"
+#include "printf.h"
+#include "r_utility.h"
+#include "renderstyle.h"
+#include "scene/hw_drawinfo.h"
+#include "scene/hw_drawstructs.h"
+#include "stats.h"
+#include "textures.h"
+#include "tflags.h"
+#include "v_video.h"
+#include "zstring.h"
 
 EXTERN_CVAR(Int, r_mirror_recursions)
 EXTERN_CVAR(Bool, gl_portals)

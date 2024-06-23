@@ -3,11 +3,15 @@
 #include "common/utility/tarray.h"
 #include "hw_clipper.h"
 #include "hw_portal.h"
+#include "memarena.h"
+#include "scene/hw_drawinfo.h"
+#include "scene/hw_drawlist.h"
 
 struct HWDrawInfo;
 struct SortNode;
 struct FDynamicLight;
 class HWDrawContext;
+struct sector_t;
 
 class FDrawInfoList
 {

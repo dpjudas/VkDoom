@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 namespace FileSys {
 // Storage for all the static strings the file system must hold.
 class StringPool

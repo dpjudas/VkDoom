@@ -1,12 +1,16 @@
 
 #pragma once
 
-#include "hwrenderer/postprocessing/hw_postprocess.h"
 #include <zvulkan/vulkanobjects.h>
-#include "vulkan/textures/vk_imagetransition.h"
 #include <list>
+#include <memory>
+
+#include "hwrenderer/postprocessing/hw_postprocess.h"
+#include "vulkan/textures/vk_imagetransition.h"
+#include "vulkan/vulkan_core.h"
 
 class VulkanRenderDevice;
+class VulkanBuffer;
 
 class VkPPTexture : public PPTextureBackend
 {

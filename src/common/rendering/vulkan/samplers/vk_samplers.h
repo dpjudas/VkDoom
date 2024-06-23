@@ -1,8 +1,12 @@
 
 #pragma once
 
-#include "zvulkan/vulkanobjects.h"
 #include <array>
+#include <memory>
+
+#include "zvulkan/vulkanobjects.h"
+#include "gametexture.h"
+#include "textures.h"
 
 class VulkanRenderDevice;
 enum class PPFilterMode;

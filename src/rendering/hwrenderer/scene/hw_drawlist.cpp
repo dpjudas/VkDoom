@@ -25,21 +25,28 @@
 **
 */
 
-#include "r_sky.h"
+#include <float.h>
+#include <limits.h>
+#include <string.h>
+#include <algorithm>
+#include <cmath>
+
 #include "r_utility.h"
-#include "doomstat.h"
 #include "actor.h"
 #include "g_levellocals.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawlist.h"
-#include "flatvertices.h"
 #include "hw_clock.h"
 #include "hw_renderstate.h"
 #include "hw_drawinfo.h"
-#include "hw_fakeflat.h"
 #include "hw_drawcontext.h"
 #include "hw_walldispatcher.h"
 #include "hw_flatdispatcher.h"
+#include "c_cvars.h"
+#include "doomdef.h"
+#include "memarena.h"
+#include "stats.h"
+#include "tflags.h"
 
 //==========================================================================
 //

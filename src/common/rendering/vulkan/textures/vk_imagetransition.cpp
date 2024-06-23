@@ -22,6 +22,11 @@
 
 #include "vk_imagetransition.h"
 
+#include <algorithm>
+
+#include "basics.h"
+#include "engineerrors.h"
+
 VkImageTransition& VkImageTransition::AddImage(VkTextureImage *image, VkImageLayout targetLayout, bool undefinedSrcLayout, int baseMipLevel, int levelCount, int baseArrayLayer, int layerCount)
 {
 	if (image->Layout == targetLayout)

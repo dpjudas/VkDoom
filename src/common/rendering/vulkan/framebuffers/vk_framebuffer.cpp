@@ -21,12 +21,13 @@
 */
 
 #include <zvulkan/vulkanobjects.h>
-#include <zvulkan/vulkandevice.h>
 #include <zvulkan/vulkanbuilders.h>
 #include <zvulkan/vulkanswapchain.h>
+
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/vk_postprocess.h"
 #include "vk_framebuffer.h"
+#include "c_cvars.h"
 
 CVAR(Bool, vk_hdr, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 CVAR(Bool, vk_exclusivefullscreen, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);

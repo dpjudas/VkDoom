@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string.h>
+
 #include "tarray.h"
 #include "r_utility.h"
 #include "r_sections.h"
@@ -8,8 +10,19 @@
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hw_renderstate.h"
 #include "hw_material.h"
+#include "basics.h"
+#include "fcolormap.h"
+#include "palentry.h"
+#include "portal.h"
+#include "r_defs.h"
+#include "textureid.h"
+#include "vectors.h"
 
 class FSkyBox;
+class Clipper;
+class FGameTexture;
+class FSkyVertexBuffer;
+struct FRenderViewpoint;
 
 struct HWSkyInfo
 {

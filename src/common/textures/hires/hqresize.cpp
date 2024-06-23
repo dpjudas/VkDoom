@@ -36,10 +36,19 @@
 
 #include "c_cvars.h"
 #include "hqnx/hqx.h"
+#include "gametexture.h"
+#include "hqnx_asm/hqnx_asm_Image.h"
+#include "xbr/xbrz_config.h"
+#include "xbr/xbrz_config_old.h"
 #ifdef HAVE_MMX
 #include "hqnx_asm/hqnx_asm.h"
 #endif
+#include <stddef.h>
+#include <stdint.h>
 #include <memory>
+#include <algorithm>
+#include <limits>
+
 #include "xbr/xbrz.h"
 #include "xbr/xbrz_old.h"
 #include "parallel_for.h"

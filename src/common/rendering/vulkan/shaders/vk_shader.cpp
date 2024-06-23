@@ -21,14 +21,26 @@
 */
 
 #include "vk_shader.h"
+
+#include <zvulkan/vulkanbuilders.h>
+#include <stddef.h>
+#include <functional>
+#include <string>
+
 #include "vk_ppshader.h"
 #include "vulkan/vk_renderdevice.h"
-#include <zvulkan/vulkanbuilders.h>
 #include "hw_shaderpatcher.h"
 #include "filesystem.h"
 #include "engineerrors.h"
-#include "version.h"
 #include "cmdlib.h"
+#include "fs_filesystem.h"
+#include "hwrenderer/postprocessing/hw_postprocess.h"
+#include "renderstyle.h"
+#include "tarray.h"
+#include "textures.h"
+#include "vulkan/vulkan_core.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
 
 VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 {

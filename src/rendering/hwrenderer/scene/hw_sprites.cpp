@@ -25,17 +25,17 @@
 **
 */
 
-#include "p_local.h"
+#include <float.h>
+#include <stdint.h>
+#include <algorithm>
+#include <cmath>
+#include <utility>
+
 #include "p_effect.h"
-#include "g_level.h"
-#include "doomstat.h"
 #include "r_defs.h"
-#include "r_sky.h"
 #include "r_utility.h"
-#include "a_pickups.h"
 #include "d_player.h"
 #include "g_levellocals.h"
-#include "events.h"
 #include "actorinlines.h"
 #include "r_data/r_vanillatrans.h"
 #include "matrix.h"
@@ -43,7 +43,6 @@
 #include "vectors.h"
 #include "texturemanager.h"
 #include "basics.h"
-
 #include "hw_models.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
@@ -53,11 +52,33 @@
 #include "hw_cvars.h"
 #include "hw_clock.h"
 #include "hw_lighting.h"
-#include "hw_material.h"
 #include "hw_dynlightdata.h"
 #include "hw_renderstate.h"
 #include "hw_drawcontext.h"
 #include "quaternion.h"
+#include "actor.h"
+#include "animations.h"
+#include "c_cvars.h"
+#include "dobjgc.h"
+#include "fcolormap.h"
+#include "floatrect.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "hw_texcontainer.h"
+#include "i_interface.h"
+#include "model.h"
+#include "name.h"
+#include "p_3dfloors.h"
+#include "palentry.h"
+#include "palettecontainer.h"
+#include "portal.h"
+#include "renderstyle.h"
+#include "sprites.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "textures.h"
+#include "tflags.h"
+#include "v_draw.h"
 
 extern TArray<spritedef_t> sprites;
 extern TArray<spriteframe_t> SpriteFrames;

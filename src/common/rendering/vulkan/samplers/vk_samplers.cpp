@@ -23,16 +23,19 @@
 #include <zvulkan/vulkanobjects.h>
 #include <zvulkan/vulkandevice.h>
 #include <zvulkan/vulkanbuilders.h>
+#include <stdint.h>
+#include <unordered_set>
+#include <utility>
+
 #include "c_cvars.h"
-#include "v_video.h"
 #include "hw_cvars.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vk_samplers.h"
-#include "hw_material.h"
 #include "i_interface.h"
 #include "hwrenderer/postprocessing/hw_postprocess.h"
-#include <unordered_set>
+#include "vulkan/vulkan_core.h"
+#include "zvulkan/vulkaninstance.h"
 
 struct VkTexFilter
 {

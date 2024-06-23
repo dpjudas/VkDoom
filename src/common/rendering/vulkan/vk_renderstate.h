@@ -1,18 +1,29 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <utility>
+
 #include "vulkan/buffers/vk_hwbuffer.h"
 #include "vulkan/buffers/vk_rsbuffers.h"
 #include "vulkan/shaders/vk_shader.h"
 #include "vulkan/pipelines/vk_renderpass.h"
-
 #include "name.h"
-
 #include "hw_renderstate.h"
 #include "hw_material.h"
+#include "flatvertices.h"
+#include "matrix.h"
+#include "tarray.h"
+#include "vulkan/vulkan_core.h"
 
 class VulkanRenderDevice;
 class VkTextureImage;
+class IBuffer;
+class VkRSBuffers;
+class VulkanCommandBuffer;
+class VulkanImageView;
+struct FDynLightData;
+struct HWViewpointUniforms;
 
 class VkRenderState : public FRenderState
 {

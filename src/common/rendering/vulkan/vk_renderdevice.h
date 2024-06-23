@@ -1,9 +1,17 @@
 #pragma once
 
-#include "base_sysfb.h"
-#include "engineerrors.h"
 #include <zvulkan/vulkandevice.h>
 #include <zvulkan/vulkanobjects.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <functional>
+#include <memory>
+
+#include "base_sysfb.h"
+#include "engineerrors.h"
+#include "hw_lightmaptile.h"
+#include "m_png.h"
+#include "tarray.h"
 
 struct FRenderViewpoint;
 class VkSamplerManager;
@@ -24,6 +32,24 @@ class VkRenderBuffers;
 class VkPostprocess;
 class VkPipelineKey;
 class VkRenderPassSetup;
+class FCanvasTexture;
+class FGameTexture;
+class FMaterial;
+class FRenderState;
+class FTexture;
+class IBuffer;
+class IHardwareTexture;
+class LevelMesh;
+class VulkanDevice;
+class VulkanSurface;
+namespace hwrenderer {
+class LevelAABBTree;
+}  // namespace hwrenderer
+struct FMaterialState;
+struct FVertexBufferAttribute;
+struct IntRect;
+struct MeshApplyData;
+struct SurfaceUniforms;
 
 class VulkanRenderDevice : public SystemBaseFrameBuffer
 {

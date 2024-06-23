@@ -32,9 +32,15 @@
 **
 */
 
+#include <stddef.h>
+#include <string>
+
 #include "resourcefile.h"
+#include "fs_decompress.h"
+#include "fs_files.h"
 
 namespace FileSys {
+class StringPool;
 //==========================================================================
 //
 // Open it

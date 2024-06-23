@@ -1,11 +1,17 @@
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+#include <list>
+#include <memory>
+
 #include "hwrenderer/data/buffers.h"
 #include "zvulkan/vulkanobjects.h"
 #include "tarray.h"
-#include <list>
+#include "vulkan/vulkan_core.h"
 
 class VulkanRenderDevice;
+class VulkanBuffer;
 
 class VkHardwareBuffer : public IBuffer
 {

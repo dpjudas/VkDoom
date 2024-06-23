@@ -35,19 +35,28 @@
 
 // Caution: LzmaDec also pulls in windows.h!
 #define NOMINMAX
+#include <miniz.h>
+#include <bzlib.h>
+#include <7zTypes.h>
+#include <assert.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <algorithm>
+#include <exception>
+#include <utility>
+
 #include "LzmaDec.h"
 #include "Xz.h"
 // CRC table needs to be generated prior to reading XZ compressed files.
 #include "7zCrc.h"
-#include <miniz.h>
-#include <bzlib.h>
-#include <algorithm>
-#include <stdexcept>
-
 #include "fs_files.h"
 #include "files_internal.h"
 #include "ancientzip.h"
 #include "fs_decompress.h"
+#include "fs_swap.h"
 
 namespace FileSys {
 	using namespace byteswap;
@@ -251,6 +260,7 @@ public:
 //==========================================================================
 
 class DecompressorBZ2;
+
 static DecompressorBZ2 * stupidGlobal;	// Why does that dumb global error callback not pass the decompressor state?
 										// Thanks to that brain-dead interface we have to use a global variable to get the error to the proper handler.
 

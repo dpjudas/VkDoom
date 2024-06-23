@@ -1,6 +1,9 @@
 
 #include "hw_drawcontext.h"
+
 #include "hw_drawinfo.h"
+#include "r_defs.h"
+#include "tarray.h"
 
 //==========================================================================
 //

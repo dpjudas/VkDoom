@@ -37,7 +37,11 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stddef.h>
+#include <assert.h>
+#include <stdint.h>
 #include <string>
+#include <utility>
+
 #include "tarray.h"
 #include "utf8.h"
 #include "filesystem.h"

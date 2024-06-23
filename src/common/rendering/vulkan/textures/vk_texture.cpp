@@ -21,11 +21,24 @@
 */
 
 #include "vk_texture.h"
+
+#include <assert.h>
+#include <stddef.h>
+#include <utility>
+
 #include "vk_hwtexture.h"
 #include "vk_pptexture.h"
 #include "vk_renderbuffers.h"
 #include "vulkan/vk_postprocess.h"
 #include "hw_cvars.h"
+#include "c_cvars.h"
+#include "engineerrors.h"
+#include "hwrenderer/postprocessing/hw_postprocess.h"
+#include "vulkan/commands/vk_commandbuffer.h"
+#include "vulkan/vk_renderdevice.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
+#include "zvulkan/vulkanbuilders.h"
+#include "zvulkan/vulkanobjects.h"
 
 VkTextureManager::VkTextureManager(VulkanRenderDevice* fb) : fb(fb)
 {

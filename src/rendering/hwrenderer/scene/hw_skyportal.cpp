@@ -20,16 +20,20 @@
 //--------------------------------------------------------------------------
 //
 
-#include "doomtype.h"
-#include "g_level.h"
-#include "filesystem.h"
-#include "r_state.h"
-#include "r_utility.h"
+#include <algorithm>
+
 #include "g_levellocals.h"
 #include "hw_skydome.h"
 #include "hwrenderer/scene/hw_portal.h"
 #include "hw_renderstate.h"
 #include "skyboxtexture.h"
+#include "basics.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "palentry.h"
+#include "renderstyle.h"
+#include "scene/hw_drawinfo.h"
+#include "textures.h"
 
 //-----------------------------------------------------------------------------
 //

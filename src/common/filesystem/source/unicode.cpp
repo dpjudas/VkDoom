@@ -33,6 +33,9 @@
 */
 
 #include "unicode.h"
+
+#include <stdint.h>
+
 #include "utf8proc.h"
 
 namespace FileSys {

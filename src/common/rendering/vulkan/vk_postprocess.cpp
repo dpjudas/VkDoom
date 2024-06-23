@@ -21,26 +21,30 @@
 */
 
 #include "vk_postprocess.h"
-#include "vulkan/shaders/vk_shader.h"
+
 #include <zvulkan/vulkanswapchain.h>
-#include <zvulkan/vulkanbuilders.h>
+#include <stdint.h>
+#include <algorithm>
+#include <memory>
+
 #include "vulkan/vk_renderdevice.h"
-#include "vulkan/buffers/vk_hwbuffer.h"
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_pprenderstate.h"
-#include "vulkan/shaders/vk_ppshader.h"
-#include "vulkan/textures/vk_pptexture.h"
 #include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/textures/vk_imagetransition.h"
 #include "vulkan/textures/vk_texture.h"
 #include "vulkan/framebuffers/vk_framebuffer.h"
-#include "hw_cvars.h"
 #include "hwrenderer/postprocessing/hw_postprocess.h"
 #include "hwrenderer/postprocessing/hw_postprocess_cvars.h"
 #include "hw_vrmodes.h"
-#include "flatvertices.h"
 #include "r_videoscale.h"
+#include "basics.h"
+#include "c_cvars.h"
+#include "intrect.h"
+#include "v_video.h"
+#include "vectors.h"
+#include "zvulkan/vulkanobjects.h"
 
 EXTERN_CVAR(Int, gl_dither_bpc)
 

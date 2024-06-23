@@ -25,20 +25,30 @@
 **
 */
 
-#include "c_dispatch.h"
-#include "a_dynlight.h" 
-#include "p_local.h"
+#include <stddef.h>
+#include <stdint.h>
+#include <cmath>	// needed for std::floor on mac
+#include <algorithm>
+
+#include "a_dynlight.h"
 #include "p_effect.h"
-#include "g_level.h"
 #include "g_levellocals.h"
-#include "actorinlines.h"
 #include "hw_drawcontext.h"
 #include "hw_dynlightdata.h"
 #include "hw_shadowmap.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "models.h"
-#include <cmath>	// needed for std::floor on mac
+#include "actor.h"
+#include "dobjgc.h"
+#include "doom_levelmesh.h"
+#include "portal.h"
+#include "r_defs.h"
+#include "r_sections.h"
+#include "r_utility.h"
+#include "tarray.h"
+#include "v_video.h"
+#include "vectors.h"
 
 template<class T>
 T smoothstep(const T edge0, const T edge1, const T x)

@@ -32,9 +32,10 @@
 **
 */
 
-#include <stdlib.h>
 #include <string.h>
+
 #include "x86.h"
+#include "basics.h"
 
 CPUInfo CPU;
 
@@ -54,7 +55,6 @@ FString DumpCPUInfo(const CPUInfo *cpu, bool brief)
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
-#include <emmintrin.h>
 
 
 #ifdef __GNUC__

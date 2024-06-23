@@ -1,13 +1,16 @@
 
 #pragma once
 
-#include "zvulkan/vulkanobjects.h"
 #include <array>
 #include <map>
+#include <memory>
+
+#include "zvulkan/vulkanobjects.h"
 
 class VulkanRenderDevice;
 enum class PPFilterMode;
 enum class PPWrapMode;
+class VulkanSwapChain;
 
 class VkFramebufferManager
 {

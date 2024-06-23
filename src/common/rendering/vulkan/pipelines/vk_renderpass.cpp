@@ -21,21 +21,22 @@
 */
 
 #include "vk_renderpass.h"
+
+#include <zvulkan/vulkanbuilders.h>
+
 #include "vk_pprenderpass.h"
-#include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_renderdevice.h"
-#include "vulkan/vk_levelmesh.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/textures/vk_renderbuffers.h"
-#include "vulkan/samplers/vk_samplers.h"
 #include "vulkan/shaders/vk_shader.h"
-#include "vulkan/buffers/vk_hwbuffer.h"
-#include <zvulkan/vulkanbuilders.h>
-#include "flatvertices.h"
-#include "hw_viewpointuniforms.h"
-#include "v_2ddrawer.h"
 #include "i_specialpaths.h"
 #include "cmdlib.h"
+#include "buffers.h"
+#include "files.h"
+#include "fs_files.h"
+#include "hw_renderstate.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
 
 VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 {

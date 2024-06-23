@@ -21,13 +21,19 @@
 //
 
 
+#include <stddef.h>
+#include <utility>
+
 #include "r_defs.h"
 #include "flatvertices.h"
 #include "hw_renderstate.h"
-#include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "doom_levelmesh.h"
 #include "g_levellocals.h"
+#include "c_cvars.h"
+#include "hw_lightmaptile.h"
+#include "tarray.h"
+#include "vectors.h"
 
 EXTERN_CVAR(Bool, gl_seamless)
 

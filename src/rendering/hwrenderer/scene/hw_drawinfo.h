@@ -1,7 +1,9 @@
 #pragma once
 
+#include <stdint.h>
 #include <atomic>
 #include <functional>
+
 #include "vectors.h"
 #include "r_defs.h"
 #include "r_utility.h"
@@ -11,6 +13,24 @@
 #include "hw_drawlist.h"
 #include "hw_renderstate.h"
 #include "g_levellocals.h"
+#include "basics.h"
+#include "c_cvars.h"
+#include "doom_levelmesh.h"
+#include "doomtype.h"
+#include "files.h"
+#include "hw_levelmeshsurface.h"
+#include "hw_lightmaptile.h"
+#include "palentry.h"
+#include "tarray.h"
+
+class AActor;
+class player_t;
+namespace FileSys {
+class FileWriter;
+}  // namespace FileSys
+struct FColormap;
+struct FLightNode;
+struct IntRect;
 
 EXTERN_CVAR(Bool, lm_always_update);
 EXTERN_CVAR(Int, lm_max_updates);

@@ -33,6 +33,7 @@
 */
 
 #include "fs_findfile.h"
+
 #include <string.h>
 #include <vector>
 
@@ -43,10 +44,8 @@
 #ifdef __FreeBSD__
 #include <sys/time.h>
 #endif
-#include <unistd.h>
 #include <fnmatch.h>
 #include <sys/stat.h>
-
 #include <dirent.h>
 
 #else

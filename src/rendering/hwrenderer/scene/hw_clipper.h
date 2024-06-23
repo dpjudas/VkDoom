@@ -1,9 +1,15 @@
 #pragma once
 
+#include <stddef.h>
+
 #include "doomtype.h"
 #include "xs_Float.h"
 #include "r_utility.h"
 #include "memarena.h"
+#include "basics.h"
+#include "r_defs.h"
+
+struct FRenderViewpoint;
 
 class ClipNode
 {

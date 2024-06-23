@@ -1,5 +1,11 @@
  
 #include "vk_lightmapper.h"
+
+#include <algorithm>
+#include <functional>
+#include <string>
+#include <vector>
+
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/textures/vk_texture.h"
 #include "vulkan/commands/vk_commandbuffer.h"
@@ -8,6 +14,18 @@
 #include "zvulkan/vulkanbuilders.h"
 #include "filesystem.h"
 #include "cmdlib.h"
+#include "c_cvars.h"
+#include "engineerrors.h"
+#include "flatvertices.h"
+#include "fs_filesystem.h"
+#include "hw_levelmesh.h"
+#include "hw_levelmeshsurface.h"
+#include "stats.h"
+#include "vulkan/textures/vk_imagetransition.h"
+#include "zstring.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
 
 static int lastSurfaceCount;
 static glcycle_t lightmapRaytraceLast;

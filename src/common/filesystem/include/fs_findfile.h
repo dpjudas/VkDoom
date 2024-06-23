@@ -2,6 +2,7 @@
 // Directory searching routines
 
 #include <stdint.h>
+#include <stddef.h>
 #include <vector>
 #include <string>
 
@@ -22,6 +23,7 @@ struct FileListEntry
 using FileList = std::vector<FileListEntry>;
 
 struct FCompressedBuffer;
+
 bool ScanDirectory(std::vector<FileListEntry>& list, const char* dirpath, const char* match, bool nosubdir = false, bool readhidden = false);
 bool FS_DirEntryExists(const char* pathname, bool* isdir);
 

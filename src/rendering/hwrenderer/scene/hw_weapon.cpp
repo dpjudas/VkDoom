@@ -25,7 +25,8 @@
 **
 */
 
-#include "sbar.h"
+#include <utility>
+
 #include "r_utility.h"
 #include "v_video.h"
 #include "doomstat.h"
@@ -35,18 +36,36 @@
 #include "hw_weapon.h"
 #include "hw_fakeflat.h"
 #include "texturemanager.h"
-
 #include "hw_models.h"
 #include "hw_dynlightdata.h"
-#include "hw_material.h"
 #include "hw_lighting.h"
 #include "hw_cvars.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "flatvertices.h"
 #include "hw_renderstate.h"
-
 #include "vm.h"
+#include "a_pickups.h"
+#include "actor.h"
+#include "base_sbar.h"
+#include "c_cvars.h"
+#include "dobject.h"
+#include "dobjgc.h"
+#include "floatrect.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "hw_texcontainer.h"
+#include "info.h"
+#include "name.h"
+#include "p_3dfloors.h"
+#include "p_pspr.h"
+#include "palettecontainer.h"
+#include "r_defs.h"
+#include "r_state.h"
+#include "sprites.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "textures.h"
 
 EXTERN_CVAR(Float, transsouls)
 EXTERN_CVAR(Int, gl_fuzztype)

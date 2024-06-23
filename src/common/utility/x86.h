@@ -1,6 +1,8 @@
 #ifndef X86_H
 #define X86_H
 
+#include <stdint.h>
+
 #include "basics.h"
 #include "zstring.h"
 

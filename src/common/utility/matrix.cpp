@@ -10,8 +10,8 @@ This is a simplified version of VSMatrix that has been adjusted for GZDoom's nee
 
 ----------------------------------------------------*/
 
-#include <algorithm>
-#include <math.h>
+#include <cmath>
+
 #include "matrix.h"
 
 #ifdef _MSC_VER

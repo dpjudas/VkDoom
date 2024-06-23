@@ -35,10 +35,16 @@
 */
 
 
+#include <stdint.h>
+#include <string.h>
+
 #include "resourcefile.h"
 #include "fs_swap.h"
+#include "fs_files.h"
 
 namespace FileSys {
+class StringPool;
+
     using namespace byteswap;
 
 

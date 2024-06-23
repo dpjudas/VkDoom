@@ -25,24 +25,34 @@
 **
 */
 
-#include "a_sharedglobal.h"
+#include <stddef.h>
+#include <stdint.h>
+#include <utility>
+
 #include "a_dynlight.h"
 #include "r_utility.h"
 #include "r_sky.h"
 #include "g_levellocals.h"
-#include "a_dynlight.h"
 #include "texturemanager.h"
-
 #include "hw_drawcontext.h"
 #include "hw_drawinfo.h"
 #include "hw_drawstructs.h"
 #include "hw_clock.h"
 #include "hw_dynlightdata.h"
 #include "flatvertices.h"
-#include "hwrenderer/scene/hw_portal.h"
 #include "hw_fakeflat.h"
 #include "hw_walldispatcher.h"
 #include "hw_flatdispatcher.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "hw_renderstate.h"
+#include "memarena.h"
+#include "p_3dfloors.h"
+#include "r_defs.h"
+#include "r_sections.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "vectors.h"
 
 //==========================================================================
 //

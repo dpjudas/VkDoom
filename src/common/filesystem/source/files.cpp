@@ -33,12 +33,17 @@
 **
 */
 
+#include <assert.h>
+#include <string.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <string>
 #include <memory>
 #include <algorithm>
-#include <assert.h>
-#include <string.h>
+#include <vector>
+
 #include "files_internal.h"
+#include "fs_files.h"
 
 namespace FileSys {
 	

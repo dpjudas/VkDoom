@@ -1,15 +1,20 @@
 #pragma once
 #pragma once
 
+#include <memory>
+
 #include "r_defs.h"
 #include "m_fixed.h"
 #include "hwrenderer/scene/hw_clipper.h"
 #include "r_utility.h"
 #include "c_cvars.h"
-#include <memory>
 
 class FWrapperTexture;
 class DCanvas;
+class FGameTexture;
+class FTexture;
+class player_t;
+struct sector_t;
 
 class SWSceneDrawer
 {

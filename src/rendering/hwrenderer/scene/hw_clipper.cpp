@@ -36,8 +36,14 @@
 */
 
 #include "hw_clipper.h"
-#include "g_levellocals.h"
+
+#include <math.h>
+#include <stdint.h>
+
 #include "basics.h"
+#include "m_bbox.h"
+#include "r_utility.h"
+#include "xs_Float.h"
 
 //-----------------------------------------------------------------------------
 //

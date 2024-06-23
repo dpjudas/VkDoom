@@ -33,11 +33,14 @@
 */
 
 #include "findfile.h"
+
+#include <dirent.h>
+#include <stddef.h>
+
 #include "zstring.h"
 #include "cmdlib.h"
 #include "printf.h"
 #include "configfile.h"
-#include "i_system.h"
 #include "fs_findfile.h"
 
 #ifdef __unix__

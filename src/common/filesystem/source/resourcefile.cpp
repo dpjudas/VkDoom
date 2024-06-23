@@ -35,15 +35,25 @@
 */
 
 #include <miniz.h>
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <algorithm>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "resourcefile.h"
 #include "md5.hpp"
 #include "fs_stringpool.h"
-#include "files_internal.h"
 #include "unicode.h"
 #include "fs_findfile.h"
 #include "fs_decompress.h"
 #include "wildcards.hpp"
-#include <algorithm>
+#include "fs_files.h"
 
 namespace FileSys {
 	

@@ -34,16 +34,22 @@
 */
 
 #include <time.h>
-#include <stdexcept>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 #include <cstdint>
+#include <algorithm>
+#include <string>
+
 #include "w_zip.h"
-#include "ancientzip.h"
 #include "resourcefile.h"
-#include "fs_findfile.h"
 #include "fs_swap.h"
-#include "fs_stringpool.h"
+#include "fs_decompress.h"
+#include "fs_files.h"
 
 namespace FileSys {
+class StringPool;
+
 	using namespace byteswap;
 
 #define BUFREADCOMMENT (0x400)

@@ -21,9 +21,17 @@
 */
 
 #include "vk_pptexture.h"
+
+#include <string.h>
+#include <utility>
+
 #include "vk_texture.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
+#include "engineerrors.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
+#include "zvulkan/vulkanbuilders.h"
+#include "zvulkan/vulkanobjects.h"
 
 VkPPTexture::VkPPTexture(VulkanRenderDevice* fb, PPTexture *texture) : fb(fb)
 {

@@ -34,11 +34,18 @@
 **
 */
 
+#include <stdint.h>
+#include <stdio.h>
+#include <string>
+
 #include "resourcefile.h"
-#include "fs_stringpool.h"
 #include "fs_swap.h"
+#include "fs_decompress.h"
+#include "fs_files.h"
 
 namespace FileSys {
+class StringPool;
+
 	using namespace byteswap;
 
 //==========================================================================

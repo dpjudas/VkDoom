@@ -49,6 +49,7 @@ enum
 };
 
 struct subsector_t;
+struct sector_t;
 struct FLevelLocals;
 
 // [RH] Particle details

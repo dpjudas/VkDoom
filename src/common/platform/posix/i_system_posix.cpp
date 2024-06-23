@@ -28,14 +28,18 @@
 **---------------------------------------------------------------------------
 **
 */
-#include <fnmatch.h>
 
 #ifdef __APPLE__
 #include <AvailabilityMacros.h>
 #endif // __APPLE__
 
-#include "cmdlib.h"
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "i_system.h"
+#include "tarray.h"
+#include "zstring.h"
 
 
 bool I_WriteIniFailed(const char * filename)

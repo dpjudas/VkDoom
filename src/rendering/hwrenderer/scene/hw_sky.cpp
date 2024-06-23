@@ -20,9 +20,9 @@
 //--------------------------------------------------------------------------
 //
 
-#include "a_sharedglobal.h"
+#include <string.h>
+
 #include "r_sky.h"
-#include "r_state.h"
 #include "r_utility.h"
 #include "doomdata.h"
 #include "g_levellocals.h"
@@ -31,9 +31,21 @@
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_portal.h"
-#include "hw_lighting.h"
-#include "hw_material.h"
 #include "hw_walldispatcher.h"
+#include "c_cvars.h"
+#include "dobjgc.h"
+#include "doomdef.h"
+#include "fcolormap.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "palentry.h"
+#include "portal.h"
+#include "r_defs.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "v_video.h"
+
+class FRenderState;
 
 CVAR(Bool,gl_noskyboxes, false, 0)
 

@@ -34,11 +34,19 @@
 */
 
 
-#include <sys/stat.h>
+#include <ctype.h>
+#include <errno.h>
+#include <stdint.h>
+#include <string.h>
+#include <functional>
+#include <string>
+#include <vector>
 
 #include "resourcefile.h"
 #include "fs_findfile.h"
 #include "fs_stringpool.h"
+#include "fs_decompress.h"
+#include "fs_files.h"
 
 namespace FileSys {
 	

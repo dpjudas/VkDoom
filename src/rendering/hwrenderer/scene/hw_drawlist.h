@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memarena.h"
+#include "tarray.h"
 
 struct HWDrawInfo;
 class HWWall;

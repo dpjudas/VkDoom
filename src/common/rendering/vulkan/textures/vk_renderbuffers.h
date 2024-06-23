@@ -3,10 +3,13 @@
 
 #include "zvulkan/vulkanobjects.h"
 #include "vulkan/textures/vk_imagetransition.h"
+#include "vulkan/vulkan_core.h"
 
 class VulkanRenderDevice;
 class VkPPRenderPassSetup;
 class PPOutput;
+class VkRenderPassKey;
+class VulkanFramebuffer;
 
 enum class WhichDepthStencil {
 	None,

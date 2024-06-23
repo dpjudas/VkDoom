@@ -1,7 +1,10 @@
 #pragma once
+#include <vector>
+
 #include "fs_files.h"
 
 namespace FileSys {
+class FileReader;
 	
 class FZipExploder
 {

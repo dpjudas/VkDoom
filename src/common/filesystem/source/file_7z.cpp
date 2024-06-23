@@ -33,17 +33,26 @@
 **
 */
 
+#include <7zTypes.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+#include <mutex>
+#include <string>
+#include <vector>
+
 // Note that 7z made the unwise decision to include windows.h :(
 #include "7z.h"
 #include "7zCrc.h"
 #include "resourcefile.h"
-#include "fs_findfile.h"
 #include "unicode.h"
 #include "critsec.h"
-#include <mutex>
+#include "fs_decompress.h"
+#include "fs_files.h"
 
 
 namespace FileSys {
+class StringPool;
 	
 //-----------------------------------------------------------------------
 //

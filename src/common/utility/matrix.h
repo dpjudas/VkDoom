@@ -21,6 +21,10 @@
 #define __VSMatrix__
 
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
+#include <xmmintrin.h>
+
 #include "vectors.h"
 
 #ifdef USE_DOUBLE

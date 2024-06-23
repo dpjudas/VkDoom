@@ -1,6 +1,9 @@
 #pragma once
 
 class HWDrawContext;
+struct sector_t;
+struct side_t;
+struct vertex_t;
 
 enum area_t : int
 {

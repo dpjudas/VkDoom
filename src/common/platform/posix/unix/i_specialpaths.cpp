@@ -34,13 +34,15 @@
 */
 
 #include <sys/stat.h>
-#include <sys/types.h>
-#include "i_system.h"
-#include "cmdlib.h"
-#include "printf.h"
-#include "engineerrors.h"
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "cmdlib.h"
+#include "engineerrors.h"
 #include "version.h"	// for GAMENAME
+#include "zstring.h"
 
 
 FString GetUserFile (const char *file)

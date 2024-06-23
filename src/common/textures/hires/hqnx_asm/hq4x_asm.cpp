@@ -19,6 +19,7 @@
 
 
 #include "hqnx_asm.h"
+#include "hqnx_asm/hqnx_asm_Image.h"
 
 namespace HQnX_asm
 {

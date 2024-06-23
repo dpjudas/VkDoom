@@ -21,12 +21,14 @@
 */
 
 
-#include "c_cvars.h"
-#include "hw_material.h"
-#include "hw_cvars.h"
-#include "hw_renderstate.h"
 #include <zvulkan/vulkanobjects.h>
 #include <zvulkan/vulkanbuilders.h>
+#include <string.h>
+#include <algorithm>
+#include <memory>
+#include <utility>
+
+#include "hw_material.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/vk_postprocess.h"
 #include "vulkan/commands/vk_commandbuffer.h"
@@ -34,8 +36,15 @@
 #include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/textures/vk_texture.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
-#include "vulkan/shaders/vk_shader.h"
 #include "vk_hwtexture.h"
+#include "basics.h"
+#include "gametexture.h"
+#include "hw_materialstate.h"
+#include "hw_texcontainer.h"
+#include "palettecontainer.h"
+#include "textures.h"
+#include "vulkan/textures/vk_imagetransition.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
 
 VkHardwareTexture::VkHardwareTexture(VulkanRenderDevice* fb, int numchannels) : fb(fb)
 {

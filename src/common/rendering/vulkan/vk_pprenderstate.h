@@ -1,14 +1,19 @@
 
 #pragma once
 
-#include "hwrenderer/postprocessing/hw_postprocess.h"
 #include <zvulkan/vulkanobjects.h>
+#include <stdint.h>
+
+#include "hwrenderer/postprocessing/hw_postprocess.h"
+#include "zstring.h"
 
 class VkPPRenderPassSetup;
 class VkPPShader;
 class VkPPTexture;
 class VkTextureImage;
 class VulkanRenderDevice;
+class VulkanDescriptorSet;
+class VulkanFramebuffer;
 
 class VkPPRenderState : public PPRenderState
 {

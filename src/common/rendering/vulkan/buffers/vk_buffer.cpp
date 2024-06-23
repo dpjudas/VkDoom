@@ -21,12 +21,16 @@
 */
 
 #include "vk_buffer.h"
+
+#include <stdint.h>
+#include <vector>
+
 #include "vk_hwbuffer.h"
 #include "vk_rsbuffers.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/pipelines/vk_renderpass.h"
-#include "vulkan/commands/vk_commandbuffer.h"
-#include <zvulkan/vulkanbuilders.h>
+#include "buffers.h"
+#include "tarray.h"
 
 VkBufferManager::VkBufferManager(VulkanRenderDevice* fb) : fb(fb)
 {

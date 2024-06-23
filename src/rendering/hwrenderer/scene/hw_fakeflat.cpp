@@ -25,18 +25,20 @@
 **
 */
 
-#include "p_lnspec.h"
-#include "p_local.h"
+#include <assert.h>
+#include <string.h>
+
 #include "g_levellocals.h"
-#include "a_sharedglobal.h"
-#include "d_player.h"
 #include "r_sky.h"
 #include "hw_fakeflat.h"
-#include "hw_drawinfo.h"
-#include "hw_cvars.h"
 #include "hw_drawcontext.h"
-#include "r_utility.h"
 #include "texturemanager.h"
+#include "gametexture.h"
+#include "memarena.h"
+#include "portal.h"
+#include "r_defs.h"
+#include "tarray.h"
+#include "textureid.h"
 
 extern thread_local bool isWorkerThread;
 

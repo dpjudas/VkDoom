@@ -45,8 +45,11 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include <memory>
+
 #include "ancientzip.h"
+#include "fs_files.h"
 
 namespace FileSys {
 	

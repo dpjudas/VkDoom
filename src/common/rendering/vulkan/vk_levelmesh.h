@@ -1,9 +1,15 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+#include <memory>
+
 #include "zvulkan/vulkanobjects.h"
 #include "hw_levelmesh.h"
 #include "common/utility/matrix.h"
+#include "tarray.h"
+#include "vectors.h"
 
 class VulkanRenderDevice;
 

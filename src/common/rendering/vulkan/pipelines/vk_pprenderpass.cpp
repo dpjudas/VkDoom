@@ -21,11 +21,13 @@
 */
 
 #include "vk_pprenderpass.h"
-#include "vulkan/vk_renderstate.h"
+
+#include <zvulkan/vulkanbuilders.h>
+
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/shaders/vk_ppshader.h"
 #include "vulkan/textures/vk_renderbuffers.h"
-#include <zvulkan/vulkanbuilders.h>
+#include "vulkan/pipelines/vk_renderpass.h"
 
 VkPPRenderPassSetup::VkPPRenderPassSetup(VulkanRenderDevice* fb, const VkPPRenderPassKey& key) : fb(fb)
 {

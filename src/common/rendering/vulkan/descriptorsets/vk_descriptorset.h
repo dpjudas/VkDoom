@@ -1,9 +1,11 @@
 
 #pragma once
 
+#include <list>
+#include <memory>
+
 #include "zvulkan/vulkanobjects.h"
 #include "zvulkan/vulkanbuilders.h"
-#include <list>
 #include "tarray.h"
 
 class VulkanRenderDevice;

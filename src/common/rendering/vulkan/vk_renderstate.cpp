@@ -21,6 +21,14 @@
 */
 
 #include "vk_renderstate.h"
+
+#include <zvulkan/vulkanbuilders.h>
+#include <string.h>
+#include <algorithm>
+#include <map>
+#include <memory>
+#include <vector>
+
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/vk_levelmesh.h"
 #include "vulkan/commands/vk_commandbuffer.h"
@@ -29,14 +37,35 @@
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/textures/vk_hwtexture.h"
-#include <zvulkan/vulkanbuilders.h>
-
-#include "hw_skydome.h"
 #include "hw_viewpointuniforms.h"
 #include "hw_dynlightdata.h"
 #include "hw_cvars.h"
 #include "hw_clock.h"
 #include "flatvertices.h"
+#include "basics.h"
+#include "c_cvars.h"
+#include "engineerrors.h"
+#include "gametexture.h"
+#include "hw_levelmesh.h"
+#include "hw_material.h"
+#include "hw_materialstate.h"
+#include "hw_surfaceuniforms.h"
+#include "palentry.h"
+#include "renderstyle.h"
+#include "stats.h"
+#include "textures.h"
+#include "v_video.h"
+#include "vectors.h"
+#include "vulkan/buffers/vk_hwbuffer.h"
+#include "vulkan/buffers/vk_rsbuffers.h"
+#include "vulkan/textures/vk_imagetransition.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
+#include "zvulkan/volk/volk.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
+#include "zvulkan/vulkanobjects.h"
+
+class IBuffer;
 
 CVAR(Int, vk_submit_size, 1000, 0);
 EXTERN_CVAR(Bool, r_skipmats)

@@ -2,8 +2,13 @@
 #pragma once
 
 #include <zvulkan/vulkanobjects.h>
-#include "vulkan/textures/vk_imagetransition.h"
+#include <stdint.h>
 #include <list>
+#include <memory>
+
+#include "vulkan/textures/vk_imagetransition.h"
+#include "tarray.h"
+#include "vulkan/vulkan_core.h"
 
 class VulkanRenderDevice;
 class VkHardwareTexture;
@@ -12,6 +17,8 @@ class VkPPTexture;
 class VkTextureImage;
 enum class PPTextureType;
 class PPTexture;
+class VulkanImage;
+class VulkanImageView;
 
 class VkTextureManager
 {

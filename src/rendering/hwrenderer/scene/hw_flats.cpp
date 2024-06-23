@@ -25,22 +25,23 @@
 **
 */
 
-#include "a_sharedglobal.h"
+#include <float.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <utility>
+
 #include "a_dynlight.h"
 #include "r_defs.h"
 #include "r_sky.h"
 #include "r_utility.h"
-#include "doomstat.h"
-#include "d_player.h"
 #include "g_levellocals.h"
-#include "actorinlines.h"
 #include "p_lnspec.h"
 #include "matrix.h"
 #include "hw_dynlightdata.h"
 #include "hw_cvars.h"
 #include "hw_clock.h"
 #include "hw_lighting.h"
-#include "hw_material.h"
 #include "hw_drawcontext.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "flatvertices.h"
@@ -48,6 +49,23 @@
 #include "hw_renderstate.h"
 #include "texturemanager.h"
 #include "hw_flatdispatcher.h"
+#include "c_cvars.h"
+#include "doom_levelmesh.h"
+#include "fcolormap.h"
+#include "gametexture.h"
+#include "p_3dfloors.h"
+#include "palentry.h"
+#include "palettecontainer.h"
+#include "r_sections.h"
+#include "renderstyle.h"
+#include "scene/hw_portal.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "textures.h"
+#include "vectors.h"
+#include "xs_Float.h"
+
+struct FSectorPortal;
 
 #ifdef _DEBUG
 CVAR(Int, gl_breaksec, -1, 0)

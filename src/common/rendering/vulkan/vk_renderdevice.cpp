@@ -21,25 +21,25 @@
 */
 
 #include <zvulkan/vulkanobjects.h>
-
 #include <inttypes.h>
+#include <zvulkan/vulkanbuilders.h>
+#include <zvulkan/vulkansurface.h>
+#include <zvulkan/vulkancompatibledevice.h>
+#include <string.h>
+#include <algorithm>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "v_video.h"
 #include "m_png.h"
-
-#include "r_videoscale.h"
-#include "i_time.h"
-#include "v_text.h"
 #include "version.h"
 #include "v_draw.h"
-
 #include "hw_clock.h"
-#include "hw_vrmodes.h"
 #include "hw_cvars.h"
 #include "hw_skydome.h"
 #include "flatvertices.h"
 #include "hw_meshbuilder.h"
-
 #include "vk_renderdevice.h"
 #include "vulkan/vk_renderstate.h"
 #include "vulkan/vk_postprocess.h"
@@ -56,15 +56,37 @@
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vulkan/buffers/vk_hwbuffer.h"
 #include "vulkan/buffers/vk_buffer.h"
-#include "vulkan/buffers/vk_rsbuffers.h"
-#include <zvulkan/vulkanswapchain.h>
-#include <zvulkan/vulkanbuilders.h>
-#include <zvulkan/vulkansurface.h>
-#include <zvulkan/vulkancompatibledevice.h>
 #include "engineerrors.h"
 #include "c_dispatch.h"
 #include "menu.h"
 #include "cmdlib.h"
+#include "basics.h"
+#include "buffers.h"
+#include "c_cvars.h"
+#include "gametexture.h"
+#include "hw_aabbtree.h"
+#include "hw_levelmesh.h"
+#include "hw_material.h"
+#include "hw_materialstate.h"
+#include "hw_renderstate.h"
+#include "hw_shadowmap.h"
+#include "hw_surfaceuniforms.h"
+#include "intrect.h"
+#include "printf.h"
+#include "renderstyle.h"
+#include "stats.h"
+#include "textureid.h"
+#include "textures.h"
+#include "v_2ddrawer.h"
+#include "vulkan/textures/vk_imagetransition.h"
+#include "vulkan/vulkan_core.h"
+#include "zstring.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
+#include "zvulkan/volk/volk.h"
+#include "zvulkan/vulkandevice.h"
+#include "zvulkan/vulkaninstance.h"
+
+class IHardwareTexture;
 
 FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames, int maxFrames = -1);
 

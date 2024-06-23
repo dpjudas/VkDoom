@@ -21,11 +21,14 @@
 */
 
 #include "vk_descriptorset.h"
+
+#include <zvulkan/vulkanbuilders.h>
+#include <utility>
+
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/vk_levelmesh.h"
 #include "vulkan/shaders/vk_shader.h"
 #include "vulkan/samplers/vk_samplers.h"
-#include "vulkan/textures/vk_renderbuffers.h"
 #include "vulkan/textures/vk_hwtexture.h"
 #include "vulkan/textures/vk_texture.h"
 #include "vulkan/buffers/vk_hwbuffer.h"
@@ -33,10 +36,11 @@
 #include "vulkan/buffers/vk_rsbuffers.h"
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vulkan/pipelines/vk_pprenderpass.h"
-#include <zvulkan/vulkanbuilders.h>
-#include "flatvertices.h"
 #include "hw_viewpointuniforms.h"
-#include "v_2ddrawer.h"
+#include "hwrenderer/postprocessing/hw_postprocess.h"
+#include "textures.h"
+#include "vulkan/textures/vk_imagetransition.h"
+#include "vulkan/vulkan_core.h"
 
 VkDescriptorSetManager::VkDescriptorSetManager(VulkanRenderDevice* fb) : fb(fb)
 {

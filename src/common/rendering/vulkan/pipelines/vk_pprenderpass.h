@@ -1,10 +1,13 @@
 
 #pragma once
 
-#include "zvulkan/vulkanobjects.h"
-#include "hwrenderer/postprocessing/hw_postprocess.h"
 #include <string.h>
 #include <map>
+#include <memory>
+
+#include "zvulkan/vulkanobjects.h"
+#include "hwrenderer/postprocessing/hw_postprocess.h"
+#include "vulkan/vulkan_core.h"
 
 class VulkanRenderDevice;
 class VkPPShader;

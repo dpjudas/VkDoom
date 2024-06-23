@@ -34,11 +34,15 @@
 */
 
 #include <ctype.h>
+#include <stdint.h>
+#include <string.h>
+#include <vector>
+
 #include "resourcefile.h"
-#include "fs_filesystem.h"
 #include "fs_swap.h"
 #include "fs_stringpool.h"
-#include "resourcefile.h"
+#include "fs_decompress.h"
+#include "fs_files.h"
 
 namespace FileSys {
 	using namespace byteswap;

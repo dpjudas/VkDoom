@@ -25,9 +25,15 @@
 **
 */
 
-#include "a_sharedglobal.h"
+#include <assert.h>
+#include <bits/std_abs.h>
+#include <limits.h>
+#include <string.h>
+#include <algorithm>
+#include <cmath>
+#include <utility>
+
 #include "r_utility.h"
-#include "r_sky.h"
 #include "d_player.h"
 #include "g_levellocals.h"
 #include "hw_fakeflat.h"
@@ -36,7 +42,6 @@
 #include "hw_drawinfo.h"
 #include "hw_drawcontext.h"
 #include "hw_walldispatcher.h"
-#include "po_man.h"
 #include "models.h"
 #include "hw_clock.h"
 #include "hw_cvars.h"
@@ -46,8 +51,39 @@
 #include "v_draw.h"
 #include "texturemanager.h"
 #include "actorinlines.h"
-#include "g_levellocals.h"
 #include "hw_lighting.h"
+#include "hwrenderer/scene/hw_drawinfo.h"
+#include "actor.h"
+#include "dobject.h"
+#include "dobjgc.h"
+#include "doomdata.h"
+#include "doomstat.h"
+#include "dthinker.h"
+#include "fcolormap.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "hw_texcontainer.h"
+#include "info.h"
+#include "intrect.h"
+#include "m_fixed.h"
+#include "matrix.h"
+#include "memarena.h"
+#include "name.h"
+#include "p_3dfloors.h"
+#include "p_trace.h"
+#include "palutil.h"
+#include "portal.h"
+#include "r_sections.h"
+#include "r_state.h"
+#include "renderstyle.h"
+#include "scene/hw_drawlist.h"
+#include "scene/hw_drawstructs.h"
+#include "scene/hw_weapon.h"
+#include "sprites.h"
+#include "stats.h"
+#include "textureid.h"
+#include "textures.h"
+#include "v_video.h"
 
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Int, lm_background_updates);

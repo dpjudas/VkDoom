@@ -25,11 +25,12 @@
 **
 */
 
+#include <string.h>
+#include <utility>
+
 #include "doomdata.h"
 #include "a_sharedglobal.h"
-#include "r_utility.h"
 #include "g_levellocals.h"
-#include "hw_material.h"
 #include "hw_cvars.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
@@ -39,6 +40,23 @@
 #include "flatvertices.h"
 #include "hw_renderstate.h"
 #include "texturemanager.h"
+#include "actor.h"
+#include "c_cvars.h"
+#include "doom_levelmesh.h"
+#include "fcolormap.h"
+#include "g_mapinfo.h"
+#include "gametexture.h"
+#include "hw_lightmaptile.h"
+#include "p_3dfloors.h"
+#include "palentry.h"
+#include "palettecontainer.h"
+#include "r_defs.h"
+#include "renderstyle.h"
+#include "scene/hw_portal.h"
+#include "tarray.h"
+#include "textureid.h"
+#include "textures.h"
+#include "vectors.h"
 
 //==========================================================================
 //

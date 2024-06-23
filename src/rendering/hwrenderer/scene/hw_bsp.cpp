@@ -25,12 +25,16 @@
 **
 **/
 
-#include "p_lnspec.h"
-#include "p_local.h"
-#include "a_sharedglobal.h"
+#include <assert.h>
+#include <emmintrin.h>
+#include <math.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <atomic>
+#include <future>
+
 #include "g_levellocals.h"
 #include "p_effect.h"
-#include "po_man.h"
 #include "m_fixed.h"
 #include "ctpl.h"
 #include "texturemanager.h"
@@ -40,14 +44,26 @@
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_portal.h"
 #include "hw_clock.h"
-#include "flatvertices.h"
 #include "hw_vertexbuilder.h"
 #include "hw_walldispatcher.h"
 #include "hw_flatdispatcher.h"
+#include "actor.h"
+#include "basics.h"
+#include "c_cvars.h"
+#include "dobjgc.h"
+#include "doomdata.h"
+#include "gametexture.h"
+#include "info.h"
+#include "portal.h"
+#include "r_defs.h"
+#include "r_sections.h"
+#include "r_utility.h"
+#include "stats.h"
+#include "tarray.h"
+#include "v_video.h"
+#include "vectors.h"
 
-#ifdef ARCH_IA32
-#include <immintrin.h>
-#endif // ARCH_IA32
+class FRenderState;
 
 CVAR(Bool, gl_multithread, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 

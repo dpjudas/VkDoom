@@ -33,15 +33,17 @@
 */
 
 #include <sys/stat.h>
+#include <stdlib.h>
 
 #ifdef __APPLE__
 #include "m_misc.h"
 #endif // __APPLE__
 
 #include "engineerrors.h"
-#include "d_main.h"
 #include "sc_man.h"
 #include "cmdlib.h"
+#include "tarray.h"
+#include "zstring.h"
 
 static void PSR_FindEndBlock(FScanner &sc)
 {

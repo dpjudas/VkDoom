@@ -21,12 +21,23 @@
 */
 
 #include "vk_rsbuffers.h"
-#include "vulkan/vk_renderstate.h"
-#include "vulkan/vk_renderdevice.h"
-#include "vulkan/buffers/vk_buffer.h"
+
 #include <zvulkan/vulkanbuilders.h>
+#include <string.h>
+#include <vector>
+
+#include "vulkan/vk_renderdevice.h"
 #include "flatvertices.h"
 #include "cmdlib.h"
+#include "buffers.h"
+#include "hw_renderstate.h"
+#include "hw_surfaceuniforms.h"
+#include "hw_viewpointuniforms.h"
+#include "matrix.h"
+#include "vectors.h"
+#include "vulkan/pipelines/vk_renderpass.h"
+#include "vulkan/vulkan_core.h"
+#include "zvulkan/vk_mem_alloc/vk_mem_alloc.h"
 
 VkRSBuffers::VkRSBuffers(VulkanRenderDevice* fb)
 {

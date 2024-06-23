@@ -1,14 +1,21 @@
 
 #pragma once
 
+#include <string.h>
+#include <stdint.h>
+#include <map>
+#include <memory>
+#include <vector>
+
 #include "zvulkan/vulkanobjects.h"
 #include "renderstyle.h"
 #include "hwrenderer/data/buffers.h"
 #include "hwrenderer/postprocessing/hw_postprocess.h"
 #include "hw_renderstate.h"
 #include "common/rendering/vulkan/shaders/vk_shader.h"
-#include <string.h>
-#include <map>
+#include "vulkan/pipelines/vk_pprenderpass.h"
+#include "vulkan/vulkan_core.h"
+#include "zstring.h"
 
 class VulkanRenderDevice;
 class ColorBlendAttachmentBuilder;

@@ -1,12 +1,19 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+#include <memory>
+
 #include "vulkan/buffers/vk_hwbuffer.h"
 #include "vulkan/shaders/vk_shader.h"
+#include "zvulkan/vulkanobjects.h"
 
 class VkMatrixBufferWriter;
 class VkSurfaceUniformsBufferWriter;
 struct FFlatVertex;
+class VulkanRenderDevice;
+struct SurfaceUniforms;
 
 class VkRSBuffers
 {

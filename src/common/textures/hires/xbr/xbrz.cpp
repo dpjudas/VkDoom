@@ -15,11 +15,14 @@
 // ****************************************************************************
 
 #include "xbrz.h"
+
 #include <cassert>
 #include <vector>
 #include <algorithm>
 #include <cmath> //std::sqrt
+
 #include "xbrz_tools.h"
+#include "xbr/xbrz_config.h"
 
 using namespace xbrz;
 
