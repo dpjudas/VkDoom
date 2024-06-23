@@ -43,6 +43,7 @@
 #include "fs_findfile.h"
 #include "fs_decompress.h"
 #include "wildcards.hpp"
+#include <algorithm>
 
 namespace FileSys {
 	
