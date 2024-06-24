@@ -478,6 +478,16 @@ void VkLevelMeshUploader::Upload()
 	UploadLights();
 
 	EndTransfer(transferBufferSize);
+
+	// We can't add these as we go because UploadUniforms might load textures, which may invalidate the transfer command buffer.
+	VulkanCommandBuffer* cmdbuffer = Mesh->fb->GetCommands()->GetTransferCommands();
+	for (const CopyCommand& copy : copyCommands)
+	{
+		cmdbuffer->copyBuffer(copy.srcBuffer, copy.dstBuffer, copy.srcOffset, copy.dstOffset, copy.size);
+	}
+	copyCommands.clear();
+	Mesh->fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
+
 	ClearRanges();
 }
 
@@ -497,7 +507,6 @@ void VkLevelMeshUploader::ClearRanges()
 
 void VkLevelMeshUploader::BeginTransfer(size_t transferBufferSize)
 {
-	cmdbuffer = Mesh->fb->GetCommands()->GetTransferCommands();
 	transferBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
 		.Size(transferBufferSize)
@@ -511,9 +520,7 @@ void VkLevelMeshUploader::BeginTransfer(size_t transferBufferSize)
 void VkLevelMeshUploader::EndTransfer(size_t transferBufferSize)
 {
 	assert(datapos == transferBufferSize);
-
 	transferBuffer->Unmap();
-	Mesh->fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
 }
 
 static FVector3 SwapYZ(const FVector3& v)
@@ -530,7 +537,7 @@ void VkLevelMeshUploader::UploadNodes()
 		nodesHeader.root = Mesh->Mesh->Collision->get_root();
 
 		*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
-		cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
+		copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
 
 		datapos += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
 	}
@@ -554,7 +561,7 @@ void VkLevelMeshUploader::UploadNodes()
 
 		size_t copysize = range.Size * sizeof(CollisionNode);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, sizeof(CollisionNodeBufferHeader) + range.Offset * sizeof(CollisionNode), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, sizeof(CollisionNodeBufferHeader) + range.Offset * sizeof(CollisionNode), copysize);
 		datapos += copysize;
 	}
 }
@@ -567,7 +574,7 @@ void VkLevelMeshUploader::UploadRanges(const TArray<MeshBufferRange>& ranges, co
 		size_t copysize = range.Size * sizeof(T);
 		memcpy(data + datapos, srcbuffer + range.Offset, copysize);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), destbuffer, datapos, range.Offset * sizeof(T), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), destbuffer, datapos, range.Offset * sizeof(T), copysize);
 		datapos += copysize;
 	}
 }
@@ -603,7 +610,7 @@ void VkLevelMeshUploader::UploadSurfaces()
 
 		size_t copysize = range.Size * sizeof(SurfaceInfo);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->SurfaceBuffer.get(), datapos, range.Offset * sizeof(SurfaceInfo), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->SurfaceBuffer.get(), datapos, range.Offset * sizeof(SurfaceInfo), copysize);
 		datapos += copysize;
 	}
 }
@@ -632,7 +639,7 @@ void VkLevelMeshUploader::UploadUniforms()
 		size_t copysize = range.Size * sizeof(SurfaceUniforms);
 		memcpy(uniforms, Mesh->Mesh->Mesh.Uniforms.Data(), copysize);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->UniformsBuffer.get(), datapos, range.Offset * sizeof(SurfaceUniforms), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->UniformsBuffer.get(), datapos, range.Offset * sizeof(SurfaceUniforms), copysize);
 		datapos += copysize;
 	}
 }
@@ -652,7 +659,7 @@ void VkLevelMeshUploader::UploadPortals()
 
 		size_t copysize = range.Size * sizeof(PortalInfo);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->PortalBuffer.get(), datapos, range.Offset * sizeof(PortalInfo), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->PortalBuffer.get(), datapos, range.Offset * sizeof(PortalInfo), copysize);
 		datapos += copysize;
 	}
 }
@@ -680,7 +687,7 @@ void VkLevelMeshUploader::UploadLights()
 
 		size_t copysize = range.Size * sizeof(LightInfo);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->LightBuffer.get(), datapos, range.Offset * sizeof(LightInfo), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->LightBuffer.get(), datapos, range.Offset * sizeof(LightInfo), copysize);
 		datapos += copysize;
 	}
 }

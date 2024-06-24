@@ -187,6 +187,19 @@ private:
 	VkLevelMesh* Mesh = nullptr;
 	uint8_t* data = nullptr;
 	size_t datapos = 0;
-	VulkanCommandBuffer* cmdbuffer = nullptr;
 	std::unique_ptr<VulkanBuffer> transferBuffer;
+
+	struct CopyCommand
+	{
+		CopyCommand() = default;
+		CopyCommand(VulkanBuffer* srcBuffer, VulkanBuffer* dstBuffer, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0, VkDeviceSize size = VK_WHOLE_SIZE)
+			: srcBuffer(srcBuffer), dstBuffer(dstBuffer), srcOffset(srcOffset), dstOffset(dstOffset), size(size) { }
+
+		VulkanBuffer* srcBuffer = nullptr;
+		VulkanBuffer* dstBuffer = nullptr;
+		VkDeviceSize srcOffset = 0;
+		VkDeviceSize dstOffset = 0;
+		VkDeviceSize size = VK_WHOLE_SIZE;
+	};
+	std::vector<CopyCommand> copyCommands;
 };
