@@ -98,7 +98,7 @@ void PlayGamePage::OnGeometryChanged()
 
 	y = GetHeight() - 10.0;
 
-#if defined(EXTRAARGS)
+#if 0 // NYI: Additional Parameters
 	double editHeight = 24.0;
 	y -= editHeight;
 	ParametersEdit->SetFrameGeometry(0.0, y, GetWidth(), editHeight);

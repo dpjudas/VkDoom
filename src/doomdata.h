@@ -382,7 +382,7 @@ struct FMapThing
 	int			FloatbobPhase;
 	int			friendlyseeblocks;
 	FName arg0str;
-	double		SourceRadius;
+	double		SoftShadowRadius;
 };
 
 

@@ -255,7 +255,7 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 	meshlight.Color.Y = light->GetGreen() * (1.0f / 255.0f);
 	meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
 
-	meshlight.SourceRadius = light->GetSourceRadius();
+	meshlight.SoftShadowRadius = light->GetSoftShadowRadius();
 
 	if (light->Sector)
 		meshlight.SectorGroup = sectorGroup[light->Sector->Index()];

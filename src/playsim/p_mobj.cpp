@@ -393,7 +393,13 @@ void AActor::Serialize(FSerializer &arc)
 		A("userlights", UserLights)
 		A("WorldOffset", WorldOffset)
 		("modelData", modelData)
-		A("LandingSpeed", LandingSpeed);
+		A("LandingSpeed", LandingSpeed)
+
+		("unmorphtime", UnmorphTime)
+		("morphflags", MorphFlags)
+		("premorphproperties", PremorphProperties)
+		("morphexitflash", MorphExitFlash);
+
 
 		SerializeTerrain(arc, "floorterrain", floorterrain, &def->floorterrain);
 		SerializeArgs(arc, "args", args, def->args, special);
@@ -3656,10 +3662,6 @@ void AActor::SetViewAngle(DAngle ang, int fflags)
 
 double AActor::GetFOV(double ticFrac)
 {
-	// [B] Disable interpolation when playing online, otherwise it gets vomit inducing
-	if (netgame)
-		return player ? player->FOV : CameraFOV;
-
 	double fov;
 	if (player)
 	{
@@ -6046,8 +6048,8 @@ AActor *FLevelLocals::SpawnMapThing (FMapThing *mthing, int position)
 	if (mthing->fillcolor)
 		mobj->fillcolor = (mthing->fillcolor & 0xffffff) | (ColorMatcher.Pick((mthing->fillcolor & 0xff0000) >> 16,
 			(mthing->fillcolor & 0xff00) >> 8, (mthing->fillcolor & 0xff)) << 24);
-	if (mthing->SourceRadius >= 0.0)
-		mobj->SourceRadius = mthing->SourceRadius;
+	if (mthing->SoftShadowRadius >= 0.0)
+		mobj->SoftShadowRadius = mthing->SoftShadowRadius;
 
 	// allow color strings for lights and reshuffle the args for spot lights
 	if (i->IsDescendantOf(NAME_DynamicLight))

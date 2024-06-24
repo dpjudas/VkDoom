@@ -20,6 +20,8 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
+bool IsZWidgetAvailable();
+
 MainWindow mainwindow;
 
 void MainWindow::Create(const FString& caption, int x, int y, int width, int height)
@@ -115,7 +117,15 @@ void MainWindow::ShowErrorPane(const char* text)
 	for (const FString& line : bufferedConsoleStuff)
 		alltext.append(line.GetChars(), line.Len());
 
-	restartrequest = ErrorWindow::ExecModal(text, alltext);
+	if (IsZWidgetAvailable())
+	{
+		restartrequest = ErrorWindow::ExecModal(text, alltext);
+	}
+	else // We are aborting before we even got to load zdoom.pk3
+	{
+		MessageBoxA(0, text, "Fatal Error", MB_OK | MB_ICONERROR);
+		restartrequest = false;
+	}
 }
 
 void MainWindow::ShowNetStartPane(const char* message, int maxpos)

@@ -137,9 +137,9 @@ void HWWall::SkyPlane(HWWallDispatcher *di, FRenderState& state, sector_t *secto
 	// Either a regular sky or a skybox with skyboxes disabled
 	if ((sportal == nullptr && sector->GetTexture(plane) == skyflatnum) || (gl_noskyboxes && sportal != nullptr && sportal->mType == PORTS_SKYVIEWPOINT))
 	{
+		HWSkyInfo skyinfo;
 		if (di->di)
 		{
-			HWSkyInfo skyinfo;
 			skyinfo.init(di->di, sector, plane, sector->skytransfer, Colormap.FadeColor);
 			sky = &skyinfo;
 		}

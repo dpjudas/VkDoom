@@ -127,7 +127,7 @@ int DoMain (HINSTANCE hInstance)
 		Args->AppendArg(FString(wargv[i]));
 	}
 
-	if (Args->CheckParm("-stdout"))
+	if (Args->CheckParm("-stdout") || Args->CheckParm("-norun"))
 	{
 		// As a GUI application, we don't normally get a console when we start.
 		// If we were run from the shell and are on XP+, we can attach to its
@@ -229,9 +229,6 @@ int DoMain (HINSTANCE hInstance)
 	WinWidth = cRect.right;
 	WinHeight = cRect.bottom;
 
-	if (SUCCEEDED(CoInitialize(nullptr)))
-		atexit ([](){ CoUninitialize(); }); // beware of calling convention.
-
 	int ret = GameMain ();
 
 	if (mainwindow.CheckForRestart())
@@ -295,6 +292,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int 
 	g_hInst = hInstance;
 
 	InitCommonControls();
+
+	if (SUCCEEDED(CoInitialize(nullptr)))
+		atexit([]() { CoUninitialize(); }); // beware of calling convention.
 
 #if defined(_DEBUG) && defined(_MSC_VER)
 	// Uncomment this line to make the Visual C++ CRT check the heap before

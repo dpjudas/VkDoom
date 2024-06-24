@@ -182,7 +182,7 @@ vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi)
     return vec2(cosine, sine) * r;
 }
 
-float traceShadow(vec4 lightpos, int quality, float sourceRadius)
+float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
 {
 	vec3 origin = pixelpos.xyz;
 	vec3 target = lightpos.xyz + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
@@ -190,7 +190,7 @@ float traceShadow(vec4 lightpos, int quality, float sourceRadius)
 	vec3 direction = normalize(target - origin);
 	float dist = distance(origin, target);
 
-	if (quality == 0 || sourceRadius == 0)
+	if (quality == 0 || softShadowRadius == 0)
 	{
 		return traceHit(origin, direction, dist) ? 0.0 : 1.0;
 	}
@@ -204,7 +204,7 @@ float traceShadow(vec4 lightpos, int quality, float sourceRadius)
 		int step_count = quality * 4;
 		for (int i = 0; i < step_count; i++)
 		{
-			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * sourceRadius;
+			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * softShadowRadius;
 			vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
 			sum += traceHit(origin, normalize(pos - origin), dist) ? 0.0 : 1.0;
 		}
@@ -212,11 +212,11 @@ float traceShadow(vec4 lightpos, int quality, float sourceRadius)
 	}
 }
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA, float sourceRadius)
+float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)
 {
 	if (lightpos.w > 1000000.0)
 		return 1.0; // Sunlight
-	return traceShadow(lightpos, uShadowmapFilter, sourceRadius);
+	return traceShadow(lightpos, uShadowmapFilter, softShadowRadius);
 }
 
 #elif defined(USE_SHADOWMAP)
@@ -346,7 +346,7 @@ float shadowmapAttenuation(vec4 lightpos, float shadowIndex)
 	}
 }
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA, float sourceRadius)
+float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)
 {
 	if (lightpos.w > 1000000.0)
 		return 1.0; // Sunlight
@@ -360,7 +360,7 @@ float shadowAttenuation(vec4 lightpos, float lightcolorA, float sourceRadius)
 
 #else
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA, float sourceRadius)
+float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)
 {
 	return 1.0;
 }
