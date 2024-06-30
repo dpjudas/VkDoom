@@ -2489,6 +2489,21 @@ DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, Vec3Diff, Vec3Diff)
 	ACTION_RETURN_VEC3(VecDiff(self, DVector3(x1, y1, z1), DVector3(x2, y2, z2)));
 }
 
+static int HasPossibleSight(FLevelLocals *self, sector_t *s1, sector_t *s2)
+{
+	return self->CheckReject(s1, s2);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, HasPossibleSight, HasPossibleSight)
+{
+	PARAM_SELF_STRUCT_PROLOGUE(FLevelLocals);
+	PARAM_POINTER(s1, sector_t);
+	PARAM_POINTER(s2, sector_t);
+
+	int res = self->CheckReject(s1, s2);
+	ACTION_RETURN_BOOL(res);
+}
+
 DEFINE_ACTION_FUNCTION(FLevelLocals, GetDisplacement)
 {
 	PARAM_SELF_STRUCT_PROLOGUE(FLevelLocals);

@@ -524,6 +524,7 @@ struct LevelLocals native
 	native clearscope vector2 Vec2Offset(vector2 pos, vector2 dir, bool absolute = false) const;
 	native clearscope vector3 Vec2OffsetZ(vector2 pos, vector2 dir, double atz, bool absolute = false) const;
 	native clearscope vector3 Vec3Offset(vector3 pos, vector3 dir, bool absolute = false) const;
+	native clearscope bool HasPossibleSight(Sector s1, Sector s2) const;
 	native clearscope Vector2 GetDisplacement(int pg1, int pg2) const;
 	native clearscope int GetPortalGroupCount() const;
 	native clearscope int PointOnLineSide(Vector2 pos, Line l, bool precise = false) const;
