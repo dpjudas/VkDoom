@@ -124,6 +124,7 @@ void VulkanInstance::CreateInstance()
 		setting.pLayerName = "MoltenVK";
 		setting.pSettingName = "MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS";
 		setting.type = VK_LAYER_SETTING_TYPE_INT32_EXT;
+		setting.valueCount = 1;
 		setting.pValues = &mkvalue2; // Use Metal Argument Buffers only if the VK_EXT_descriptor_indexing extension is enabled
 		layersettings.push_back(setting);
 	}
