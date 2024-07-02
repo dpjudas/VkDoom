@@ -6,8 +6,10 @@ Please see license files for individual contributor licenses.
 
 Visit our [website](https://vkdoom.org) for more details.
 
-### Licensed under the GPL v3
-##### https://www.gnu.org/licenses/quick-guide-gplv3.en.html
+### Releases
+
+We do not have any official release of VKDoom yet. You can however download a binary build
+of the latest master branch commit at https://github.com/dpjudas/VkDoom/releases/tag/nightly
 
 ### Build Guide
 
@@ -44,3 +46,6 @@ For Linux, run the following to prepare your build environment and the second co
 
 For Mac, if you're using zdoom-macos-deps, simply cd into it and type the following:
 * ./build.py --target vkdoom
+
+### Licensed under the GPL v3
+##### https://www.gnu.org/licenses/quick-guide-gplv3.en.html
