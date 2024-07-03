@@ -100,6 +100,14 @@ public:
         char locText[maxSize];
         snprintf(locText, maxSize, ":%d", loc.line);
 
+#ifdef __APPLE__ // crapple only implemented std::filesystem::absolute on the very latest macOS.
+        std::string location = loc.getStringNameOrNum(false);
+        if (absolute) {
+            append(std::filesystem::absolute(location).string());
+        } else {
+            append(location);
+        }
+#else
         if(loc.getFilename() == nullptr && shaderFileName != nullptr && absolute) {
             append(std::filesystem::absolute(shaderFileName).string());
         } else {
@@ -110,6 +118,7 @@ public:
                 append(location);
             }
         }
+#endif
 
         append(locText);
         append(": ");
