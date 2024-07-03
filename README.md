@@ -25,26 +25,26 @@ For Mac, the following project is recommended, as it contains all the dependenci
 
 After you have the packages installed, `cd` into your projects directory, and do the following to clone:
 
-```
+```sh
 git clone https://github.com/dpjudas/VkDoom
 ```
 
 Afterwards, `cd` into it
 
-```
+```sh
 cd VkDoom
 ```
 
 Make a build folder, then `cd` into it
 
-```
+```sh
 mkdir build
 cd build
 ```
 
 For Windows, run the following to prepare your build environment and the second command will build:
 
-```
+```sh
 cmake -A x64 ..
 cmake --build . --config Release -- -maxcpucount
 ```
@@ -53,14 +53,14 @@ cmake --build . --config Release -- -maxcpucount
 
 For Linux, run the following to prepare your build environment and the second command will build:
 
-```
+```sh
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j $(nproc)
 ```
 
 For Mac, if you're using zdoom-macos-deps, simply cd into it and type the following:
 
-```
+```sh
 ./build.py --target vkdoom
 ```
 
