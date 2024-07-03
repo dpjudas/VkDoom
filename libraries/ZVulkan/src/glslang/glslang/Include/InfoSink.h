@@ -102,11 +102,7 @@ public:
 
 #ifdef __APPLE__ // crapple only implemented std::filesystem::absolute on the very latest macOS.
         std::string location = loc.getStringNameOrNum(false);
-        if (absolute) {
-            append(std::filesystem::absolute(location).string());
-        } else {
-            append(location);
-        }
+        append(location);
 #else
         if(loc.getFilename() == nullptr && shaderFileName != nullptr && absolute) {
             append(std::filesystem::absolute(shaderFileName).string());
