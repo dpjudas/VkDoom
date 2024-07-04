@@ -36,7 +36,7 @@ gameinfo
 	weaponslot = 5, "RocketLauncher"
 	weaponslot = 6, "PlasmaRifle"
 	weaponslot = 7, "BFG9000"
-	dimcolor = "30 26 00"
+	dimcolor = "08 00 00"
 	dimamount = 0.5
 	bluramount = 0.0
 	menuslidercolor = "Orange"

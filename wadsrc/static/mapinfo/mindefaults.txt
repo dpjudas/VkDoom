@@ -25,7 +25,7 @@ gameinfo
 	statusbar = "sbarinfo/doom.txt"
 	intermissionmusic = ""
 	intermissioncounter = true
-	dimcolor = "6f 00 6b"
+	dimcolor = "51 19 02"
 	dimamount = 0.8
 	bluramount = 0.0
 	menuslidercolor = "Orange"
