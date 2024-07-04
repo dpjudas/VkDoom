@@ -2483,8 +2483,6 @@ OptionMenu NetworkOptions protected
 {
 	Title "$NETMNU_TITLE"
 	StaticText "$NETMNU_LOCALOPTIONS", 1
-	Option "$NETMNU_MOVEPREDICTION",		"cl_noprediction", "OffOn"
-	Option "$NETMNU_LINESPECIALPREDICTION",	"cl_predict_specials", "OnOff"
 	Slider "$NETMNU_PREDICTIONLERPSCALE",	"cl_predict_lerpscale", 0.0, 0.5, 0.05, 2
 	Slider "$NETMNU_LERPTHRESHOLD",			"cl_predict_lerpthreshold", 0.1, 16.0, 0.1
 	StaticText " "
