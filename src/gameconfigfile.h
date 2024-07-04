@@ -63,6 +63,7 @@ protected:
 	void CreateStandardAutoExec (const char *section, bool start);
 
 private:
+	void SetDoomDefaults ();
 	void SetRavenDefaults (bool isHexen);
 	void SetStrifeDefaults ();
 	void ReadCVars (unsigned flags);

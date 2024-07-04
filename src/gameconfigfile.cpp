@@ -62,6 +62,7 @@ EXTERN_CVAR (Bool, snd_pitched)
 EXTERN_CVAR (Color, am_wallcolor)
 EXTERN_CVAR (Color, am_fdwallcolor)
 EXTERN_CVAR (Color, am_cdwallcolor)
+EXTERN_CVAR (Int, am_colorset)
 EXTERN_CVAR (Bool, wi_percents)
 EXTERN_CVAR (Int, gl_texture_hqresizemode)
 EXTERN_CVAR (Int, gl_texture_hqresizemult)
@@ -638,6 +639,11 @@ void FGameConfigFile::DoGameSetup (const char *gamename)
 		ReadCVars (0);
 	}
 
+	if (gameinfo.gametype & GAME_Doom)
+	{
+		SetDoomDefaults ();
+	}
+
 	if (gameinfo.gametype & GAME_Raven)
 	{
 		SetRavenDefaults (gameinfo.gametype == GAME_Hexen);
@@ -926,6 +932,15 @@ void FGameConfigFile::AddAutoexec (FArgs *list, const char *game)
 	}
 }
 
+void FGameConfigFile::SetDoomDefaults ()
+{
+	UCVarValue val;
+
+	// vanilla-style automap color set
+	val.Int = 1;
+	am_colorset->SetGenericRepDefault(val, CVAR_Int);
+}
+
 void FGameConfigFile::SetRavenDefaults (bool isHexen)
 {
 	UCVarValue val;
@@ -966,6 +981,10 @@ void FGameConfigFile::SetRavenDefaults (bool isHexen)
 		val.Int = 0x3f6040;
 		color->SetGenericRepDefault (val, CVAR_Int);
 	}
+
+	// vanilla-style automap color set
+	val.Int = 3;
+	am_colorset->SetGenericRepDefault(val, CVAR_Int);
 }
 
 void FGameConfigFile::SetStrifeDefaults ()
@@ -973,6 +992,10 @@ void FGameConfigFile::SetStrifeDefaults ()
 	UCVarValue val;
 	val.Int = 3;
 	wipetype->SetGenericRepDefault(val, CVAR_Int);
+
+	// vanilla-style automap color set
+	val.Int = 2;
+	am_colorset->SetGenericRepDefault(val, CVAR_Int);
 }
 
 CCMD (whereisini)
