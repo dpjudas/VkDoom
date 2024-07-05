@@ -25,6 +25,25 @@ struct LevelSubmeshDrawRange
 	int Count;
 };
 
+struct GeometryAllocInfo
+{
+	FFlatVertex* Vertices = nullptr;
+	int* UniformIndexes = nullptr;
+	uint32_t* Indexes = nullptr;
+	int VertexStart = 0;
+	int VertexCount = 0;
+	int IndexStart = 0;
+	int IndexCount = 0;
+};
+
+struct UniformsAllocInfo
+{
+	SurfaceUniforms* Uniforms = nullptr;
+	FMaterialState* Materials = nullptr;
+	int Start = 0;
+	int Count = 0;
+};
+
 class LevelMesh
 {
 public:
@@ -44,6 +63,44 @@ public:
 	FVector3 SunColor = FVector3(0.0f, 0.0f, 0.0f);
 
 	TArray<LevelMeshPortal> Portals;
+
+	GeometryAllocInfo AllocGeometry(int vertexCount, int indexCount)
+	{
+		GeometryAllocInfo info;
+		info.VertexStart = Mesh.Vertices.Size();
+		info.VertexCount = vertexCount;
+		info.IndexStart = Mesh.Indexes.Size();
+		info.IndexCount = indexCount;
+		Mesh.Vertices.Resize(info.VertexStart + vertexCount);
+		Mesh.UniformIndexes.Resize(info.VertexStart + vertexCount);
+		Mesh.Indexes.Resize(info.IndexStart + indexCount);
+		info.Vertices = &Mesh.Vertices[info.VertexStart];
+		info.UniformIndexes = &Mesh.UniformIndexes[info.VertexStart];
+		info.Indexes = &Mesh.Indexes[info.IndexStart];
+		return info;
+	}
+
+	UniformsAllocInfo AllocUniforms(int count)
+	{
+		UniformsAllocInfo info;
+		info.Start = Mesh.Uniforms.Size();
+		info.Count = count;
+		Mesh.Uniforms.Resize(info.Start + count);
+		Mesh.Materials.Resize(info.Start + count);
+		info.Uniforms = &Mesh.Uniforms[info.Start];
+		info.Materials = &Mesh.Materials[info.Start];
+		return info;
+	}
+
+	void FreeGeometry(int vertexStart, int vertexCount, int indexStart, int indexCount)
+	{
+		for (int i = 0; i < indexCount; i++)
+			Mesh.Indexes[indexStart + i] = 0;
+	}
+
+	void FreeUniforms(int start, int count)
+	{
+	}
 
 	struct
 	{
