@@ -618,6 +618,10 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 {
 	for (HWFlat& flatpart : list)
 	{
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
 		if (isSky)
 		{
 			state.SetEffect(EFF_PORTAL);
@@ -661,9 +665,6 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			foundDraw = true;
 			break;
 		}
-		state.mSortedLists.clear();
-		state.mVertices.Clear();
-		state.mIndexes.Clear();
 
 		if (!foundDraw)
 			continue;
