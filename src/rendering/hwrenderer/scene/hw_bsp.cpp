@@ -59,6 +59,17 @@ thread_local bool isWorkerThread;
 ctpl::thread_pool renderPool(1);
 bool inited = false;
 
+const int MAXDITHERACTORS = 20; // Maximum number of enemies that can set dither-transparency flags
+AActor* RenderedTargets[MAXDITHERACTORS];
+int RTnum;
+
+void ClearDitherTargets()
+{
+        RTnum = 0; // Number of rendered enemies/targets
+	for (int ii = 0; ii < MAXDITHERACTORS; ii++)
+	  RenderedTargets[ii] = nullptr;
+}
+
 struct RenderJob
 {
 	enum
@@ -344,7 +355,7 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 
 	if (!seg->backsector)
 	{
-	        if(!((Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & VPSF_ALLOWOUTOFBOUNDS)))
+	        if(!Viewpoint.IsAllowedOoB())
 		        if (!(seg->sidedef->Flags & WALLF_DITHERTRANS)) clipper.SafeAddClipRange(startAngle, endAngle);
 	}
 	else if (!ispoly)	// Two-sided polyobjects never obstruct the view
@@ -372,8 +383,8 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 
 			if (hw_CheckClip(seg->sidedef, currentsector, backsector))
 			{
-			        if(!((Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & VPSF_ALLOWOUTOFBOUNDS)))
-				        if (!(seg->sidedef->Flags & WALLF_DITHERTRANS)) clipper.SafeAddClipRange(startAngle, endAngle);
+			        if(!Viewpoint.IsAllowedOoB() && !(seg->sidedef->Flags & WALLF_DITHERTRANS))
+				        clipper.SafeAddClipRange(startAngle, endAngle);
 			}
 		}
 	}
@@ -581,7 +592,7 @@ void HWDrawInfo::RenderThings(subsector_t * sub, sector_t * sector, FRenderState
 		if (thing->validcount == validcount) continue;
 		thing->validcount = validcount;
 
-		if((Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & VPSF_ALLOWOUTOFBOUNDS) && thing->Sector->isSecret() && thing->Sector->wasSecret() && !r_radarclipper) continue; // This covers things that are touching non-secret sectors
+		if(Viewpoint.IsAllowedOoB() && thing->Sector->isSecret() && thing->Sector->wasSecret() && !r_radarclipper) continue; // This covers things that are touching non-secret sectors
 		FIntCVar *cvar = thing->GetInfo()->distancecheck;
 		if (cvar != nullptr && *cvar >= 0)
 		{
@@ -715,7 +726,7 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 
 	fakesector=hw_FakeFlat(drawctx, sector, in_area, false);
 
-	if((Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & VPSF_ALLOWOUTOFBOUNDS) && sector->isSecret() && sector->wasSecret() && !r_radarclipper) return;
+	if(Viewpoint.IsAllowedOoB() && sector->isSecret() && sector->wasSecret() && !r_radarclipper) return;
 
 	// cull everything if subsector outside vertical clipper
 	if (sub->polys == nullptr)
@@ -817,22 +828,19 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 				SetupSprite.Unclock();
 			}
 		}
-		if (r_dithertransparency)
+		if (r_dithertransparency && Viewpoint.IsAllowedOoB() && (RTnum < MAXDITHERACTORS))
 		{
-		        // [DVR] Not parallelizable due to line->validcount race coundition
+		        // [DVR] Not parallelizable due to variables RTnum and RenderedTargets[]
 		        for (auto p = sector->touching_renderthings; p != nullptr; p = p->m_snext)
 			{
 			        auto thing = p->m_thing;
+				if (thing->validcount == validcount) continue; // Don't double count
 				if (((thing->flags3 & MF3_ISMONSTER) && !(thing->flags & MF_CORPSE)) || (thing->flags & MF_MISSILE))
-				{
-				        if ( P_CheckSight(players[consoleplayer].mo, thing, 0) )
-					{
-				                SetDitherTransFlags(thing);
-					}
+				{				  
+				        if (RTnum < MAXDITHERACTORS) RenderedTargets[RTnum++] = thing;
+					else break;
 				}
 			}
-			validcount++; // [DVR] Need this since Trace() and P_CheckSight() get called
-			// and they set line->validcount = validcount, preventing lines from being processed.
 		}
 	}
 
@@ -955,7 +963,7 @@ void HWDrawInfo::RenderBSPNode (void *node, FRenderState& state)
 			if (!(no_renderflags[bsp->Index()] & SSRF_SEEN))
 				return;
 		}
-		if ((Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & VPSF_ORTHOGRAPHIC))
+		if (Viewpoint.IsOrtho())
 		{
 		        if (!vClipper->CheckBoxOrthoPitch(bsp->bbox[side]))
 			{
@@ -971,12 +979,13 @@ void HWDrawInfo::RenderBSPNode (void *node, FRenderState& state)
 
 void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 {
+	ClearDitherTargets();
 	Bsp.Clock();
 
 	// Give the DrawInfo the viewpoint in fixed point because that's what the nodes are.
 	viewx = FLOAT2FIXED(Viewpoint.Pos.X);
 	viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
-	if (r_radarclipper && !(Level->flags3 & LEVEL3_NOFOGOFWAR) && (Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & (VPSF_ABSOLUTEOFFSET | VPSF_ALLOWOUTOFBOUNDS)))
+	if (r_radarclipper && !(Level->flags3 & LEVEL3_NOFOGOFWAR) && Viewpoint.IsAllowedOoB() && (Viewpoint.camera->ViewPos->Flags & VPSF_ABSOLUTEOFFSET))
 	{
 	        if (Viewpoint.camera->tracer != NULL)
 		{
@@ -1012,6 +1021,17 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 		RenderBSPNode(node, state);
 		Bsp.Unclock();
 	}
+
+	// Make rendered targets set dither transparency flags on level geometry for next pass
+	// Can't do this inside DoSubsector() because both Trace() and P_CheckSight() affect 'validcount' global variable
+	for (int ii = 0; ii < MAXDITHERACTORS; ii++)
+	{
+	        if ( RenderedTargets[ii] && P_CheckSight(players[consoleplayer].mo, RenderedTargets[ii], 0) )
+		{
+		        SetDitherTransFlags(RenderedTargets[ii]);
+		}
+	}
+
 	// Process all the sprites on the current portal's back side which touch the portal.
 	if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
 

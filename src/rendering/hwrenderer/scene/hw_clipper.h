@@ -28,7 +28,7 @@ class Clipper
 	ClipNode * clipnodes = nullptr;
 	ClipNode * cliphead = nullptr;
 	ClipNode * silhouette = nullptr;	// will be preserved even when RemoveClipRange is called
-    const FRenderViewpoint *viewpoint = nullptr;
+        FRenderViewpoint *viewpoint = nullptr;
 	bool blocked = false;
 
 	static angle_t AngleToPseudo(angle_t ang);
@@ -71,7 +71,7 @@ public:
 		return c;
 	}
     
-    void SetViewpoint(const FRenderViewpoint &vp)
+    void SetViewpoint(FRenderViewpoint &vp)
     {
         viewpoint = &vp;
     }

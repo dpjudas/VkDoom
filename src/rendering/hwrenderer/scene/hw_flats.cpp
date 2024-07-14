@@ -554,7 +554,7 @@ void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t *
 	//
 	//
 	//
-	if (((which & SSRF_RENDERFLOOR) && (!di->di || (((frontsector->floorplane.ZatPoint(vp->Pos) <= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERFLOOR)))))) && !(di->di && vp->camera && vp->camera->ViewPos && (vp->camera->ViewPos->Flags & VPSF_ORTHOGRAPHIC) && (vp->PitchSin < 0.0)))
+	if (((which & SSRF_RENDERFLOOR) && (!di->di || (((frontsector->floorplane.ZatPoint(vp->Pos) <= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERFLOOR)))))) && !(di->di && vp->IsOrtho() && (vp->PitchSin < 0.0)))
 	{
 		// process the original floor first.
 
@@ -612,7 +612,7 @@ void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t *
 	//
 	// 
 	//
-	if (((which & SSRF_RENDERCEILING) && ((!di->di || ((frontsector->ceilingplane.ZatPoint(vp->Pos) >= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERCEILING)))))) && !(di->di && vp->camera && vp->camera->ViewPos && (vp->camera->ViewPos->Flags & VPSF_ORTHOGRAPHIC) && (vp->PitchSin > 0.0)))
+	if (((which & SSRF_RENDERCEILING) && ((!di->di || ((frontsector->ceilingplane.ZatPoint(vp->Pos) >= vp->Pos.Z) && (!section || !(section->flags & FSection::DONTRENDERCEILING)))))) && !(di->di && vp->IsOrtho() && (vp->PitchSin > 0.0)))
 	{
 		// process the original ceiling first.
 

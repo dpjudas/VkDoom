@@ -2048,7 +2048,7 @@ void HWWall::Process(HWWallDispatcher *di, FRenderState& state, seg_t *seg, sect
 
 	bool isportal = seg->linedef->isVisualPortal() && seg->sidedef == seg->linedef->sidedef[0];
 	// Don't render portal insides if in orthographic mode
-	if (di->di) isportal &= !(di->di->Viewpoint.camera->ViewPos && (di->di->Viewpoint.camera->ViewPos->Flags & VPSF_ORTHOGRAPHIC));
+	if (di->di) isportal &= !(di->di->Viewpoint.IsOrtho());
 
 	//return;
 	// [GZ] 3D middle textures are necessarily two-sided, even if they lack the explicit two-sided flag

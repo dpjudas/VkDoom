@@ -220,7 +220,7 @@ void HWDrawInfo::ClearBuffers()
 void HWDrawInfo::UpdateCurrentMapSection()
 {
         int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
-	if ((Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & VPSF_ALLOWOUTOFBOUNDS))
+	if (Viewpoint.IsAllowedOoB())
 	        mapsection = Level->PointInRenderSubsector(Viewpoint.camera->Pos())->mapsection;
 	CurrentMapSections.Set(mapsection);
 }
@@ -237,7 +237,7 @@ void HWDrawInfo::SetViewArea()
     auto &vp = Viewpoint;
 	// The render_sector is better suited to represent the current position in GL
 	vp.sector = Level->PointInRenderSubsector(vp.Pos)->render_sector;
-	if ((vp.camera->ViewPos != NULL) && (vp.camera->ViewPos->Flags & VPSF_ALLOWOUTOFBOUNDS))
+	if (Viewpoint.IsAllowedOoB())
 	  vp.sector = Level->PointInRenderSubsector(vp.camera->Pos())->render_sector;
 
 	// Get the heightsec state from the render sector, not the current one!
@@ -861,14 +861,57 @@ static ETraceStatus TraceCallbackForDitherTransparency(FTraceResults& res, void*
 	  {
 	          bf = res.Line->sidedef[res.Side]->sector->floorplane.ZatPoint(res.HitPos.XY());
 		  bc = res.Line->sidedef[res.Side]->sector->ceilingplane.ZatPoint(res.HitPos.XY());
-		  if ((res.HitPos.Z <= bc) && (res.HitPos.Z >= bf)) res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS;
+		  if ((res.HitPos.Z <= bc) && (res.HitPos.Z >= bf))
+		  {
+		    res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS;
+		  }
 	  }
 	  break;
 	case TRACE_HitFloor:
-	  res.Sector->floorplane.dithertransflag = true;
+	  if (res.HitPos.Z == res.Sector->floorplane.ZatPoint(res.HitPos))
+	  {
+	    res.Sector->floorplane.dithertransflag = true;
+	  }
+	  else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
+	  {
+	    F3DFloor *rover;
+	    int kk;
+	    for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
+	    {
+	      rover = res.Sector->e->XFloor.ffloors[kk];
+	      if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
+	      {
+		if (res.HitPos.Z == rover->top.plane->ZatPoint(res.HitPos))
+		{
+		  rover->top.plane->dithertransflag = true;
+		  break; // Out of for loop
+		}
+	      }
+	    }
+	  }
 	  break;
 	case TRACE_HitCeiling:
-	  res.Sector->ceilingplane.dithertransflag = true;
+	  if (res.HitPos.Z == res.Sector->ceilingplane.ZatPoint(res.HitPos))
+	  {
+	    res.Sector->ceilingplane.dithertransflag = true;
+	  }
+	  else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
+	  {
+	    F3DFloor *rover;
+	    int kk;
+	    for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
+	    {
+	      rover = res.Sector->e->XFloor.ffloors[kk];
+	      if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
+	      {
+		if (res.HitPos.Z == rover->bottom.plane->ZatPoint(res.HitPos))
+		{
+		  rover->bottom.plane->dithertransflag = true;
+		  break; // Out of for loop
+		}
+	      }
+	    }
+	  }
 	  break;
 	case TRACE_HitActor:
 	default:
@@ -888,7 +931,7 @@ void HWDrawInfo::SetDitherTransFlags(AActor* actor)
 		double horiy = Viewpoint.Cos * actor->radius;
 		DVector3 actorpos = actor->Pos();
 		DVector3 vvec = actorpos - Viewpoint.Pos;
-		if (Viewpoint.camera->ViewPos && (Viewpoint.camera->ViewPos->Flags & VPSF_ORTHOGRAPHIC))
+		if (Viewpoint.IsOrtho())
 		{
 		        vvec += Viewpoint.camera->Pos() - actorpos;
 			vvec *= 5.0; // Should be 4.0? (since zNear is behind screen by 3*dist in VREyeInfo::GetProjection())
@@ -1055,14 +1098,14 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 {
 	static int recursion = 0;
 	static int ssao_portals_available = 0;
-	const auto& vp = Viewpoint;
+	auto& vp = Viewpoint;
 
 	bool applySSAO = false;
 	if (drawmode == DM_MAINVIEW)
 	{
 		ssao_portals_available = gl_ssao_portals;
 		applySSAO = true;
-		if (r_dithertransparency)
+		if (r_dithertransparency && vp.IsAllowedOoB())
 		{
 		        vp.camera->tracer ? SetDitherTransFlags(vp.camera->tracer) : SetDitherTransFlags(players[consoleplayer].mo);
 		}
@@ -1130,7 +1173,7 @@ void HWDrawInfo::ProcessScene(bool toscreen, FRenderState& state)
 	drawctx->portalState.BeginScene();
 
 	int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
-	if ((Viewpoint.camera->ViewPos != NULL) && (Viewpoint.camera->ViewPos->Flags & VPSF_ALLOWOUTOFBOUNDS))
+	if (Viewpoint.IsAllowedOoB())
 	        mapsection = Level->PointInRenderSubsector(Viewpoint.camera->Pos())->mapsection;
 	CurrentMapSections.Set(mapsection);
 	DrawScene(toscreen ? DM_MAINVIEW : DM_OFFSCREEN, state);
