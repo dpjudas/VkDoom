@@ -339,7 +339,7 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 	for (unsigned int i = 0; i < doomMap.sectors.Size(); i++)
 	{
 		sector_t* sector = &doomMap.sectors[i];
-		if (sector->subsectors[0]->flags & SSECF_POLYORG)
+		if (sector->subsectorcount == 0 || sector->subsectors[0]->flags & SSECF_POLYORG)
 			continue;
 		UpdateFlat(doomMap, i);
 	}
