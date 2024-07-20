@@ -65,9 +65,9 @@ int RTnum;
 
 void ClearDitherTargets()
 {
-        RTnum = 0; // Number of rendered enemies/targets
+	RTnum = 0; // Number of rendered enemies/targets
 	for (int ii = 0; ii < MAXDITHERACTORS; ii++)
-	  RenderedTargets[ii] = nullptr;
+		RenderedTargets[ii] = nullptr;
 }
 
 struct RenderJob
@@ -291,10 +291,10 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 
 	if(r_radarclipper && !(Level->flags3 & LEVEL3_NOFOGOFWAR) && (startAngleR - endAngleR >= ANGLE_180))
 	{
-	        if (!seg->backsector) clipperr.SafeAddClipRange(startAngleR, endAngleR);
+		if (!seg->backsector) clipperr.SafeAddClipRange(startAngleR, endAngleR);
 		else if((seg->sidedef != nullptr) && !uint8_t(seg->sidedef->Flags & WALLF_POLYOBJ) && (currentsector->sectornum != seg->backsector->sectornum))
 		{
-		        if (in_area == area_default) in_area = hw_CheckViewArea(seg->v2, seg->v1, seg->frontsector, seg->backsector);
+			if (in_area == area_default) in_area = hw_CheckViewArea(seg->v2, seg->v1, seg->frontsector, seg->backsector);
 			backsector = hw_FakeFlat(drawctx, seg->backsector, in_area, true);
 			if (hw_CheckClip(seg->sidedef, currentsector, backsector)) clipperr.SafeAddClipRange(startAngleR, endAngleR);
 		}
@@ -310,7 +310,7 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 	{
 		if (!(currentsubsector->flags & SSECMF_DRAWN))
 		{
-		        if (clipper.SafeCheckRange(startAngle, endAngle) && (!r_radarclipper || (Level->flags3 & LEVEL3_NOFOGOFWAR)))
+			if (clipper.SafeCheckRange(startAngle, endAngle) && (!r_radarclipper || (Level->flags3 & LEVEL3_NOFOGOFWAR)))
 			{
 			  currentsubsector->flags |= SSECMF_DRAWN;
 			}
@@ -336,27 +336,27 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 	// Wall can be tilted from viewpoint perspective. Find vertical extent on screen in psuedopitch units (0 to 2, bottom to top)
 	if(int(startPitch) > int(startPitch2)) // Handle zero crossing
 	{
-	        temp = startPitch; startPitch = startPitch2; startPitch2 = temp; // exchange
+		temp = startPitch; startPitch = startPitch2; startPitch2 = temp; // exchange
 	}
 	if(int(endPitch) > int(endPitch2)) // Handle zero crossing
 	{
-	        temp = endPitch; endPitch = endPitch2; endPitch2 = temp; // exchange
+		temp = endPitch; endPitch = endPitch2; endPitch2 = temp; // exchange
 	}
 
 	if (!clipperv.SafeCheckRange(startPitch, endPitch2))
 	{
-	        return;
+		return;
 	}
 
 	if (!r_radarclipper || (Level->flags3 & LEVEL3_NOFOGOFWAR) || clipperr.SafeCheckRange(startAngleR, endAngleR))
-	        currentsubsector->flags |= SSECMF_DRAWN;
+		currentsubsector->flags |= SSECMF_DRAWN;
 
 	uint8_t ispoly = uint8_t(seg->sidedef->Flags & WALLF_POLYOBJ);
 
 	if (!seg->backsector)
 	{
-	        if(!Viewpoint.IsAllowedOoB())
-		        if (!(seg->sidedef->Flags & WALLF_DITHERTRANS)) clipper.SafeAddClipRange(startAngle, endAngle);
+		if(!Viewpoint.IsAllowedOoB())
+			if (!(seg->sidedef->Flags & WALLF_DITHERTRANS)) clipper.SafeAddClipRange(startAngle, endAngle);
 	}
 	else if (!ispoly)	// Two-sided polyobjects never obstruct the view
 	{
@@ -383,8 +383,8 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 
 			if (hw_CheckClip(seg->sidedef, currentsector, backsector))
 			{
-			        if(!Viewpoint.IsAllowedOoB() && !(seg->sidedef->Flags & WALLF_DITHERTRANS))
-				        clipper.SafeAddClipRange(startAngle, endAngle);
+				if(!Viewpoint.IsAllowedOoB() && !(seg->sidedef->Flags & WALLF_DITHERTRANS))
+					clipper.SafeAddClipRange(startAngle, endAngle);
 			}
 		}
 	}
@@ -585,7 +585,7 @@ void HWDrawInfo::RenderThings(subsector_t * sub, sector_t * sector, FRenderState
 {
 	sector_t * sec=sub->sector;
 	// Handle all things in sector.
-    const auto &vp = Viewpoint;
+	const auto &vp = Viewpoint;
 	for (auto p = sec->touching_renderthings; p != nullptr; p = p->m_snext)
 	{
 		auto thing = p->m_thing;
@@ -728,10 +728,10 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 
 	if(Viewpoint.IsAllowedOoB() && sector->isSecret() && sector->wasSecret() && !r_radarclipper) return;
 
-	// cull everything if subsector outside vertical clipper
-	if (sub->polys == nullptr)
+	// cull everything if subsector outside all clippers
+	if ((sub->polys == nullptr) && (!Viewpoint.IsOrtho() || !((Level->flags3 & LEVEL3_NOFOGOFWAR) || !r_radarclipper)))
 	{
-	        auto &clipper = *mClipper;
+		auto &clipper = *mClipper;
 		auto &clipperv = *vClipper;
 		auto &clipperr = *rClipper;
 		int count = sub->numlines;
@@ -745,27 +745,27 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 
 		while (count--)
 		{
-		        if((seg->v1 != nullptr) && (seg->v2 != nullptr))
+			if((seg->v1 != nullptr) && (seg->v2 != nullptr))
 			{
-			  angle_t startAngle = clipper.GetClipAngle(seg->v2);
-			  angle_t endAngle = clipper.GetClipAngle(seg->v1);
-			  if (startAngle-endAngle >= ANGLE_180) anglevisible |= clipper.SafeCheckRange(startAngle, endAngle);
-			  angle_t startAngleR = clipperr.PointToPseudoAngle(seg->v2->fX(), seg->v2->fY());
-			  angle_t endAngleR = clipperr.PointToPseudoAngle(seg->v1->fX(), seg->v1->fY());
-			  if (startAngleR-endAngleR >= ANGLE_180)
-			    radarvisible |= (clipperr.SafeCheckRange(startAngleR, endAngleR) || (Level->flags3 & LEVEL3_NOFOGOFWAR) || ((sub->flags & SSECMF_DRAWN) && !deathmatch));
-			  pitchmin = clipperv.PointToPseudoPitch(seg->v1->fX(), seg->v1->fY(), sector->floorplane.ZatPoint(seg->v1));
-			  pitchmax = clipperv.PointToPseudoPitch(seg->v1->fX(), seg->v1->fY(), sector->ceilingplane.ZatPoint(seg->v1));
-			  pitchvisible |= clipperv.SafeCheckRange(pitchmin, pitchmax);
-			  if (pitchvisible && anglevisible && radarvisible) break;
-			  pitchtemp = clipperv.PointToPseudoPitch(seg->v2->fX(), seg->v2->fY(), sector->floorplane.ZatPoint(seg->v2));
-			  if (int(pitchmin) > int(pitchtemp)) pitchmin = pitchtemp;
-			  pitchtemp = clipperv.PointToPseudoPitch(seg->v2->fX(), seg->v2->fY(), sector->ceilingplane.ZatPoint(seg->v2));
-			  if (int(pitchmax) < int(pitchtemp)) pitchmax = pitchtemp;
-			  pitchvisible |= clipperv.SafeCheckRange(pitchmin, pitchmax);
-			  if (pitchvisible && anglevisible && radarvisible) break;
+				angle_t startAngle = clipper.GetClipAngle(seg->v2);
+				angle_t endAngle = clipper.GetClipAngle(seg->v1);
+				if (startAngle-endAngle >= ANGLE_180) anglevisible |= clipper.SafeCheckRange(startAngle, endAngle);
+				angle_t startAngleR = clipperr.PointToPseudoAngle(seg->v2->fX(), seg->v2->fY());
+				angle_t endAngleR = clipperr.PointToPseudoAngle(seg->v1->fX(), seg->v1->fY());
+				if (startAngleR-endAngleR >= ANGLE_180)
+					radarvisible |= (clipperr.SafeCheckRange(startAngleR, endAngleR) || (Level->flags3 & LEVEL3_NOFOGOFWAR) || ((sub->flags & SSECMF_DRAWN) && !deathmatch));
+				pitchmin = clipperv.PointToPseudoPitch(seg->v1->fX(), seg->v1->fY(), sector->floorplane.ZatPoint(seg->v1));
+				pitchmax = clipperv.PointToPseudoPitch(seg->v1->fX(), seg->v1->fY(), sector->ceilingplane.ZatPoint(seg->v1));
+				pitchvisible |= clipperv.SafeCheckRange(pitchmin, pitchmax);
+				if (pitchvisible && anglevisible && radarvisible) break;
+				pitchtemp = clipperv.PointToPseudoPitch(seg->v2->fX(), seg->v2->fY(), sector->floorplane.ZatPoint(seg->v2));
+				if (int(pitchmin) > int(pitchtemp)) pitchmin = pitchtemp;
+				pitchtemp = clipperv.PointToPseudoPitch(seg->v2->fX(), seg->v2->fY(), sector->ceilingplane.ZatPoint(seg->v2));
+				if (int(pitchmax) < int(pitchtemp)) pitchmax = pitchtemp;
+				pitchvisible |= clipperv.SafeCheckRange(pitchmin, pitchmax);
+				if (pitchvisible && anglevisible && radarvisible) break;
 			}
-		        seg++;
+			seg++;
 		}
 		// Skip subsector if outside vertical or horizontal clippers or is in unexplored territory (fog of war)
 		if(!pitchvisible || !anglevisible || (!radarvisible && r_radarclipper)) return;
@@ -817,7 +817,7 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 
 		if (gl_render_things && (sector->touching_renderthings || sector->sectorportal_thinglist))
 		{
-		        if (multithread)
+			if (multithread)
 			{
 				jobQueue.AddJob(RenderJob::SpriteJob, sub, nullptr);
 			}
@@ -830,14 +830,14 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 		}
 		if (r_dithertransparency && Viewpoint.IsAllowedOoB() && (RTnum < MAXDITHERACTORS))
 		{
-		        // [DVR] Not parallelizable due to variables RTnum and RenderedTargets[]
-		        for (auto p = sector->touching_renderthings; p != nullptr; p = p->m_snext)
+			// [DVR] Not parallelizable due to variables RTnum and RenderedTargets[]
+			for (auto p = sector->touching_renderthings; p != nullptr; p = p->m_snext)
 			{
-			        auto thing = p->m_thing;
+				auto thing = p->m_thing;
 				if (thing->validcount == validcount) continue; // Don't double count
 				if (((thing->flags3 & MF3_ISMONSTER) && !(thing->flags & MF_CORPSE)) || (thing->flags & MF_MISSILE))
-				{				  
-				        if (RTnum < MAXDITHERACTORS) RenderedTargets[RTnum++] = thing;
+				{
+					if (RTnum < MAXDITHERACTORS) RenderedTargets[RTnum++] = thing;
 					else break;
 				}
 			}
@@ -965,16 +965,37 @@ void HWDrawInfo::RenderBSPNode (void *node, FRenderState& state)
 		}
 		if (Viewpoint.IsOrtho())
 		{
-		        if (!vClipper->CheckBoxOrthoPitch(bsp->bbox[side]))
+			if (!vClipper->CheckBoxOrthoPitch(bsp->bbox[side]))
 			{
 				if (!(no_renderflags[bsp->Index()] & SSRF_SEEN))
-				        return;
+					return;
 			}
 		}
 
 		node = bsp->children[side];
 	}
 	DoSubsector ((subsector_t *)((uint8_t *)node - 1), state);
+}
+
+// No need for clipping inside frustum if no fog of war (How is this faster!)
+void HWDrawInfo::RenderOrthoNoFog(FRenderState& state)
+{
+	if (Viewpoint.IsOrtho() && ((Level->flags3 & LEVEL3_NOFOGOFWAR) || !r_radarclipper))
+	{
+		double vxdbl = Viewpoint.camera->X();
+		double vydbl = Viewpoint.camera->Y();
+		double ext = Viewpoint.camera->ViewPos->Offset.Length() ?
+			3.0 * Viewpoint.camera->ViewPos->Offset.Length() : 100.0;
+		FBoundingBox viewbox(vxdbl, vydbl, ext);
+
+		for (uint kk = 0; kk < Level->subsectors.Size(); kk++)
+		{
+			if (Level->subsectors[kk].bbox.CheckOverlap(viewbox))
+			{
+				DoSubsector (&Level->subsectors[kk], state);
+			}
+		}
+	}
 }
 
 void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
@@ -987,14 +1008,14 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 	viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
 	if (r_radarclipper && !(Level->flags3 & LEVEL3_NOFOGOFWAR) && Viewpoint.IsAllowedOoB() && (Viewpoint.camera->ViewPos->Flags & VPSF_ABSOLUTEOFFSET))
 	{
-	        if (Viewpoint.camera->tracer != NULL)
+		if (Viewpoint.camera->tracer != NULL)
 		{
-		        viewx = FLOAT2FIXED(Viewpoint.camera->tracer->X());
+			viewx = FLOAT2FIXED(Viewpoint.camera->tracer->X());
 			viewy = FLOAT2FIXED(Viewpoint.camera->tracer->Y());
 		}
 		else
 		{
-		        viewx = FLOAT2FIXED(Viewpoint.camera->X());
+			viewx = FLOAT2FIXED(Viewpoint.camera->X());
 			viewy = FLOAT2FIXED(Viewpoint.camera->Y());
 		}
 	}
@@ -1008,7 +1029,8 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 		auto future = renderPool.push([&](int id) {
 			WorkerThread();
 		});
-		RenderBSPNode(node, state);
+		if (Viewpoint.IsOrtho() && ((Level->flags3 & LEVEL3_NOFOGOFWAR) || !r_radarclipper)) RenderOrthoNoFog(state);
+		else RenderBSPNode(node, state);
 
 		jobQueue.AddJob(RenderJob::TerminateJob, nullptr, nullptr);
 		Bsp.Unclock();
@@ -1018,7 +1040,8 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 	}
 	else
 	{
-		RenderBSPNode(node, state);
+		if (Viewpoint.IsOrtho() && ((Level->flags3 & LEVEL3_NOFOGOFWAR) || !r_radarclipper)) RenderOrthoNoFog(state);
+		else RenderBSPNode(node, state);
 		Bsp.Unclock();
 	}
 
@@ -1026,9 +1049,9 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 	// Can't do this inside DoSubsector() because both Trace() and P_CheckSight() affect 'validcount' global variable
 	for (int ii = 0; ii < MAXDITHERACTORS; ii++)
 	{
-	        if ( RenderedTargets[ii] && P_CheckSight(players[consoleplayer].mo, RenderedTargets[ii], 0) )
+		if ( RenderedTargets[ii] && P_CheckSight(players[consoleplayer].mo, RenderedTargets[ii], 0) )
 		{
-		        SetDitherTransFlags(RenderedTargets[ii]);
+			SetDitherTransFlags(RenderedTargets[ii]);
 		}
 	}
 

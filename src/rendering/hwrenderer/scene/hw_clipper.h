@@ -28,11 +28,11 @@ class Clipper
 	ClipNode * clipnodes = nullptr;
 	ClipNode * cliphead = nullptr;
 	ClipNode * silhouette = nullptr;	// will be preserved even when RemoveClipRange is called
-        FRenderViewpoint *viewpoint = nullptr;
+	FRenderViewpoint *viewpoint = nullptr;
 	bool blocked = false;
 
 	static angle_t AngleToPseudo(angle_t ang);
-        static angle_t PitchToPseudo(double ang);
+	static angle_t PitchToPseudo(double ang);
 	bool IsRangeVisible(angle_t startangle, angle_t endangle);
 	void RemoveRange(ClipNode * cn);
 	void AddClipRange(angle_t startangle, angle_t endangle);
@@ -41,8 +41,8 @@ class Clipper
 
 public:
 
-        bool amRadar = false;
-        void Clear();
+	bool amRadar = false;
+	void Clear();
 
 	void Free(ClipNode *node)
 	{
@@ -70,11 +70,11 @@ public:
 		c->next = c->prev = NULL;
 		return c;
 	}
-    
-    void SetViewpoint(FRenderViewpoint &vp)
-    {
-        viewpoint = &vp;
-    }
+
+	void SetViewpoint(FRenderViewpoint &vp)
+	{
+		viewpoint = &vp;
+	}
 
 	void SetSilhouette();
 
@@ -102,13 +102,13 @@ public:
 			AddClipRange(startangle, endangle);
 		}
 	}
-    
-    void SafeAddClipRange(const vertex_t *v1, const vertex_t *v2)
-    {
-        angle_t a2 = PointToPseudoAngle(v1->p.X, v1->p.Y);
-        angle_t a1 = PointToPseudoAngle(v2->p.X, v2->p.Y);
-        SafeAddClipRange(a1,a2);
-    }
+
+	void SafeAddClipRange(const vertex_t *v1, const vertex_t *v2)
+	{
+		angle_t a2 = PointToPseudoAngle(v1->p.X, v1->p.Y);
+		angle_t a1 = PointToPseudoAngle(v2->p.X, v2->p.Y);
+		SafeAddClipRange(a1,a2);
+	}
 
 	void SafeAddClipRangeRealAngles(angle_t startangle, angle_t endangle)
 	{
@@ -149,14 +149,14 @@ public:
 	{
 		return blocked;
 	}
-    
-    angle_t PointToPseudoAngle(double x, double y);
-    angle_t PointToPseudoPitch(double x, double y, double z);
-    angle_t PointToPseudoOrthoAngle(double x, double y);
-    angle_t PointToPseudoOrthoPitch(double x, double y, double z);
+
+	angle_t PointToPseudoAngle(double x, double y);
+	angle_t PointToPseudoPitch(double x, double y, double z);
+	angle_t PointToPseudoOrthoAngle(double x, double y);
+	angle_t PointToPseudoOrthoPitch(double x, double y, double z);
 
 	bool CheckBox(const float *bspcoord);
-        bool CheckBoxOrthoPitch(const float *bspcoord);
+	bool CheckBoxOrthoPitch(const float *bspcoord);
 
 	// Used to speed up angle calculations during clipping
 	inline angle_t GetClipAngle(vertex_t *v)
