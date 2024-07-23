@@ -1453,7 +1453,7 @@ FSerializer &Serialize(FSerializer &arc, const char *key, struct AnimOverride &a
 	arc("flags", ao.flags);
 	arc("framerate", ao.framerate);
 	arc("startTic", ao.startTic);
-	arc("switchTic", ao.switchTic);
+	arc("switchOffset", ao.switchOffset);
 	arc.EndObject();
 	return arc;
 }
@@ -2811,15 +2811,18 @@ static void PlayerLandedMakeGruntSound(AActor* self, AActor *onmobj)
 	}
 }
 
+static void PlayerSquatView(AActor *self, AActor *onmobj)
+{
+	IFVIRTUALPTR(self, AActor, PlayerSquatView)
+	{
+		VMValue params[2] = { self, onmobj };
+		VMCall(func, params, 2, nullptr, 0);
+	}
+}
+
 static void PlayerLandedOnThing (AActor *mo, AActor *onmobj)
 {
-	if (!mo->player)
-		return;
-
-	if (mo->player->mo == mo)
-	{
-		mo->player->deltaviewheight = mo->Vel.Z / 8.;
-	}
+	PlayerSquatView(mo, onmobj);
 
 	if (mo->player->cheats & CF_PREDICTING)
 		return;
@@ -3810,8 +3813,11 @@ void AActor::Tick ()
 
 	// Check for Actor unmorphing, but only on the thing that is the morphed Actor.
 	// Players do their own special checking for this.
-	if (alternative != nullptr && !(flags & MF_UNMORPHED) && player == nullptr)
+	if (alternative != nullptr && player == nullptr)
 	{
+		if (flags & MF_UNMORPHED)
+			return;
+
 		int res = false;
 		IFVIRTUAL(AActor, CheckUnmorph)
 		{
@@ -3855,6 +3861,12 @@ void AActor::Tick ()
 			{
 				special2++;
 			}
+
+			if(flags9 & MF9_DECOUPLEDANIMATIONS && modelData && !(modelData->curAnim.flags & ANIMOVERRIDE_NONE))
+			{
+				modelData->curAnim.startTic += 1;
+			}
+
 			return;
 		}
 
@@ -3902,6 +3914,12 @@ void AActor::Tick ()
 			{
 				special2++;
 			}
+
+			if(flags9 & MF9_DECOUPLEDANIMATIONS && modelData && !(modelData->curAnim.flags & ANIMOVERRIDE_NONE))
+			{
+				modelData->curAnim.startTic += 1;
+			}
+
 			return;
 		}
 
@@ -5339,6 +5357,42 @@ int MorphPointerSubstitution(AActor* from, AActor* to)
 		return false;
 	}
 
+	// [MC] Had to move this here since ObtainInventory was also moved as well. Should be called
+	// before any transference of items since that's what was intended when introduced.
+	if (!from->alternative) // Morphing into
+	{
+		{
+			IFVIRTUALPTR(from, AActor, PreMorph)
+			{
+				VMValue params[] = { from, to, false };
+				VMCall(func, params, 3, nullptr, 0);
+			}
+		}
+		{
+			IFVIRTUALPTR(to, AActor, PreMorph)
+			{
+				VMValue params[] = { to, from, true };
+				VMCall(func, params, 3, nullptr, 0);
+			}
+		}
+	}
+	else // Unmorphing back
+	{
+		{
+			IFVIRTUALPTR(from, AActor, PreUnmorph)
+			{
+				VMValue params[] = { from, to, false };
+				VMCall(func, params, 3, nullptr, 0);
+			}
+		}
+		{
+			IFVIRTUALPTR(to, AActor, PreUnmorph)
+			{
+				VMValue params[] = { to, from, true };
+				VMCall(func, params, 3, nullptr, 0);
+			}
+		}
+	}
 	// Since the check is good, move the inventory items over. This should always be done when
 	// morphing to emulate Heretic/Hexen's behavior since those stored the inventory in their
 	// player structs.
@@ -5386,6 +5440,10 @@ int MorphPointerSubstitution(AActor* from, AActor* to)
 	{
 		to->player = from->player;
 		from->player = nullptr;
+
+		// Swap the new body into the right network slot if it's a client (this doesn't
+		// really matter for regular Actors since they grab any ID they can get anyway).
+		NetworkEntityManager::SetClientNetworkEntity(to, to->player - players);
 	}
 
 	if (from->alternative != nullptr)

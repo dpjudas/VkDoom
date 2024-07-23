@@ -12,11 +12,7 @@
 #include <zwidget/window/window.h>
 #include <zwidget/widgets/tabwidget/tabwidget.h>
 
-#if defined(EXTRAARGS)
-CVAR(String, additional_parameters, "", CVAR_ARCHIVE | CVAR_NOSET | CVAR_GLOBALCONFIG);
-#endif
-
-int LauncherWindow::ExecModal(WadStuff* wads, int numwads, int defaultiwad, int* autoloadflags)
+int LauncherWindow::ExecModal(WadStuff* wads, int numwads, int defaultiwad, int* autoloadflags, FString * extraArgs)
 {
 	Size screenSize = GetScreenSize();
 	double windowWidth = 615.0;
@@ -27,6 +23,8 @@ int LauncherWindow::ExecModal(WadStuff* wads, int numwads, int defaultiwad, int*
 	launcher->Show();
 
 	DisplayWindow::RunLoop();
+
+	if(extraArgs) *extraArgs = launcher->PlayGame->GetExtraArgs();
 
 	return launcher->ExecResult;
 }
@@ -47,10 +45,6 @@ LauncherWindow::LauncherWindow(WadStuff* wads, int numwads, int defaultiwad, int
 
 	UpdateLanguage();
 
-#if defined(EXTRAARGS)
-	PlayGame->SetExtraArgs(static_cast<FString>(additional_parameters).GetChars());
-#endif
-
 	Pages->SetCurrentWidget(PlayGame);
 	PlayGame->SetFocus();
 }
@@ -58,16 +52,6 @@ LauncherWindow::LauncherWindow(WadStuff* wads, int numwads, int defaultiwad, int
 void LauncherWindow::Start()
 {
 	Settings->Save();
-
-#if defined(EXTRAARGS)
-	std::string extraargs = PlayGame->GetExtraArgs();
-	if (extraargs != static_cast<FString>(additional_parameters).GetChars())
-	{
-		additional_parameters = extraargs.c_str();
-
-		// To do: restart the process like the cocoa backend is doing?
-	}
-#endif
 
 	ExecResult = PlayGame->GetSelectedGame();
 	DisplayWindow::ExitLoop();
