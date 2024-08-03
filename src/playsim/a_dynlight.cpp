@@ -256,7 +256,7 @@ void FDynamicLight::Tick()
 
 	if (owned)
 	{
-		if (!target->state)
+		if (!target->state || !target->ShouldRenderLocally())
 		{
 			Deactivate();
 			return;
