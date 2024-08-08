@@ -30,6 +30,7 @@
 #ifndef __R_DEFS_H__
 #define __R_DEFS_H__
 
+#include "levelmeshhelper.h"
 #include "doomdef.h"
 
 #include "m_bbox.h"
@@ -977,6 +978,7 @@ public:
 		FTextureID old = planes[pos].Texture;
 		planes[pos].Texture = tex;
 		if (floorclip && pos == floor && tex != old) AdjustFloorClip();
+		if (tex != old) LevelMeshUpdater->SectorChanged((void*)this);
 	}
 
 	double GetPlaneTexZ(int pos) const
@@ -986,7 +988,9 @@ public:
 
 	void SetPlaneTexZQuick(int pos, double val)	// For the *FakeFlat functions which do not need to have the overlap checked.
 	{
+		auto old = planes[pos].TexZ;
 		planes[pos].TexZ = val;
+		if (val != old) LevelMeshUpdater->SectorChanged((void*)this);
 	}
 
 	void SetPlaneTexZ(int pos, double val, bool dirtify = false)	// This mainly gets used by init code. The only place where it must set the vertex to dirty is the interpolation code.
@@ -1286,7 +1290,9 @@ struct side_t
 	}
 	void SetTexture(int which, FTextureID tex)
 	{
+		auto old = textures[which].texture;
 		textures[which].texture = tex;
+		if (old != tex) LevelMeshUpdater->SideChanged((void*)this);
 	}
 
 	void SetTextureXOffset(int which, double offset)

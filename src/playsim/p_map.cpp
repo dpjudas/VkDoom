@@ -7048,6 +7048,7 @@ bool P_ChangeSector(sector_t *sector, int crunch, double amt, int floorOrCeil, b
 
 	}
 
+	LevelMeshUpdater->SectorChanged((void*)sector);	// update levelmesh
 	return cpos.nofit;
 }
 
