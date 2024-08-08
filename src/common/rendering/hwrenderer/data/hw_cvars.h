@@ -54,3 +54,6 @@ EXTERN_CVAR(Bool, gl_debug_breakpoint)
 EXTERN_CVAR(Bool, gl_brightfog)
 EXTERN_CVAR(Bool, gl_lightadditivesurfaces)
 EXTERN_CVAR(Bool, gl_notexturefill)
+
+EXTERN_CVAR(Bool, r_radarclipper)
+EXTERN_CVAR(Bool, r_dithertransparency)

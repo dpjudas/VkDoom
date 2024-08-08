@@ -147,6 +147,8 @@ struct HWDrawInfo
 	HWPortal *mClipPortal;
 	HWPortal *mCurrentPortal;
 	Clipper *mClipper;
+	Clipper *vClipper; // Vertical clipper
+	Clipper *rClipper; // Radar clipper
 	FRenderViewpoint Viewpoint;
 	HWViewpointUniforms VPUniforms;	// per-viewpoint uniform state
 	TArray<HWPortal *> Portals;
@@ -254,6 +256,7 @@ public:
 
 	HWPortal * FindPortal(const void * src);
 	void RenderBSPNode(void *node, FRenderState& state);
+	void RenderOrthoNoFog(FRenderState& state);
 	void RenderBSP(void *node, bool drawpsprites, FRenderState& state);
 
 	static HWDrawInfo *StartDrawInfo(HWDrawContext* drawctx, FLevelLocals *lev, HWDrawInfo *parent, FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms);
@@ -317,6 +320,8 @@ public:
 	void DrawPlayerSprites(bool hudModelStep, FRenderState &state);
 	void DrawCoronas(FRenderState& state);
 	void DrawCorona(FRenderState& state, AActor* corona, float coronaFade, double dist);
+
+	void SetDitherTransFlags(AActor* actor);
 
 	void ProcessLowerMinisegs(TArray<seg_t *> &lowersegs, FRenderState& state);
     void AddSubsectorToPortal(FSectorPortalGroup *portal, subsector_t *sub);

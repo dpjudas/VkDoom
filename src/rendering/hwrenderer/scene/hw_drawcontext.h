@@ -41,6 +41,8 @@ public:
 
 	FDrawInfoList di_list;
 	Clipper staticClipper; // Since all scenes are processed sequentially we only need one clipper.
+	Clipper staticVClipper;		// Another clipper to clip vertically (used if (VPSF_ALLOWOUTOFBOUNDS & camera->viewpos->Flags)).
+	Clipper staticRClipper;		// Another clipper for radar (doesn't actually clip. Changes SSECMF_DRAWN setting).
 	HWDrawInfo* gl_drawinfo = nullptr; // This is a linked list of all active DrawInfos and needed to free the memory arena after the last one goes out of scope.
 
 	FMemArena RenderDataAllocator;	// Use large blocks to reduce allocation time.
