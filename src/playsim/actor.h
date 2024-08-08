@@ -1650,6 +1650,11 @@ public:
 		DVector3 Pos = DVector3(-12345678.0, -12345678.0, -12345678.0);
 		uint64_t Bits = 0;
 	} StaticLightsTraceCache;
+
+	void InvalidateLightTraceCache()
+	{
+		StaticLightsTraceCache.Pos.X = -1e80;
+	}
 };
 
 class FActorIterator
