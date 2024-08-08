@@ -501,7 +501,8 @@ enum ActorRenderFlag2
 	RF2_FLIPSPRITEOFFSETX		= 0x0010,
 	RF2_FLIPSPRITEOFFSETY		= 0x0020,
 	RF2_CAMFOLLOWSPLAYER		= 0x0040,	// Matches the cam's base position and angles to the main viewpoint.
-	RF2_ISOMETRICSPRITES		= 0x0080,
+	RF2_NOMIPMAP				= 0x0080,	// [Nash] forces no mipmapping on sprites. Useful for tiny sprites that need to remain visually crisp
+	RF2_ISOMETRICSPRITES		= 0x0100,
 };
 
 // This translucency value produces the closest match to Heretic's TINTTAB.
@@ -713,7 +714,7 @@ struct AnimOverride
 	int flags = ANIMOVERRIDE_NONE;
 	float framerate;
 	double startTic; // when the current animation started (changing framerates counts as restarting) (or when animation starts if interpolating from previous animation)
-	double switchTic; // when the animation was changed -- where to interpolate the switch from
+	double switchOffset; // when the animation was changed -- where to interpolate the switch from
 };
 
 struct ModelOverride
@@ -777,6 +778,9 @@ public:
 
 	void Set(DVector3 &off, int f = -1)
 	{
+		ZeroSubnormalsF(off.X);
+		ZeroSubnormalsF(off.Y);
+		ZeroSubnormalsF(off.Z);
 		Offset = off;
 
 		if (f > -1)

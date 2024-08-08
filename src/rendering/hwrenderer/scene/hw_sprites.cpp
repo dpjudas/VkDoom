@@ -225,8 +225,10 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 		state.SetFog(0, 0);
 	}
 
+	int clampmode = nomipmap ? CLAMP_XY_NOMIP : CLAMP_XY;
+
 	uint32_t spritetype = actor? uint32_t(actor->renderflags & RF_SPRITETYPEMASK) : 0;
-	if (texture) state.SetMaterial(texture, UF_Sprite, (spritetype == RF_FACESPRITE) ? CTF_Expand : 0, CLAMP_XY, translation, OverrideShader);
+	if (texture) state.SetMaterial(texture, UF_Sprite, (spritetype == RF_FACESPRITE) ? CTF_Expand : 0, clampmode, translation, OverrideShader);
 	else if (!modelframe) state.EnableTexture(false);
 
 	//SetColor(lightlevel, rel, Colormap, trans);
@@ -412,6 +414,7 @@ bool HWSprite::CalculateVertices(HWDrawInfo* di, FVector3* v, DVector3* vp)
 		pixelstretch = actor->Level->pixelstretch;
 	else if (particle && particle->subsector && particle->subsector->sector && particle->subsector->sector->Level)
 		pixelstretch = particle->subsector->sector->Level->pixelstretch;
+	// float pixelstretch = di->Level->pixelstretch;
 
 	FVector3 center = FVector3((x1 + x2) * 0.5, (y1 + y2) * 0.5, (z1 + z2) * 0.5);
 	const auto& HWAngles = di->Viewpoint.HWAngles;
@@ -456,8 +459,9 @@ bool HWSprite::CalculateVertices(HWDrawInfo* di, FVector3* v, DVector3* vp)
 		&& (gl_billboard_mode == 1 || (actor && actor->renderflags & RF_FORCEXYBILLBOARD))));
 
 	const bool drawBillboardFacingCamera = hw_force_cambbpref ? gl_billboard_faces_camera :
-		(gl_billboard_faces_camera && (actor && !(actor->renderflags2 & RF2_BILLBOARDNOFACECAMERA)))
-		|| !!(actor && actor->renderflags2 & RF2_BILLBOARDFACECAMERA);
+		gl_billboard_faces_camera
+		&& ((actor && (!(actor->renderflags2 & RF2_BILLBOARDNOFACECAMERA) || (actor->renderflags2 & RF2_BILLBOARDFACECAMERA)))
+		|| (particle && particle->texture.isValid() && (!(particle->flags & SPF_NOFACECAMERA) || (particle->flags & SPF_FACECAMERA))));
 
 	// [Nash] has +ROLLSPRITE
 	const bool drawRollSpriteActor = (actor != nullptr && actor->renderflags & RF_ROLLSPRITE);
@@ -470,7 +474,7 @@ bool HWSprite::CalculateVertices(HWDrawInfo* di, FVector3* v, DVector3* vp)
 
 	// [Nash] is a flat sprite
 	const bool isWallSprite = (actor != nullptr) && (spritetype == RF_WALLSPRITE);
-	const bool useOffsets = (actor != nullptr) && !(actor->renderflags & RF_ROLLCENTER);
+	const bool useOffsets = ((actor != nullptr) && !(actor->renderflags & RF_ROLLCENTER)) || (particle && !(particle->flags & SPF_ROLLCENTER));
 
 	FVector2 offset = FVector2( offx, offy );
 	float xx = -center.X + x;
@@ -843,6 +847,8 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 			return;
 	}
 
+	nomipmap = (thing->renderflags2 & RF2_NOMIPMAP);
+
 	// check renderrequired vs ~r_rendercaps, if anything matches we don't support that feature,
 	// check renderhidden vs r_rendercaps, if anything matches we do support that feature and should hide it.
 	if ((!r_debug_disable_vis_filter && !!(thing->RenderRequired & ~r_renderercaps)) ||
@@ -1092,6 +1098,13 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 		}
 
 		r.Scale(sprscale.X, isSpriteShadow ? sprscale.Y * 0.15 * thing->isoscaleY : sprscale.Y * thing->isoscaleY);
+
+		if (thing->renderflags & (RF_ROLLSPRITE|RF_FLATSPRITE))
+		{
+			double ps = di->Level->pixelstretch;
+			double mult = 1.0 / sqrt(ps); // shrink slightly
+			r.Scale(mult * ps, mult);
+		}
 
 		float rightfac = -r.left;
 		float leftfac = rightfac - r.width;
@@ -1406,6 +1419,7 @@ void HWSprite::ProcessParticle(HWDrawInfo *di, FRenderState& state, particle_t *
 	actor = nullptr;
 	this->particle = particle;
 	fullbright = particle->flags & SPF_FULLBRIGHT;
+	nomipmap = particle->flags & SPF_NOMIPMAP;
 
 	if (di->isFullbrightScene()) 
 	{
@@ -1532,7 +1546,11 @@ void HWSprite::ProcessParticle(HWDrawInfo *di, FRenderState& state, particle_t *
 		else factor = 1 / 7.f;
 		float scalefac=particle->size * factor;
 
-		float viewvecX = vp.ViewVector.X * scalefac;
+		float ps = di->Level->pixelstretch;
+
+		scalefac /= sqrt(ps); // shrink it slightly to account for the stretch
+
+		float viewvecX = vp.ViewVector.X * scalefac * ps;
 		float viewvecY = vp.ViewVector.Y * scalefac;
 
 		x1=x+viewvecY;
@@ -1601,6 +1619,13 @@ void HWSprite::AdjustVisualThinker(HWDrawInfo* di, DVisualThinker* spr, sector_t
 
 	auto r = spi.GetSpriteRect();
 	r.Scale(spr->Scale.X, spr->Scale.Y);
+
+	if (spr->PT.flags & SPF_ROLL)
+	{
+		double ps = di->Level->pixelstretch;
+		double mult = 1.0 / sqrt(ps); // shrink slightly
+		r.Scale(mult * ps, mult);
+	}
 
 	if (spr->bXFlip)	
 	{
