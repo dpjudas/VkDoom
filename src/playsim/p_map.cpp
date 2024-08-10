@@ -7057,8 +7057,18 @@ bool P_ChangeSector(sector_t *sector, int crunch, double amt, int floorOrCeil, b
 		}
 
 	}
-
-	LevelMeshUpdater->SectorChanged((void*)sector);	// update levelmesh
+	switch(floorOrCeil)
+	{	// update levelmesh
+	case 0:
+		LevelMeshUpdater->FloorHeightChanged(sector);
+		break;
+	case 1:
+		LevelMeshUpdater->CeilingHeightChanged(sector);
+		break;
+	case 2:
+		LevelMeshUpdater->MidTex3DHeightChanged(sector);
+		break;
+	}
 	return cpos.nofit;
 }
 
