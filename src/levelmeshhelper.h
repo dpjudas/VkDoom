@@ -1,15 +1,12 @@
+#pragma once
 // level mesh helper
 // this is a minimal include to keep the other source files a little bit leaner
 
 struct UpdateLevelMesh
 {
-	void SectorChanged(void *sector)
-	{
-	}
+	virtual void SectorChanged(void *sector) = 0;
 
-	void SideChanged(void *side)
-	{
-	}
+	virtual void SideChanged(void *side) = 0;
 };
 
-UpdateLevelMesh* LevelMeshUpdater;
+extern UpdateLevelMesh* LevelMeshUpdater;

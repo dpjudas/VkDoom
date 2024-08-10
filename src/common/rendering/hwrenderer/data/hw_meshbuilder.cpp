@@ -1,7 +1,21 @@
 
+#include "levelmeshhelper.h"
 #include "hw_meshbuilder.h"
 #include "hw_mesh.h"
 #include "v_video.h"
+
+
+struct NullLevelMeshUpdater : UpdateLevelMesh
+{
+	virtual void SectorChanged(void *sector) {};
+
+	virtual void SideChanged(void *side) {};
+};
+
+static NullLevelMeshUpdater nullUpdater;
+
+UpdateLevelMesh* LevelMeshUpdater = &nullUpdater;
+
 
 MeshBuilder::MeshBuilder()
 {
