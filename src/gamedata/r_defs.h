@@ -978,7 +978,17 @@ public:
 		FTextureID old = planes[pos].Texture;
 		planes[pos].Texture = tex;
 		if (floorclip && pos == floor && tex != old) AdjustFloorClip();
-		if (tex != old) LevelMeshUpdater->SectorChanged((void*)this);
+		if (tex != old)
+		{
+			if(pos)
+			{
+				LevelMeshUpdater->FloorTextureChanged(this);
+			}
+			else
+			{
+				LevelMeshUpdater->CeilingTextureChanged(this);
+			}
+		}
 	}
 
 	double GetPlaneTexZ(int pos) const
@@ -990,7 +1000,18 @@ public:
 	{
 		auto old = planes[pos].TexZ;
 		planes[pos].TexZ = val;
-		if (val != old) LevelMeshUpdater->SectorChanged((void*)this);
+
+		if (val != old)
+		{
+			if(pos)
+			{
+				LevelMeshUpdater->FloorHeightChanged(this);
+			}
+			else
+			{
+				LevelMeshUpdater->CeilingHeightChanged(this);
+			}
+		}
 	}
 
 	void SetPlaneTexZ(int pos, double val, bool dirtify = false)	// This mainly gets used by init code. The only place where it must set the vertex to dirty is the interpolation code.
@@ -1292,7 +1313,7 @@ struct side_t
 	{
 		auto old = textures[which].texture;
 		textures[which].texture = tex;
-		if (old != tex) LevelMeshUpdater->SideChanged((void*)this);
+		if (old != tex) LevelMeshUpdater->SideTextureChanged(this, which);
 	}
 
 	void SetTextureXOffset(int which, double offset)

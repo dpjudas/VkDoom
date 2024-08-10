@@ -7,9 +7,14 @@
 
 struct NullLevelMeshUpdater : UpdateLevelMesh
 {
-	virtual void SectorChanged(void *sector) {};
+	virtual void FloorHeightChanged(struct sector_t *sector) {};
+	virtual void CeilingHeightChanged(struct sector_t *sector) {};
+	virtual void MidTex3DHeightChanged(struct sector_t *sector) {};
 
-	virtual void SideChanged(void *side) {};
+	virtual void FloorTextureChanged(struct sector_t *sector) {};
+	virtual void CeilingTextureChanged(struct sector_t *sector) {};
+
+	virtual void SideTextureChanged(struct side_t *side, int section) {};
 };
 
 static NullLevelMeshUpdater nullUpdater;

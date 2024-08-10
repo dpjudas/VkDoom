@@ -4,9 +4,14 @@
 
 struct UpdateLevelMesh
 {
-	virtual void SectorChanged(void *sector) = 0;
+	virtual void FloorHeightChanged(struct sector_t *sector) = 0;
+	virtual void CeilingHeightChanged(struct sector_t *sector) = 0;
+	virtual void MidTex3DHeightChanged(struct sector_t *sector) = 0;
 
-	virtual void SideChanged(void *side) = 0;
+	virtual void FloorTextureChanged(struct sector_t *sector) = 0;
+	virtual void CeilingTextureChanged(struct sector_t *sector) = 0;
+
+	virtual void SideTextureChanged(struct side_t *side, int section) = 0;
 };
 
 extern UpdateLevelMesh* LevelMeshUpdater;
