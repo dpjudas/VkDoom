@@ -1004,27 +1004,28 @@ public:
 
 		if (val != old)
 		{
+			//not sure actually what TexZ does, so changing passing this as "Other"
 			if(pos)
 			{
-				LevelMeshUpdater->FloorHeightChanged(this);
+				LevelMeshUpdater->SectorChangedOther(this);
 			}
 			else
 			{
-				LevelMeshUpdater->CeilingHeightChanged(this);
+				LevelMeshUpdater->SectorChangedOther(this);
 			}
 		}
 	}
 
 	void SetPlaneTexZ(int pos, double val, bool dirtify = false)	// This mainly gets used by init code. The only place where it must set the vertex to dirty is the interpolation code.
 	{
-		planes[pos].TexZ = val;
+		SetPlaneTexZQuick(pos, val);
 		if (dirtify) SetAllVerticesDirty();
 		CheckOverlap();
 	}
 
 	void ChangePlaneTexZ(int pos, double val)
 	{
-		planes[pos].TexZ += val;
+		SetPlaneTexZQuick(pos, planes[pos].TexZ + val);
 		SetAllVerticesDirty();
 		CheckOverlap();
 	}

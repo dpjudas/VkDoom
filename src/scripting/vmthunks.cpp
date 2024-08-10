@@ -1806,19 +1806,6 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Secplane, isEqual, isPlaneEqual)
 	ACTION_RETURN_BOOL(*self == *other);
 }
 
-static void ChangeHeight(secplane_t *self, double hdiff)
-{
-	self->ChangeHeight(hdiff);
-}
-
-DEFINE_ACTION_FUNCTION_NATIVE(_Secplane, ChangeHeight, ChangeHeight)
-{
-	PARAM_SELF_STRUCT_PROLOGUE(secplane_t);
-	PARAM_FLOAT(hdiff);
-	self->ChangeHeight(hdiff);
-	return 0;
-}
-
 static double GetChangedHeight(const secplane_t *self, double hdiff)
 {
 	return self->GetChangedHeight(hdiff);

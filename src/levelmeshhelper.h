@@ -11,6 +11,8 @@ struct UpdateLevelMesh
 	virtual void FloorTextureChanged(struct sector_t *sector) = 0;
 	virtual void CeilingTextureChanged(struct sector_t *sector) = 0;
 
+	virtual void SectorChangedOther(struct sector_t *sector) = 0;
+
 	virtual void SideTextureChanged(struct side_t *side, int section) = 0;
 };
 

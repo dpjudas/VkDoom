@@ -14,6 +14,8 @@ struct NullLevelMeshUpdater : UpdateLevelMesh
 	virtual void FloorTextureChanged(struct sector_t *sector) {};
 	virtual void CeilingTextureChanged(struct sector_t *sector) {};
 
+	virtual void SectorChangedOther(struct sector_t *sector) {};
+
 	virtual void SideTextureChanged(struct side_t *side, int section) {};
 };
 
