@@ -24,8 +24,6 @@ struct LevelMeshSurface
 	FVector4 Plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
 	int LightmapTileIndex = -1;
 
-	bool AlwaysUpdate = false;
-
 	FGameTexture* Texture = nullptr;
 	float Alpha = 1.0;
 	

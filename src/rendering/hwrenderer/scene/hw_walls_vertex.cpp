@@ -195,9 +195,9 @@ void HWWall::SplitRightEdge(FFlatVertex *&ptr)
 
 int HWWall::CreateVertices(FFlatVertex *&ptr, bool split)
 {
-	if (surface && surface->LightmapTileIndex >= 0)
+	if (lightmaptile >= 0)
 	{
-		LightmapTile* tile = &level.levelMesh->LightmapTiles[surface->LightmapTileIndex];
+		LightmapTile* tile = &level.levelMesh->LightmapTiles[lightmaptile];
 		FVector2 lolft = tile->ToUV(FVector3(glseg.x1, glseg.y1, zbottom[0]), level.levelMesh->LMTextureSize);
 		FVector2 uplft = tile->ToUV(FVector3(glseg.x1, glseg.y1, ztop[0]), level.levelMesh->LMTextureSize);
 		FVector2 uprgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, ztop[1]), level.levelMesh->LMTextureSize);

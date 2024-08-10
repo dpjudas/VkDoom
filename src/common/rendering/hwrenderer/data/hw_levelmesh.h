@@ -77,6 +77,7 @@ public:
 		info.Vertices = &Mesh.Vertices[info.VertexStart];
 		info.UniformIndexes = &Mesh.UniformIndexes[info.VertexStart];
 		info.Indexes = &Mesh.Indexes[info.IndexStart];
+		// To do: mark range as dirty
 		return info;
 	}
 
@@ -89,6 +90,7 @@ public:
 		Mesh.Materials.Resize(info.Start + count);
 		info.Uniforms = &Mesh.Uniforms[info.Start];
 		info.Materials = &Mesh.Materials[info.Start];
+		// To do: mark range as dirty
 		return info;
 	}
 
@@ -96,10 +98,19 @@ public:
 	{
 		for (int i = 0; i < indexCount; i++)
 			Mesh.Indexes[indexStart + i] = 0;
+		// To do: add to a free list
+		// To do: mark range as dirty
 	}
 
 	void FreeUniforms(int start, int count)
 	{
+		// To do: add to a free list
+	}
+
+	void FreeSurface(unsigned int surfaceIndex)
+	{
+		// To do: remove the surface from the surface tile, if attached
+		// To do: add to a free list
 	}
 
 	struct
@@ -121,7 +132,7 @@ public:
 		TArray<int> SurfaceIndexes;
 		int DynamicIndexStart = 0;
 
-		// Above data must not be resized beyond these limits as that's the size of the GPU buffers)
+		// Above data must not be resized beyond these limits as that's the size of the GPU buffers
 		int MaxVertices = 0;
 		int MaxIndexes = 0;
 		int MaxSurfaces = 0;

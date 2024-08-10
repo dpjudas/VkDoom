@@ -225,19 +225,19 @@ public:
 		VPUniforms.mClipHeight = 0;
 	}
 
-	void PushVisibleSurface(LevelMeshSurface* surface)
+	void PushVisibleTile(int tileIndex)
 	{
 		if (outer)
 		{
-			outer->PushVisibleSurface(surface);
+			outer->PushVisibleTile(tileIndex);
 			return;
 		}
 
-		if (surface->LightmapTileIndex < 0)
+		if (tileIndex < 0)
 			return;
 
-		LightmapTile* tile = &Level->levelMesh->LightmapTiles[surface->LightmapTileIndex];
-		if (lm_always_update || surface->AlwaysUpdate)
+		LightmapTile* tile = &Level->levelMesh->LightmapTiles[tileIndex];
+		if (lm_always_update || tile->AlwaysUpdate)
 		{
 			tile->NeedsUpdate = true;
 		}

@@ -27,18 +27,18 @@ struct DoomLevelMeshSurface : public LevelMeshSurface
 	sector_t* ControlSector = nullptr;
 
 	int PipelineID = 0;
+
+	int NextSurface = -1;
 };
 
-struct SideSurfaceRange
+struct SideSurfaceBlock
 {
-	int StartSurface = 0;
-	int SurfaceCount = 0;
+	int FirstSurface = -1;
 };
 
-struct FlatSurfaceRange
+struct FlatSurfaceBlock
 {
-	int StartSurface = 0;
-	int SurfaceCount = 0;
+	int FirstSurface = -1;
 };
 
 class DoomLevelMesh : public LevelMesh
@@ -72,19 +72,22 @@ private:
 	void UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
 
+	void FreeSide(FLevelLocals& doomMap, unsigned int sideIndex);
+	void FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
+
 	void SetSubsectorLightmap(DoomLevelMeshSurface* surface);
 	void SetSideLightmap(DoomLevelMeshSurface* surface);
 
 	void SortIndexes();
 
-	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent);
-	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent);
+	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent, unsigned int sectorIndex);
+	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent, unsigned int sectorIndex);
 
 	void LinkSurfaces(FLevelLocals& doomMap);
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
-	int AddSurfaceToTile(const DoomLevelMeshSurface& surf, uint16_t sampleDimension);
+	int AddSurfaceToTile(const DoomLevelMeshSurface& surf, uint16_t sampleDimension, bool alwaysUpdate);
 	int GetSampleDimension(const DoomLevelMeshSurface& surf, uint16_t sampleDimension);
 
 	void CreatePortals(FLevelLocals& doomMap);
@@ -92,8 +95,8 @@ private:
 
 	int GetLightIndex(FDynamicLight* light, int portalgroup);
 
-	TArray<SideSurfaceRange> Sides;
-	TArray<FlatSurfaceRange> Flats;
+	TArray<SideSurfaceBlock> Sides;
+	TArray<FlatSurfaceBlock> Flats;
 	std::map<LightmapTileBinding, int> bindings;
 	MeshBuilder state;
 };

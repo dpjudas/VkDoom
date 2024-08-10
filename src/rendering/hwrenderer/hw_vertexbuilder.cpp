@@ -243,13 +243,17 @@ static int CreateIndexedSectorVerticesLM(sector_t* sec, const secplane_t& plane,
 		for(auto& sub : section.subsectors)
 		{
 			// vertices
-			DoomLevelMeshSurface* lightmap = sub->surface[h].Size() > lightmapIndex ? sub->surface[h][lightmapIndex] : nullptr;
-			if (lightmap && lightmap->Type != ST_NONE) // surface may be missing if the subsector is degenerate triangle
+			int lightmap = sub->LightmapTiles[h].Size() > lightmapIndex ? sub->LightmapTiles[h][lightmapIndex] : -1;
+			if (lightmap >= 0) // tile may be missing if the subsector is degenerate triangle
 			{
-				FFlatVertex* luvs = &level.levelMesh->Mesh.Vertices[lightmap->MeshLocation.StartVertIndex];
+				const auto& tile = level.levelMesh->LightmapTiles[lightmap];
+				float textureSize = (float)level.levelMesh->LMTextureSize;
+				float lindex = (float)tile.AtlasLocation.ArrayIndex;
 				for (unsigned int j = 0, end = sub->numlines; j < end; j++)
 				{
-					SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane, luvs[end - 1 - j].lu, luvs[end - 1 - j].lv, luvs[end - 1 - j].lindex);
+					vertex_t* vt = sub->firstline[j].v1;
+					FVector2 luv = tile.ToUV(FVector3((float)vt->fX(), (float)vt->fY(), (float)plane.ZatPoint(vt)), textureSize);
+					SetFlatVertex(vbo_shadowdata[vi + pos], vt, plane, luv.X, luv.Y, lindex);
 					vbo_shadowdata[vi + pos].z += diff;
 					pos++;
 				}

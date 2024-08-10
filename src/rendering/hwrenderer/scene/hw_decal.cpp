@@ -422,9 +422,9 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 	auto verts = state.AllocVertices(4);
 	gldecal->vertindex = verts.second;
 
-	if (surface && surface->LightmapTileIndex >= 0)
+	if (lightmaptile >= 0)
 	{
-		LightmapTile* tile = &di->Level->levelMesh->LightmapTiles[surface->LightmapTileIndex];
+		LightmapTile* tile = &di->Level->levelMesh->LightmapTiles[lightmaptile];
 		float lightmapindex = (float)tile->AtlasLocation.ArrayIndex;
 
 		for (i = 0; i < 4; i++)
