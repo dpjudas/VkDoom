@@ -42,7 +42,7 @@ void LevelMesh::AddEmptyMesh()
 	for (int i = 0; i < 3 * 4; i++)
 		Mesh.Indexes.Push(i);
 
-	MarkAllDirty();
+	UploadAll();
 }
 
 LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, float maxDist)
@@ -111,7 +111,7 @@ LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 void LevelMesh::UpdateCollision()
 {
 	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Indexes.Data(), Mesh.Indexes.Size());
-	MarkCollisionDirty();
+	UploadCollision();
 }
 
 struct LevelMeshPlaneGroup

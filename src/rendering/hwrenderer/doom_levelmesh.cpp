@@ -178,7 +178,7 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	Mesh.MaxLights = 100'000;
 	Mesh.MaxLightIndexes = 4 * 1024 * 1024;
 
-	MarkAllDirty();
+	UploadAll();
 }
 
 void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)

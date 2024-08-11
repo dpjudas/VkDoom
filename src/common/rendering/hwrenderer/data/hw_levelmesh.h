@@ -48,6 +48,8 @@ struct MeshBufferRange
 {
 	int Offset = 0;
 	int Size = 0;
+
+	bool operator<(const MeshBufferRange& other) const { return Offset < other.Offset; }
 };
 
 class LevelMesh
@@ -83,7 +85,11 @@ public:
 		info.Vertices = &Mesh.Vertices[info.VertexStart];
 		info.UniformIndexes = &Mesh.UniformIndexes[info.VertexStart];
 		info.Indexes = &Mesh.Indexes[info.IndexStart];
-		// To do: mark range as dirty
+
+		AddRange(UploadRanges.Vertex, { info.VertexStart, info.VertexCount });
+		AddRange(UploadRanges.UniformIndexes, { info.VertexStart, info.VertexCount });
+		AddRange(UploadRanges.Index, { info.IndexStart, info.IndexCount });
+
 		return info;
 	}
 
@@ -96,27 +102,33 @@ public:
 		Mesh.Materials.Resize(info.Start + count);
 		info.Uniforms = &Mesh.Uniforms[info.Start];
 		info.Materials = &Mesh.Materials[info.Start];
-		// To do: mark range as dirty
+
+		AddRange(UploadRanges.Uniforms, { info.Start, info.Count });
+
 		return info;
 	}
 
 	void FreeGeometry(int vertexStart, int vertexCount, int indexStart, int indexCount)
 	{
+		// Convert triangles to degenerates
 		for (int i = 0; i < indexCount; i++)
 			Mesh.Indexes[indexStart + i] = 0;
-		// To do: add to a free list
-		// To do: mark range as dirty
+		AddRange(UploadRanges.Index, { indexStart, indexCount });
+
+		AddRange(FreeLists.Vertex, { vertexStart, vertexCount });
+		AddRange(FreeLists.Index, { indexStart, indexCount });
 	}
 
 	void FreeUniforms(int start, int count)
 	{
-		// To do: add to a free list
+		AddRange(FreeLists.Uniforms, { start, count });
 	}
 
 	void FreeSurface(unsigned int surfaceIndex)
 	{
 		// To do: remove the surface from the surface tile, if attached
-		// To do: add to a free list
+
+		AddRange(FreeLists.Surface, { (int)surfaceIndex, 1 });
 	}
 
 	struct
@@ -161,7 +173,15 @@ public:
 		TArray<MeshBufferRange> Portals;
 		TArray<MeshBufferRange> Light;
 		TArray<MeshBufferRange> LightIndex;
-	} DirtyRanges;
+	} UploadRanges;
+
+	struct
+	{
+		TArray<MeshBufferRange> Vertex;
+		TArray<MeshBufferRange> Index;
+		TArray<MeshBufferRange> Uniforms;
+		TArray<MeshBufferRange> Surface;
+	} FreeLists;
 
 	std::unique_ptr<TriangleMeshShape> Collision;
 
@@ -186,38 +206,68 @@ public:
 
 	void AddEmptyMesh();
 	
-	void MarkAllDirty()
+	void UploadAll()
 	{
-		DirtyRanges.Vertex.Clear();
-		DirtyRanges.Vertex.Push({ 0, (int)Mesh.Vertices.Size() });
-		DirtyRanges.Index.Clear();
-		DirtyRanges.Index.Push({ 0, (int)Mesh.Indexes.Size() });
-		DirtyRanges.SurfaceIndex.Clear();
-		DirtyRanges.SurfaceIndex.Push({ 0, (int)Mesh.SurfaceIndexes.Size() });
-		DirtyRanges.Surface.Clear();
-		DirtyRanges.Surface.Push({ 0, GetSurfaceCount() });
-		DirtyRanges.UniformIndexes.Clear();
-		DirtyRanges.UniformIndexes.Push({ 0, (int)Mesh.UniformIndexes.Size() });
-		DirtyRanges.Uniforms.Clear();
-		DirtyRanges.Uniforms.Push({ 0, (int)Mesh.Uniforms.Size() });
-		DirtyRanges.Portals.Clear();
-		DirtyRanges.Portals.Push({ 0, (int)Portals.Size() });
-		DirtyRanges.Light.Clear();
-		DirtyRanges.Light.Push({ 0, (int)Mesh.Lights.Size() });
-		DirtyRanges.LightIndex.Clear();
-		DirtyRanges.LightIndex.Push({ 0, (int)Mesh.LightIndexes.Size() });
+		UploadRanges.Vertex.Clear();
+		UploadRanges.Vertex.Push({ 0, (int)Mesh.Vertices.Size() });
+		UploadRanges.Index.Clear();
+		UploadRanges.Index.Push({ 0, (int)Mesh.Indexes.Size() });
+		UploadRanges.SurfaceIndex.Clear();
+		UploadRanges.SurfaceIndex.Push({ 0, (int)Mesh.SurfaceIndexes.Size() });
+		UploadRanges.Surface.Clear();
+		UploadRanges.Surface.Push({ 0, GetSurfaceCount() });
+		UploadRanges.UniformIndexes.Clear();
+		UploadRanges.UniformIndexes.Push({ 0, (int)Mesh.UniformIndexes.Size() });
+		UploadRanges.Uniforms.Clear();
+		UploadRanges.Uniforms.Push({ 0, (int)Mesh.Uniforms.Size() });
+		UploadRanges.Portals.Clear();
+		UploadRanges.Portals.Push({ 0, (int)Portals.Size() });
+		UploadRanges.Light.Clear();
+		UploadRanges.Light.Push({ 0, (int)Mesh.Lights.Size() });
+		UploadRanges.LightIndex.Clear();
+		UploadRanges.LightIndex.Push({ 0, (int)Mesh.LightIndexes.Size() });
 	}
 
-	void MarkCollisionDirty()
+	void UploadCollision()
 	{
-		DirtyRanges.Node.Clear();
+		UploadRanges.Node.Clear();
 		if (Collision)
-			DirtyRanges.Node.Push({ 0, (int)Collision->get_nodes().size() });
+			UploadRanges.Node.Push({ 0, (int)Collision->get_nodes().size() });
 	}
 
-	void MarkDynamicDirty()
+	void UploadDynamic()
 	{
-		DirtyRanges.Index.Push({ Mesh.DynamicIndexStart, (int)(Mesh.Indexes.Size() - Mesh.DynamicIndexStart) });
+		UploadRanges.Index.Push({ Mesh.DynamicIndexStart, (int)(Mesh.Indexes.Size() - Mesh.DynamicIndexStart) });
+	}
+
+	void AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)
+	{
+		auto right = std::lower_bound(ranges.begin(), ranges.end(), range);
+
+		bool leftExists = right != ranges.begin();
+		bool rightExists = right != ranges.end();
+
+		auto left = right;
+		if (leftExists)
+			--left;
+
+		if (leftExists && rightExists && left->Offset + left->Size == range.Offset && right->Offset == range.Offset + range.Size) // ####[--]####
+		{
+			left->Size += range.Size + right->Size;
+			ranges.Delete(right - ranges.begin());
+		}
+		else if (leftExists && left->Offset + left->Size == range.Offset) // ####[--]  ####
+		{
+			left->Size += range.Size;
+		}
+		else if (rightExists && right->Offset == range.Offset + range.Size) // ####  [--]####
+		{
+			right->Offset -= range.Size;
+		}
+		else // ##### [--]  ####
+		{
+			ranges.Insert(right - ranges.begin(), range);
+		}
 	}
 };
 

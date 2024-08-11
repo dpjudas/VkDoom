@@ -448,11 +448,11 @@ void VkLevelMeshUploader::Upload()
 	BeginTransfer(transferBufferSize);
 
 	UploadNodes();
-	UploadRanges(Mesh->Mesh->DirtyRanges.Vertex, Mesh->Mesh->Mesh.Vertices.Data(), Mesh->VertexBuffer.get());
-	UploadRanges(Mesh->Mesh->DirtyRanges.UniformIndexes, Mesh->Mesh->Mesh.UniformIndexes.Data(), Mesh->UniformIndexBuffer.get());
-	UploadRanges(Mesh->Mesh->DirtyRanges.Index, Mesh->Mesh->Mesh.Indexes.Data(), Mesh->IndexBuffer.get());
-	UploadRanges(Mesh->Mesh->DirtyRanges.SurfaceIndex, Mesh->Mesh->Mesh.SurfaceIndexes.Data(), Mesh->SurfaceIndexBuffer.get());
-	UploadRanges(Mesh->Mesh->DirtyRanges.LightIndex, Mesh->Mesh->Mesh.LightIndexes.Data(), Mesh->LightIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.Vertex, Mesh->Mesh->Mesh.Vertices.Data(), Mesh->VertexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.UniformIndexes, Mesh->Mesh->Mesh.UniformIndexes.Data(), Mesh->UniformIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.Index, Mesh->Mesh->Mesh.Indexes.Data(), Mesh->IndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.SurfaceIndex, Mesh->Mesh->Mesh.SurfaceIndexes.Data(), Mesh->SurfaceIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.LightIndex, Mesh->Mesh->Mesh.LightIndexes.Data(), Mesh->LightIndexBuffer.get());
 	UploadSurfaces();
 	UploadUniforms();
 	UploadPortals();
@@ -474,16 +474,16 @@ void VkLevelMeshUploader::Upload()
 
 void VkLevelMeshUploader::ClearRanges()
 {
-	Mesh->Mesh->DirtyRanges.Vertex.clear();
-	Mesh->Mesh->DirtyRanges.Index.clear();
-	Mesh->Mesh->DirtyRanges.Node.clear();
-	Mesh->Mesh->DirtyRanges.SurfaceIndex.clear();
-	Mesh->Mesh->DirtyRanges.Surface.clear();
-	Mesh->Mesh->DirtyRanges.UniformIndexes.clear();
-	Mesh->Mesh->DirtyRanges.Uniforms.clear();
-	Mesh->Mesh->DirtyRanges.Portals.clear();
-	Mesh->Mesh->DirtyRanges.Light.clear();
-	Mesh->Mesh->DirtyRanges.LightIndex.clear();
+	Mesh->Mesh->UploadRanges.Vertex.clear();
+	Mesh->Mesh->UploadRanges.Index.clear();
+	Mesh->Mesh->UploadRanges.Node.clear();
+	Mesh->Mesh->UploadRanges.SurfaceIndex.clear();
+	Mesh->Mesh->UploadRanges.Surface.clear();
+	Mesh->Mesh->UploadRanges.UniformIndexes.clear();
+	Mesh->Mesh->UploadRanges.Uniforms.clear();
+	Mesh->Mesh->UploadRanges.Portals.clear();
+	Mesh->Mesh->UploadRanges.Light.clear();
+	Mesh->Mesh->UploadRanges.LightIndex.clear();
 }
 
 void VkLevelMeshUploader::BeginTransfer(size_t transferBufferSize)
@@ -515,7 +515,7 @@ void VkLevelMeshUploader::UploadNodes()
 		return;
 
 	// Always update the header struct of the collision storage buffer block if something changed
-	if (Mesh->Mesh->DirtyRanges.Node.Size() > 0)
+	if (Mesh->Mesh->UploadRanges.Node.Size() > 0)
 	{
 		CollisionNodeBufferHeader nodesHeader;
 		nodesHeader.root = Mesh->Mesh->Collision->get_root();
@@ -527,7 +527,7 @@ void VkLevelMeshUploader::UploadNodes()
 	}
 
 	// Copy collision nodes
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Node)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Node)
 	{
 		const auto& srcnodes = Mesh->Mesh->Collision->get_nodes();
 		CollisionNode* nodes = (CollisionNode*)(data + datapos);
@@ -565,7 +565,7 @@ void VkLevelMeshUploader::UploadRanges(const TArray<MeshBufferRange>& ranges, co
 
 void VkLevelMeshUploader::UploadSurfaces()
 {
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Surface)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Surface)
 	{
 		SurfaceInfo* surfaces = (SurfaceInfo*)(data + datapos);
 		for (int j = 0, count = range.Size; j < count; j++)
@@ -601,7 +601,7 @@ void VkLevelMeshUploader::UploadSurfaces()
 
 void VkLevelMeshUploader::UploadUniforms()
 {
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Uniforms)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Uniforms)
 	{
 		for (int j = 0, count = range.Size; j < count; j++)
 		{
@@ -630,7 +630,7 @@ void VkLevelMeshUploader::UploadUniforms()
 
 void VkLevelMeshUploader::UploadPortals()
 {
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Portals)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Portals)
 	{
 		PortalInfo* portals = (PortalInfo*)(data + datapos);
 		for (int i = 0, count = range.Size; i < count; i++)
@@ -650,7 +650,7 @@ void VkLevelMeshUploader::UploadPortals()
 
 void VkLevelMeshUploader::UploadLights()
 {
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Light)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Light)
 	{
 		LightInfo* lights = (LightInfo*)(data + datapos);
 		for (int i = 0, count = range.Size; i < count; i++)
@@ -682,17 +682,17 @@ size_t VkLevelMeshUploader::GetTransferSize()
 	size_t transferBufferSize = 0;
 	if (!Mesh->useRayQuery)
 	{
-		if (Mesh->Mesh->DirtyRanges.Node.Size() > 0) transferBufferSize += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
-		for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Node) transferBufferSize += range.Size * sizeof(CollisionNode);
+		if (Mesh->Mesh->UploadRanges.Node.Size() > 0) transferBufferSize += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
+		for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Node) transferBufferSize += range.Size * sizeof(CollisionNode);
 	}
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Vertex) transferBufferSize += range.Size * sizeof(FFlatVertex);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.UniformIndexes) transferBufferSize += range.Size * sizeof(int);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Index) transferBufferSize += range.Size * sizeof(uint32_t);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.SurfaceIndex) transferBufferSize += range.Size * sizeof(int);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Surface) transferBufferSize += range.Size * sizeof(SurfaceInfo);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Uniforms) transferBufferSize += range.Size * sizeof(SurfaceUniforms);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Portals) transferBufferSize += range.Size * sizeof(PortalInfo);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.LightIndex) transferBufferSize += range.Size * sizeof(int32_t);
-	for (const MeshBufferRange& range : Mesh->Mesh->DirtyRanges.Light) transferBufferSize += range.Size * sizeof(LightInfo);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Vertex) transferBufferSize += range.Size * sizeof(FFlatVertex);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.UniformIndexes) transferBufferSize += range.Size * sizeof(int);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Index) transferBufferSize += range.Size * sizeof(uint32_t);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.SurfaceIndex) transferBufferSize += range.Size * sizeof(int);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Surface) transferBufferSize += range.Size * sizeof(SurfaceInfo);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Uniforms) transferBufferSize += range.Size * sizeof(SurfaceUniforms);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Portals) transferBufferSize += range.Size * sizeof(PortalInfo);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.LightIndex) transferBufferSize += range.Size * sizeof(int32_t);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Light) transferBufferSize += range.Size * sizeof(LightInfo);
 	return transferBufferSize;
 }
