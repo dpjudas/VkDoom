@@ -17,3 +17,5 @@ struct UpdateLevelMesh
 };
 
 extern UpdateLevelMesh* LevelMeshUpdater;
+
+void SetNullLevelMeshUpdater();

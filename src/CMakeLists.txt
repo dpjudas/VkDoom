@@ -823,6 +823,7 @@ set (PCH_SOURCES
 	st_stuff.cpp
 	r_data/v_palette.cpp
 	wi_stuff.cpp
+	levelmeshhelper.cpp
 	gamedata/a_keys.cpp
 	gamedata/a_weapons.cpp
 	gamedata/decallib.cpp

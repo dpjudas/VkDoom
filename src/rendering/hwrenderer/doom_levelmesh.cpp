@@ -381,6 +381,41 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	// To do: call FreeGeometry and FreeUniforms
 }
 
+void DoomLevelMesh::FloorHeightChanged(struct sector_t* sector)
+{
+	// UpdateFlat(level, sector->Index());
+}
+
+void DoomLevelMesh::CeilingHeightChanged(struct sector_t* sector)
+{
+	// UpdateFlat(level, sector->Index());
+}
+
+void DoomLevelMesh::MidTex3DHeightChanged(struct sector_t* sector)
+{
+	// UpdateFlat(level, sector->Index());
+}
+
+void DoomLevelMesh::FloorTextureChanged(struct sector_t* sector)
+{
+	// UpdateFlat(level, sector->Index());
+}
+
+void DoomLevelMesh::CeilingTextureChanged(struct sector_t* sector)
+{
+	// UpdateFlat(level, sector->Index());
+}
+
+void DoomLevelMesh::SectorChangedOther(struct sector_t* sector)
+{
+	// UpdateFlat(level, sector->Index());
+}
+
+void DoomLevelMesh::SideTextureChanged(struct side_t* side, int section)
+{
+	// UpdateSide(level, side->Index());
+}
+
 void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 {
 	FreeSide(doomMap, sideIndex);
@@ -428,7 +463,7 @@ void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 
 void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
-	FreeSide(doomMap, sectorIndex);
+	FreeFlat(doomMap, sectorIndex);
 
 	sector_t* sector = &doomMap.sectors[sectorIndex];
 	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))

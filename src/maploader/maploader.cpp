@@ -3203,6 +3203,8 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 {
+	SetNullLevelMeshUpdater();
+
 	const int *oldvertextable  = nullptr;
 
 	// Reset defaults for lightmapping
@@ -3544,4 +3546,6 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 			seg++;
 		}
 	}
+
+	LevelMeshUpdater = Level->levelMesh; // Start tracking level changes
 }

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "hw_levelmesh.h"
+#include "levelmeshhelper.h"
 #include "scene/hw_drawstructs.h"
 #include "common/rendering/hwrenderer/data/hw_meshbuilder.h"
 #include "tarray.h"
@@ -41,7 +42,7 @@ struct FlatSurfaceBlock
 	int FirstSurface = -1;
 };
 
-class DoomLevelMesh : public LevelMesh
+class DoomLevelMesh : public LevelMesh, public UpdateLevelMesh
 {
 public:
 	DoomLevelMesh(FLevelLocals &doomMap);
@@ -65,6 +66,14 @@ public:
 	TArray<int> linePortals; // index is linedef, value is index into the portal list
 
 	void CreateLights(FLevelLocals& doomMap);
+
+	void FloorHeightChanged(struct sector_t* sector) override;
+	void CeilingHeightChanged(struct sector_t* sector) override;
+	void MidTex3DHeightChanged(struct sector_t* sector) override;
+	void FloorTextureChanged(struct sector_t* sector) override;
+	void CeilingTextureChanged(struct sector_t* sector) override;
+	void SectorChangedOther(struct sector_t* sector) override;
+	void SideTextureChanged(struct side_t* side, int section) override;
 
 private:
 	void CreateSurfaces(FLevelLocals& doomMap);
