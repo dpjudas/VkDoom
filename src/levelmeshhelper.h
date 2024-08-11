@@ -14,6 +14,10 @@ struct UpdateLevelMesh
 	virtual void SectorChangedOther(struct sector_t *sector) = 0;
 
 	virtual void SideTextureChanged(struct side_t *side, int section) = 0;
+
+	virtual void SectorLightChanged(struct sector_t* sector) = 0;
+	virtual void SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker) = 0;
+	virtual void SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker) = 0;
 };
 
 extern UpdateLevelMesh* LevelMeshUpdater;

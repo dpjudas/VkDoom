@@ -416,6 +416,18 @@ void DoomLevelMesh::SideTextureChanged(struct side_t* side, int section)
 	// UpdateSide(level, side->Index());
 }
 
+void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
+{
+};
+
+void DoomLevelMesh::SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker)
+{
+};
+
+void DoomLevelMesh::SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker)
+{
+};
+
 void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 {
 	FreeSide(doomMap, sideIndex);

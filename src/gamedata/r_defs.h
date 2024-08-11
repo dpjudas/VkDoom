@@ -1038,11 +1038,13 @@ public:
 	void ChangeLightLevel(int newval)
 	{
 		lightlevel = ClampLight(lightlevel + newval);
+		LevelMeshUpdater->SectorLightChanged(this);
 	}
 
 	void SetLightLevel(int newval)
 	{
 		lightlevel = ClampLight(newval);
+		LevelMeshUpdater->SectorLightChanged(this);
 	}
 
 	int GetLightLevel() const

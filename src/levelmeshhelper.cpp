@@ -13,6 +13,10 @@ struct NullLevelMeshUpdater : UpdateLevelMesh
 	virtual void SectorChangedOther(struct sector_t* sector) {};
 
 	virtual void SideTextureChanged(struct side_t* side, int section) {};
+
+	virtual void SectorLightChanged(struct sector_t* sector) {};
+	virtual void SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker) {};
+	virtual void SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker) {};
 };
 
 static NullLevelMeshUpdater nullUpdater;

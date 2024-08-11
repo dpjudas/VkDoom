@@ -74,6 +74,9 @@ public:
 	void CeilingTextureChanged(struct sector_t* sector) override;
 	void SectorChangedOther(struct sector_t* sector) override;
 	void SideTextureChanged(struct side_t* side, int section) override;
+	void SectorLightChanged(struct sector_t* sector) override;
+	void SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker) override;
+	void SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker) override;
 
 private:
 	void CreateSurfaces(FLevelLocals& doomMap);
