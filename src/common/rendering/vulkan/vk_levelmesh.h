@@ -97,8 +97,6 @@ private:
 	void Reset();
 	void CreateVulkanObjects();
 	void CreateBuffers();
-	void CreateStaticBLAS();
-	void CreateDynamicBLAS();
 	void CreateTLASInstanceBuffer();
 	void CreateTopLevelAS(int instanceCount);
 
@@ -127,7 +125,6 @@ private:
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
 
-	BLAS StaticBLAS;
 	BLAS DynamicBLAS;
 
 	struct

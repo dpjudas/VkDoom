@@ -165,7 +165,6 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	SortIndexes();
 	BuildTileSurfaceLists();
 
-	Mesh.DynamicIndexStart = Mesh.Indexes.size();
 	UpdateCollision();
 
 	// Assume double the size of the static mesh will be enough for anything dynamic.

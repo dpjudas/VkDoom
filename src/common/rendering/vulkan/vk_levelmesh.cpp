@@ -57,9 +57,6 @@ void VkLevelMesh::Reset()
 	deletelist->Add(std::move(PortalBuffer));
 	deletelist->Add(std::move(LightBuffer));
 	deletelist->Add(std::move(LightIndexBuffer));
-	deletelist->Add(std::move(StaticBLAS.ScratchBuffer));
-	deletelist->Add(std::move(StaticBLAS.AccelStructBuffer));
-	deletelist->Add(std::move(StaticBLAS.AccelStruct));
 	deletelist->Add(std::move(DynamicBLAS.ScratchBuffer));
 	deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
 	deletelist->Add(std::move(DynamicBLAS.AccelStruct));
@@ -83,8 +80,7 @@ void VkLevelMesh::CreateVulkanObjects()
 			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-		CreateStaticBLAS();
-		CreateDynamicBLAS();
+		DynamicBLAS = CreateBLAS(true, 0, Mesh->Mesh.Indexes.Size());
 		CreateTLASInstanceBuffer();
 
 		UploadTLASInstanceBuffer();
@@ -112,6 +108,8 @@ void VkLevelMesh::CreateVulkanObjects()
 
 void VkLevelMesh::BeginFrame()
 {
+	bool accelStructNeedsUpdate = Mesh->UploadRanges.Index.Size() != 0 || Mesh->UploadRanges.Vertex.Size() != 0;
+
 	UploadMeshes();
 
 	if (useRayQuery)
@@ -121,21 +119,22 @@ void VkLevelMesh::BeginFrame()
 			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-		// Create a new dynamic BLAS
+		if (accelStructNeedsUpdate)
+		{
+			// To do: we should reuse the buffers.
 
-		// To do: we should reuse the buffers. However this requires we know when the command buffers are completely done with them first.
-		auto deletelist = fb->GetCommands()->DrawDeleteList.get();
-		deletelist->Add(std::move(DynamicBLAS.ScratchBuffer));
-		deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
-		deletelist->Add(std::move(DynamicBLAS.AccelStruct));
-		deletelist->Add(std::move(TopLevelAS.TransferBuffer));
-		deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
+			auto deletelist = fb->GetCommands()->DrawDeleteList.get();
+			deletelist->Add(std::move(DynamicBLAS.ScratchBuffer));
+			deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
+			deletelist->Add(std::move(DynamicBLAS.AccelStruct));
 
-		if (Mesh->Mesh.DynamicIndexStart < (int)Mesh->Mesh.Indexes.Size())
-			DynamicBLAS = CreateBLAS(true, Mesh->Mesh.DynamicIndexStart, Mesh->Mesh.Indexes.Size() - Mesh->Mesh.DynamicIndexStart);
+			DynamicBLAS = CreateBLAS(true, 0, Mesh->Mesh.Indexes.Size());
 
-		CreateTLASInstanceBuffer();
-		UploadTLASInstanceBuffer();
+			deletelist->Add(std::move(TopLevelAS.TransferBuffer));
+			deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
+			CreateTLASInstanceBuffer();
+			UploadTLASInstanceBuffer();
+		}
 
 		// Wait for bottom level builds to finish before using it as input to a toplevel accel structure. Also wait for the instance buffer upload to complete.
 		PipelineBarrier()
@@ -301,17 +300,6 @@ VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(bool preferFastBuild, int indexOffset,
 	return blas;
 }
 
-void VkLevelMesh::CreateStaticBLAS()
-{
-	StaticBLAS = CreateBLAS(false, 0, Mesh->Mesh.DynamicIndexStart);
-}
-
-void VkLevelMesh::CreateDynamicBLAS()
-{
-	if (Mesh->Mesh.DynamicIndexStart < (int)Mesh->Mesh.Indexes.Size())
-		DynamicBLAS = CreateBLAS(true, Mesh->Mesh.DynamicIndexStart, Mesh->Mesh.Indexes.Size() - Mesh->Mesh.DynamicIndexStart);
-}
-
 void VkLevelMesh::CreateTLASInstanceBuffer()
 {
 	TopLevelAS.TransferBuffer = BufferBuilder()
@@ -411,17 +399,16 @@ void VkLevelMesh::UploadTLASInstanceBuffer()
 	instances[0].transform.matrix[2][2] = 1.0f;
 	instances[0].mask = 0xff;
 	instances[0].flags = 0;
-	instances[0].accelerationStructureReference = StaticBLAS.AccelStruct->GetDeviceAddress();
+	instances[0].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
 
-	if (DynamicBLAS.AccelStruct)
-	{
-		instances[1].transform.matrix[0][0] = 1.0f;
-		instances[1].transform.matrix[1][1] = 1.0f;
-		instances[1].transform.matrix[2][2] = 1.0f;
-		instances[1].mask = 0xff;
-		instances[1].flags = 0;
-		instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
-	}
+	/*
+	instances[1].transform.matrix[0][0] = 1.0f;
+	instances[1].transform.matrix[1][1] = 1.0f;
+	instances[1].transform.matrix[2][2] = 1.0f;
+	instances[1].mask = 0xff;
+	instances[1].flags = 0;
+	instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
+	*/
 
 	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * 2);
 	memcpy(data, instances, sizeof(VkAccelerationStructureInstanceKHR) * 2);

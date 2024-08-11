@@ -148,7 +148,6 @@ public:
 		// Index data
 		TArray<uint32_t> Indexes;
 		TArray<int> SurfaceIndexes;
-		int DynamicIndexStart = 0;
 
 		// Above data must not be resized beyond these limits as that's the size of the GPU buffers
 		int MaxVertices = 0;
@@ -233,11 +232,6 @@ public:
 		UploadRanges.Node.Clear();
 		if (Collision)
 			UploadRanges.Node.Push({ 0, (int)Collision->get_nodes().size() });
-	}
-
-	void UploadDynamic()
-	{
-		UploadRanges.Index.Push({ Mesh.DynamicIndexStart, (int)(Mesh.Indexes.Size() - Mesh.DynamicIndexStart) });
 	}
 
 	void AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)
