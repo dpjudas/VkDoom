@@ -44,6 +44,12 @@ struct UniformsAllocInfo
 	int Count = 0;
 };
 
+struct MeshBufferRange
+{
+	int Offset = 0;
+	int Size = 0;
+};
+
 class LevelMesh
 {
 public:
@@ -143,6 +149,20 @@ public:
 		int MaxLightIndexes = 0;
 	} Mesh;
 
+	struct
+	{
+		TArray<MeshBufferRange> Vertex;
+		TArray<MeshBufferRange> Index;
+		TArray<MeshBufferRange> Node;
+		TArray<MeshBufferRange> SurfaceIndex;
+		TArray<MeshBufferRange> Surface;
+		TArray<MeshBufferRange> UniformIndexes;
+		TArray<MeshBufferRange> Uniforms;
+		TArray<MeshBufferRange> Portals;
+		TArray<MeshBufferRange> Light;
+		TArray<MeshBufferRange> LightIndex;
+	} DirtyRanges;
+
 	std::unique_ptr<TriangleMeshShape> Collision;
 
 	TArray<LevelSubmeshDrawRange> DrawList;
@@ -165,6 +185,40 @@ public:
 	void PackLightmapAtlas(int lightmapStartIndex);
 
 	void AddEmptyMesh();
+	
+	void MarkAllDirty()
+	{
+		DirtyRanges.Vertex.Clear();
+		DirtyRanges.Vertex.Push({ 0, (int)Mesh.Vertices.Size() });
+		DirtyRanges.Index.Clear();
+		DirtyRanges.Index.Push({ 0, (int)Mesh.Indexes.Size() });
+		DirtyRanges.SurfaceIndex.Clear();
+		DirtyRanges.SurfaceIndex.Push({ 0, (int)Mesh.SurfaceIndexes.Size() });
+		DirtyRanges.Surface.Clear();
+		DirtyRanges.Surface.Push({ 0, GetSurfaceCount() });
+		DirtyRanges.UniformIndexes.Clear();
+		DirtyRanges.UniformIndexes.Push({ 0, (int)Mesh.UniformIndexes.Size() });
+		DirtyRanges.Uniforms.Clear();
+		DirtyRanges.Uniforms.Push({ 0, (int)Mesh.Uniforms.Size() });
+		DirtyRanges.Portals.Clear();
+		DirtyRanges.Portals.Push({ 0, (int)Portals.Size() });
+		DirtyRanges.Light.Clear();
+		DirtyRanges.Light.Push({ 0, (int)Mesh.Lights.Size() });
+		DirtyRanges.LightIndex.Clear();
+		DirtyRanges.LightIndex.Push({ 0, (int)Mesh.LightIndexes.Size() });
+	}
+
+	void MarkCollisionDirty()
+	{
+		DirtyRanges.Node.Clear();
+		if (Collision)
+			DirtyRanges.Node.Push({ 0, (int)Collision->get_nodes().size() });
+	}
+
+	void MarkDynamicDirty()
+	{
+		DirtyRanges.Index.Push({ Mesh.DynamicIndexStart, (int)(Mesh.Indexes.Size() - Mesh.DynamicIndexStart) });
+	}
 };
 
 struct LevelMeshTileStats

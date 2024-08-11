@@ -177,6 +177,8 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
 	Mesh.MaxLights = 100'000;
 	Mesh.MaxLightIndexes = 4 * 1024 * 1024;
+
+	MarkAllDirty();
 }
 
 void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
