@@ -207,24 +207,24 @@ public:
 	
 	void UploadAll()
 	{
-		UploadRanges.Vertex.Clear();
-		UploadRanges.Vertex.Push({ 0, (int)Mesh.Vertices.Size() });
-		UploadRanges.Index.Clear();
-		UploadRanges.Index.Push({ 0, (int)Mesh.Indexes.Size() });
-		UploadRanges.SurfaceIndex.Clear();
-		UploadRanges.SurfaceIndex.Push({ 0, (int)Mesh.SurfaceIndexes.Size() });
-		UploadRanges.Surface.Clear();
-		UploadRanges.Surface.Push({ 0, GetSurfaceCount() });
-		UploadRanges.UniformIndexes.Clear();
-		UploadRanges.UniformIndexes.Push({ 0, (int)Mesh.UniformIndexes.Size() });
-		UploadRanges.Uniforms.Clear();
-		UploadRanges.Uniforms.Push({ 0, (int)Mesh.Uniforms.Size() });
-		UploadRanges.Portals.Clear();
-		UploadRanges.Portals.Push({ 0, (int)Portals.Size() });
-		UploadRanges.Light.Clear();
-		UploadRanges.Light.Push({ 0, (int)Mesh.Lights.Size() });
-		UploadRanges.LightIndex.Clear();
-		UploadRanges.LightIndex.Push({ 0, (int)Mesh.LightIndexes.Size() });
+		ClearRanges(UploadRanges.Vertex);
+		AddRange(UploadRanges.Vertex, { 0, (int)Mesh.Vertices.Size() });
+		ClearRanges(UploadRanges.Index);
+		AddRange(UploadRanges.Index, { 0, (int)Mesh.Indexes.Size() });
+		ClearRanges(UploadRanges.SurfaceIndex);
+		AddRange(UploadRanges.SurfaceIndex, { 0, (int)Mesh.SurfaceIndexes.Size() });
+		ClearRanges(UploadRanges.Surface);
+		AddRange(UploadRanges.Surface, { 0, GetSurfaceCount() });
+		ClearRanges(UploadRanges.UniformIndexes);
+		AddRange(UploadRanges.UniformIndexes, { 0, (int)Mesh.UniformIndexes.Size() });
+		ClearRanges(UploadRanges.Uniforms);
+		AddRange(UploadRanges.Uniforms, { 0, (int)Mesh.Uniforms.Size() });
+		ClearRanges(UploadRanges.Portals);
+		AddRange(UploadRanges.Portals, { 0, (int)Portals.Size() });
+		ClearRanges(UploadRanges.Light);
+		AddRange(UploadRanges.Light, { 0, (int)Mesh.Lights.Size() });
+		ClearRanges(UploadRanges.LightIndex);
+		AddRange(UploadRanges.LightIndex, { 0, (int)Mesh.LightIndexes.Size() });
 	}
 
 	void UploadCollision()
@@ -234,8 +234,16 @@ public:
 			UploadRanges.Node.Push({ 0, (int)Collision->get_nodes().size() });
 	}
 
+	void ClearRanges(TArray<MeshBufferRange>& ranges)
+	{
+		ranges.Clear();
+	}
+
 	void AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)
 	{
+		if (range.Size <= 0)
+			return;
+
 		auto right = std::lower_bound(ranges.begin(), ranges.end(), range);
 
 		bool leftExists = right != ranges.begin();

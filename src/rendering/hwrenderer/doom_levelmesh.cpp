@@ -205,6 +205,7 @@ void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
 				int lightindex = GetLightIndex(light, portalgroup);
 				if (lightindex >= 0)
 				{
+					AddRange(UploadRanges.LightIndex, { (int)Mesh.LightIndexes.Size(), 1 });
 					Mesh.LightIndexes.Push(lightindex);
 					surface.LightList.Count++;
 				}
@@ -266,6 +267,7 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 	int lightindex = Mesh.Lights.Size();
 	light->levelmesh[index].index = lightindex + 1;
 	light->levelmesh[index].portalgroup = portalgroup;
+	AddRange(UploadRanges.Light, { (int)Mesh.Lights.Size(), 1 });
 	Mesh.Lights.Push(meshlight);
 	return lightindex;
 }
@@ -273,14 +275,6 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 {
 	CreateLights(doomMap);
-#if 0
-	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->Update(doomMap);
-	if (doomMap.lightmaps)
-	{
-		DynamicMesh->SetupTileTransforms();
-		DynamicMesh->PackLightmapAtlas(StaticMesh->LMTextureCount);
-	}
-#endif
 }
 
 bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float dist)
