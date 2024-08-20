@@ -58,10 +58,6 @@ public:
 	LevelMesh();
 	virtual ~LevelMesh() = default;
 
-	virtual LevelMeshSurface* GetSurface(int index) { return nullptr; }
-	virtual unsigned int GetSurfaceIndex(const LevelMeshSurface* surface) const { return 0xffffffff; }
-	virtual int GetSurfaceCount() { return 0; }
-
 	LevelMeshSurface* Trace(const FVector3& start, FVector3 direction, float maxDist);
 
 	LevelMeshTileStats GatherTilePixelStats();
@@ -131,6 +127,7 @@ public:
 		AddRange(FreeLists.Surface, { (int)surfaceIndex, 1 });
 	}
 
+	// Data placed in GPU buffers
 	struct
 	{
 		// Vertex data
@@ -138,6 +135,7 @@ public:
 		TArray<int> UniformIndexes;
 
 		// Surface info
+		TArray<LevelMeshSurface> Surfaces;
 		TArray<SurfaceUniforms> Uniforms;
 		TArray<FMaterialState> Materials;
 		TArray<int32_t> LightIndexes;
@@ -160,6 +158,7 @@ public:
 		int MaxLightIndexes = 0;
 	} Mesh;
 
+	// Ranges in mesh that have changed since last upload
 	struct
 	{
 		TArray<MeshBufferRange> Vertex;
@@ -174,6 +173,7 @@ public:
 		TArray<MeshBufferRange> LightIndex;
 	} UploadRanges;
 
+	// Ranges in mesh currently not in use
 	struct
 	{
 		TArray<MeshBufferRange> Vertex;
@@ -182,8 +182,10 @@ public:
 		TArray<MeshBufferRange> Surface;
 	} FreeLists;
 
+	// Data structure for doing mesh traces on the CPU
 	std::unique_ptr<TriangleMeshShape> Collision;
 
+	// Draw index ranges for rendering the level mesh
 	TArray<LevelSubmeshDrawRange> DrawList;
 	TArray<LevelSubmeshDrawRange> PortalList;
 
@@ -214,7 +216,7 @@ public:
 		ClearRanges(UploadRanges.SurfaceIndex);
 		AddRange(UploadRanges.SurfaceIndex, { 0, (int)Mesh.SurfaceIndexes.Size() });
 		ClearRanges(UploadRanges.Surface);
-		AddRange(UploadRanges.Surface, { 0, GetSurfaceCount() });
+		AddRange(UploadRanges.Surface, { 0, (int)Mesh.Surfaces.Size() });
 		ClearRanges(UploadRanges.UniformIndexes);
 		AddRange(UploadRanges.UniformIndexes, { 0, (int)Mesh.UniformIndexes.Size() });
 		ClearRanges(UploadRanges.Uniforms);

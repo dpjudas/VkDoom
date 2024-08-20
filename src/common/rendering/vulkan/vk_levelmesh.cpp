@@ -557,7 +557,7 @@ void VkLevelMeshUploader::UploadSurfaces()
 		SurfaceInfo* surfaces = (SurfaceInfo*)(data + datapos);
 		for (int j = 0, count = range.Size; j < count; j++)
 		{
-			LevelMeshSurface* surface = Mesh->Mesh->GetSurface(range.Offset + j);
+			LevelMeshSurface* surface = &Mesh->Mesh->Mesh.Surfaces[range.Offset + j];
 
 			SurfaceInfo info;
 			info.Normal = FVector3(surface->Plane.X, surface->Plane.Z, surface->Plane.Y);

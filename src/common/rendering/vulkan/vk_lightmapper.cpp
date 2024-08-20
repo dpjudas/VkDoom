@@ -196,7 +196,7 @@ void VkLightmapper::Render()
 		// Paint all surfaces visible in the tile
 		for (int surfaceIndex : targetTile->Surfaces)
 		{
-			LevelMeshSurface* surface = mesh->GetSurface(surfaceIndex);
+			LevelMeshSurface* surface = &mesh->Mesh.Surfaces[surfaceIndex];
 			pc.SurfaceIndex = surfaceIndex;
 
 			VkDrawIndexedIndirectCommand cmd;

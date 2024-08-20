@@ -64,7 +64,7 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 			return nullptr;
 		}
 
-		hitSurface = GetSurface(Mesh.SurfaceIndexes[hit.triangle]);
+		hitSurface = &Mesh.Surfaces[Mesh.SurfaceIndexes[hit.triangle]];
 
 		int portal = hitSurface->PortalIndex;
 		if (!portal)
@@ -91,7 +91,6 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 {
 	LevelMeshTileStats stats;
-	int count = GetSurfaceCount();
 	for (const LightmapTile& tile : LightmapTiles)
 	{
 		auto area = tile.AtlasLocation.Area();
@@ -125,11 +124,11 @@ void LevelMesh::BuildTileSurfaceLists()
 {
 	// Plane group surface is to be rendered with
 	TArray<LevelMeshPlaneGroup> PlaneGroups;
-	TArray<int> PlaneGroupIndexes(GetSurfaceCount());
+	TArray<int> PlaneGroupIndexes(Mesh.Surfaces.Size());
 
-	for (int i = 0, count = GetSurfaceCount(); i < count; i++)
+	for (int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
 	{
-		auto surface = GetSurface(i);
+		auto surface = &Mesh.Surfaces[i];
 
 		// Is this surface in the same plane as an existing plane group?
 		int planeGroupIndex = -1;
@@ -172,9 +171,9 @@ void LevelMesh::BuildTileSurfaceLists()
 	for (auto& tile : LightmapTiles)
 		tile.Surfaces.Clear();
 
-	for (int i = 0, count = GetSurfaceCount(); i < count; i++)
+	for (int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
 	{
-		LevelMeshSurface* targetSurface = GetSurface(i);
+		LevelMeshSurface* targetSurface = &Mesh.Surfaces[i];
 		if (targetSurface->LightmapTileIndex < 0)
 			continue;
 		LightmapTile* tile = &LightmapTiles[targetSurface->LightmapTileIndex];
@@ -185,7 +184,7 @@ void LevelMesh::BuildTileSurfaceLists()
 			if (surface != targetSurface && (maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
 				continue; // Bounding box not visible
 
-			tile->Surfaces.Push(GetSurfaceIndex(surface));
+			tile->Surfaces.Push((unsigned int)(ptrdiff_t)(surface - Mesh.Surfaces.Data()));
 		}
 	}
 }
@@ -224,9 +223,9 @@ void LevelMesh::PackLightmapAtlas(int lightmapStartIndex)
 	LMTextureCount = (int)packer.getNumPages();
 
 	// Calculate final texture coordinates
-	for (int i = 0, count = GetSurfaceCount(); i < count; i++)
+	for (int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
 	{
-		auto surface = GetSurface(i);
+		auto surface = &Mesh.Surfaces[i];
 		if (surface->LightmapTileIndex >= 0)
 		{
 			const LightmapTile& tile = LightmapTiles[surface->LightmapTileIndex];

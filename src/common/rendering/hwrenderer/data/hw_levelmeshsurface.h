@@ -26,7 +26,9 @@ struct LevelMeshSurface
 
 	FGameTexture* Texture = nullptr;
 	float Alpha = 1.0;
-	
+
+	int PipelineID = 0;
+
 	bool IsSky = false;
 	int PortalIndex = 0;
 	int SectorGroup = 0;

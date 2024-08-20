@@ -63,7 +63,6 @@ struct sector_t;
 class AActor;
 struct FSection;
 struct FLevelLocals;
-struct DoomLevelMeshSurface;
 
 const uint16_t NO_INDEX = 0xffffu;
 const uint32_t NO_SIDE = 0xffffffffu;
