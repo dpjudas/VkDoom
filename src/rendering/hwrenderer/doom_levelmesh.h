@@ -72,8 +72,15 @@ public:
 	void SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker) override;
 	void SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker) override;
 
+	void Reset(const LevelMeshLimits& limits) override
+	{
+		LevelMesh::Reset(limits);
+		DoomSurfaceInfos.Resize(limits.MaxSurfaces);
+	}
+
 private:
 	void CreateSurfaces(FLevelLocals& doomMap);
+	void CreateLightList(FLevelLocals& doomMap, int surfaceIndex);
 
 	void UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
@@ -88,8 +95,6 @@ private:
 
 	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent, unsigned int sectorIndex);
 	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent, unsigned int sectorIndex);
-
-	void LinkSurfaces(FLevelLocals& doomMap);
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
@@ -108,4 +113,5 @@ private:
 	TArray<FlatSurfaceBlock> Flats;
 	std::map<LightmapTileBinding, int> bindings;
 	MeshBuilder state;
+	bool LightsCreated = false;
 };

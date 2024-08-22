@@ -150,72 +150,119 @@ EXTERN_CVAR(Float, lm_scale);
 
 DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 {
-	// Remove the empty mesh added in the LevelMesh constructor
-	Mesh.Vertices.clear();
-	Mesh.Indexes.clear();
+	// Try to estimate what the worst case memory needs are for the level
+	LevelMeshLimits limits;
+	limits.MaxVertices = (doomMap.vertexes.Size() * 10) * 2;
+	limits.MaxSurfaces = (doomMap.sides.Size() * 3 + doomMap.subsectors.Size() * 2) * 2;
+	limits.MaxUniforms = (doomMap.sides.Size() * 3 + doomMap.sectors.Size() * 2) * 2;
+	limits.MaxIndexes = limits.MaxVertices * 10;
+	Reset(limits);
 
 	SunColor = doomMap.SunColor; // TODO keep only one copy?
 	SunDirection = doomMap.SunDirection;
+	LightmapSampleDistance = doomMap.LightmapSampleDistance;
 
 	BuildSectorGroups(doomMap);
 	CreatePortals(doomMap);
-
-	LightmapSampleDistance = doomMap.LightmapSampleDistance;
-
 	CreateSurfaces(doomMap);
-	LinkSurfaces(doomMap);
 
 	SortIndexes();
 	BuildTileSurfaceLists();
 
 	UpdateCollision();
-
-	// Assume double the size of the static mesh will be enough for anything dynamic.
-	Mesh.MaxVertices = std::max(Mesh.Vertices.size() * 2, (size_t)10000);
-	Mesh.MaxIndexes = std::max(Mesh.Indexes.size() * 2, (size_t)10000);
-	Mesh.MaxSurfaces = std::max(Mesh.SurfaceIndexes.size() * 2, (size_t)10000);
-	Mesh.MaxUniforms = std::max(Mesh.Uniforms.size() * 2, (size_t)10000);
-	Mesh.MaxSurfaceIndexes = std::max(Mesh.SurfaceIndexes.size() * 2, (size_t)10000);
 	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
-	Mesh.MaxLights = 100'000;
-	Mesh.MaxLightIndexes = 4 * 1024 * 1024;
 
-	UploadAll();
+	UploadPortals();
+}
+
+void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
+{
+	CreateLights(doomMap);
 }
 
 void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
 {
-	if (Mesh.Lights.Size() != 0)
+	if (LightsCreated)
 		return;
 
-	for (unsigned int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
+	for (const SideSurfaceBlock& side : Sides)
 	{
-		Mesh.Surfaces[i].LightList.Pos = Mesh.LightIndexes.Size();
-		Mesh.Surfaces[i].LightList.Count = 0;
-
-		std::pair<FLightNode*, int> nodePortalGroup = GetSurfaceLightNode(i);
-		FLightNode* node = nodePortalGroup.first;
-		int portalgroup = nodePortalGroup.second;
-		if (!node)
-			continue;
-
-		int listpos = 0;
-		while (node)
+		int index = side.FirstSurface;
+		while (index != -1)
 		{
-			FDynamicLight* light = node->lightsource;
-			if (light && light->Trace())
-			{
-				int lightindex = GetLightIndex(light, portalgroup);
-				if (lightindex >= 0)
-				{
-					AddRange(UploadRanges.LightIndex, { (int)Mesh.LightIndexes.Size(), 1 });
-					Mesh.LightIndexes.Push(lightindex);
-					Mesh.Surfaces[i].LightList.Count++;
-				}
-			}
-			node = node->nextLight;
+			CreateLightList(doomMap, index);
+			index = DoomSurfaceInfos[index].NextSurface;
 		}
 	}
+
+	for (const FlatSurfaceBlock& flat : Flats)
+	{
+		int index = flat.FirstSurface;
+		while (index != -1)
+		{
+			CreateLightList(doomMap, index);
+			index = DoomSurfaceInfos[index].NextSurface;
+		}
+	}
+
+	LightsCreated = true;
+}
+
+void DoomLevelMesh::CreateLightList(FLevelLocals& doomMap, int surfaceIndex)
+{
+	Mesh.Surfaces[surfaceIndex].LightList.Pos = Mesh.LightIndexes.Size();
+	Mesh.Surfaces[surfaceIndex].LightList.Count = 0;
+
+	std::pair<FLightNode*, int> nodePortalGroup = GetSurfaceLightNode(surfaceIndex);
+	FLightNode* node = nodePortalGroup.first;
+	int portalgroup = nodePortalGroup.second;
+	if (!node)
+		return;
+
+	int listpos = 0;
+	while (node)
+	{
+		FDynamicLight* light = node->lightsource;
+		if (light && light->Trace())
+		{
+			int lightindex = GetLightIndex(light, portalgroup);
+			if (lightindex >= 0)
+			{
+				AddRange(UploadRanges.LightIndex, { (int)Mesh.LightIndexes.Size(), (int)Mesh.LightIndexes.Size() + 1 });
+				Mesh.LightIndexes.Push(lightindex);
+				Mesh.Surfaces[surfaceIndex].LightList.Count++;
+			}
+		}
+		node = node->nextLight;
+	}
+}
+
+std::pair<FLightNode*, int> DoomLevelMesh::GetSurfaceLightNode(int surfaceIndex)
+{
+	auto doomsurf = &DoomSurfaceInfos[surfaceIndex];
+	FLightNode* node = nullptr;
+	int portalgroup = 0;
+	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
+	{
+		node = doomsurf->Subsector->section->lighthead;
+		portalgroup = doomsurf->Subsector->sector->PortalGroup;
+	}
+	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
+	{
+		bool isPolyLine = !!(doomsurf->Side->Flags & WALLF_POLYOBJ);
+		if (isPolyLine)
+		{
+			subsector_t* subsector = level.PointInRenderSubsector((doomsurf->Side->V1()->fPos() + doomsurf->Side->V2()->fPos()) * 0.5);
+			node = subsector->section->lighthead;
+			portalgroup = subsector->sector->PortalGroup;
+		}
+		else
+		{
+			node = doomsurf->Side->lighthead;
+			portalgroup = doomsurf->Side->sector->PortalGroup;
+		}
+	}
+	return { node, portalgroup };
 }
 
 int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
@@ -270,14 +317,9 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 	int lightindex = Mesh.Lights.Size();
 	light->levelmesh[index].index = lightindex + 1;
 	light->levelmesh[index].portalgroup = portalgroup;
-	AddRange(UploadRanges.Light, { (int)Mesh.Lights.Size(), 1 });
+	AddRange(UploadRanges.Light, { (int)Mesh.Lights.Size(), (int)Mesh.Lights.Size() + 1 });
 	Mesh.Lights.Push(meshlight);
 	return lightindex;
-}
-
-void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
-{
-	CreateLights(doomMap);
 }
 
 bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float dist)
@@ -285,34 +327,6 @@ bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float di
 	FVector3 end = start + direction * dist;
 	auto surface = Trace(start, direction, dist);
 	return surface && surface->IsSky;
-}
-
-std::pair<FLightNode*, int> DoomLevelMesh::GetSurfaceLightNode(int surfaceIndex)
-{
-	auto doomsurf = &DoomSurfaceInfos[surfaceIndex];
-	FLightNode* node = nullptr;
-	int portalgroup = 0;
-	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
-	{
-		node = doomsurf->Subsector->section->lighthead;
-		portalgroup = doomsurf->Subsector->sector->PortalGroup;
-	}
-	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
-	{
-		bool isPolyLine = !!(doomsurf->Side->Flags & WALLF_POLYOBJ);
-		if (isPolyLine)
-		{
-			subsector_t* subsector = level.PointInRenderSubsector((doomsurf->Side->V1()->fPos() + doomsurf->Side->V2()->fPos()) * 0.5);
-			node = subsector->section->lighthead;
-			portalgroup = subsector->sector->PortalGroup;
-		}
-		else
-		{
-			node = doomsurf->Side->lighthead;
-			portalgroup = doomsurf->Side->sector->PortalGroup;
-		}
-	}
-	return { node, portalgroup };
 }
 
 void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
@@ -415,15 +429,15 @@ void DoomLevelMesh::SideTextureChanged(struct side_t* side, int section)
 
 void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
 {
-};
+}
 
 void DoomLevelMesh::SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker)
 {
-};
+}
 
 void DoomLevelMesh::SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker)
 {
-};
+}
 
 void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 {
@@ -557,6 +571,7 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 
 		GeometryAllocInfo ginfo = AllocGeometry(numVertices, numIndexes);
 		UniformsAllocInfo uinfo = AllocUniforms(numUniforms);
+		SurfaceAllocInfo sinfo = AllocSurface();
 
 		int pipelineID = 0;
 		int uniformsIndex = uinfo.Start;
@@ -613,7 +628,7 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
 		}
 
-		DoomSurfaceInfo info;
+		DoomSurfaceInfo& info = DoomSurfaceInfos[sinfo.Index];
 		info.Type = wallpart.LevelMeshInfo.Type;
 		info.ControlSector = wallpart.LevelMeshInfo.ControlSector;
 		info.TypeIndex = side->Index();
@@ -621,26 +636,24 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		if (sideIndex < Sides.Size())
 		{
 			info.NextSurface = Sides[sideIndex].FirstSurface;
-			Sides[sideIndex].FirstSurface = Mesh.Surfaces.Size();
+			Sides[sideIndex].FirstSurface = sinfo.Index;
 		}
 
-		LevelMeshSurface surf;
-		surf.PipelineID = pipelineID;
-		surf.SectorGroup = sectorGroup[side->sector->Index()];
-		surf.Alpha = float(side->linedef->alpha);
-		surf.MeshLocation.StartVertIndex = ginfo.VertexStart;
-		surf.MeshLocation.StartElementIndex = ginfo.IndexStart;
-		surf.MeshLocation.NumVerts = ginfo.VertexCount;
-		surf.MeshLocation.NumElements = ginfo.IndexCount;
-		surf.Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
-		surf.Texture = wallpart.texture;
-		surf.PortalIndex = isPortal ? linePortals[side->linedef->Index()] : 0;
-		surf.IsSky = isPortal ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
-		surf.Bounds = GetBoundsFromSurface(surf);
-		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, surf, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC)) : -1;
+		sinfo.Surface->PipelineID = pipelineID;
+		sinfo.Surface->SectorGroup = sectorGroup[side->sector->Index()];
+		sinfo.Surface->Alpha = float(side->linedef->alpha);
+		sinfo.Surface->MeshLocation.StartVertIndex = ginfo.VertexStart;
+		sinfo.Surface->MeshLocation.StartElementIndex = ginfo.IndexStart;
+		sinfo.Surface->MeshLocation.NumVerts = ginfo.VertexCount;
+		sinfo.Surface->MeshLocation.NumElements = ginfo.IndexCount;
+		sinfo.Surface->Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
+		sinfo.Surface->Texture = wallpart.texture;
+		sinfo.Surface->PortalIndex = isPortal ? linePortals[side->linedef->Index()] : 0;
+		sinfo.Surface->IsSky = isPortal ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
+		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
+		sinfo.Surface->LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC)) : -1;
 
-		Mesh.Surfaces.Push(surf);
-		DoomSurfaceInfos.Push(info);
+		SetSideLightmap(sinfo.Index);
 	}
 }
 
@@ -872,30 +885,55 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			surf.Bounds = GetBoundsFromSurface(surf);
 			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, surf, sampleDimension, !!(flatpart.sector->Flags & SECF_LM_DYNAMIC)) : -1;
 
+			SurfaceAllocInfo sinfo = AllocSurface();
+
 			if (sectorIndex < Flats.Size())
 			{
 				info.NextSurface = Flats[sectorIndex].FirstSurface;
-				Flats[sectorIndex].FirstSurface = Mesh.Surfaces.Size();
+				Flats[sectorIndex].FirstSurface = sinfo.Index;
 			}
 
-			Mesh.Surfaces.Push(surf);
-			DoomSurfaceInfos.Push(info);
+			*sinfo.Surface = surf;
+			DoomSurfaceInfos[sinfo.Index] = info;
+
+			SetSubsectorLightmap(sinfo.Index);
 		}
 	}
 }
 
 void DoomLevelMesh::SortIndexes()
 {
+	DrawList.Clear();
+	PortalList.Clear();
+
 	// Order surfaces by pipeline
 	std::unordered_map<int64_t, TArray<int>> pipelineSurfaces;
-	for (size_t i = 0; i < Mesh.Surfaces.Size(); i++)
+	for (const SideSurfaceBlock& side : Sides)
 	{
-		LevelMeshSurface* s = &Mesh.Surfaces[i];
-		pipelineSurfaces[(int64_t(s->PipelineID) << 32) | int64_t(s->IsSky)].Push(i);
+		int index = side.FirstSurface;
+		while (index != -1)
+		{
+			LevelMeshSurface* s = &Mesh.Surfaces[index];
+			pipelineSurfaces[(int64_t(s->PipelineID) << 32) | int64_t(s->IsSky)].Push(index);
+
+			index = DoomSurfaceInfos[index].NextSurface;
+		}
+	}
+	for (const FlatSurfaceBlock& flat : Flats)
+	{
+		int index = flat.FirstSurface;
+		while (index != -1)
+		{
+			LevelMeshSurface* s = &Mesh.Surfaces[index];
+			pipelineSurfaces[(int64_t(s->PipelineID) << 32) | int64_t(s->IsSky)].Push(index);
+
+			index = DoomSurfaceInfos[index].NextSurface;
+		}
 	}
 
-	// Create reorder surface indexes by pipeline and create a draw range for each
+	// Reorder surface indexes by pipeline and create a draw range for each
 	TArray<uint32_t> sortedIndexes;
+	TArray<int> sortedSurfaceIndexes;
 	for (const auto& it : pipelineSurfaces)
 	{
 		LevelSubmeshDrawRange range;
@@ -919,7 +957,7 @@ void DoomLevelMesh::SortIndexes()
 
 			for (unsigned int j = 0; j < count; j += 3)
 			{
-				Mesh.SurfaceIndexes.Push((int)i);
+				sortedSurfaceIndexes.Push((int)i);
 			}
 		}
 
@@ -931,21 +969,19 @@ void DoomLevelMesh::SortIndexes()
 			PortalList.Push(range);
 	}
 
-	Mesh.Indexes.Swap(sortedIndexes);
-}
-
-void DoomLevelMesh::LinkSurfaces(FLevelLocals& doomMap)
-{
-	for (unsigned int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
+	// Place result at front of buffers and upload
 	{
-		if (DoomSurfaceInfos[i].Type == ST_FLOOR || DoomSurfaceInfos[i].Type == ST_CEILING)
-		{
-			SetSubsectorLightmap(i);
-		}
-		else
-		{
-			SetSideLightmap(i);
-		}
+		int count = sortedIndexes.Size();
+		memcpy(Mesh.Indexes.Data(), sortedIndexes.Data(), count * sizeof(uint32_t));
+		UploadRanges.Index.Clear();
+		UploadRanges.Index.Push({ 0, count });
+		Mesh.IndexCount = count;
+	}
+	{
+		int count = sortedSurfaceIndexes.Size();
+		memcpy(Mesh.SurfaceIndexes.Data(), sortedSurfaceIndexes.Data(), count * sizeof(int));
+		UploadRanges.SurfaceIndex.Clear();
+		UploadRanges.SurfaceIndex.Push({ 0, count });
 	}
 }
 
@@ -1031,8 +1067,10 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 {
 	auto f = fopen(objFilename.GetChars(), "w");
 
+	// To do: this dumps the entire vertex buffer, including those not in use
+
 	fprintf(f, "# DoomLevelMesh debug export\n");
-	fprintf(f, "# Vertices: %u, Indexes: %u, Surfaces: %u\n", Mesh.Vertices.Size(), Mesh.Indexes.Size(), Mesh.Surfaces.Size());
+	fprintf(f, "# Vertices: %u, Indexes: %u, Surfaces: %u\n", Mesh.Vertices.Size(), Mesh.IndexCount, Mesh.Surfaces.Size());
 	fprintf(f, "mtllib %s\n", mtlFilename.GetChars());
 
 	double scale = 1 / 10.0;
@@ -1075,7 +1113,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 	bool useErrorMaterial = false;
 	int highestUsedAtlasPage = -1;
 
-	for (unsigned i = 0, count = Mesh.Indexes.Size(); i + 2 < count; i += 3)
+	for (unsigned i = 0, count = Mesh.IndexCount; i + 2 < count; i += 3)
 	{
 		auto index = Mesh.SurfaceIndexes[i / 3];
 
