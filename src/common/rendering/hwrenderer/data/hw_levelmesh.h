@@ -19,13 +19,6 @@ typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct LevelMeshTileStats;
 
-struct LevelSubmeshDrawRange
-{
-	int PipelineID;
-	int Start;
-	int Count;
-};
-
 struct GeometryAllocInfo
 {
 	FFlatVertex* Vertices = nullptr;
@@ -103,7 +96,9 @@ public:
 		AddRange(UploadRanges.Vertex, { info.VertexStart, info.VertexStart + info.VertexCount });
 		AddRange(UploadRanges.UniformIndexes, { info.VertexStart, info.VertexStart + info.VertexCount });
 		AddRange(UploadRanges.Index, { info.IndexStart, info.IndexStart + info.IndexCount });
-		AddRange(UploadRanges.SurfaceIndex, { info.IndexStart / 3, (info.IndexStart + info.IndexCount) / 3 + 1 });
+		AddRange(UploadRanges.SurfaceIndex, { info.IndexStart / 3, (info.IndexStart + info.IndexCount) / 3 });
+
+		Mesh.IndexCount = std::max(Mesh.IndexCount, info.IndexStart + info.IndexCount);
 
 		return info;
 	}
@@ -145,14 +140,14 @@ public:
 
 	void FreeUniforms(int start, int count)
 	{
-		AddRange(FreeLists.Uniforms, { start, count });
+		AddRange(FreeLists.Uniforms, { start, start + count });
 	}
 
 	void FreeSurface(unsigned int surfaceIndex)
 	{
 		// To do: remove the surface from the surface tile, if attached
 
-		AddRange(FreeLists.Surface, { (int)surfaceIndex, 1 });
+		AddRange(FreeLists.Surface, { (int)surfaceIndex, (int)surfaceIndex + 1 });
 	}
 
 	// Sets the sizes of all the GPU buffers and empties the mesh
@@ -229,9 +224,9 @@ public:
 	// Data structure for doing mesh traces on the CPU
 	std::unique_ptr<TriangleMeshShape> Collision;
 
-	// Draw index ranges for rendering the level mesh
-	TArray<LevelSubmeshDrawRange> DrawList;
-	TArray<LevelSubmeshDrawRange> PortalList;
+	// Draw index ranges for rendering the level mesh, grouped by pipeline
+	std::unordered_map<int, TArray<MeshBufferRange>> DrawList;
+	std::unordered_map<int, TArray<MeshBufferRange>> PortalList;
 
 	// Lightmap atlas
 	int LMTextureCount = 0;
@@ -281,6 +276,34 @@ public:
 			}
 		}
 		I_FatalError("Could not find space in level mesh buffer");
+	}
+
+	void RemoveRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)
+	{
+		if (range.Start == range.End)
+			return;
+
+		auto entry = std::lower_bound(ranges.begin(), ranges.end(), range, [](const auto& a, const auto& b) { return a.End < b.End; });
+		if (entry->Start == range.Start && entry->End == range.End)
+		{
+			ranges.Delete(entry - ranges.begin());
+		}
+		else if (entry->Start == range.Start)
+		{
+			entry->Start = range.End;
+		}
+		else if (entry->End == range.End)
+		{
+			entry->End = range.Start;
+		}
+		else
+		{
+			MeshBufferRange split;
+			split.Start = entry->Start;
+			split.End = range.Start;
+			entry->Start = range.End;
+			ranges.Insert(entry - ranges.begin(), split);
+		}
 	}
 
 	void AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)

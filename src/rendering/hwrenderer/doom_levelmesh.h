@@ -30,14 +30,38 @@ struct DoomSurfaceInfo
 	int NextSurface = -1;
 };
 
+struct GeometryFreeInfo
+{
+	GeometryFreeInfo(const GeometryAllocInfo& ginfo, int pipelineID, bool isPortal)
+	{
+		VertexStart = ginfo.VertexStart;
+		VertexCount = ginfo.VertexCount;
+		IndexStart = ginfo.IndexStart;
+		IndexCount = ginfo.IndexCount;
+		PipelineID = pipelineID;
+		IsPortal = isPortal;
+	}
+
+	int VertexStart = 0;
+	int VertexCount = 0;
+	int IndexStart = 0;
+	int IndexCount = 0;
+	int PipelineID = 0;
+	bool IsPortal = false;
+};
+
 struct SideSurfaceBlock
 {
 	int FirstSurface = -1;
+	TArray<GeometryFreeInfo> Geometries;
+	TArray<UniformsAllocInfo> Uniforms;
 };
 
 struct FlatSurfaceBlock
 {
 	int FirstSurface = -1;
+	TArray<GeometryFreeInfo> Geometries;
+	TArray<UniformsAllocInfo> Uniforms;
 };
 
 class DoomLevelMesh : public LevelMesh, public UpdateLevelMesh
@@ -90,8 +114,6 @@ private:
 
 	void SetSubsectorLightmap(int surfaceIndex);
 	void SetSideLightmap(int surfaceIndex);
-
-	void SortIndexes();
 
 	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent, unsigned int sectorIndex);
 	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent, unsigned int sectorIndex);

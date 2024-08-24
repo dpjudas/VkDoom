@@ -850,9 +850,14 @@ void VkRenderState::DrawLevelMeshSurfaces(bool noFragmentShader)
 	ApplyLevelMesh();
 
 	auto mesh = fb->GetLevelMesh()->GetMesh();
-	for (LevelSubmeshDrawRange& range : mesh->DrawList)
+	for (auto& it : mesh->DrawList)
 	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, noFragmentShader);
+		int pipelineID = it.first;
+		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
+		for (MeshBufferRange& range : it.second)
+		{
+			DrawLevelMeshRange(mCommandBuffer, key, range.Start, range.End - range.Start, noFragmentShader);
+		}
 	}
 }
 
@@ -861,9 +866,14 @@ void VkRenderState::DrawLevelMeshPortals(bool noFragmentShader)
 	ApplyLevelMesh();
 
 	auto mesh = fb->GetLevelMesh()->GetMesh();
-	for (LevelSubmeshDrawRange& range : mesh->PortalList)
+	for (auto& it : mesh->PortalList)
 	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, noFragmentShader);
+		int pipelineID = it.first;
+		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
+		for (MeshBufferRange& range : it.second)
+		{
+			DrawLevelMeshRange(mCommandBuffer, key, range.Start, range.End - range.Start, noFragmentShader);
+		}
 	}
 }
 
