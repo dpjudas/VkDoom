@@ -404,7 +404,7 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	while (surf != -1)
 	{
 		unsigned int next = DoomSurfaceInfos[surf].NextSurface;
-		FreeSurface(surf - 1);
+		FreeSurface(surf);
 		surf = next;
 	}
 	Flats[sectorIndex].FirstSurface = -1;
@@ -475,6 +475,16 @@ void DoomLevelMesh::SideTextureChanged(struct side_t* side, int section)
 
 void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
 {
+	/*
+	UpdateFlat(level, sector->Index());
+	for (line_t* line : sector->Lines)
+	{
+		if (line->frontsector == sector && line->sidedef[0])
+			UpdateSide(level, line->sidedef[0]->Index());
+		else if (line->sidedef[1])
+			UpdateSide(level, line->sidedef[1]->Index());
+	}
+	*/
 }
 
 void DoomLevelMesh::SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker)
