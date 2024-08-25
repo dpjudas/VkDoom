@@ -176,6 +176,12 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 {
+	// To do: we don't need to always do this. UpdateLevelMesh should tell us when polyobjs move.
+	for (side_t* side : PolySides)
+	{
+		UpdateSide(doomMap, side->Index());
+	}
+
 	CreateLights(doomMap);
 }
 
@@ -342,7 +348,10 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 		side_t* side = &doomMap.sides[i];
 		bool isPolyLine = !!(side->Flags & WALLF_POLYOBJ);
 		if (isPolyLine)
+		{
+			PolySides.Push(side);
 			continue;
+		}
 
 		UpdateSide(doomMap, i);
 	}

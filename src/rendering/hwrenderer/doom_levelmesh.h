@@ -133,6 +133,8 @@ private:
 
 	TArray<SideSurfaceBlock> Sides;
 	TArray<FlatSurfaceBlock> Flats;
+	TArray<side_t*> PolySides;
+
 	std::map<LightmapTileBinding, int> bindings;
 	MeshBuilder state;
 	bool LightsCreated = false;
