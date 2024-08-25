@@ -608,7 +608,7 @@ void VkLevelMeshUploader::UploadUniforms()
 
 		SurfaceUniforms* uniforms = (SurfaceUniforms*)(data + datapos);
 		size_t copysize = range.Count() * sizeof(SurfaceUniforms);
-		memcpy(uniforms, Mesh->Mesh->Mesh.Uniforms.Data(), copysize);
+		memcpy(uniforms, Mesh->Mesh->Mesh.Uniforms.Data() + range.Start, copysize);
 		if (copysize > 0)
 			copyCommands.emplace_back(transferBuffer.get(), Mesh->UniformsBuffer.get(), datapos, range.Start * sizeof(SurfaceUniforms), copysize);
 		datapos += copysize;
