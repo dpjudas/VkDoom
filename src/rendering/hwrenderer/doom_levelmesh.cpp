@@ -490,14 +490,28 @@ void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	FreeSide(doomMap, sideIndex);
 
 	side_t* side = &doomMap.sides[sideIndex];
+
 	seg_t* seg = side->segs[0];
 	if (!seg)
 		return;
 
-	subsector_t* sub = seg->Subsector;
-
-	sector_t* front = side->sector;
-	sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+	sector_t* front;
+	sector_t* back;
+	subsector_t* sub;
+	if (side->Flags & WALLF_POLYOBJ)
+	{
+		sub = level.PointInRenderSubsector((side->V1()->fPos() + side->V2()->fPos()) * 0.5);
+		if (!sub)
+			return;
+		front = sub->sector;
+		back = nullptr;
+	}
+	else
+	{
+		sub = seg->Subsector;
+		front = side->sector;
+		back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+	}
 
 	HWMeshHelper result;
 	HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
