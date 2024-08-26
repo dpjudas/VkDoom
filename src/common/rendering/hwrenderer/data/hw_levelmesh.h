@@ -13,6 +13,7 @@
 #include "hw_surfaceuniforms.h"
 #include "engineerrors.h"
 #include <memory>
+#include <unordered_map>
 
 #include <dp_rect_pack.h>
 typedef dp::rect_pack::RectPacker<int> RectPacker;
