@@ -183,6 +183,19 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	}
 
 	CreateLights(doomMap);
+	UpdateWallPortals();
+}
+
+void DoomLevelMesh::UpdateWallPortals()
+{
+	WallPortals.Clear();
+	for (int sideIndex : SidePortals)
+	{
+		for (HWWall& wall : Sides[sideIndex].WallPortals)
+		{
+			WallPortals.Push(&wall);
+		}
+	}
 }
 
 void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
@@ -393,6 +406,8 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	for (auto& uni : Sides[sideIndex].Uniforms)
 		FreeUniforms(uni.Start, uni.Count);
 	Sides[sideIndex].Uniforms.Clear();
+
+	Sides[sideIndex].WallPortals.Clear();
 }
 
 void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
@@ -537,9 +552,16 @@ void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	CreateWallSurface(side, disp, state, result.list, false, true, sideIndex);
 
+	if (result.portals.Size() != 0 && !Sides[sideIndex].InSidePortalsList)
+	{
+		// Register side having portals
+		SidePortals.Push(sideIndex);
+		Sides[sideIndex].InSidePortalsList = true;
+	}
+
 	for (HWWall& portal : result.portals)
 	{
-		WallPortals.Push(portal);
+		Sides[sideIndex].WallPortals.Push(portal);
 	}
 
 	CreateWallSurface(side, disp, state, result.portals, true, false, sideIndex);

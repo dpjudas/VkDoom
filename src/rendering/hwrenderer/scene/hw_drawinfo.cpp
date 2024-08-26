@@ -445,13 +445,13 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetDepthMask(false);
 		state.EnableTexture(false);
 		state.SetEffect(EFF_PORTAL);
-		for (HWWall& wall : portals)
+		for (HWWall* wall : portals)
 		{
 			state.BeginQuery();
 
-			wall.MakeVertices(state, false);
-			wall.RenderWall(state, HWWall::RWF_BLANK);
-			wall.vertcount = 0;
+			wall->MakeVertices(state, false);
+			wall->RenderWall(state, HWWall::RWF_BLANK);
+			wall->vertcount = 0;
 
 			state.EndQuery();
 		}
@@ -471,14 +471,17 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		}
 		state.SetCulling(Cull_None);
 
-		// retrieve the query results and use them to fill the portal manager with portals
-		state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);
-		for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
+		if (queryStart != queryEnd)
 		{
-			bool portalVisible = QueryResultsBuffer[i];
-			if (portalVisible)
+			// retrieve the query results and use them to fill the portal manager with portals
+			state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);
+			for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
 			{
-				PutWallPortal(portals[i], state);
+				bool portalVisible = QueryResultsBuffer[i];
+				if (portalVisible)
+				{
+					PutWallPortal(*portals[i], state);
+				}
 			}
 		}
 

@@ -55,6 +55,8 @@ struct SideSurfaceBlock
 	int FirstSurface = -1;
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
+	TArray<HWWall> WallPortals;
+	bool InSidePortalsList = false;
 };
 
 struct FlatSurfaceBlock
@@ -77,7 +79,8 @@ public:
 
 	void BuildSectorGroups(const FLevelLocals& doomMap);
 
-	TArray<HWWall> WallPortals;
+	TArray<int> SidePortals;
+	TArray<HWWall*> WallPortals;
 
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 	TArray<int> sectorPortals[2]; // index is sector+plane, value is index into the portal list
@@ -111,6 +114,8 @@ private:
 
 	void FreeSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
+
+	void UpdateWallPortals();
 
 	void SetSubsectorLightmap(int surfaceIndex);
 	void SetSideLightmap(int surfaceIndex);
