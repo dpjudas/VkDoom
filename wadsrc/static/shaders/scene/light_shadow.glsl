@@ -184,7 +184,7 @@ vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi)
 
 float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
 {
-	vec3 origin = pixelpos.xyz;
+	vec3 origin = pixelpos.xyz + vWorldNormal.xyz;
 	vec3 target = lightpos.xyz + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
 
 	vec3 direction = normalize(target - origin);
