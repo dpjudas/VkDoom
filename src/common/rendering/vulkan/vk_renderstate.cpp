@@ -842,7 +842,7 @@ void VkRenderState::ApplyLevelMesh()
 	VkBuffer vertexBuffers[2] = { fb->GetLevelMesh()->GetVertexBuffer()->buffer, fb->GetLevelMesh()->GetUniformIndexBuffer()->buffer };
 	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
 	mCommandBuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);
-	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetDrawIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
 void VkRenderState::DrawLevelMeshSurfaces(bool noFragmentShader)
@@ -854,9 +854,12 @@ void VkRenderState::DrawLevelMeshSurfaces(bool noFragmentShader)
 	{
 		int pipelineID = it.first;
 		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
-		for (MeshBufferRange& range : it.second)
+		if (ApplyLevelMeshPipeline(mCommandBuffer, key, noFragmentShader))
 		{
-			DrawLevelMeshRange(mCommandBuffer, key, range.Start, range.End - range.Start, noFragmentShader);
+			for (MeshBufferRange& range : it.second)
+			{
+				mCommandBuffer->drawIndexed(range.End - range.Start, 1, range.Start, 0, 0);
+			}
 		}
 	}
 }
@@ -870,9 +873,12 @@ void VkRenderState::DrawLevelMeshPortals(bool noFragmentShader)
 	{
 		int pipelineID = it.first;
 		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
-		for (MeshBufferRange& range : it.second)
+		if (ApplyLevelMeshPipeline(mCommandBuffer, key, noFragmentShader))
 		{
-			DrawLevelMeshRange(mCommandBuffer, key, range.Start, range.End - range.Start, noFragmentShader);
+			for (MeshBufferRange& range : it.second)
+			{
+				mCommandBuffer->drawIndexed(range.End - range.Start, 1, range.Start, 0, 0);
+			}
 		}
 	}
 }
@@ -909,10 +915,10 @@ void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>
 	}
 }
 
-void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, int start, int count, bool noFragmentShader)
+bool VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool noFragmentShader)
 {
 	if (noFragmentShader && pipelineKey.ShaderKey.AlphaTest)
-		return;
+		return false;
 
 	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;
 	pipelineKey.DepthTest = mDepthTest;
@@ -945,7 +951,8 @@ void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelin
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 4, offsets);
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());
 	cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);
-	cmdbuffer->drawIndexed(count, 1, start, 0, 0);
+
+	return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -60,6 +60,13 @@ ADD_STAT(lightmap)
 	return out;
 }
 
+ADD_STAT(levelmesh)
+{
+	FString out;
+	out.Format("Sides=%d, flats=%d", level.levelMesh->LastFrameStats.SidesUpdated, level.levelMesh->LastFrameStats.FlatsUpdated);
+	return out;
+}
+
 CCMD(dumplevelmesh)
 {
 	if (!RequireLevelMesh()) return;
@@ -172,15 +179,34 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
 
 	UploadPortals();
+
+	SortDrawLists();
 }
 
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 {
+	LastFrameStats = CurFrameStats;
+	CurFrameStats = Stats();
+
 	// To do: we don't need to always do this. UpdateLevelMesh should tell us when polyobjs move.
 	for (side_t* side : PolySides)
 	{
-		UpdateSide(doomMap, side->Index());
+		UpdateSide(side->Index());
 	}
+
+	for (int sideIndex : SideUpdateList)
+	{
+		CreateSide(doomMap, sideIndex);
+		Sides[sideIndex].InUpdateList = false;
+	}
+	SideUpdateList.Clear();
+
+	for (int flatIndex : FlatUpdateList)
+	{
+		CreateFlat(doomMap, flatIndex);
+		Flats[flatIndex].InUpdateList = false;
+	}
+	FlatUpdateList.Clear();
 
 	CreateLights(doomMap);
 	UpdateWallPortals();
@@ -366,7 +392,7 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 			continue;
 		}
 
-		UpdateSide(doomMap, i);
+		CreateSide(doomMap, i);
 	}
 
 	// Create surfaces for all flats
@@ -375,7 +401,7 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 		sector_t* sector = &doomMap.sectors[i];
 		if (sector->subsectorcount == 0 || sector->subsectors[0]->flags & SSECF_POLYORG)
 			continue;
-		UpdateFlat(doomMap, i);
+		CreateFlat(doomMap, i);
 	}
 }
 
@@ -394,14 +420,11 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	Sides[sideIndex].FirstSurface = -1;
 
 	for (auto& geo : Sides[sideIndex].Geometries)
-	{
 		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
-		if (!geo.IsPortal)
-			RemoveRange(DrawList[geo.PipelineID], { geo.IndexStart, geo.IndexStart + geo.IndexCount });
-		else
-			RemoveRange(PortalList[geo.PipelineID], { geo.IndexStart, geo.IndexStart + geo.IndexCount });
-	}
 	Sides[sideIndex].Geometries.Clear();
+
+	RemoveFromDrawList(Sides[sideIndex].DrawRanges);
+	Sides[sideIndex].DrawRanges.Clear();
 
 	for (auto& uni : Sides[sideIndex].Uniforms)
 		FreeUniforms(uni.Start, uni.Count);
@@ -425,14 +448,11 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	Flats[sectorIndex].FirstSurface = -1;
 
 	for (auto& geo : Flats[sectorIndex].Geometries)
-	{
 		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
-		if (!geo.IsPortal)
-			RemoveRange(DrawList[geo.PipelineID], { geo.IndexStart, geo.IndexStart + geo.IndexCount });
-		else
-			RemoveRange(PortalList[geo.PipelineID], { geo.IndexStart, geo.IndexStart + geo.IndexCount });
-	}
 	Flats[sectorIndex].Geometries.Clear();
+
+	RemoveFromDrawList(Flats[sectorIndex].DrawRanges);
+	Flats[sectorIndex].DrawRanges.Clear();
 
 	for (auto& uni : Flats[sectorIndex].Uniforms)
 		FreeUniforms(uni.Start, uni.Count);
@@ -441,51 +461,51 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 
 void DoomLevelMesh::FloorHeightChanged(struct sector_t* sector)
 {
-	UpdateFlat(level, sector->Index());
+	UpdateFlat(sector->Index());
 	for (line_t* line : sector->Lines)
 	{
 		if (line->sidedef[0])
-			UpdateSide(level, line->sidedef[0]->Index());
+			UpdateSide(line->sidedef[0]->Index());
 		if (line->sidedef[1])
-			UpdateSide(level, line->sidedef[1]->Index());
+			UpdateSide(line->sidedef[1]->Index());
 	}
 }
 
 void DoomLevelMesh::CeilingHeightChanged(struct sector_t* sector)
 {
-	UpdateFlat(level, sector->Index());
+	UpdateFlat(sector->Index());
 	for (line_t* line : sector->Lines)
 	{
 		if (line->sidedef[0])
-			UpdateSide(level, line->sidedef[0]->Index());
+			UpdateSide(line->sidedef[0]->Index());
 		if (line->sidedef[1])
-			UpdateSide(level, line->sidedef[1]->Index());
+			UpdateSide(line->sidedef[1]->Index());
 	}
 }
 
 void DoomLevelMesh::MidTex3DHeightChanged(struct sector_t* sector)
 {
-	// UpdateFlat(level, sector->Index());
+	// UpdateFlat(sector->Index());
 }
 
 void DoomLevelMesh::FloorTextureChanged(struct sector_t* sector)
 {
-	UpdateFlat(level, sector->Index());
+	UpdateFlat(sector->Index());
 }
 
 void DoomLevelMesh::CeilingTextureChanged(struct sector_t* sector)
 {
-	UpdateFlat(level, sector->Index());
+	UpdateFlat(sector->Index());
 }
 
 void DoomLevelMesh::SectorChangedOther(struct sector_t* sector)
 {
-	UpdateFlat(level, sector->Index());
+	UpdateFlat(sector->Index());
 }
 
 void DoomLevelMesh::SideTextureChanged(struct side_t* side, int section)
 {
-	UpdateSide(level, side->Index());
+	UpdateSide(side->Index());
 }
 
 void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
@@ -495,9 +515,9 @@ void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
 	for (line_t* line : sector->Lines)
 	{
 		if (line->frontsector == sector && line->sidedef[0])
-			UpdateSide(level, line->sidedef[0]->Index());
+			UpdateSide(line->sidedef[0]->Index());
 		else if (line->sidedef[1])
-			UpdateSide(level, line->sidedef[1]->Index());
+			UpdateSide(line->sidedef[1]->Index());
 	}
 	*/
 }
@@ -510,8 +530,28 @@ void DoomLevelMesh::SectorLightThinkerDestroyed(struct sector_t* sector, class D
 {
 }
 
-void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
+void DoomLevelMesh::UpdateSide(unsigned int sideIndex)
 {
+	if (!Sides[sideIndex].InUpdateList)
+	{
+		SideUpdateList.Push(sideIndex);
+		Sides[sideIndex].InUpdateList = true;
+	}
+}
+
+void DoomLevelMesh::UpdateFlat(unsigned int sectorIndex)
+{
+	if (!Flats[sectorIndex].InUpdateList)
+	{
+		FlatUpdateList.Push(sectorIndex);
+		Flats[sectorIndex].InUpdateList = true;
+	}
+}
+
+void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	CurFrameStats.SidesUpdated++;
+
 	FreeSide(doomMap, sideIndex);
 
 	side_t* side = &doomMap.sides[sideIndex];
@@ -576,8 +616,10 @@ void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	*/
 }
 
-void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
+void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
+	CurFrameStats.FlatsUpdated++;
+
 	FreeFlat(doomMap, sectorIndex);
 
 	sector_t* sector = &doomMap.sectors[sectorIndex];
@@ -751,15 +793,121 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		Sides[sideIndex].Geometries.Push({ ginfo, pipelineID, sinfo.Surface->IsSky });
 		Sides[sideIndex].Uniforms.Push(uinfo);
 
-		if (!sinfo.Surface->IsSky)
-		{
-			AddRange(DrawList[pipelineID], { ginfo.IndexStart, ginfo.IndexStart + ginfo.IndexCount });
-		}
+		AddToDrawList(Sides[sideIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, sinfo.Surface->IsSky);
+	}
+}
+
+void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, bool isPortal)
+{
+	// Remember the location if we have to remove it again
+	DrawRangeInfo info;
+	info.DrawIndexStart = RemoveRange(FreeLists.DrawIndex, indexCount);
+	info.DrawIndexCount = indexCount;
+	info.IsPortal = isPortal;
+	info.PipelineID = pipelineID;
+	drawRanges.Push(info);
+
+	// Copy the indexes over from the unsorted index list
+	memcpy(&Mesh.DrawIndexes[info.DrawIndexStart], &Mesh.Indexes[indexStart], indexCount * sizeof(uint32_t));
+	AddRange(UploadRanges.DrawIndex, { info.DrawIndexStart, info.DrawIndexStart + indexCount });
+
+	// Add to the draw lists
+	if (!isPortal)
+	{
+		AddRange(DrawList[pipelineID], { info.DrawIndexStart, info.DrawIndexStart + indexCount });
+	}
+	else
+	{
+		AddRange(PortalList[pipelineID], { info.DrawIndexStart, info.DrawIndexStart + indexCount });
+	}
+}
+
+void DoomLevelMesh::RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges)
+{
+	for (const DrawRangeInfo& info : drawRanges)
+	{
+		int start = info.DrawIndexStart;
+		int end = info.DrawIndexStart + info.DrawIndexCount;
+
+		if (!info.IsPortal)
+			RemoveRange(DrawList[info.PipelineID], { start, end });
 		else
+			RemoveRange(PortalList[info.PipelineID], { start, end });
+
+		AddRange(FreeLists.DrawIndex, { start, end });
+	}
+}
+
+void DoomLevelMesh::SortDrawLists()
+{
+	std::unordered_map<int, TArray<DrawRangeInfo*>> sortedDrawList;
+	std::unordered_map<int, TArray<DrawRangeInfo*>> sortedPortalList;
+
+	for (auto& side : Sides)
+	{
+		for (auto& range : side.DrawRanges)
 		{
-			AddRange(PortalList[pipelineID], { ginfo.IndexStart, ginfo.IndexStart + ginfo.IndexCount });
+			if (!range.IsPortal)
+				sortedDrawList[range.PipelineID].Push(&range);
+			else
+				sortedPortalList[range.PipelineID].Push(&range);
 		}
 	}
+
+	for (auto& flat : Flats)
+	{
+		for (auto& range : flat.DrawRanges)
+		{
+			if (!range.IsPortal)
+				sortedDrawList[range.PipelineID].Push(&range);
+			else
+				sortedPortalList[range.PipelineID].Push(&range);
+		}
+	}
+
+	TArray<uint32_t> indexes;
+
+	DrawList.clear();
+	for (auto& it : sortedDrawList)
+	{
+		auto& list = DrawList[it.first];
+		int listStart = indexes.Size();
+		for (DrawRangeInfo* range : it.second)
+		{
+			int sortedStart = indexes.Size();
+			int start = range->DrawIndexStart;
+			int count = range->DrawIndexCount;
+			for (int i = 0; i < count; i++)
+			{
+				indexes.Push(Mesh.DrawIndexes[start + i]);
+			}
+			range->DrawIndexStart = sortedStart;
+		}
+		int listEnd = indexes.Size();
+		list.Push({ listStart, listEnd });
+	}
+
+	PortalList.clear();
+	for (auto& it : sortedPortalList)
+	{
+		auto& list = PortalList[it.first];
+		int listStart = indexes.Size();
+		for (DrawRangeInfo* range : it.second)
+		{
+			int sortedStart = indexes.Size();
+			int start = range->DrawIndexStart;
+			int count = range->DrawIndexCount;
+			for (int i = 0; i < count; i++)
+			{
+				indexes.Push(Mesh.DrawIndexes[start + i]);
+			}
+			range->DrawIndexStart = sortedStart;
+		}
+		int listEnd = indexes.Size();
+		list.Push({ listStart, listEnd });
+	}
+
+	memcpy(Mesh.DrawIndexes.Data(), indexes.Data(), indexes.Size() * sizeof(uint32_t));
 }
 
 int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, bool alwaysUpdate)
@@ -897,15 +1045,6 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		Flats[sectorIndex].Geometries.Push({ ginfo, pipelineID, isSky });
 		Flats[sectorIndex].Uniforms.Push(uinfo);
 
-		if (!isSky)
-		{
-			AddRange(DrawList[pipelineID], { ginfo.IndexStart, ginfo.IndexStart + ginfo.IndexCount });
-		}
-		else
-		{
-			AddRange(PortalList[pipelineID], { ginfo.IndexStart, ginfo.IndexStart + ginfo.IndexCount });
-		}
-
 		int* surfaceIndexes = &Mesh.SurfaceIndexes[ginfo.IndexStart / 3];
 
 		*uinfo.Uniforms = *uniforms;
@@ -1019,6 +1158,8 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 
 			SetSubsectorLightmap(sinfo.Index);
 		}
+
+		AddToDrawList(Flats[sectorIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, isSky);
 	}
 }
 

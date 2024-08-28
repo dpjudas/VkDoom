@@ -50,6 +50,14 @@ struct GeometryFreeInfo
 	bool IsPortal = false;
 };
 
+struct DrawRangeInfo
+{
+	int PipelineID = 0;
+	bool IsPortal = false;
+	int DrawIndexStart = 0;
+	int DrawIndexCount = 0;
+};
+
 struct SideSurfaceBlock
 {
 	int FirstSurface = -1;
@@ -57,6 +65,8 @@ struct SideSurfaceBlock
 	TArray<UniformsAllocInfo> Uniforms;
 	TArray<HWWall> WallPortals;
 	bool InSidePortalsList = false;
+	TArray<DrawRangeInfo> DrawRanges;
+	bool InUpdateList = false;
 };
 
 struct FlatSurfaceBlock
@@ -64,6 +74,8 @@ struct FlatSurfaceBlock
 	int FirstSurface = -1;
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
+	TArray<DrawRangeInfo> DrawRanges;
+	bool InUpdateList = false;
 };
 
 class DoomLevelMesh : public LevelMesh, public UpdateLevelMesh
@@ -105,12 +117,22 @@ public:
 		DoomSurfaceInfos.Resize(limits.MaxSurfaces);
 	}
 
+	struct Stats
+	{
+		int FlatsUpdated = 0;
+		int SidesUpdated = 0;
+	};
+	Stats LastFrameStats, CurFrameStats;
+
 private:
 	void CreateSurfaces(FLevelLocals& doomMap);
 	void CreateLightList(FLevelLocals& doomMap, int surfaceIndex);
 
-	void UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex);
-	void UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
+	void UpdateSide(unsigned int sideIndex);
+	void UpdateFlat(unsigned int sectorIndex);
+
+	void CreateSide(FLevelLocals& doomMap, unsigned int sideIndex);
+	void CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
 
 	void FreeSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
@@ -133,12 +155,19 @@ private:
 
 	int GetLightIndex(FDynamicLight* light, int portalgroup);
 
+	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, bool isPortal);
+	void RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges);
+	void SortDrawLists();
+
 	TArray<DoomSurfaceInfo> DoomSurfaceInfos;
 	TArray<std::unique_ptr<DoomSurfaceInfo* []>> PolyDoomSurfaceInfos;
 
 	TArray<SideSurfaceBlock> Sides;
 	TArray<FlatSurfaceBlock> Flats;
 	TArray<side_t*> PolySides;
+
+	TArray<int> SideUpdateList;
+	TArray<int> FlatUpdateList;
 
 	std::map<LightmapTileBinding, int> bindings;
 	MeshBuilder state;

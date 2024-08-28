@@ -83,6 +83,7 @@ public:
 	VulkanBuffer* GetPortalBuffer() { return PortalBuffer.get(); }
 	VulkanBuffer* GetLightBuffer() { return LightBuffer.get(); }
 	VulkanBuffer* GetLightIndexBuffer() { return LightIndexBuffer.get(); }
+	VulkanBuffer* GetDrawIndexBuffer() { return DrawIndexBuffer.get(); }
 
 	LevelMesh* GetMesh() { return Mesh; }
 
@@ -122,6 +123,7 @@ private:
 	std::unique_ptr<VulkanBuffer> PortalBuffer;
 	std::unique_ptr<VulkanBuffer> LightBuffer;
 	std::unique_ptr<VulkanBuffer> LightIndexBuffer;
+	std::unique_ptr<VulkanBuffer> DrawIndexBuffer;
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
 
