@@ -513,6 +513,9 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	}
 	else
 	{
+		if (gl_levelmesh && level.levelMesh)
+			level.levelMesh->CurFrameStats.Portals++;
+
 		RenderBSP(Level->HeadNode(), drawpsprites, state);
 	}
 

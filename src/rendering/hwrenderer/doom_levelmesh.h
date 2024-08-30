@@ -121,6 +121,7 @@ public:
 	{
 		int FlatsUpdated = 0;
 		int SidesUpdated = 0;
+		int Portals = 0;
 	};
 	Stats LastFrameStats, CurFrameStats;
 

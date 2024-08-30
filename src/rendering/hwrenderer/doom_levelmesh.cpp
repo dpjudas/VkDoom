@@ -62,8 +62,12 @@ ADD_STAT(lightmap)
 
 ADD_STAT(levelmesh)
 {
+	auto& stats = level.levelMesh->LastFrameStats;
 	FString out;
-	out.Format("Sides=%d, flats=%d", level.levelMesh->LastFrameStats.SidesUpdated, level.levelMesh->LastFrameStats.FlatsUpdated);
+	if (level.levelMesh)
+		out.Format("Sides=%d, flats=%d, portals=%d", stats.SidesUpdated, stats.FlatsUpdated, stats.Portals);
+	else
+		out = "No level mesh";
 	return out;
 }
 
@@ -793,7 +797,7 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		Sides[sideIndex].Geometries.Push({ ginfo, pipelineID, sinfo.Surface->IsSky });
 		Sides[sideIndex].Uniforms.Push(uinfo);
 
-		AddToDrawList(Sides[sideIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, sinfo.Surface->IsSky);
+		AddToDrawList(Sides[sideIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, isPortal);
 	}
 }
 
