@@ -124,16 +124,20 @@ void VkLevelMesh::CreateVulkanObjects()
 
 void VkLevelMesh::BeginFrame()
 {
-	InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
-
-	bool accelStructNeedsUpdate = Mesh->UploadRanges.Index.Size() != 0;
-	for (const MeshBufferRange& range : Mesh->UploadRanges.Index)
+	bool accelStructNeedsUpdate = false;
+	if (useRayQuery)
 	{
-		int start = range.Start / IndexesPerBLAS;
-		int end = (range.End + IndexesPerBLAS - 1) / IndexesPerBLAS;
-		for (int i = start; i < end; i++)
+		InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
+
+		accelStructNeedsUpdate = Mesh->UploadRanges.Index.Size() != 0;
+		for (const MeshBufferRange& range : Mesh->UploadRanges.Index)
 		{
-			DynamicBLAS[i].NeedsUpdate = true;
+			int start = range.Start / IndexesPerBLAS;
+			int end = (range.End + IndexesPerBLAS - 1) / IndexesPerBLAS;
+			for (int i = start; i < end; i++)
+			{
+				DynamicBLAS[i].NeedsUpdate = true;
+			}
 		}
 	}
 
