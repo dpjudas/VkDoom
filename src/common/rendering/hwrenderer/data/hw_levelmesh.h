@@ -67,6 +67,15 @@ struct LevelMeshLimits
 	int MaxIndexes = 0;
 };
 
+enum class LevelMeshDrawType
+{
+	Opaque,
+	Masked,
+	Portal,
+	Translucent,
+	NumDrawTypes
+};
+
 class LevelMesh
 {
 public:
@@ -234,8 +243,7 @@ public:
 	std::unique_ptr<TriangleMeshShape> Collision;
 
 	// Draw index ranges for rendering the level mesh, grouped by pipeline
-	std::unordered_map<int, TArray<MeshBufferRange>> DrawList;
-	std::unordered_map<int, TArray<MeshBufferRange>> PortalList;
+	std::unordered_map<int, TArray<MeshBufferRange>> DrawList[(int)LevelMeshDrawType::NumDrawTypes];
 
 	// Lightmap atlas
 	int LMTextureCount = 0;

@@ -16,6 +16,7 @@ struct FColormap;
 class IBuffer;
 struct HWViewpointUniforms;
 struct FDynLightData;
+enum class LevelMeshDrawType;
 
 enum EClearTarget
 {
@@ -697,8 +698,7 @@ public:
 	}
 
 	// Draw level mesh
-	virtual void DrawLevelMeshSurfaces(bool noFragmentShader) { }
-	virtual void DrawLevelMeshPortals(bool noFragmentShader) { }
+	virtual void DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader) { }
 	virtual int GetNextQueryIndex() { return 0; }
 	virtual void BeginQuery() { }
 	virtual void EndQuery() { }

@@ -57,8 +57,7 @@ public:
 	void ResetVertices() override;
 
 	// Draw level mesh
-	void DrawLevelMeshSurfaces(bool noFragmentShader) override;
-	void DrawLevelMeshPortals(bool noFragmentShader) override;
+	void DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader) override;
 	int GetNextQueryIndex() override;
 	void BeginQuery() override;
 	void EndQuery() override;
@@ -89,7 +88,7 @@ protected:
 	void WaitForStreamBuffers();
 
 	void ApplyLevelMesh();
-	bool ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool noFragmentShader);
+	void ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool noFragmentShader);
 
 	VulkanRenderDevice* fb = nullptr;
 

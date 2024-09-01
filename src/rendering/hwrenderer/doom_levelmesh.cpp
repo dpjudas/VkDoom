@@ -594,7 +594,7 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	state.EnableTexture(true);
 	state.EnableBrightmap(true);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
-	CreateWallSurface(side, disp, state, result.list, false, true, sideIndex);
+	CreateWallSurface(side, disp, state, result.list, back ? LevelMeshDrawType::Masked : LevelMeshDrawType::Opaque, true, sideIndex);
 
 	if (result.portals.Size() != 0 && !Sides[sideIndex].InSidePortalsList)
 	{
@@ -608,13 +608,13 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 		Sides[sideIndex].WallPortals.Push(portal);
 	}
 
-	CreateWallSurface(side, disp, state, result.portals, true, false, sideIndex);
+	CreateWallSurface(side, disp, state, result.portals, LevelMeshDrawType::Portal, false, sideIndex);
 
 	/*
 	// final pass: translucent stuff
 	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 	state.SetRenderStyle(STYLE_Translucent);
-	CreateWallSurface(side, disp, state, result.translucent, false, true, sideIndex);
+	CreateWallSurface(side, disp, state, result.translucent, LevelMeshDrawType::Translucent, true, sideIndex);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	state.SetRenderStyle(STYLE_Normal);
 	*/
@@ -641,27 +641,27 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 		state.ClearDepthBias();
 		state.EnableTexture(true);
 		state.EnableBrightmap(true);
-		CreateFlatSurface(disp, state, result.list, false, false, sectorIndex);
+		CreateFlatSurface(disp, state, result.list, LevelMeshDrawType::Opaque, false, sectorIndex);
 
-		CreateFlatSurface(disp, state, result.portals, true, false, sectorIndex);
+		CreateFlatSurface(disp, state, result.portals, LevelMeshDrawType::Portal, false, sectorIndex);
 
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 		state.SetRenderStyle(STYLE_Translucent);
-		CreateFlatSurface(disp, state, result.translucentborder, false, true, sectorIndex);
+		CreateFlatSurface(disp, state, result.translucentborder, LevelMeshDrawType::Translucent, true, sectorIndex);
 		state.SetDepthMask(false);
-		CreateFlatSurface(disp, state, result.translucent, false, true, sectorIndex);
+		CreateFlatSurface(disp, state, result.translucent, LevelMeshDrawType::Translucent, true, sectorIndex);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetDepthMask(true);
 		state.SetRenderStyle(STYLE_Normal);
 	}
 }
 
-void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent, unsigned int sideIndex)
+void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sideIndex)
 {
 	for (HWWall& wallpart : list)
 	{
-		if (isPortal)
+		if (drawType == LevelMeshDrawType::Portal)
 		{
 			state.SetEffect(EFF_PORTAL);
 			state.EnableTexture(false);
@@ -784,8 +784,8 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		sinfo.Surface->MeshLocation.NumElements = ginfo.IndexCount;
 		sinfo.Surface->Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
 		sinfo.Surface->Texture = wallpart.texture;
-		sinfo.Surface->PortalIndex = isPortal ? linePortals[side->linedef->Index()] : 0;
-		sinfo.Surface->IsSky = isPortal ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
+		sinfo.Surface->PortalIndex = (drawType == LevelMeshDrawType::Portal) ? linePortals[side->linedef->Index()] : 0;
+		sinfo.Surface->IsSky = (drawType == LevelMeshDrawType::Portal) ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
 		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
 		sinfo.Surface->LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC)) : -1;
 
@@ -794,20 +794,20 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
 			Mesh.SurfaceIndexes[i] = sinfo.Index;
 
-		Sides[sideIndex].Geometries.Push({ ginfo, pipelineID, sinfo.Surface->IsSky });
+		Sides[sideIndex].Geometries.Push(ginfo);
 		Sides[sideIndex].Uniforms.Push(uinfo);
 
-		AddToDrawList(Sides[sideIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, isPortal);
+		AddToDrawList(Sides[sideIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, drawType);
 	}
 }
 
-void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, bool isPortal)
+void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType)
 {
 	// Remember the location if we have to remove it again
 	DrawRangeInfo info;
 	info.DrawIndexStart = RemoveRange(FreeLists.DrawIndex, indexCount);
 	info.DrawIndexCount = indexCount;
-	info.IsPortal = isPortal;
+	info.DrawType = drawType;
 	info.PipelineID = pipelineID;
 	drawRanges.Push(info);
 
@@ -816,14 +816,7 @@ void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelin
 	AddRange(UploadRanges.DrawIndex, { info.DrawIndexStart, info.DrawIndexStart + indexCount });
 
 	// Add to the draw lists
-	if (!isPortal)
-	{
-		AddRange(DrawList[pipelineID], { info.DrawIndexStart, info.DrawIndexStart + indexCount });
-	}
-	else
-	{
-		AddRange(PortalList[pipelineID], { info.DrawIndexStart, info.DrawIndexStart + indexCount });
-	}
+	AddRange(DrawList[(int)drawType][pipelineID], { info.DrawIndexStart, info.DrawIndexStart + indexCount });
 }
 
 void DoomLevelMesh::RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges)
@@ -833,28 +826,20 @@ void DoomLevelMesh::RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges)
 		int start = info.DrawIndexStart;
 		int end = info.DrawIndexStart + info.DrawIndexCount;
 
-		if (!info.IsPortal)
-			RemoveRange(DrawList[info.PipelineID], { start, end });
-		else
-			RemoveRange(PortalList[info.PipelineID], { start, end });
-
+		RemoveRange(DrawList[(int)info.DrawType][info.PipelineID], { start, end });
 		AddRange(FreeLists.DrawIndex, { start, end });
 	}
 }
 
 void DoomLevelMesh::SortDrawLists()
 {
-	std::unordered_map<int, TArray<DrawRangeInfo*>> sortedDrawList;
-	std::unordered_map<int, TArray<DrawRangeInfo*>> sortedPortalList;
+	std::unordered_map<int, TArray<DrawRangeInfo*>> sortedDrawList[(int)LevelMeshDrawType::NumDrawTypes];
 
 	for (auto& side : Sides)
 	{
 		for (auto& range : side.DrawRanges)
 		{
-			if (!range.IsPortal)
-				sortedDrawList[range.PipelineID].Push(&range);
-			else
-				sortedPortalList[range.PipelineID].Push(&range);
+			sortedDrawList[(int)range.DrawType][range.PipelineID].Push(&range);
 		}
 	}
 
@@ -862,53 +847,33 @@ void DoomLevelMesh::SortDrawLists()
 	{
 		for (auto& range : flat.DrawRanges)
 		{
-			if (!range.IsPortal)
-				sortedDrawList[range.PipelineID].Push(&range);
-			else
-				sortedPortalList[range.PipelineID].Push(&range);
+			sortedDrawList[(int)range.DrawType][range.PipelineID].Push(&range);
 		}
 	}
 
 	TArray<uint32_t> indexes;
 
-	DrawList.clear();
-	for (auto& it : sortedDrawList)
+	for (int drawType = 0; drawType < (int)LevelMeshDrawType::NumDrawTypes; drawType++)
 	{
-		auto& list = DrawList[it.first];
-		int listStart = indexes.Size();
-		for (DrawRangeInfo* range : it.second)
+		DrawList[drawType].clear();
+		for (auto& it : sortedDrawList[drawType])
 		{
-			int sortedStart = indexes.Size();
-			int start = range->DrawIndexStart;
-			int count = range->DrawIndexCount;
-			for (int i = 0; i < count; i++)
+			auto& list = DrawList[drawType][it.first];
+			int listStart = indexes.Size();
+			for (DrawRangeInfo* range : it.second)
 			{
-				indexes.Push(Mesh.DrawIndexes[start + i]);
+				int sortedStart = indexes.Size();
+				int start = range->DrawIndexStart;
+				int count = range->DrawIndexCount;
+				for (int i = 0; i < count; i++)
+				{
+					indexes.Push(Mesh.DrawIndexes[start + i]);
+				}
+				range->DrawIndexStart = sortedStart;
 			}
-			range->DrawIndexStart = sortedStart;
+			int listEnd = indexes.Size();
+			list.Push({ listStart, listEnd });
 		}
-		int listEnd = indexes.Size();
-		list.Push({ listStart, listEnd });
-	}
-
-	PortalList.clear();
-	for (auto& it : sortedPortalList)
-	{
-		auto& list = PortalList[it.first];
-		int listStart = indexes.Size();
-		for (DrawRangeInfo* range : it.second)
-		{
-			int sortedStart = indexes.Size();
-			int start = range->DrawIndexStart;
-			int count = range->DrawIndexCount;
-			for (int i = 0; i < count; i++)
-			{
-				indexes.Push(Mesh.DrawIndexes[start + i]);
-			}
-			range->DrawIndexStart = sortedStart;
-		}
-		int listEnd = indexes.Size();
-		list.Push({ listStart, listEnd });
 	}
 
 	memcpy(Mesh.DrawIndexes.Data(), indexes.Data(), indexes.Size() * sizeof(uint32_t));
@@ -978,7 +943,7 @@ int DoomLevelMesh::GetSampleDimension(uint16_t sampleDimension)
 	return sampleDimension;
 }
 
-void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent, unsigned int sectorIndex)
+void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex)
 {
 	for (HWFlat& flatpart : list)
 	{
@@ -986,7 +951,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		state.mVertices.Clear();
 		state.mIndexes.Clear();
 
-		if (isSky)
+		if (drawType == LevelMeshDrawType::Portal)
 		{
 			state.SetEffect(EFF_PORTAL);
 			state.EnableTexture(false);
@@ -1046,7 +1011,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		GeometryAllocInfo ginfo = AllocGeometry(numVertices, numIndexes);
 		UniformsAllocInfo uinfo = AllocUniforms(1);
 
-		Flats[sectorIndex].Geometries.Push({ ginfo, pipelineID, isSky });
+		Flats[sectorIndex].Geometries.Push(ginfo);
 		Flats[sectorIndex].Uniforms.Push(uinfo);
 
 		int* surfaceIndexes = &Mesh.SurfaceIndexes[ginfo.IndexStart / 3];
@@ -1078,7 +1043,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		surf.Texture = flatpart.texture;
 		surf.PipelineID = pipelineID;
 		surf.PortalIndex = sectorPortals[flatpart.ceiling][flatpart.sector->Index()];
-		surf.IsSky = isSky;
+		surf.IsSky = (drawType == LevelMeshDrawType::Portal);
 
 		auto plane = info.ControlSector ? info.ControlSector->GetSecPlane(!flatpart.ceiling) : flatpart.sector->GetSecPlane(flatpart.ceiling);
 		surf.Plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
@@ -1102,7 +1067,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			{
 				auto& vt = sub->firstline[end - 1 - i].v1;
 
-				FVector3 pt((float)vt->fX(), (float)vt->fY(), isSky ? skyZ : (float)plane.ZatPoint(vt));
+				FVector3 pt((float)vt->fX(), (float)vt->fY(), (drawType == LevelMeshDrawType::Portal) ? skyZ : (float)plane.ZatPoint(vt));
 				FVector4 uv = textureMatrix * FVector4(pt.X * (1.0f / 64.0f), pt.Y * (-1.0f / 64.0f), 0.0f, 1.0f);
 
 				FFlatVertex ffv;
@@ -1163,7 +1128,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			SetSubsectorLightmap(sinfo.Index);
 		}
 
-		AddToDrawList(Flats[sectorIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, isSky);
+		AddToDrawList(Flats[sectorIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, drawType);
 	}
 }
 

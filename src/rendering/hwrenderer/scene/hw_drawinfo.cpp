@@ -432,11 +432,12 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		// draw level into depth buffer
 		state.SetColorMask(false);
 		state.SetCulling(Cull_CW);
-		state.DrawLevelMeshSurfaces(true);
+		state.DrawLevelMesh(LevelMeshDrawType::Opaque, true);
+		state.DrawLevelMesh(LevelMeshDrawType::Masked, false); // To do: properly mark wall top/bottom as opaque so we don't need this
 		if (gl_portals)
 		{
 			state.SetDepthBias(1, 128);
-			state.DrawLevelMeshPortals(true);
+			state.DrawLevelMesh(LevelMeshDrawType::Portal, true);
 			state.SetDepthBias(0, 0);
 		}
 
@@ -462,11 +463,12 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		int queryEnd = state.GetNextQueryIndex();
 
 		// draw opaque level so the GPU has something to do while we examine the query results
-		state.DrawLevelMeshSurfaces(false);
+		state.DrawLevelMesh(LevelMeshDrawType::Opaque, false);
+		//state.DrawLevelMesh(LevelMeshDrawType::Masked, false);
 		if (!gl_portals)
 		{
 			state.SetDepthBias(1, 128);
-			state.DrawLevelMeshPortals(false);
+			state.DrawLevelMesh(LevelMeshDrawType::Portal, false);
 			state.SetDepthBias(0, 0);
 		}
 		state.SetCulling(Cull_None);

@@ -32,28 +32,24 @@ struct DoomSurfaceInfo
 
 struct GeometryFreeInfo
 {
-	GeometryFreeInfo(const GeometryAllocInfo& ginfo, int pipelineID, bool isPortal)
+	GeometryFreeInfo(const GeometryAllocInfo& ginfo)
 	{
 		VertexStart = ginfo.VertexStart;
 		VertexCount = ginfo.VertexCount;
 		IndexStart = ginfo.IndexStart;
 		IndexCount = ginfo.IndexCount;
-		PipelineID = pipelineID;
-		IsPortal = isPortal;
 	}
 
 	int VertexStart = 0;
 	int VertexCount = 0;
 	int IndexStart = 0;
 	int IndexCount = 0;
-	int PipelineID = 0;
-	bool IsPortal = false;
 };
 
 struct DrawRangeInfo
 {
 	int PipelineID = 0;
-	bool IsPortal = false;
+	LevelMeshDrawType DrawType = {};
 	int DrawIndexStart = 0;
 	int DrawIndexCount = 0;
 };
@@ -143,8 +139,8 @@ private:
 	void SetSubsectorLightmap(int surfaceIndex);
 	void SetSideLightmap(int surfaceIndex);
 
-	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent, unsigned int sectorIndex);
-	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent, unsigned int sectorIndex);
+	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex);
+	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex);
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
@@ -156,7 +152,7 @@ private:
 
 	int GetLightIndex(FDynamicLight* light, int portalgroup);
 
-	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, bool isPortal);
+	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType);
 	void RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges);
 	void SortDrawLists();
 
