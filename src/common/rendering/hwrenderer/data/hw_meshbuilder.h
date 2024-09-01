@@ -105,8 +105,6 @@ public:
 	void EnableStencil(bool on) override { }
 	void EnableDepthTest(bool on) override { }
 
-	std::unique_ptr<Mesh> Create();
-
 	struct DrawLists
 	{
 		TArray<MeshDrawCommand> mDraws;

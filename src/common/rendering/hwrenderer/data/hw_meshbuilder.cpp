@@ -1,6 +1,5 @@
 
 #include "hw_meshbuilder.h"
-#include "hw_mesh.h"
 #include "v_video.h"
 
 MeshBuilder::MeshBuilder()
@@ -77,38 +76,6 @@ void MeshBuilder::Apply()
 	state.surfaceUniforms.uVertexNormal = FVector4(0.0f, 0.0f, 0.0f, 0.0f); // Grr, this should be part of the vertex!!
 
 	mDrawLists = &mSortedLists[state];
-}
-
-std::unique_ptr<Mesh> MeshBuilder::Create()
-{
-	if (mSortedLists.empty())
-		return {};
-
-	auto mesh = std::make_unique<Mesh>();
-
-	int applyIndex = 0;
-	for (auto& it : mSortedLists)
-	{
-		mesh->mApplys.Push(it.first);
-		for (MeshDrawCommand& command : it.second.mDraws)
-		{
-			command.ApplyIndex = applyIndex;
-			mesh->mDraws.Push(command);
-		}
-		for (MeshDrawCommand& command : it.second.mIndexedDraws)
-		{
-			command.ApplyIndex = applyIndex;
-			mesh->mIndexedDraws.Push(command);
-		}
-		applyIndex++;
-	}
-
-	// To do: the various mesh layers have to share the vertex buffer since some vertex allocations happen at the Process stage
-	//mesh->mVertices = std::move(mVertices);
-	//mVertices.Clear();
-	mesh->mVertices = mVertices;
-
-	return mesh;
 }
 
 std::pair<FFlatVertex*, unsigned int> MeshBuilder::AllocVertices(unsigned int count)
