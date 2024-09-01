@@ -12,7 +12,6 @@ struct MeshApplyData
 	FRenderStyle RenderStyle;
 	int SpecialEffect;
 	int TextureEnabled;
-	float AlphaThreshold;
 	int DepthFunc;
 	int FogEnabled;
 	int FogColor;

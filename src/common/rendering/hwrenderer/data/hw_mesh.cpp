@@ -35,7 +35,6 @@ void Mesh::Draw(FRenderState& renderstate)
 	origState.applyData.RenderStyle = renderstate.mRenderStyle;
 	origState.applyData.SpecialEffect = renderstate.mSpecialEffect;
 	origState.applyData.TextureEnabled = renderstate.mTextureEnabled;
-	origState.applyData.AlphaThreshold = renderstate.mSurfaceUniforms.uAlphaThreshold;
 	origState.applyData.FogEnabled = renderstate.mFogEnabled;
 	origState.applyData.BrightmapEnabled = renderstate.mBrightmapEnabled;
 	origState.applyData.TextureClamp = renderstate.mTextureClamp;

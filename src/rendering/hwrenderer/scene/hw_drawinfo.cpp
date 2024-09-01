@@ -446,13 +446,21 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetDepthMask(false);
 		state.EnableTexture(false);
 		state.SetEffect(EFF_PORTAL);
+
+		if (!gl_portals)
+			state.SetColorMask(true); // For debugging where the query is
+
 		for (HWWall* wall : portals)
 		{
 			state.BeginQuery();
 
-			wall->MakeVertices(state, false);
-			wall->RenderWall(state, HWWall::RWF_BLANK);
-			wall->vertcount = 0;
+			// sector portals not handled yet by PutWallPortal
+			if (wall->portaltype != PORTALTYPE_SECTORSTACK)
+			{
+				wall->MakeVertices(state, false);
+				wall->RenderWall(state, HWWall::RWF_BLANK);
+				wall->vertcount = 0;
+			}
 
 			state.EndQuery();
 		}
