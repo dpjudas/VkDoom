@@ -464,7 +464,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 		// draw opaque level so the GPU has something to do while we examine the query results
 		state.DrawLevelMesh(LevelMeshDrawType::Opaque, false);
-		//state.DrawLevelMesh(LevelMeshDrawType::Masked, false);
+		state.DrawLevelMesh(LevelMeshDrawType::Masked, false);
 		if (!gl_portals)
 		{
 			state.SetDepthBias(1, 128);
