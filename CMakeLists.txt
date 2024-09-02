@@ -225,7 +225,6 @@ if( ${TARGET_ARCHITECTURE} MATCHES "x86_64" )
 endif()
 
 option (HAVE_VULKAN "Enable Vulkan support" ON)
-option (HAVE_GLES2 "Enable GLES2 support" ON)
 
 # no, we're not using external asmjit for now, we made too many modifications to our's.
 # if the asmjit author uses our changes then we'll update this.
@@ -246,10 +245,6 @@ if( MSVC )
 
 	if ( HAVE_VULKAN )
 		set( ALL_C_FLAGS "${ALL_C_FLAGS} /DHAVE_VULKAN" )
-	endif()
-
-	if ( HAVE_GLES2 )
-		set( ALL_C_FLAGS "${ALL_C_FLAGS} /DHAVE_GLES2" )
 	endif()
 
 	# Use SSE 2 as minimum always as the true color drawers needs it for __vectorcall
@@ -279,10 +274,6 @@ else()
 
 	if ( HAVE_VULKAN )
 		set( ALL_C_FLAGS "${ALL_C_FLAGS} -DHAVE_VULKAN" )
-	endif()
-
-	if ( HAVE_GLES2 )
-		set( ALL_C_FLAGS "${ALL_C_FLAGS} -DHAVE_GLES2" )
 	endif()
 
 	if ( UNIX )
