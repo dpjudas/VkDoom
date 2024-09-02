@@ -161,13 +161,7 @@ EXTERN_CVAR(Float, lm_scale);
 
 DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 {
-	// Try to estimate what the worst case memory needs are for the level
-	LevelMeshLimits limits;
-	limits.MaxVertices = (doomMap.vertexes.Size() * 10) * 2;
-	limits.MaxSurfaces = (doomMap.sides.Size() * 3 + doomMap.subsectors.Size() * 2) * 2;
-	limits.MaxUniforms = (doomMap.sides.Size() * 3 + doomMap.sectors.Size() * 2) * 2;
-	limits.MaxIndexes = limits.MaxVertices * 10;
-	Reset(limits);
+	SetLimits(doomMap);
 
 	SunColor = doomMap.SunColor; // TODO keep only one copy?
 	SunDirection = doomMap.SunDirection;
@@ -185,6 +179,39 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	UploadPortals();
 
 	SortDrawLists();
+}
+
+void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
+{
+	// Try to estimate what the worst case memory needs are for the level
+	LevelMeshLimits limits;
+
+	for (const sector_t& sector : doomMap.sectors)
+	{
+		unsigned int ffloors = sector.e ? sector.e->XFloor.ffloors.Size() : 0;
+
+		limits.MaxVertices += sector.Lines.Size() * 4 * (3 + ffloors);
+		limits.MaxIndexes += sector.Lines.Size() * 6 * (3 + ffloors);
+		limits.MaxSurfaces += sector.Lines.Size() * (3 + ffloors);
+		limits.MaxUniforms += sector.Lines.Size() * (3 + ffloors);
+
+		limits.MaxSurfaces += sector.subsectorcount * (2 + ffloors * 2);
+		limits.MaxUniforms += 2 + ffloors * 2;
+
+		for (int i = 0, count = sector.subsectorcount; i < count; i++)
+		{
+			limits.MaxVertices += sector.subsectors[i]->numlines;
+			limits.MaxIndexes += sector.subsectors[i]->numlines * 3;
+		}
+	}
+
+	// Double up to leave room for fragmentation
+	limits.MaxVertices *= 2;
+	limits.MaxSurfaces *= 2;
+	limits.MaxUniforms *= 2;
+	limits.MaxIndexes *= 2;
+
+	Reset(limits);
 }
 
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)

@@ -122,6 +122,8 @@ public:
 	Stats LastFrameStats, CurFrameStats;
 
 private:
+	void SetLimits(FLevelLocals& doomMap);
+
 	void CreateSurfaces(FLevelLocals& doomMap);
 	void CreateLightList(FLevelLocals& doomMap, int surfaceIndex);
 
