@@ -898,7 +898,13 @@ void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>
 
 void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool noFragmentShader)
 {
+	// Global state that don't require rebuilding the mesh
 	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;
+	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
+	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
+	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
+
+	// State overridden by the renderstate drawing the mesh
 	pipelineKey.DepthTest = mDepthTest;
 	pipelineKey.DepthWrite = mDepthTest && mDepthWrite;
 	pipelineKey.DepthClamp = mDepthClamp;
@@ -909,6 +915,7 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	pipelineKey.CullMode = mCullMode;
 	if (!mTextureEnabled)
 		pipelineKey.ShaderKey.EffectState = SHADER_NoTexture;
+
 	mPipelineKey = pipelineKey;
 
 	PushConstants pushConstants = {};

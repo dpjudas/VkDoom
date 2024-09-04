@@ -73,8 +73,6 @@ void MeshBuilder::Apply()
 	state.material = mMaterial;
 	state.textureMatrix = mTextureMatrix;
 
-	state.surfaceUniforms.uVertexNormal = FVector4(0.0f, 0.0f, 0.0f, 0.0f); // Grr, this should be part of the vertex!!
-
 	mDrawLists = &mSortedLists[state];
 }
 

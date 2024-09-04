@@ -739,10 +739,6 @@ int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, c
 			pipelineKey.ShaderKey.LightMode = 1; // Software
 	}
 
-	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
-	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
-
-	pipelineKey.ShaderKey.GBufferPass = false;
 	pipelineKey.ShaderKey.UseLevelMesh = true;
 
 	for (unsigned int i = 0, count = levelMeshPipelineKeys.Size(); i < count; i++)
