@@ -4,8 +4,11 @@
 #include "zvulkan/vulkanobjects.h"
 #include "hw_levelmesh.h"
 #include "common/utility/matrix.h"
+#include <map>
 
 class VulkanRenderDevice;
+class ShaderIncludeResult;
+class VkRenderPassKey;
 
 struct CollisionNodeBufferHeader
 {
@@ -62,6 +65,17 @@ struct LightInfo
 	float Padding3;
 };
 
+struct ViewerPushConstants
+{
+	VSMatrix ViewToWorld;
+	FVector3 CameraPos;
+	float ProjX;
+	FVector3 SunDir;
+	float ProjY;
+	FVector3 SunColor;
+	float SunIntensity;
+};
+
 static_assert(sizeof(LightInfo) == sizeof(float) * 20);
 
 class VkLevelMesh
@@ -71,6 +85,8 @@ public:
 
 	void SetLevelMesh(LevelMesh* mesh);
 	void BeginFrame();
+
+	void RaytraceScene(const VkRenderPassKey& renderPassKey, VulkanCommandBuffer* commands, const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect);
 
 	VulkanAccelerationStructure* GetAccelStruct() { return TopLevelAS.AccelStruct.get(); }
 	VulkanBuffer* GetVertexBuffer() { return VertexBuffer.get(); }
@@ -94,6 +110,7 @@ private:
 		std::unique_ptr<VulkanBuffer> AccelStructBuffer;
 		std::unique_ptr<VulkanAccelerationStructure> AccelStruct;
 		VkDeviceAddress DeviceAddress = 0;
+		int InstanceCustomIndex = 0;
 		bool NeedsUpdate = false;
 	};
 
@@ -108,6 +125,12 @@ private:
 	void UpdateTopLevelAS(int instanceCount);
 
 	BLAS CreateBLAS(bool preferFastBuild, int indexOffset, int indexCount);
+
+	void CreateViewerObjects();
+
+	static FString LoadPrivateShaderLump(const char* lumpname);
+	static FString LoadPublicShaderLump(const char* lumpname);
+	static ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
 
 	VulkanRenderDevice* fb = nullptr;
 
@@ -141,6 +164,18 @@ private:
 		std::unique_ptr<VulkanBuffer> AccelStructBuffer;
 		std::unique_ptr<VulkanAccelerationStructure> AccelStruct;
 	} TopLevelAS;
+
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorSetLayout> DescriptorSetLayout;
+		std::unique_ptr<VulkanDescriptorPool> DescriptorPool;
+		std::unique_ptr<VulkanDescriptorSet> DescriptorSet;
+		std::unique_ptr<VulkanShader> VertexShader;
+		std::unique_ptr<VulkanShader> FragmentShader;
+		//std::unique_ptr<VulkanRenderPass> RenderPass;
+		std::unique_ptr<VulkanPipelineLayout> PipelineLayout;
+		std::map<VkRenderPassKey, std::unique_ptr<VulkanPipeline>> Pipeline;
+	} Viewer;
 
 	friend class VkLevelMeshUploader;
 };

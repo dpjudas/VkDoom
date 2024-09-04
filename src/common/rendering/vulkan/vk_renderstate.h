@@ -63,6 +63,8 @@ public:
 	void EndQuery() override;
 	void GetQueryResults(int start, int count, TArray<bool>& results) override;
 
+	void RaytraceScene(const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect) override;
+
 	// Worker threads
 	void FlushCommands() override { EndRenderPass(); }
 

@@ -704,6 +704,8 @@ public:
 	virtual void EndQuery() { }
 	virtual void GetQueryResults(int start, int count, TArray<bool>& results) { }
 
+	virtual void RaytraceScene(const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect) { }
+
 	friend class Mesh;
 };
 

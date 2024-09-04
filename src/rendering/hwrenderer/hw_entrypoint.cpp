@@ -54,6 +54,8 @@ EXTERN_CVAR(Bool, cl_capfps)
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Bool, gl_bandedswlight)
 
+CVAR(Bool, gl_raytrace, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+
 extern bool NoInterpolateView;
 
 static SWSceneDrawer *swdrawer;
@@ -174,7 +176,21 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
 		di->SetupView(RenderState, vp.Pos.X, vp.Pos.Y, vp.Pos.Z, false, false);
 
-		di->ProcessScene(toscreen, *screen->RenderState());
+		if (gl_raytrace)
+		{
+			VSMatrix viewToWorld;
+			di->VPUniforms.mViewMatrix.inverseMatrix(viewToWorld);
+
+			auto DEG2RAD = [](float deg) { return deg * float(M_PI / 180.0); };
+			auto RAD2DEG = [](float rad) { return rad * float(180. / M_PI); };
+			float fovy = (float)(2 * RAD2DEG(atan(tan(DEG2RAD(fov) / 2) / fovratio)));
+
+			RenderState.RaytraceScene(FVector3(vp.Pos.X, vp.Pos.Z, vp.Pos.Y), viewToWorld, fovy, ratio);
+		}
+		else
+		{
+			di->ProcessScene(toscreen, RenderState);
+		}
 
 		if (mainview)
 		{

@@ -24,13 +24,17 @@
 #include "zvulkan/vulkanbuilders.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
+#include "vulkan/descriptorsets/vk_descriptorset.h"
+#include "vulkan/pipelines/vk_renderpass.h"
 #include "hw_levelmesh.h"
 #include "hw_material.h"
 #include "texturemanager.h"
+#include "cmdlib.h"
 
 VkLevelMesh::VkLevelMesh(VulkanRenderDevice* fb) : fb(fb)
 {
 	useRayQuery = fb->IsRayQueryEnabled();
+	CreateViewerObjects();
 
 	SetLevelMesh(nullptr);
 }
@@ -196,6 +200,24 @@ void VkLevelMesh::BeginFrame()
 			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
+
+	WriteDescriptors write;
+	write.AddBuffer(Viewer.DescriptorSet.get(), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetSurfaceIndexBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetSurfaceBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetLightBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetLightIndexBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetPortalBuffer());
+	if (useRayQuery)
+	{
+		write.AddAccelerationStructure(Viewer.DescriptorSet.get(), 5, GetAccelStruct());
+	}
+	else
+	{
+		write.AddBuffer(Viewer.DescriptorSet.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetNodeBuffer());
+	}
+	write.AddBuffer(Viewer.DescriptorSet.get(), 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetVertexBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetIndexBuffer());
+	write.Execute(fb->GetDevice());
 }
 
 void VkLevelMesh::UploadMeshes()
@@ -336,6 +358,7 @@ VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(bool preferFastBuild, int indexOffset,
 		.Create(fb->GetDevice());
 
 	blas.DeviceAddress = blas.AccelStruct->GetDeviceAddress();
+	blas.InstanceCustomIndex = indexOffset / 3;
 
 	buildInfo.dstAccelerationStructure = blas.AccelStruct->accelstruct;
 	buildInfo.scratchData.deviceAddress = blas.ScratchBuffer->GetDeviceAddress();
@@ -452,6 +475,7 @@ void VkLevelMesh::UploadTLASInstanceBuffer()
 	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size());
 	for (BLAS& blas : DynamicBLAS)
 	{
+		instance.instanceCustomIndex = blas.InstanceCustomIndex;
 		instance.accelerationStructureReference = blas.DeviceAddress;
 
 		memcpy(data, &instance, sizeof(VkAccelerationStructureInstanceKHR));
@@ -460,6 +484,195 @@ void VkLevelMesh::UploadTLASInstanceBuffer()
 	TopLevelAS.TransferBuffer->Unmap();
 
 	fb->GetCommands()->GetTransferCommands()->copyBuffer(TopLevelAS.TransferBuffer.get(), TopLevelAS.InstanceBuffer.get());
+}
+
+void VkLevelMesh::RaytraceScene(const VkRenderPassKey& renderPassKey, VulkanCommandBuffer* commands, const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect)
+{
+	auto& pipeline = Viewer.Pipeline[renderPassKey];
+	if (!pipeline)
+	{
+		GraphicsPipelineBuilder builder;
+		builder.RenderPass(fb->GetRenderPassManager()->GetRenderPass(renderPassKey)->GetRenderPass(0));
+		builder.Layout(Viewer.PipelineLayout.get());
+		builder.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
+		builder.AddVertexShader(Viewer.VertexShader.get());
+		builder.AddFragmentShader(Viewer.FragmentShader.get());
+		builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
+		builder.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR);
+		builder.RasterizationSamples((VkSampleCountFlagBits)renderPassKey.Samples);
+		builder.DebugName("Viewer.Pipeline");
+		pipeline = builder.Create(fb->GetDevice());
+	}
+
+	/*
+	RenderPassBegin()
+		.RenderPass(Viewer.RenderPass.get())
+		.Framebuffer(Framebuffers[imageIndex].get())
+		.RenderArea(0, 0, CurrentWidth, CurrentHeight)
+		.AddClearColor(0.0f, 0.0f, 0.0f, 1.0f)
+		.AddClearDepth(1.0f)
+		.Execute(commands);
+
+	VkViewport viewport = {};
+	viewport.width = (float)CurrentWidth;
+	viewport.height = (float)CurrentHeight;
+	viewport.maxDepth = 1.0f;
+	commands->setViewport(0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.extent.width = CurrentWidth;
+	scissor.extent.height = CurrentHeight;
+	commands->setScissor(0, 1, &scissor);
+	*/
+
+	float f = 1.0f / std::tan(fovy * (pi::pif() / 360.0f));
+
+	ViewerPushConstants pushconstants;
+	pushconstants.ViewToWorld = viewToWorld;
+	pushconstants.CameraPos = cameraPos;
+	pushconstants.ProjX = f / aspect;
+	pushconstants.ProjY = f;
+	pushconstants.SunDir = FVector3(Mesh->SunDirection.X, Mesh->SunDirection.Z, Mesh->SunDirection.Y);
+	pushconstants.SunColor = Mesh->SunColor;
+	pushconstants.SunIntensity = 1.0f;
+
+	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 0, Viewer.DescriptorSet.get());
+	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 1, fb->GetDescriptorSetManager()->GetBindlessSet());
+	commands->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.get());
+	commands->pushConstants(Viewer.PipelineLayout.get(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ViewerPushConstants), &pushconstants);
+	commands->draw(4, 1, 0, 0);
+	
+	//commands->endRenderPass();
+}
+
+void VkLevelMesh::CreateViewerObjects()
+{
+	DescriptorSetLayoutBuilder builder;
+	builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	if (useRayQuery)
+	{
+		builder.AddBinding(5, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	}
+	else
+	{
+		builder.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	}
+	builder.AddBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.DebugName("Viewer.DescriptorSetLayout");
+	Viewer.DescriptorSetLayout = builder.Create(fb->GetDevice());
+
+	Viewer.DescriptorPool = DescriptorPoolBuilder()
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6)
+		.MaxSets(1)
+		.DebugName("Viewer.DescriptorPool")
+		.Create(fb->GetDevice());
+
+	Viewer.DescriptorSet = Viewer.DescriptorPool->allocate(Viewer.DescriptorSetLayout.get());
+	Viewer.DescriptorSet->SetDebugName("raytrace.descriptorSet1");
+
+	std::string versionBlock = R"(
+			#version 460
+			#extension GL_GOOGLE_include_directive : enable
+			#extension GL_EXT_nonuniform_qualifier : enable
+		)";
+
+	if (useRayQuery)
+	{
+		versionBlock += "#extension GL_EXT_ray_query : require\r\n";
+		versionBlock += "#define USE_RAYQUERY\r\n";
+	}
+
+	auto onIncludeLocal = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); };
+	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
+
+	Viewer.VertexShader = ShaderBuilder()
+		.Type(ShaderType::Vertex)
+		.AddSource("versionblock", versionBlock)
+		.AddSource("vert_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_viewer.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
+		.DebugName("Viewer.VertexShader")
+		.Create("vertex", fb->GetDevice());
+
+	Viewer.FragmentShader = ShaderBuilder()
+		.Type(ShaderType::Fragment)
+		.AddSource("versionblock", versionBlock)
+		.AddSource("frag_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_viewer.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
+		.DebugName("Viewer.FragmentShader")
+		.Create("vertex", fb->GetDevice());
+
+	Viewer.PipelineLayout = PipelineLayoutBuilder()
+		.AddSetLayout(Viewer.DescriptorSetLayout.get())
+		.AddSetLayout(fb->GetDescriptorSetManager()->GetBindlessLayout())
+		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ViewerPushConstants))
+		.DebugName("Viewer.PipelineLayout")
+		.Create(fb->GetDevice());
+
+	/*
+	Viewer.RenderPass = RenderPassBuilder()
+		.AddAttachment(VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+		.AddSubpass()
+		.AddSubpassColorAttachmentRef(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+		.Create(fb->GetDevice());
+
+	Viewer.Pipeline = GraphicsPipelineBuilder()
+		.RenderPass(Viewer.RenderPass.get())
+		.Layout(Viewer.PipelineLayout.get())
+		.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
+		.AddVertexShader(Viewer.VertexShader.get())
+		.AddFragmentShader(Viewer.FragmentShader.get())
+		.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+		.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+		.DebugName("Viewer.Pipeline")
+		.Create(fb->GetDevice());
+	*/
+}
+
+FString VkLevelMesh::LoadPrivateShaderLump(const char* lumpname)
+{
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
+	return GetStringFromLump(lump);
+}
+
+FString VkLevelMesh::LoadPublicShaderLump(const char* lumpname)
+{
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
+	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
+	return GetStringFromLump(lump);
+}
+
+ShaderIncludeResult VkLevelMesh::OnInclude(FString headerName, FString includerName, size_t depth, bool system)
+{
+	if (depth > 8)
+		I_Error("Too much include recursion!");
+
+	FString includeguardname;
+	includeguardname << "_HEADERGUARD_" << headerName.GetChars();
+	includeguardname.ReplaceChars("/\\.", '_');
+
+	FString code;
+	code << "#ifndef " << includeguardname.GetChars() << "\n";
+	code << "#define " << includeguardname.GetChars() << "\n";
+	code << "#line 1\n";
+
+	if (system)
+		code << LoadPrivateShaderLump(headerName.GetChars()).GetChars() << "\n";
+	else
+		code << LoadPublicShaderLump(headerName.GetChars()).GetChars() << "\n";
+
+	code << "#endif\n";
+
+	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
 }
 
 /////////////////////////////////////////////////////////////////////////////

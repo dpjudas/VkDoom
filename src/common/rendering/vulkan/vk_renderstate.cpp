@@ -829,6 +829,24 @@ void VkRenderState::BeginRenderPass(VulkanCommandBuffer *cmdbuffer)
 	mClearTargets = 0;
 }
 
+void VkRenderState::RaytraceScene(const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect)
+{
+	ApplyMatrices();
+	ApplyRenderPass(DT_Triangles);
+	ApplyScissor();
+	ApplyViewport();
+	ApplyStencilRef();
+	ApplyDepthBias();
+	mNeedApply = true;
+
+	VkRenderPassKey key = {};
+	key.DrawBufferFormat = mRenderTarget.Format;
+	key.Samples = mRenderTarget.Samples;
+	key.DrawBuffers = mRenderTarget.DrawBuffers;
+	key.DepthStencil = !!mRenderTarget.DepthStencil;
+	fb->GetLevelMesh()->RaytraceScene(key, mCommandBuffer, cameraPos, viewToWorld, fovy, aspect);
+}
+
 void VkRenderState::ApplyLevelMesh()
 {
 	ApplyMatrices();
