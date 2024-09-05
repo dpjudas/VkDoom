@@ -566,12 +566,19 @@ void VkLevelMesh::CreateViewerObjects()
 	builder.DebugName("Viewer.DescriptorSetLayout");
 	Viewer.DescriptorSetLayout = builder.Create(fb->GetDevice());
 
-	Viewer.DescriptorPool = DescriptorPoolBuilder()
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1)
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6)
-		.MaxSets(1)
-		.DebugName("Viewer.DescriptorPool")
-		.Create(fb->GetDevice());
+	DescriptorPoolBuilder poolbuilder;
+	if (useRayQuery)
+	{
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 7);
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1);
+	}
+	else
+	{
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 8);
+	}
+	poolbuilder.MaxSets(1);
+	poolbuilder.DebugName("Viewer.DescriptorPool");
+	Viewer.DescriptorPool = poolbuilder.Create(fb->GetDevice());
 
 	Viewer.DescriptorSet = Viewer.DescriptorPool->allocate(Viewer.DescriptorSetLayout.get());
 	Viewer.DescriptorSet->SetDebugName("raytrace.descriptorSet1");
