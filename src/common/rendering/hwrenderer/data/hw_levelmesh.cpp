@@ -21,6 +21,30 @@ LevelMesh::LevelMesh()
 	Mesh.MaxNodes = (int)std::max(Collision->get_nodes().size() * 2, (size_t)10000);
 }
 
+void LevelMesh::Reset(const LevelMeshLimits& limits)
+{
+	Mesh.Vertices.Resize(limits.MaxVertices);
+	Mesh.UniformIndexes.Resize(limits.MaxVertices);
+
+	Mesh.Surfaces.Resize(limits.MaxSurfaces);
+	Mesh.Uniforms.Resize(limits.MaxUniforms);
+	Mesh.Materials.Resize(limits.MaxUniforms);
+
+	Mesh.Lights.Resize(16);
+	Mesh.LightIndexes.Resize(16);
+
+	Mesh.Indexes.Resize(limits.MaxIndexes);
+	Mesh.SurfaceIndexes.Resize(limits.MaxIndexes / 3 + 1);
+
+	Mesh.DrawIndexes.Resize(limits.MaxIndexes);
+
+	FreeLists.Vertex.Clear(); FreeLists.Vertex.Push({ 0, limits.MaxVertices });
+	FreeLists.Index.Clear(); FreeLists.Index.Push({ 0, limits.MaxIndexes });
+	FreeLists.Uniforms.Clear(); FreeLists.Uniforms.Push({ 0, limits.MaxUniforms });
+	FreeLists.Surface.Clear(); FreeLists.Surface.Push({ 0, limits.MaxSurfaces });
+	FreeLists.DrawIndex.Clear(); FreeLists.DrawIndex.Push({ 0, limits.MaxIndexes });
+}
+
 void LevelMesh::AddEmptyMesh()
 {
 	GeometryAllocInfo ginfo = AllocGeometry(12, 3 * 4);
