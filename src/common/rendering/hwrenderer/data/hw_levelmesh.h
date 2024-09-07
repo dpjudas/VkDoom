@@ -103,6 +103,8 @@ public:
 	// Sets the sizes of all the GPU buffers and empties the mesh
 	virtual void Reset(const LevelMeshLimits& limits);
 
+	virtual void GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfaces) { }
+
 	// Data placed in GPU buffers
 	struct
 	{
@@ -171,6 +173,7 @@ public:
 	uint16_t LightmapSampleDistance = 16;
 
 	TArray<LightmapTile> LightmapTiles;
+	bool LMAtlasPacked = false; // Tile sizes can't be changed anymore
 
 	uint32_t AtlasPixelCount() const { return uint32_t(LMTextureCount * LMTextureSize * LMTextureSize); }
 

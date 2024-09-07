@@ -194,7 +194,10 @@ void VkLightmapper::Render()
 		bool buffersFull = false;
 
 		// Paint all surfaces visible in the tile
-		for (int surfaceIndex : targetTile->Surfaces)
+
+		visibleSurfaces.Clear();
+		mesh->GetVisibleSurfaces(targetTile, visibleSurfaces);
+		for (int surfaceIndex : visibleSurfaces)
 		{
 			LevelMeshSurface* surface = &mesh->Mesh.Surfaces[surfaceIndex];
 			pc.SurfaceIndex = surfaceIndex;

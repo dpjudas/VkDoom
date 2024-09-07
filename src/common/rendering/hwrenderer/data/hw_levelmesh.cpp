@@ -148,75 +148,6 @@ struct LevelMeshPlaneGroup
 	std::vector<LevelMeshSurface*> surfaces;
 };
 
-void LevelMesh::BuildTileSurfaceLists()
-{
-	// Plane group surface is to be rendered with
-	TArray<LevelMeshPlaneGroup> PlaneGroups;
-	TArray<int> PlaneGroupIndexes(Mesh.Surfaces.Size());
-
-	for (int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
-	{
-		auto surface = &Mesh.Surfaces[i];
-
-		// Is this surface in the same plane as an existing plane group?
-		int planeGroupIndex = -1;
-
-		for (size_t j = 0; j < PlaneGroups.Size(); j++)
-		{
-			if (surface->SectorGroup == PlaneGroups[j].sectorGroup)
-			{
-				float direction = PlaneGroups[j].plane.XYZ() | surface->Plane.XYZ();
-				if (direction >= 0.999f && direction <= 1.01f)
-				{
-					auto point = (surface->Plane.XYZ() * surface->Plane.W);
-					auto planeDistance = (PlaneGroups[j].plane.XYZ() | point) - PlaneGroups[j].plane.W;
-
-					float dist = std::abs(planeDistance);
-					if (dist <= 0.1f)
-					{
-						planeGroupIndex = (int)j;
-						break;
-					}
-				}
-			}
-		}
-
-		// Surface is in a new plane. Create a plane group for it
-		if (planeGroupIndex == -1)
-		{
-			planeGroupIndex = PlaneGroups.Size();
-
-			LevelMeshPlaneGroup group;
-			group.plane = surface->Plane;
-			group.sectorGroup = surface->SectorGroup;
-			PlaneGroups.Push(group);
-		}
-
-		PlaneGroups[planeGroupIndex].surfaces.push_back(surface);
-		PlaneGroupIndexes.Push(planeGroupIndex);
-	}
-
-	for (auto& tile : LightmapTiles)
-		tile.Surfaces.Clear();
-
-	for (int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
-	{
-		LevelMeshSurface* targetSurface = &Mesh.Surfaces[i];
-		if (targetSurface->LightmapTileIndex < 0)
-			continue;
-		LightmapTile* tile = &LightmapTiles[targetSurface->LightmapTileIndex];
-		for (LevelMeshSurface* surface : PlaneGroups[PlaneGroupIndexes[i]].surfaces)
-		{
-			FVector2 minUV = tile->ToUV(surface->Bounds.min);
-			FVector2 maxUV = tile->ToUV(surface->Bounds.max);
-			if (surface != targetSurface && (maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
-				continue; // Bounding box not visible
-
-			tile->Surfaces.Push((unsigned int)(ptrdiff_t)(surface - Mesh.Surfaces.Data()));
-		}
-	}
-}
-
 void LevelMesh::SetupTileTransforms()
 {
 	for (auto& tile : LightmapTiles)
@@ -227,6 +158,8 @@ void LevelMesh::SetupTileTransforms()
 
 void LevelMesh::PackLightmapAtlas(int lightmapStartIndex)
 {
+	LMAtlasPacked = true;
+
 	std::vector<LightmapTile*> sortedTiles;
 	sortedTiles.reserve(LightmapTiles.Size());
 

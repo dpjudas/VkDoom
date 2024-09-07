@@ -171,8 +171,6 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	CreatePortals(doomMap);
 	CreateSurfaces(doomMap);
 
-	BuildTileSurfaceLists();
-
 	UpdateCollision();
 	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
 
@@ -921,19 +919,25 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 	{
 		int index = it->second;
 
-		LightmapTile& tile = LightmapTiles[index];
-		tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
-		tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
-		tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
-		tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
-		tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
-		tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
-		tile.AlwaysUpdate = tile.AlwaysUpdate || alwaysUpdate;
+		if (!LMAtlasPacked)
+		{
+			LightmapTile& tile = LightmapTiles[index];
+			tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
+			tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
+			tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
+			tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
+			tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
+			tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
+			tile.AlwaysUpdate = tile.AlwaysUpdate || alwaysUpdate;
+		}
 
 		return index;
 	}
 	else
 	{
+		if (LMAtlasPacked)
+			return -1;
+
 		int index = LightmapTiles.Size();
 
 		LightmapTile tile;
@@ -1235,6 +1239,45 @@ BBox DoomLevelMesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const
 		bounds.max.Z = std::max(bounds.max.Z, v.Z);
 	}
 	return bounds;
+}
+
+void DoomLevelMesh::GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfaces)
+{
+	if (tile->Binding.Type == ST_MIDDLESIDE || tile->Binding.Type == ST_UPPERSIDE || tile->Binding.Type == ST_LOWERSIDE)
+	{
+		int sideIndex = tile->Binding.TypeIndex;
+		int surf = Sides[sideIndex].FirstSurface;
+		while (surf != -1)
+		{
+			const auto& sinfo = DoomSurfaceInfos[surf];
+			if (sinfo.Type == tile->Binding.Type)
+			{
+				outSurfaces.Push(surf);
+			}
+			surf = sinfo.NextSurface;
+		}
+	}
+	else if (tile->Binding.Type == ST_CEILING || tile->Binding.Type == ST_FLOOR)
+	{
+		int subsectorIndex = tile->Binding.TypeIndex;
+		int sectorIndex = level.subsectors[subsectorIndex].sector->Index();
+		int surf = Flats[sectorIndex].FirstSurface;
+		while (surf != -1)
+		{
+			const auto& sinfo = DoomSurfaceInfos[surf];
+			int controlSector = sinfo.ControlSector ? sinfo.ControlSector->Index() : (int)0xffffffffUL;
+			if (sinfo.Type == tile->Binding.Type && controlSector == tile->Binding.ControlSector)
+			{
+				FVector2 minUV = tile->ToUV(Mesh.Surfaces[surf].Bounds.min);
+				FVector2 maxUV = tile->ToUV(Mesh.Surfaces[surf].Bounds.max);
+				if (!(maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
+				{
+					outSurfaces.Push(surf);
+				}
+			}
+			surf = sinfo.NextSurface;
+		}
+	}
 }
 
 void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const

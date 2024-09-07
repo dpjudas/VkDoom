@@ -44,9 +44,6 @@ struct LightmapTile
 
 	LightmapTileBinding Binding;
 
-	// Surfaces that are visible within the lightmap tile
-	TArray<int> Surfaces;
-
 	BBox Bounds;
 	uint16_t SampleDimension = 0;
 	FVector4 Plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);

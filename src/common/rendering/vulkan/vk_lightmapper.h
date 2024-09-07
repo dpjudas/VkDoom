@@ -149,6 +149,8 @@ private:
 	TArray<SelectedTile> selectedTiles;
 	TArray<TArray<SelectedTile*>> copylists;
 
+	TArray<int> visibleSurfaces;
+
 	struct
 	{
 		std::unique_ptr<VulkanBuffer> Buffer;

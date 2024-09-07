@@ -113,6 +113,8 @@ public:
 		DoomSurfaceInfos.Resize(limits.MaxSurfaces);
 	}
 
+	void GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfaces) override;
+
 	struct Stats
 	{
 		int FlatsUpdated = 0;
@@ -159,7 +161,6 @@ private:
 	void SortDrawLists();
 
 	TArray<DoomSurfaceInfo> DoomSurfaceInfos;
-	TArray<std::unique_ptr<DoomSurfaceInfo* []>> PolyDoomSurfaceInfos;
 
 	TArray<SideSurfaceBlock> Sides;
 	TArray<FlatSurfaceBlock> Flats;
