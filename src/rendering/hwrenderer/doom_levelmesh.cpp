@@ -686,6 +686,10 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 {
 	for (HWWall& wallpart : list)
 	{
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
 		if (drawType == LevelMeshDrawType::Portal)
 		{
 			state.SetEffect(EFF_PORTAL);
@@ -769,9 +773,6 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			*(uinfo.Materials++) = applyState.material;
 			uniformsIndex++;
 		}
-		state.mSortedLists.clear();
-		state.mVertices.Clear();
-		state.mIndexes.Clear();
 
 		FVector2 v1 = FVector2(side->V1()->fPos());
 		FVector2 v2 = FVector2(side->V2()->fPos());
