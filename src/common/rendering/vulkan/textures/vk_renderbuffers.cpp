@@ -78,6 +78,12 @@ void VkRenderBuffers::BeginFrame(int width, int height, int sceneWidth, int scen
 	if (width != mWidth || height != mHeight || mSamples != samples)
 		CreateScene(width, height, samples);
 
+	if (sceneWidth != mSceneWidth || sceneHeight != mSceneHeight)
+	{
+		SceneLinearDepth.Reset(fb);
+		CreateSceneLinearDepth(std::max(sceneWidth, 1), std::max(sceneHeight, 1));
+	}
+
 	mWidth = width;
 	mHeight = height;
 	mSamples = samples;
@@ -174,13 +180,11 @@ void VkRenderBuffers::CreateScene(int width, int height, VkSampleCountFlagBits s
 	SceneDepthStencil.Reset(fb);
 	SceneNormal.Reset(fb);
 	SceneFog.Reset(fb);
-	SceneLinearDepth.Reset(fb);
 
 	CreateSceneColor(width, height, samples);
 	CreateSceneDepthStencil(width, height, samples);
 	CreateSceneNormal(width, height, samples);
 	CreateSceneFog(width, height, samples);
-	CreateSceneLinearDepth(width, height);
 
 	VkImageTransition()
 		.AddImage(&SceneColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true)
