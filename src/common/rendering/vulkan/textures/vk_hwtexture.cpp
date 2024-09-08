@@ -43,12 +43,6 @@ VkHardwareTexture::VkHardwareTexture(VulkanRenderDevice* fb, int numchannels) : 
 	fb->GetTextureManager()->AddTexture(this);
 }
 
-VkHardwareTexture::VkHardwareTexture(VulkanRenderDevice* fb, FSceneTextureType sceneTextureType) : fb(fb), mSceneTextureType(sceneTextureType)
-{
-	mTexelsize = 4;
-	fb->GetTextureManager()->AddTexture(this);
-}
-
 VkHardwareTexture::~VkHardwareTexture()
 {
 	if (fb)
@@ -72,11 +66,6 @@ void VkHardwareTexture::Reset()
 
 VkTextureImage *VkHardwareTexture::GetImage(FTexture *tex, int translation, int flags)
 {
-	if (mSceneTextureType == FSceneTextureType::LinearDepth)
-	{
-		return &fb->GetBuffers()->SceneLinearDepth;
-	}
-
 	if (!mImage.Image)
 	{
 		CreateImage(tex, translation, flags);

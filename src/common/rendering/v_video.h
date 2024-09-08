@@ -103,7 +103,6 @@ protected:
 
 class IHardwareTexture;
 class FTexture;
-class FSceneTexture;
 
 class DFrameBuffer
 {
@@ -179,7 +178,6 @@ public:
 	// Delete any resources that need to be deleted after restarting with a different IWAD
 	virtual void SetTextureFilterMode() {}
 	virtual IHardwareTexture *CreateHardwareTexture(int numchannels) { return nullptr; }
-	virtual IHardwareTexture* CreateSceneTexture(FSceneTexture* owner) { return nullptr; }
 	virtual void PrecacheMaterial(FMaterial *mat, int translation) {}
 	virtual FMaterial* CreateMaterial(FGameTexture* tex, int scaleflags);
 	virtual void BeginFrame() {}

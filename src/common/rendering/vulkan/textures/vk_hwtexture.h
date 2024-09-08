@@ -21,14 +21,12 @@ class VulkanImageView;
 class VulkanBuffer;
 class VulkanRenderDevice;
 class FGameTexture;
-enum class FSceneTextureType;
 
 class VkHardwareTexture : public IHardwareTexture
 {
 	friend class VkMaterial;
 public:
 	VkHardwareTexture(VulkanRenderDevice* fb, int numchannels);
-	VkHardwareTexture(VulkanRenderDevice* fb, FSceneTextureType sceneTextureType);
 	~VkHardwareTexture();
 
 	void Reset();
@@ -52,8 +50,6 @@ private:
 
 	void CreateTexture(int w, int h, int pixelsize, VkFormat format, const void *pixels, bool mipmap);
 	static int GetMipLevels(int w, int h);
-
-	FSceneTextureType mSceneTextureType = FSceneTextureType::None;
 
 	VkTextureImage mImage;
 	int mTexelsize = 4;

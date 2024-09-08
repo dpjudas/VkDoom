@@ -1211,11 +1211,6 @@ void FTextureManager::Init()
 	mt = MakeGameTexture(new AnimTexture(), "AnimTextureFrame2", ETextureType::Override);
 	mt->SetUpscaleFlag(false, true);
 	AddGameTexture(mt);
-
-	// Linear scene depth texture for translucent shaders
-	auto scenedepth = MakeGameTexture(new FSceneTexture(FSceneTextureType::LinearDepth), "SceneLinearDepth", ETextureType::Override);
-	scenedepth->SetUpscaleFlag(false, true);
-	AddGameTexture(scenedepth);
 }
 
 void FTextureManager::AddTextures(void (*progressFunc_)(), void (*checkForHacks)(BuildInfo&), void (*customtexturehandler)())

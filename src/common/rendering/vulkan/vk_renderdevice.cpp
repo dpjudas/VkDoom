@@ -355,12 +355,6 @@ IHardwareTexture *VulkanRenderDevice::CreateHardwareTexture(int numchannels)
 	return new VkHardwareTexture(this, numchannels);
 }
 
-IHardwareTexture* VulkanRenderDevice::CreateSceneTexture(FSceneTexture* owner)
-{
-	mSceneTextureOwners[owner->Type] = owner;
-	return new VkHardwareTexture(this, owner->Type);
-}
-
 FMaterial* VulkanRenderDevice::CreateMaterial(FGameTexture* tex, int scaleflags)
 {
 	return new VkMaterial(this, tex, scaleflags);
@@ -541,7 +535,6 @@ void VulkanRenderDevice::BeginFrame()
 	mTextureManager->BeginFrame();
 	mScreenBuffers->BeginFrame(screen->mScreenViewport.width, screen->mScreenViewport.height, screen->mSceneViewport.width, screen->mSceneViewport.height);
 	mSaveBuffers->BeginFrame(SAVEPICWIDTH, SAVEPICHEIGHT, SAVEPICWIDTH, SAVEPICHEIGHT);
-	UpdateSceneTextureSizes();
 	mRenderState->BeginFrame();
 	mDescriptorSetManager->BeginFrame();
 	mLightmapper->BeginFrame();
@@ -629,18 +622,6 @@ void VulkanRenderDevice::SetSaveBuffers(bool yes)
 {
 	if (yes) mActiveRenderBuffers = mSaveBuffers.get();
 	else mActiveRenderBuffers = mScreenBuffers.get();
-	UpdateSceneTextureSizes();
-}
-
-void VulkanRenderDevice::UpdateSceneTextureSizes()
-{
-	for (auto& it : mSceneTextureOwners)
-	{
-		if (it.second)
-		{
-			it.second->SetSize(mActiveRenderBuffers->GetSceneWidth(), mActiveRenderBuffers->GetSceneHeight());
-		}
-	}
 }
 
 void VulkanRenderDevice::ImageTransitionScene(bool unknown)

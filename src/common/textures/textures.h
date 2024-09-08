@@ -358,21 +358,6 @@ private:
 	}
 };
 
-enum class FSceneTextureType
-{
-	None,
-	LinearDepth
-};
-
-// Hardware textures with data from the frame buffer
-class FSceneTexture : public FTexture
-{
-public:
-	FSceneTexture(FSceneTextureType type);
-
-	FSceneTextureType Type = {};
-};
-
 // A wrapper around a hardware texture, to allow using it in the 2D drawing interface.
 class FWrapperTexture : public FTexture
 {
