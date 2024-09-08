@@ -368,10 +368,11 @@ class Actor : Thinker native
 	property ShadowPenaltyFactor: ShadowPenaltyFactor;
 	property AutomapOffsets : AutomapOffsets;
 	property LandingSpeed: LandingSpeed;
-	
-	// need some definition work first
-	//FRenderStyle RenderStyle;
-	native private int RenderStyle;	// This is kept private until its real type has been implemented into the VM. But some code needs to copy this.
+	property DepthFadeFalloff: DepthFadeFalloff;
+
+    // need some definition work first
+    //FRenderStyle RenderStyle;
+    native private int RenderStyle;	// This is kept private until its real type has been implemented into the VM. But some code needs to copy this.
 	//int ConversationRoot; // THe root of the current dialogue
 
 	// deprecated things.
@@ -457,7 +458,8 @@ class Actor : Thinker native
 		RenderRequired 0;
 		FriendlySeeBlocks 10; // 10 (blocks) * 128 (one map unit block)
 		LandingSpeed -8; // landing speed from a jump with normal gravity (squats the player's view)
-	}
+		DepthFadeFalloff 0.0; // [Nash] "soft particle" fade factor
+}
 	
 	// Functions
 
