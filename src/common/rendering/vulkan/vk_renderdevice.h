@@ -63,6 +63,7 @@ public:
 	void BeginFrame() override;
 	void BlurScene(float amount) override;
 	void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) override;
+	void UpdateLinearDepthTexture() override;
 	void AmbientOccludeScene(float m5) override;
 	void SetSceneRenderTarget(bool useSSAO) override;
 	void SetLevelMesh(LevelMesh* mesh) override;
@@ -73,6 +74,7 @@ public:
 	void SetActiveRenderTarget() override;
 
 	IHardwareTexture *CreateHardwareTexture(int numchannels) override;
+	IHardwareTexture* CreateSceneTexture(FSceneTexture* owner) override;
 	FMaterial* CreateMaterial(FGameTexture* tex, int scaleflags) override;
 
 	IBuffer* CreateVertexBuffer(int numBindingPoints, int numAttributes, size_t stride, const FVertexBufferAttribute* attrs) override;
@@ -101,6 +103,8 @@ private:
 	void PrintStartupLog();
 	void CopyScreenToBuffer(int w, int h, uint8_t *data) override;
 
+	void UpdateSceneTextureSizes();
+
 	std::shared_ptr<VulkanDevice> mDevice;
 	std::unique_ptr<VkCommandBufferManager> mCommands;
 	std::unique_ptr<VkBufferManager> mBufferManager;
@@ -116,6 +120,8 @@ private:
 	std::unique_ptr<VkLevelMesh> mLevelMesh;
 	std::unique_ptr<VkLightmapper> mLightmapper;
 	std::unique_ptr<VkRenderState> mRenderState;
+
+	std::unordered_map<FSceneTextureType, FSceneTexture*> mSceneTextureOwners;
 
 	VkRenderBuffers *mActiveRenderBuffers = nullptr;
 

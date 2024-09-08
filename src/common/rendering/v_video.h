@@ -103,7 +103,7 @@ protected:
 
 class IHardwareTexture;
 class FTexture;
-
+class FSceneTexture;
 
 class DFrameBuffer
 {
@@ -179,6 +179,7 @@ public:
 	// Delete any resources that need to be deleted after restarting with a different IWAD
 	virtual void SetTextureFilterMode() {}
 	virtual IHardwareTexture *CreateHardwareTexture(int numchannels) { return nullptr; }
+	virtual IHardwareTexture* CreateSceneTexture(FSceneTexture* owner) { return nullptr; }
 	virtual void PrecacheMaterial(FMaterial *mat, int translation) {}
 	virtual FMaterial* CreateMaterial(FGameTexture* tex, int scaleflags);
 	virtual void BeginFrame() {}
@@ -204,6 +205,7 @@ public:
 	void SetClearColor(int color);
 	virtual int Backend() { return 0; }
 	virtual const char* DeviceName() const { return "Unknown"; }
+	virtual void UpdateLinearDepthTexture() {}
 	virtual void AmbientOccludeScene(float m5) {}
 	virtual void FirstEye() {}
 	virtual void NextEye(int eyecount) {}

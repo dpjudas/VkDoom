@@ -268,7 +268,7 @@ public:
 		Height = BaseTexture->GetHeight();
 	}
 
-	// This is only used for the null texture and for Heretic's skies.
+	// This is only used for the null texture, for Heretic's skies and scene textures.
 	void SetSize(int w, int h)
 	{
 		Width = w;
@@ -358,6 +358,20 @@ private:
 	}
 };
 
+enum class FSceneTextureType
+{
+	None,
+	LinearDepth
+};
+
+// Hardware textures with data from the frame buffer
+class FSceneTexture : public FTexture
+{
+public:
+	FSceneTexture(FSceneTextureType type);
+
+	FSceneTextureType Type = {};
+};
 
 // A wrapper around a hardware texture, to allow using it in the 2D drawing interface.
 class FWrapperTexture : public FTexture

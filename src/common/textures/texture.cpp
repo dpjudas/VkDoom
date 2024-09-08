@@ -574,3 +574,12 @@ FWrapperTexture::FWrapperTexture(int w, int h, int bits)
 	SystemTextures.AddHardwareTexture(0, false, hwtex);
 }
 
+//==========================================================================
+
+FSceneTexture::FSceneTexture(FSceneTextureType type) : Type(type)
+{
+	Width = 1;
+	Height = 1;
+	auto hwtex = screen->CreateSceneTexture(this);
+	SystemTextures.AddHardwareTexture(0, false, hwtex);
+}

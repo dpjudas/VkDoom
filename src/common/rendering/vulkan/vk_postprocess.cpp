@@ -244,6 +244,17 @@ void VkPostprocess::DrawPresentTexture(const IntRect &box, bool applyGamma, bool
 	renderstate.Draw();
 }
 
+void VkPostprocess::UpdateLinearDepthTexture()
+{
+	int sceneWidth = fb->GetBuffers()->GetSceneWidth();
+	int sceneHeight = fb->GetBuffers()->GetSceneHeight();
+
+	VkPPRenderState renderstate(fb);
+	hw_postprocess.linearDepth.Render(&renderstate, sceneWidth, sceneHeight);
+
+	ImageTransitionScene(false);
+}
+
 void VkPostprocess::AmbientOccludeScene(float m5)
 {
 	int sceneWidth = fb->GetBuffers()->GetSceneWidth();

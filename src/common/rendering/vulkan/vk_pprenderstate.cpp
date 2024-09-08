@@ -66,7 +66,7 @@ void VkPPRenderState::Draw()
 		key.OutputFormat = fb->GetTextureManager()->GetTextureFormat(Output.Texture);
 	else if (Output.Type == PPTextureType::SwapChain)
 		key.OutputFormat = fb->GetFramebufferManager()->SwapChain->Format().format;
-	else if (Output.Type == PPTextureType::ShadowMap)
+	else if (Output.Type == PPTextureType::ShadowMap || Output.Type == PPTextureType::SceneLinearDepth)
 		key.OutputFormat = VK_FORMAT_R32_SFLOAT;
 	else
 		key.OutputFormat = VK_FORMAT_R16G16B16A16_SFLOAT;

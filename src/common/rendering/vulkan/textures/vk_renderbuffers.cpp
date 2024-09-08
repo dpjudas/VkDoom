@@ -174,11 +174,13 @@ void VkRenderBuffers::CreateScene(int width, int height, VkSampleCountFlagBits s
 	SceneDepthStencil.Reset(fb);
 	SceneNormal.Reset(fb);
 	SceneFog.Reset(fb);
+	SceneLinearDepth.Reset(fb);
 
 	CreateSceneColor(width, height, samples);
 	CreateSceneDepthStencil(width, height, samples);
 	CreateSceneNormal(width, height, samples);
 	CreateSceneFog(width, height, samples);
+	CreateSceneLinearDepth(width, height);
 
 	VkImageTransition()
 		.AddImage(&SceneColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true)
@@ -249,6 +251,21 @@ void VkRenderBuffers::CreateSceneFog(int width, int height, VkSampleCountFlagBit
 	SceneFog.View = ImageViewBuilder()
 		.Image(SceneFog.Image.get(), VK_FORMAT_R8G8B8A8_UNORM)
 		.DebugName("VkRenderBuffers.SceneFogView")
+		.Create(fb->GetDevice());
+}
+
+void VkRenderBuffers::CreateSceneLinearDepth(int width, int height)
+{
+	SceneLinearDepth.Image = ImageBuilder()
+		.Size(width, height)
+		.Format(VK_FORMAT_R32_SFLOAT)
+		.Usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+		.DebugName("VkRenderBuffers.SceneLinearDepth")
+		.Create(fb->GetDevice());
+
+	SceneLinearDepth.View = ImageViewBuilder()
+		.Image(SceneLinearDepth.Image.get(), VK_FORMAT_R32_SFLOAT)
+		.DebugName("VkRenderBuffers.SceneLinearDepthView")
 		.Create(fb->GetDevice());
 }
 

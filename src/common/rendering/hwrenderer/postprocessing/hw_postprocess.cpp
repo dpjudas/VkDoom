@@ -639,6 +639,44 @@ void PPTonemap::Render(PPRenderState *renderstate)
 
 /////////////////////////////////////////////////////////////////////////////
 
+void PPLinearDepth::Render(PPRenderState* renderstate, int sceneWidth, int sceneHeight)
+{
+	auto sceneScale = screen->SceneScale();
+	auto sceneOffset = screen->SceneOffset();
+
+	LinearDepthUniforms linearUniforms;
+	linearUniforms.SampleIndex = 0;
+	linearUniforms.LinearizeDepthA = 1.0f / screen->GetZFar() - 1.0f / screen->GetZNear();
+	linearUniforms.LinearizeDepthB = max(1.0f / screen->GetZNear(), 1.e-8f);
+	linearUniforms.InverseDepthRangeA = 1.0f;
+	linearUniforms.InverseDepthRangeB = 0.0f;
+	linearUniforms.Scale = sceneScale;
+	linearUniforms.Offset = sceneOffset;
+
+	IntRect viewport;
+	viewport.left = 0;
+	viewport.top = 0;
+	viewport.width = sceneWidth;
+	viewport.height = sceneHeight;
+
+	renderstate->PushGroup("lineardepth");
+
+	// Calculate linear depth values
+	renderstate->Clear();
+	renderstate->Shader = gl_multisample > 1 ? &LinearDepthMS : &LinearDepth;
+	renderstate->Uniforms.Set(linearUniforms);
+	renderstate->Viewport = viewport;
+	renderstate->SetInputSceneDepth(0);
+	renderstate->SetInputSceneColor(1);
+	renderstate->SetOutputSceneLinearDepth();
+	renderstate->SetNoBlend();
+	renderstate->Draw();
+
+	renderstate->PopGroup();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 PPAmbientOcclusion::PPAmbientOcclusion()
 {
 	// Must match quality enum in PPAmbientOcclusion::DeclareShaders
@@ -692,8 +730,6 @@ void PPAmbientOcclusion::CreateShaders()
 		#define NUM_STEPS %d.0
 	)", numDirections, numSteps);
 
-	LinearDepth = { "shaders/pp/lineardepth.fp", "", LinearDepthUniforms::Desc() };
-	LinearDepthMS = { "shaders/pp/lineardepth.fp", "#define MULTISAMPLE\n", LinearDepthUniforms::Desc() };
 	AmbientOcclude = { "shaders/pp/ssao.fp", defines, SSAOUniforms::Desc() };
 	AmbientOccludeMS = { "shaders/pp/ssao.fp", defines + "\n#define MULTISAMPLE\n", SSAOUniforms::Desc() };
 	BlurVertical = { "shaders/pp/depthblur.fp", "#define BLUR_VERTICAL\n", DepthBlurUniforms::Desc() };
@@ -712,7 +748,6 @@ void PPAmbientOcclusion::UpdateTextures(int width, int height)
 	AmbientWidth = (width + 1) / 2;
 	AmbientHeight = (height + 1) / 2;
 
-	LinearDepthTexture = { AmbientWidth, AmbientHeight, PixelFormat::R32f };
 	Ambient0 = { AmbientWidth, AmbientHeight, PixelFormat::Rg16f };
 	Ambient1 = { AmbientWidth, AmbientHeight, PixelFormat::Rg16f };
 
@@ -749,15 +784,6 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 
 	int randomTexture = clamp(gl_ssao - 1, 0, NumAmbientRandomTextures - 1);
 
-	LinearDepthUniforms linearUniforms;
-	linearUniforms.SampleIndex = 0;
-	linearUniforms.LinearizeDepthA = 1.0f / screen->GetZFar() - 1.0f / screen->GetZNear();
-	linearUniforms.LinearizeDepthB = max(1.0f / screen->GetZNear(), 1.e-8f);
-	linearUniforms.InverseDepthRangeA = 1.0f;
-	linearUniforms.InverseDepthRangeB = 0.0f;
-	linearUniforms.Scale = sceneScale;
-	linearUniforms.Offset = sceneOffset;
-
 	SSAOUniforms ssaoUniforms;
 	ssaoUniforms.SampleIndex = 0;
 	ssaoUniforms.UVToViewA = { 2.0f * invFocalLenX, 2.0f * invFocalLenY };
@@ -789,23 +815,12 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 
 	renderstate->PushGroup("ssao");
 
-	// Calculate linear depth values
-	renderstate->Clear();
-	renderstate->Shader = gl_multisample > 1 ? &LinearDepthMS : &LinearDepth;
-	renderstate->Uniforms.Set(linearUniforms);
-	renderstate->Viewport = ambientViewport;
-	renderstate->SetInputSceneDepth(0);
-	renderstate->SetInputSceneColor(1);
-	renderstate->SetOutputTexture(&LinearDepthTexture);
-	renderstate->SetNoBlend();
-	renderstate->Draw();
-
 	// Apply ambient occlusion
 	renderstate->Clear();
 	renderstate->Shader = gl_multisample > 1 ? &AmbientOccludeMS : &AmbientOcclude;
 	renderstate->Uniforms.Set(ssaoUniforms);
 	renderstate->Viewport = ambientViewport;
-	renderstate->SetInputTexture(0, &LinearDepthTexture);
+	renderstate->SetInputSceneLinearDepth(0);
 	renderstate->SetInputSceneNormal(1);
 	renderstate->SetInputTexture(2, &AmbientRandomTexture[randomTexture], PPFilterMode::Nearest, PPWrapMode::Repeat);
 	renderstate->SetOutputTexture(&Ambient0);

@@ -114,6 +114,10 @@ VkTextureImage* VkTextureManager::GetTexture(const PPTextureType& type, PPTextur
 	{
 		return &fb->GetBuffers()->SceneDepthStencil;
 	}
+	else if (type == PPTextureType::SceneLinearDepth)
+	{
+		return &fb->GetBuffers()->SceneLinearDepth;
+	}
 	else if (type == PPTextureType::ShadowMap)
 	{
 		return &Shadowmap;

@@ -60,7 +60,7 @@ public:
 
 enum class PPFilterMode { Nearest, Linear };
 enum class PPWrapMode { Clamp, Repeat };
-enum class PPTextureType { CurrentPipelineTexture, NextPipelineTexture, PPTexture, SceneColor, SceneFog, SceneNormal, SceneDepth, SwapChain, ShadowMap };
+enum class PPTextureType { CurrentPipelineTexture, NextPipelineTexture, PPTexture, SceneColor, SceneFog, SceneNormal, SceneDepth, SceneLinearDepth, SwapChain, ShadowMap };
 
 class PPTextureInput
 {
@@ -176,6 +176,11 @@ public:
 		SetInputSpecialType(index, PPTextureType::SceneDepth, filter, wrap);
 	}
 
+	void SetInputSceneLinearDepth(int index, PPFilterMode filter = PPFilterMode::Nearest, PPWrapMode wrap = PPWrapMode::Clamp)
+	{
+		SetInputSpecialType(index, PPTextureType::SceneLinearDepth, filter, wrap);
+	}
+
 	void SetInputSpecialType(int index, PPTextureType type, PPFilterMode filter = PPFilterMode::Nearest, PPWrapMode wrap = PPWrapMode::Clamp)
 	{
 		if ((int)Textures.Size() < index + 1)
@@ -213,6 +218,12 @@ public:
 	void SetOutputSceneColor()
 	{
 		Output.Type = PPTextureType::SceneColor;
+		Output.Texture = nullptr;
+	}
+
+	void SetOutputSceneLinearDepth()
+	{
+		Output.Type = PPTextureType::SceneLinearDepth;
 		Output.Texture = nullptr;
 	}
 
@@ -634,6 +645,18 @@ struct LinearDepthUniforms
 	}
 };
 
+class PPLinearDepth
+{
+public:
+	void Render(PPRenderState* renderstate, int sceneWidth, int sceneHeight);
+
+private:
+	PPShader LinearDepth = { "shaders/pp/lineardepth.fp", "", LinearDepthUniforms::Desc() };
+	PPShader LinearDepthMS = { "shaders/pp/lineardepth.fp", "#define MULTISAMPLE\n", LinearDepthUniforms::Desc() };
+};
+
+/////////////////////////////////////////////////////////////////////////////
+
 struct SSAOUniforms
 {
 	FVector2 UVToViewA;
@@ -735,8 +758,6 @@ private:
 	int LastWidth = 0;
 	int LastHeight = 0;
 
-	PPShader LinearDepth;
-	PPShader LinearDepthMS;
 	PPShader AmbientOcclude;
 	PPShader AmbientOccludeMS;
 	PPShader BlurVertical;
@@ -744,7 +765,6 @@ private:
 	PPShader Combine;
 	PPShader CombineMS;
 
-	PPTexture LinearDepthTexture;
 	PPTexture Ambient0;
 	PPTexture Ambient1;
 
@@ -870,6 +890,7 @@ public:
 	PPCameraExposure exposure;
 	PPColormap colormap;
 	PPTonemap tonemap;
+	PPLinearDepth linearDepth;
 	PPAmbientOcclusion ssao;
 	PPPresent present;
 	PPShadowMap shadowmap;

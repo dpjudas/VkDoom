@@ -1126,7 +1126,10 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 		applySSAO = true;
 		if (r_dithertransparency && vp.IsAllowedOoB())
 		{
-			vp.camera->tracer ? SetDitherTransFlags(vp.camera->tracer) : SetDitherTransFlags(players[consoleplayer].mo);
+			if (vp.camera->tracer)
+				SetDitherTransFlags(vp.camera->tracer);
+			else
+				SetDitherTransFlags(players[consoleplayer].mo);
 		}
 	}
 	else if (drawmode == DM_OFFSCREEN)
@@ -1160,6 +1163,8 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	if (!gl_no_skyclear && !gl_levelmesh) drawctx->portalState.RenderFirstSkyPortal(recursion, this, state);
 
 	RenderScene(state);
+
+	screen->UpdateLinearDepthTexture();
 
 	if (applySSAO && state.GetPassType() == GBUFFER_PASS)
 	{
