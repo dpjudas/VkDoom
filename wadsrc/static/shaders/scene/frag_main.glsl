@@ -27,6 +27,11 @@ void main()
 	if (material.Base.a <= uAlphaThreshold) discard;
 #endif
 
+#ifdef USE_DEPTHFADEFALLOFF
+	// To do: add linear depth sampling here
+	// material.Base.a *= clamp((depth.r - pixelpos.w) / uDepthFadeFalloff, 0.0, 1.0);
+#endif
+
 	FragColor = ProcessLightMode(material);
 
 #ifdef DITHERTRANS

@@ -79,7 +79,8 @@ public:
 			uint64_t UseLevelMesh : 1;  // USE_LEVELMESH
 			uint64_t FogBalls : 1;      // FOGBALLS
 			uint64_t NoFragmentShader : 1;
-			uint64_t Unused : 42;
+			uint64_t DepthFadeFalloff : 1;
+			uint64_t Unused : 41;
 		};
 		uint64_t AsQWORD = 0;
 	};

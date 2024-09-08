@@ -193,6 +193,7 @@ public:
 		mSurfaceUniforms.uLightFactor = 0.0f;
 		mSurfaceUniforms.uFogDensity = 0.0f;
 		mSurfaceUniforms.uLightLevel = -1.0f;
+		mSurfaceUniforms.uDepthFadeFalloff = 0.0f;
 		mSpecialEffect = EFF_NONE;
 		mLightIndex = -1;
 		mBoneIndexBase = -1;
@@ -261,6 +262,11 @@ public:
 	{
 		mSurfaceUniforms.uVertexColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 		mSurfaceUniforms.uDesaturationFactor = 0.0f;
+	}
+
+	void SetDepthFadeFalloff(float falloff)
+	{
+		mSurfaceUniforms.uDepthFadeFalloff = falloff;
 	}
 
 	void SetTextureClamp(bool on)
