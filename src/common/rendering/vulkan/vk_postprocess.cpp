@@ -146,6 +146,7 @@ void VkPostprocess::ImageTransitionScene(bool undefinedSrcLayout)
 		.AddImage(&buffers->SceneFog, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, undefinedSrcLayout)
 		.AddImage(&buffers->SceneNormal, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, undefinedSrcLayout)
 		.AddImage(&buffers->SceneDepthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, undefinedSrcLayout)
+		.AddImage(&buffers->SceneLinearDepth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, undefinedSrcLayout)
 		.Execute(fb->GetCommands()->GetDrawCommands());
 }
 
