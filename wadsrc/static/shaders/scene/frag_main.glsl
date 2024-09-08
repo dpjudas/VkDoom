@@ -28,7 +28,7 @@ void main()
 #endif
 
 #ifdef USE_DEPTHFADEFALLOFF
-	float behindFragmentDepth = texelFetch(LinearDepth, ivec2(gl_FragCoord.xy));
+	float behindFragmentDepth = texelFetch(LinearDepth, ivec2(gl_FragCoord.xy), 0);
 	material.Base.a *= clamp((behindFragmentDepth - pixelpos.w) / uDepthFadeFalloff, 0.0, 1.0);
 #endif
 
