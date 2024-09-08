@@ -262,6 +262,7 @@ class Actor : Thinker native
 	native uint freezetics;
 	native Vector2 AutomapOffsets;
 	native double LandingSpeed;
+	native double DepthFadeFalloff;
 
 	meta String Obituary;		// Player was killed by this actor
 	meta String HitObituary;		// Player was killed by this actor in melee

@@ -1128,7 +1128,7 @@ public:
 	DVector2		AutomapOffsets;		// Offset the actors' sprite view on the automap by these coordinates.
 	float			isoscaleY;				// Y-scale to compensate for Y-billboarding for isometric sprites
 	float			isotheta;				// Rotation angle to compensate for Y-billboarding for isometric sprites
-	float			DepthFadeFalloff;		// [Nash] "soft particle" fade factor
+	double			DepthFadeFalloff;		// [Nash] "soft particle" fade factor
 	DRotator		Angles;
 	DRotator		ViewAngles;			// Angle offsets for cameras
 	TObjPtr<DViewPosition*> ViewPos;			// Position offsets for cameras
