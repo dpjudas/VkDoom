@@ -9,6 +9,8 @@ layout(set = 1, binding = 0, std140) uniform ViewpointUBO
 	vec4 uCameraPos;
 	vec4 uClipLine;
 
+	ivec2 uViewOffset;
+
 	float uGlobVis;			// uGlobVis = R_GetGlobVis(r_visibility) / 32.0
 	int uPalLightLevels;	
 	int uViewHeight;		// Software fuzz scaling

@@ -111,6 +111,8 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		VPUniforms.mProjectionMatrix.loadIdentity();
 		VPUniforms.mViewMatrix.loadIdentity();
 		VPUniforms.mNormalViewMatrix.loadIdentity();
+		VPUniforms.mViewOffsetX = -screen->mSceneViewport.left;
+		VPUniforms.mViewOffsetY = -screen->mSceneViewport.top;
 		VPUniforms.mViewHeight = viewheight;
 		if (lightmode == ELightMode::Build)
 		{
