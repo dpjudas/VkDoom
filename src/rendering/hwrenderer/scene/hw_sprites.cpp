@@ -130,6 +130,8 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 		state.SetRenderStyle(RenderStyle);
 		state.SetTextureMode(RenderStyle);
 
+		state.SetDepthFadeFalloff(actor->DepthFadeFalloff);
+
 		if (hw_styleflags == STYLEHW_NoAlphaTest)
 		{
 			state.AlphaFunc(Alpha_GEqual, 0.f);
@@ -324,6 +326,8 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 	{
 		state.ClearDepthBias();
 	}
+
+	state.SetDepthFadeFalloff(0.0f);
 
 	// [Nash] hitbox debug
 	if (actor && r_showhitbox)
