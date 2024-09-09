@@ -130,7 +130,8 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 		state.SetRenderStyle(RenderStyle);
 		state.SetTextureMode(RenderStyle);
 
-		state.SetDepthFadeFalloff(actor->DepthFadeFalloff);
+		if (actor)
+			state.SetDepthFadeFalloff(actor->DepthFadeFalloff);
 
 		if (hw_styleflags == STYLEHW_NoAlphaTest)
 		{
