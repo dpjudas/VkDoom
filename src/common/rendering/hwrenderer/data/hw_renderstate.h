@@ -264,11 +264,6 @@ public:
 		mSurfaceUniforms.uDesaturationFactor = 0.0f;
 	}
 
-	void SetDepthFadeThreshold(float falloff)
-	{
-		mSurfaceUniforms.uDepthFadeThreshold = falloff;
-	}
-
 	void SetTextureClamp(bool on)
 	{
 		if (on) mTextureClamp = TM_CLAMPY;

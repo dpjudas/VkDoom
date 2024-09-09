@@ -394,7 +394,6 @@ void AActor::Serialize(FSerializer &arc)
 		A("WorldOffset", WorldOffset)
 		("modelData", modelData)
 		A("LandingSpeed", LandingSpeed)
-		A("DepthFadeThreshold", DepthFadeThreshold)
 
 		("unmorphtime", UnmorphTime)
 		("morphflags", MorphFlags)

@@ -413,9 +413,11 @@ void VkRenderState::ApplySurfaceUniforms()
 
 			mSurfaceUniforms.uTextureIndex = static_cast<VkMaterial*>(mMaterial.mMaterial)->GetBindlessIndex(mMaterial);
 			mSurfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+			mSurfaceUniforms.uDepthFadeThreshold = source->GetDepthFadeThreshold();
 		}
 		else
 		{
+			mSurfaceUniforms.uDepthFadeThreshold = 0.f;
 			mSurfaceUniforms.uTextureIndex = 0;
 		}
 		mMaterial.mChanged = false;
