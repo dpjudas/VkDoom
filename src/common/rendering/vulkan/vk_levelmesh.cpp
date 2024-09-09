@@ -865,10 +865,12 @@ void VkLevelMeshUploader::UploadUniforms()
 			{
 				auto source = material.mMaterial->Source();
 				surfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+				surfaceUniforms.uDepthFadeThreshold = source->GetDepthFadeThreshold();
 				surfaceUniforms.uTextureIndex = Mesh->fb->GetBindlessTextureIndex(material.mMaterial, material.mClampMode, material.mTranslation);
 			}
 			else
 			{
+				surfaceUniforms.uDepthFadeThreshold = 0.f;
 				surfaceUniforms.uTextureIndex = 0;
 			}
 		}

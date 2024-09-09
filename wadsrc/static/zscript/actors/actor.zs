@@ -262,7 +262,6 @@ class Actor : Thinker native
 	native uint freezetics;
 	native Vector2 AutomapOffsets;
 	native double LandingSpeed;
-	native double DepthFadeThreshold;
 
 	meta String Obituary;		// Player was killed by this actor
 	meta String HitObituary;		// Player was killed by this actor in melee
@@ -369,7 +368,6 @@ class Actor : Thinker native
 	property ShadowPenaltyFactor: ShadowPenaltyFactor;
 	property AutomapOffsets : AutomapOffsets;
 	property LandingSpeed: LandingSpeed;
-	property DepthFadeThreshold: DepthFadeThreshold;
 
     // need some definition work first
     //FRenderStyle RenderStyle;
@@ -459,7 +457,6 @@ class Actor : Thinker native
 		RenderRequired 0;
 		FriendlySeeBlocks 10; // 10 (blocks) * 128 (one map unit block)
 		LandingSpeed -8; // landing speed from a jump with normal gravity (squats the player's view)
-		DepthFadeThreshold 0.0; // [Nash] "soft particle" fade factor in map units
 }
 	
 	// Functions

@@ -118,6 +118,7 @@ class FGameTexture
 	FVector2 detailScale = { 1.f, 1.f };
 	float Glossiness = 10.f;
 	float SpecularLevel = 0.1f;
+	float DepthFadeThreshold = 0.0f;
 	float shaderspeed = 1.f;
 	int shaderindex = 0;
 
@@ -257,6 +258,8 @@ public:
 	}
 	float GetGlossiness() const { return Glossiness; }
 	float GetSpecularLevel() const { return SpecularLevel; }
+
+	float GetDepthFadeThreshold() const { return DepthFadeThreshold; }
 
 	void CopySize(FGameTexture* BaseTexture, bool forfont = false)
 	{
