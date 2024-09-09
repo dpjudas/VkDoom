@@ -27,9 +27,9 @@ void main()
 	if (material.Base.a <= uAlphaThreshold) discard;
 #endif
 
-#ifdef USE_DEPTHFADEFALLOFF
+#ifdef USE_DEPTHFADETHRESHOLD
 	float behindFragmentDepth = texelFetch(LinearDepth, uViewOffset + ivec2(gl_FragCoord.xy), 0).r;
-	material.Base.a *= clamp((behindFragmentDepth - pixelpos.w) / uDepthFadeFalloff, 0.0, 1.0);
+	material.Base.a *= clamp((behindFragmentDepth - pixelpos.w) / uDepthFadeThreshold, 0.0, 1.0);
 #endif
 
 	FragColor = ProcessLightMode(material);

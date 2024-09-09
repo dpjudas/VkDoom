@@ -2130,7 +2130,7 @@ DEFINE_FIELD(AActor, UnmorphTime)
 DEFINE_FIELD(AActor, MorphFlags)
 DEFINE_FIELD(AActor, PremorphProperties)
 DEFINE_FIELD(AActor, MorphExitFlash)
-DEFINE_FIELD(AActor, DepthFadeFalloff)
+DEFINE_FIELD(AActor, DepthFadeThreshold)
 
 DEFINE_FIELD_X(FCheckPosition, FCheckPosition, thing);
 DEFINE_FIELD_X(FCheckPosition, FCheckPosition, pos);

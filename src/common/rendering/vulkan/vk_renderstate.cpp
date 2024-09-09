@@ -258,7 +258,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.Detailmap = (uTextureMode & TEXF_Detailmap) != 0;
 	pipelineKey.ShaderKey.Glowmap = (uTextureMode & TEXF_Glowmap) != 0;
 
-	pipelineKey.ShaderKey.DepthFadeFalloff = mSurfaceUniforms.uDepthFadeFalloff > 0.0f;
+	pipelineKey.ShaderKey.DepthFadeThreshold = mSurfaceUniforms.uDepthFadeThreshold > 0.0f;
 
 	// The way GZDoom handles state is just plain insanity!
 	int fogset = 0;

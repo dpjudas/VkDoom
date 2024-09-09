@@ -185,7 +185,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (!key.AlphaTest) definesBlock << "#define NO_ALPHATEST\n";
 	if (key.GBufferPass) definesBlock << "#define GBUFFER_PASS\n";
 
-	if (key.DepthFadeFalloff) definesBlock << "#define USE_DEPTHFADEFALLOFF\n";
+	if (key.DepthFadeThreshold) definesBlock << "#define USE_DEPTHFADETHRESHOLD\n";
 
 	if (key.Simple2D) definesBlock << "#define SIMPLE2D\n";
 	if (key.ClampY) definesBlock << "#define TEXF_ClampY\n";
