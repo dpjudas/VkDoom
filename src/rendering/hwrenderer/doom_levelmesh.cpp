@@ -556,9 +556,9 @@ void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
 	UpdateFlat(sector->Index(), SurfaceUpdateType::LightsOnly);
 	for (line_t* line : sector->Lines)
 	{
-		if (line->frontsector == sector && line->sidedef[0])
+		if (line->sidedef[0] && line->sidedef[0]->sector == sector)
 			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::LightsOnly);
-		else if (line->sidedef[1])
+		else if (line->sidedef[1] && line->sidedef[1]->sector == sector)
 			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::LightsOnly);
 	}
 }
@@ -788,6 +788,10 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		UniformsAllocInfo uinfo = AllocUniforms(numUniforms);
 		SurfaceAllocInfo sinfo = AllocSurface();
 
+		SurfaceUniforms* curUniforms = uinfo.Uniforms;
+		SurfaceLightUniforms* curLightUniforms = uinfo.LightUniforms;
+		FMaterialState* curMaterial = uinfo.Materials;
+
 		int pipelineID = 0;
 		int uniformsIndex = uinfo.Start;
 		int vertIndex = ginfo.VertexStart;
@@ -817,14 +821,14 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 				}
 			}
 
-			*(uinfo.Uniforms++) = applyState.surfaceUniforms;
-			*(uinfo.Materials++) = applyState.material;
+			*(curUniforms++) = applyState.surfaceUniforms;
+			*(curMaterial++) = applyState.material;
 
-			uinfo.LightUniforms->uVertexColor = applyState.surfaceUniforms.uVertexColor;
-			uinfo.LightUniforms->uDesaturationFactor = applyState.surfaceUniforms.uDesaturationFactor;
-			uinfo.LightUniforms->uLightLevel = applyState.surfaceUniforms.uLightLevel;
-			uinfo.LightUniforms->uLightIndex = -1;
-			uinfo.LightUniforms++;
+			curLightUniforms->uVertexColor = applyState.surfaceUniforms.uVertexColor;
+			curLightUniforms->uDesaturationFactor = applyState.surfaceUniforms.uDesaturationFactor;
+			curLightUniforms->uLightLevel = applyState.surfaceUniforms.uLightLevel;
+			curLightUniforms->uLightIndex = -1;
+			curLightUniforms++;
 
 			uniformsIndex++;
 		}
