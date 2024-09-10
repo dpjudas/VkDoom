@@ -13,11 +13,11 @@ struct SurfaceUniforms
 	FVector4 uTextureModulateColor;
 	FVector4 uTextureBlendColor;
 	FVector4 uFogColor;
-	float uDesaturationFactor; // HWDrawInfo::SetColor
+	float uDesaturationFactor;
 	float uInterpolationFactor;
 	float timer;
 	int useVertexData;
-	FVector4 uVertexColor; // HWDrawInfo::SetColor
+	FVector4 uVertexColor;
 	FVector4 uVertexNormal;
 
 	FVector4 uGlowTopPlane;
@@ -37,7 +37,7 @@ struct SurfaceUniforms
 	FVector2 uClipSplit;
 	FVector2 uSpecularMaterial;
 
-	float uLightLevel; // HWDrawInfo::SetColor
+	float uLightLevel;
 	float uFogDensity;
 	float uLightFactor;
 	float uLightDist;
@@ -46,4 +46,13 @@ struct SurfaceUniforms
 	int uTextureIndex;
 	float uDepthFadeThreshold;
 	float padding3;
+};
+
+struct SurfaceLightUniforms
+{
+	FVector4 uVertexColor; // HWDrawInfo::SetColor
+	float uDesaturationFactor; // HWDrawInfo::SetColor
+	float uLightLevel; // HWDrawInfo::SetColor
+	int uLightIndex;
+	int padding;
 };

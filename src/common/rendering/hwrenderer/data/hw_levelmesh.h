@@ -34,6 +34,7 @@ struct GeometryAllocInfo
 struct UniformsAllocInfo
 {
 	SurfaceUniforms* Uniforms = nullptr;
+	SurfaceLightUniforms* LightUniforms = nullptr;
 	FMaterialState* Materials = nullptr;
 	int Start = 0;
 	int Count = 0;
@@ -115,11 +116,13 @@ public:
 		// Surface info
 		TArray<LevelMeshSurface> Surfaces;
 		TArray<SurfaceUniforms> Uniforms;
+		TArray<SurfaceLightUniforms> LightUniforms;
 		TArray<FMaterialState> Materials;
 		TArray<int32_t> LightIndexes;
 
 		// Lights
 		TArray<LevelMeshLight> Lights;
+		TArray<FVector4> DynLights;
 
 		// Index data
 		TArray<uint32_t> Indexes;
@@ -143,8 +146,10 @@ public:
 		TArray<MeshBufferRange> Surface;
 		TArray<MeshBufferRange> UniformIndexes;
 		TArray<MeshBufferRange> Uniforms;
+		TArray<MeshBufferRange> LightUniforms;
 		TArray<MeshBufferRange> Portals;
 		TArray<MeshBufferRange> Light;
+		TArray<MeshBufferRange> DynLight;
 		TArray<MeshBufferRange> LightIndex;
 		TArray<MeshBufferRange> DrawIndex;
 	} UploadRanges;
@@ -178,7 +183,6 @@ public:
 	uint32_t AtlasPixelCount() const { return uint32_t(LMTextureCount * LMTextureSize * LMTextureSize); }
 
 	void UpdateCollision();
-	void BuildTileSurfaceLists();
 	void SetupTileTransforms();
 	void PackLightmapAtlas(int lightmapStartIndex);
 
@@ -229,9 +233,11 @@ inline UniformsAllocInfo LevelMesh::AllocUniforms(int count)
 	info.Start = RemoveRange(FreeLists.Uniforms, count);
 	info.Count = count;
 	info.Uniforms = &Mesh.Uniforms[info.Start];
+	info.LightUniforms = &Mesh.LightUniforms[info.Start];
 	info.Materials = &Mesh.Materials[info.Start];
 
 	AddRange(UploadRanges.Uniforms, { info.Start, info.Start + info.Count });
+	AddRange(UploadRanges.LightUniforms, { info.Start, info.Start + info.Count });
 
 	return info;
 }

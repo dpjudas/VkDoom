@@ -54,6 +54,13 @@ struct DrawRangeInfo
 	int DrawIndexCount = 0;
 };
 
+enum SurfaceUpdateType
+{
+	None,
+	LightsOnly,
+	Full
+};
+
 struct SideSurfaceBlock
 {
 	int FirstSurface = -1;
@@ -62,7 +69,7 @@ struct SideSurfaceBlock
 	TArray<HWWall> WallPortals;
 	bool InSidePortalsList = false;
 	TArray<DrawRangeInfo> DrawRanges;
-	bool InUpdateList = false;
+	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 };
 
 struct FlatSurfaceBlock
@@ -71,7 +78,7 @@ struct FlatSurfaceBlock
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
 	TArray<DrawRangeInfo> DrawRanges;
-	bool InUpdateList = false;
+	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 };
 
 class DoomLevelMesh : public LevelMesh, public UpdateLevelMesh
@@ -129,11 +136,14 @@ private:
 	void CreateSurfaces(FLevelLocals& doomMap);
 	void CreateLightList(FLevelLocals& doomMap, int surfaceIndex);
 
-	void UpdateSide(unsigned int sideIndex);
-	void UpdateFlat(unsigned int sectorIndex);
+	void UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType);
+	void UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updateType);
 
 	void CreateSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
+
+	void SetSideLights(FLevelLocals& doomMap, unsigned int sideIndex);
+	void SetFlatLights(FLevelLocals& doomMap, unsigned int sectorIndex);
 
 	void FreeSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex);

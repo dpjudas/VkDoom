@@ -220,20 +220,34 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	// To do: we don't need to always do this. UpdateLevelMesh should tell us when polyobjs move.
 	for (side_t* side : PolySides)
 	{
-		UpdateSide(side->Index());
+		UpdateSide(side->Index(), SurfaceUpdateType::Full);
 	}
 
 	for (int sideIndex : SideUpdateList)
 	{
-		CreateSide(doomMap, sideIndex);
-		Sides[sideIndex].InUpdateList = false;
+		if (Sides[sideIndex].UpdateType == SurfaceUpdateType::LightsOnly)
+		{
+			SetSideLights(doomMap, sideIndex);
+		}
+		else // SurfaceUpdateType::Full
+		{
+			CreateSide(doomMap, sideIndex);
+		}
+		Sides[sideIndex].UpdateType = SurfaceUpdateType::None;
 	}
 	SideUpdateList.Clear();
 
 	for (int flatIndex : FlatUpdateList)
 	{
-		CreateFlat(doomMap, flatIndex);
-		Flats[flatIndex].InUpdateList = false;
+		if (Flats[flatIndex].UpdateType == SurfaceUpdateType::LightsOnly)
+		{
+			SetFlatLights(doomMap, flatIndex);
+		}
+		else // SurfaceUpdateType::Full
+		{
+			CreateFlat(doomMap, flatIndex);
+		}
+		Flats[flatIndex].UpdateType = SurfaceUpdateType::None;
 	}
 	FlatUpdateList.Clear();
 
@@ -490,65 +504,63 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 
 void DoomLevelMesh::FloorHeightChanged(struct sector_t* sector)
 {
-	UpdateFlat(sector->Index());
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 	for (line_t* line : sector->Lines)
 	{
 		if (line->sidedef[0])
-			UpdateSide(line->sidedef[0]->Index());
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::Full);
 		if (line->sidedef[1])
-			UpdateSide(line->sidedef[1]->Index());
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::Full);
 	}
 }
 
 void DoomLevelMesh::CeilingHeightChanged(struct sector_t* sector)
 {
-	UpdateFlat(sector->Index());
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 	for (line_t* line : sector->Lines)
 	{
 		if (line->sidedef[0])
-			UpdateSide(line->sidedef[0]->Index());
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::Full);
 		if (line->sidedef[1])
-			UpdateSide(line->sidedef[1]->Index());
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::Full);
 	}
 }
 
 void DoomLevelMesh::MidTex3DHeightChanged(struct sector_t* sector)
 {
-	// UpdateFlat(sector->Index());
+	// UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
 void DoomLevelMesh::FloorTextureChanged(struct sector_t* sector)
 {
-	UpdateFlat(sector->Index());
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
 void DoomLevelMesh::CeilingTextureChanged(struct sector_t* sector)
 {
-	UpdateFlat(sector->Index());
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
 void DoomLevelMesh::SectorChangedOther(struct sector_t* sector)
 {
-	UpdateFlat(sector->Index());
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
 void DoomLevelMesh::SideTextureChanged(struct side_t* side, int section)
 {
-	UpdateSide(side->Index());
+	UpdateSide(side->Index(), SurfaceUpdateType::Full);
 }
 
 void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
 {
-	/*
-	UpdateFlat(level, sector->Index());
+	UpdateFlat(sector->Index(), SurfaceUpdateType::LightsOnly);
 	for (line_t* line : sector->Lines)
 	{
 		if (line->frontsector == sector && line->sidedef[0])
-			UpdateSide(line->sidedef[0]->Index());
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::LightsOnly);
 		else if (line->sidedef[1])
-			UpdateSide(line->sidedef[1]->Index());
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::LightsOnly);
 	}
-	*/
 }
 
 void DoomLevelMesh::SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker)
@@ -559,21 +571,21 @@ void DoomLevelMesh::SectorLightThinkerDestroyed(struct sector_t* sector, class D
 {
 }
 
-void DoomLevelMesh::UpdateSide(unsigned int sideIndex)
+void DoomLevelMesh::UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType)
 {
-	if (!Sides[sideIndex].InUpdateList)
+	if (Sides[sideIndex].UpdateType == SurfaceUpdateType::None)
 	{
 		SideUpdateList.Push(sideIndex);
-		Sides[sideIndex].InUpdateList = true;
+		Sides[sideIndex].UpdateType = updateType;
 	}
 }
 
-void DoomLevelMesh::UpdateFlat(unsigned int sectorIndex)
+void DoomLevelMesh::UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updateType)
 {
-	if (!Flats[sectorIndex].InUpdateList)
+	if (Flats[sectorIndex].UpdateType == SurfaceUpdateType::None)
 	{
 		FlatUpdateList.Push(sectorIndex);
-		Flats[sectorIndex].InUpdateList = true;
+		Flats[sectorIndex].UpdateType = updateType;
 	}
 }
 
@@ -682,6 +694,42 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	}
 }
 
+void DoomLevelMesh::SetSideLights(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	for (UniformsAllocInfo& uinfo : Sides[sideIndex].Uniforms)
+	{
+		for (int i = 0, count = uinfo.Count; i < count; i++)
+		{
+			// To do: calculate this correctly (see HWDrawInfo::SetColor)
+			// uinfo.LightUniforms[i].uVertexColor
+			// uinfo.LightUniforms[i].uDesaturationFactor
+			if (uinfo.LightUniforms[i].uLightLevel >= 0.0f) 
+			{
+				uinfo.LightUniforms[i].uLightLevel = clamp(doomMap.sides[sideIndex].sector->lightlevel * (1.0f / 255.0f), 0.0f, 1.0f);
+			}
+		}
+		AddRange(UploadRanges.LightUniforms, { uinfo.Start, uinfo.Start + uinfo.Count });
+	}
+}
+
+void DoomLevelMesh::SetFlatLights(FLevelLocals& doomMap, unsigned int sectorIndex)
+{
+	for (UniformsAllocInfo& uinfo : Flats[sectorIndex].Uniforms)
+	{
+		for (int i = 0, count = uinfo.Count; i < count; i++)
+		{
+			// To do: calculate this correctly (see HWDrawInfo::SetColor)
+			// uinfo.LightUniforms[i].uVertexColor
+			// uinfo.LightUniforms[i].uDesaturationFactor
+			if (uinfo.LightUniforms[i].uLightLevel >= 0.0f)
+			{
+				uinfo.LightUniforms[i].uLightLevel = clamp(doomMap.sectors[sectorIndex].lightlevel * (1.0f / 255.0f), 0.0f, 1.0f);
+			}
+		}
+		AddRange(UploadRanges.LightUniforms, { uinfo.Start, uinfo.Start + uinfo.Count });
+	}
+}
+
 void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sideIndex)
 {
 	for (HWWall& wallpart : list)
@@ -771,6 +819,13 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 
 			*(uinfo.Uniforms++) = applyState.surfaceUniforms;
 			*(uinfo.Materials++) = applyState.material;
+
+			uinfo.LightUniforms->uVertexColor = applyState.surfaceUniforms.uVertexColor;
+			uinfo.LightUniforms->uDesaturationFactor = applyState.surfaceUniforms.uDesaturationFactor;
+			uinfo.LightUniforms->uLightLevel = applyState.surfaceUniforms.uLightLevel;
+			uinfo.LightUniforms->uLightIndex = -1;
+			uinfo.LightUniforms++;
+
 			uniformsIndex++;
 		}
 
@@ -1050,6 +1105,11 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 
 		*uinfo.Uniforms = *uniforms;
 		*uinfo.Materials = *material;
+
+		uinfo.LightUniforms->uVertexColor = uniforms->uVertexColor;
+		uinfo.LightUniforms->uDesaturationFactor = uniforms->uDesaturationFactor;
+		uinfo.LightUniforms->uLightLevel = uniforms->uLightLevel;
+		uinfo.LightUniforms->uLightIndex = -1;
 
 		int uniformsIndex = uinfo.Start;
 		int vertIndex = ginfo.VertexStart;

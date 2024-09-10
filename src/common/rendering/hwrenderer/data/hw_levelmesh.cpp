@@ -28,10 +28,12 @@ void LevelMesh::Reset(const LevelMeshLimits& limits)
 
 	Mesh.Surfaces.Resize(limits.MaxSurfaces);
 	Mesh.Uniforms.Resize(limits.MaxUniforms);
+	Mesh.LightUniforms.Resize(limits.MaxUniforms);
 	Mesh.Materials.Resize(limits.MaxUniforms);
 
 	Mesh.Lights.Resize(16);
 	Mesh.LightIndexes.Resize(16);
+	Mesh.DynLights.Resize(16);
 
 	Mesh.Indexes.Resize(limits.MaxIndexes);
 	Mesh.SurfaceIndexes.Resize(limits.MaxIndexes / 3 + 1);
