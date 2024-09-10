@@ -61,7 +61,7 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, bool popup
 	Windows.push_front(this);
 	WindowsIterator = Windows.begin();
 
-	WNDCLASSEX classdesc = {};
+	WNDCLASSEXW classdesc = {};
 	classdesc.cbSize = sizeof(WNDCLASSEX);
 	classdesc.hInstance = GetModuleHandle(0);
 	classdesc.style = CS_VREDRAW | CS_HREDRAW | CS_DBLCLKS;
