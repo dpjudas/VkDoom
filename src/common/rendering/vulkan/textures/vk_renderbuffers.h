@@ -36,6 +36,9 @@ public:
 	VkTextureImage SceneFog;
 	VkTextureImage SceneLinearDepth;
 
+	VkTextureImage SceneZMinMax[5];
+	std::unique_ptr<VulkanBuffer> SceneLightTiles;
+
 	VkFormat PipelineDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
 	VkFormat SceneDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
 	VkFormat SceneNormalFormat = VK_FORMAT_A2R10G10B10_UNORM_PACK32;
@@ -55,6 +58,8 @@ private:
 	void CreateSceneFog(int width, int height, VkSampleCountFlagBits samples);
 	void CreateSceneNormal(int width, int height, VkSampleCountFlagBits samples);
 	void CreateSceneLinearDepth(int width, int height);
+	void CreateSceneZMinMax(int width, int height);
+	void CreateSceneLightTiles(int width, int height);
 	VkSampleCountFlagBits GetBestSampleCount();
 
 	VulkanRenderDevice* fb = nullptr;

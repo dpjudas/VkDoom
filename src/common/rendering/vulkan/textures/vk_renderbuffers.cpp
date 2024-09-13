@@ -78,6 +78,12 @@ void VkRenderBuffers::BeginFrame(int width, int height, int sceneWidth, int scen
 	if (width != mWidth || height != mHeight || mSamples != samples)
 		CreateScene(width, height, samples);
 
+	if (width != mWidth || height != mHeight)
+	{
+		CreateSceneZMinMax(width, height);
+		CreateSceneLightTiles(width, height);
+	}
+
 	if (sceneWidth != mSceneWidth || sceneHeight != mSceneHeight)
 	{
 		SceneLinearDepth.Reset(fb);
@@ -270,6 +276,45 @@ void VkRenderBuffers::CreateSceneLinearDepth(int width, int height)
 	SceneLinearDepth.View = ImageViewBuilder()
 		.Image(SceneLinearDepth.Image.get(), VK_FORMAT_R32_SFLOAT)
 		.DebugName("VkRenderBuffers.SceneLinearDepthView")
+		.Create(fb->GetDevice());
+}
+
+void VkRenderBuffers::CreateSceneZMinMax(int width, int height)
+{
+	width = (width + 63) / 64 * 64;
+	height = (height + 63) / 64 * 64;
+
+	for (int i = 4; i >= 0; i--)
+	{
+		width >>= 1;
+		height >>= 1;
+
+		SceneZMinMax[i].Image = ImageBuilder()
+			.Size(width, height)
+			.Format(VK_FORMAT_R32G32_SFLOAT)
+			.Usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+			.DebugName("VkRenderBuffers.SceneZMinMax")
+			.Create(fb->GetDevice());
+
+		SceneZMinMax[i].View = ImageViewBuilder()
+			.Image(SceneZMinMax[i].Image.get(), VK_FORMAT_R32G32_SFLOAT)
+			.DebugName("VkRenderBuffers.SceneZMinMaxView")
+			.Create(fb->GetDevice());
+	}
+}
+
+void VkRenderBuffers::CreateSceneLightTiles(int width, int height)
+{
+	width = (width + 63) / 64;
+	height = (height + 63) / 64;
+
+	// Make room for 16 lights plus the lightdata header
+	size_t blockSize = (1 + 3 * 16) * sizeof(FVector4);
+
+	SceneLightTiles = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+		.Size(width * height * blockSize)
+		.DebugName("VkRenderBuffers.SceneLightTiles")
 		.Create(fb->GetDevice());
 }
 
