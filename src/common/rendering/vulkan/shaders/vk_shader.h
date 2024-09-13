@@ -119,6 +119,10 @@ public:
 	void AddVkPPShader(VkPPShader* shader);
 	void RemoveVkPPShader(VkPPShader* shader);
 
+	VulkanShader* GetZMinMaxVertexShader() { return ZMinMax.vert.get(); }
+	VulkanShader* GetZMinMaxFragmentShader(int index) { return ZMinMax.frag[index].get(); }
+	VulkanShader* GetLightTilesShader() { return LightTiles.get(); }
+
 private:
 	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *defines, bool levelmesh);
 	std::unique_ptr<VulkanShader> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *lightmodel_lump, const char *defines, const VkShaderKey& key);
@@ -134,4 +138,12 @@ private:
 	std::map<VkShaderKey, VkShaderProgram> programs;
 
 	std::list<VkPPShader*> PPShaders;
+
+	struct
+	{
+		std::unique_ptr<VulkanShader> vert;
+		std::unique_ptr<VulkanShader> frag[2];
+	} ZMinMax;
+
+	std::unique_ptr<VulkanShader> LightTiles;
 };
