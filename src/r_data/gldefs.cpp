@@ -1361,6 +1361,12 @@ class GLDefsParser
 				sc.MustGetString();
 				usershader.shader = sc.String;
 			}
+			else if (sc.Compare("disablealphatest"))
+			{
+				tex->SetTranslucent(true);
+				if (usershader.shader.IsNotEmpty())
+					usershader.disablealphatest = true;
+			}
 			else if (sc.Compare("texture"))
 			{
 				sc.MustGetString();
