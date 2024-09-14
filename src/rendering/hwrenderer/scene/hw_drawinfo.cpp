@@ -114,6 +114,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		VPUniforms.mViewOffsetX = -screen->mSceneViewport.left;
 		VPUniforms.mViewOffsetY = -screen->mSceneViewport.top;
 		VPUniforms.mViewHeight = viewheight;
+		VPUniforms.mLightTilesWidth = (screen->mScreenViewport.width + 63) / 64;
 		if (lightmode == ELightMode::Build)
 		{
 			VPUniforms.mGlobVis = 1 / 64.f;
@@ -442,6 +443,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetColorMask(false);
 		state.SetCulling(Cull_CW);
 		state.DrawLevelMesh(LevelMeshDrawType::Opaque, true);
+		state.DispatchLightTiles();
 		state.DrawLevelMesh(LevelMeshDrawType::Masked, false); // To do: properly mark wall top/bottom as opaque so we don't need this
 		if (gl_portals)
 		{

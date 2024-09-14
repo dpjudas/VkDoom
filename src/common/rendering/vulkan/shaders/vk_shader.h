@@ -53,6 +53,13 @@ struct PushConstants
 	int uFogballIndex; // fog balls
 };
 
+struct LightTilesPushConstants
+{
+	int normalLightCount;
+	int modulatedLightCount;
+	int subtractiveLightCount;
+};
+
 class VkShaderKey
 {
 public:

@@ -115,7 +115,12 @@ public:
 
 	VulkanPipelineCache* GetCache() { return PipelineCache.get(); }
 
+	VulkanPipelineLayout* GetLightTilesLayout() { return LightTiles.Layout.get(); }
+	VulkanPipeline* GetLightTilesPipeline() { return LightTiles.Pipeline.get(); }
+
 private:
+	void CreateLightTilesPipeline();
+
 	VulkanRenderDevice* fb = nullptr;
 
 	std::map<VkRenderPassKey, std::unique_ptr<VkRenderPassSetup>> RenderPassSetup;
@@ -123,6 +128,12 @@ private:
 	std::vector<VkVertexFormat> VertexFormats;
 
 	std::map<VkPPRenderPassKey, std::unique_ptr<VkPPRenderPassSetup>> PPRenderPassSetup;
+
+	struct
+	{
+		std::unique_ptr<VulkanPipelineLayout> Layout;
+		std::unique_ptr<VulkanPipeline> Pipeline;
+	} LightTiles;
 
 	FString CacheFilename;
 	std::unique_ptr<VulkanPipelineCache> PipelineCache;

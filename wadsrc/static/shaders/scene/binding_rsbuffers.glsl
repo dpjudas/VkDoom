@@ -19,6 +19,8 @@ layout(set = 1, binding = 0, std140) uniform ViewpointUBO
 	int uShadowmapFilter;
 		
 	int uLightBlendMode;
+
+	int uLightTilesWidth;	// Levelmesh light tiles
 };
 
 layout(set = 1, binding = 1, std140) uniform MatricesUBO

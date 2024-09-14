@@ -33,6 +33,8 @@ struct HWViewpointUniforms
 
 	int mLightBlendMode = 0;
 
+	int mLightTilesWidth = 0;
+
 	void CalcDependencies()
 	{
 		mNormalViewMatrix.computeNormalMatrix(mViewMatrix);

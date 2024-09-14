@@ -236,6 +236,7 @@ void VulkanRenderDevice::InitializeState()
 
 	mPostprocess.reset(new VkPostprocess(this));
 	mDescriptorSetManager.reset(new VkDescriptorSetManager(this));
+	mShaderManager.reset(new VkShaderManager(this));
 	mRenderPassManager.reset(new VkRenderPassManager(this));
 	mLevelMesh.reset(new VkLevelMesh(this));
 	mLightmapper.reset(new VkLightmapper(this));
@@ -245,7 +246,6 @@ void VulkanRenderDevice::InitializeState()
 	mSkyData = new FSkyVertexBuffer(this);
 	mShadowMap = new ShadowMap(this);
 
-	mShaderManager.reset(new VkShaderManager(this));
 	mDescriptorSetManager->Init();
 
 #ifdef __APPLE__

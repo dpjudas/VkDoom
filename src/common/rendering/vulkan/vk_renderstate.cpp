@@ -867,6 +867,43 @@ void VkRenderState::ApplyLevelMesh()
 	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetDrawIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
+void VkRenderState::DispatchLightTiles()
+{
+	EndRenderPass();
+
+	auto cmdbuffer = fb->GetCommands()->GetDrawCommands();
+
+	// To do: run the zminmax pass
+	VkImageTransition()
+		.AddImage(&fb->GetBuffers()->SceneZMinMax[4], VK_IMAGE_LAYOUT_GENERAL, true /* false */)
+		.Execute(cmdbuffer);
+
+	PipelineBarrier()
+		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+	LightTilesPushConstants pushConstants = {};
+	//auto mesh = fb->GetLevelMesh()->GetMesh();
+	//pushConstants.normalLightCount = mesh->Mesh.NormalLightCount;
+	//pushConstants.modulatedLightCount = mesh->Mesh.ModulatedLightCount;
+	//pushConstants.subtractiveLightCount = mesh->Mesh.SubtractiveLightCount;
+
+	auto pipelines = fb->GetRenderPassManager();
+	auto descriptors = fb->GetDescriptorSetManager();
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->GetLightTilesPipeline());
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->GetLightTilesLayout(), 0, descriptors->GetLightTilesSet());
+	cmdbuffer->pushConstants(pipelines->GetLightTilesLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, (uint32_t)sizeof(LightTilesPushConstants), &pushConstants);
+
+	cmdbuffer->dispatch(
+		(fb->GetBuffers()->GetWidth() + 63) / 64,
+		(fb->GetBuffers()->GetHeight() + 63) / 64,
+		1);
+
+	PipelineBarrier()
+		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
 void VkRenderState::DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader)
 {
 	ApplyLevelMesh();

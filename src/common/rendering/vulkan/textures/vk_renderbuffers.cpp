@@ -292,7 +292,7 @@ void VkRenderBuffers::CreateSceneZMinMax(int width, int height)
 		SceneZMinMax[i].Image = ImageBuilder()
 			.Size(width, height)
 			.Format(VK_FORMAT_R32G32_SFLOAT)
-			.Usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+			.Usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)
 			.DebugName("VkRenderBuffers.SceneZMinMax")
 			.Create(fb->GetDevice());
 
@@ -309,7 +309,7 @@ void VkRenderBuffers::CreateSceneLightTiles(int width, int height)
 	height = (height + 63) / 64;
 
 	// Make room for 16 lights plus the lightdata header
-	size_t blockSize = (1 + 3 * 16) * sizeof(FVector4);
+	size_t blockSize = (1 + 4 * 16) * sizeof(FVector4);
 
 	SceneLightTiles = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)

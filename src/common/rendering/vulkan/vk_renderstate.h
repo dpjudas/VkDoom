@@ -57,6 +57,7 @@ public:
 	void ResetVertices() override;
 
 	// Draw level mesh
+	void DispatchLightTiles() override;
 	void DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader) override;
 	int GetNextQueryIndex() override;
 	void BeginQuery() override;

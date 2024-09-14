@@ -64,6 +64,8 @@ VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 	}
 
 	PipelineCache = builder.Create(fb->GetDevice());
+
+	CreateLightTilesPipeline();
 }
 
 VkRenderPassManager::~VkRenderPassManager()
@@ -152,6 +154,22 @@ VkPPRenderPassSetup* VkRenderPassManager::GetPPRenderPass(const VkPPRenderPassKe
 	if (!passSetup)
 		passSetup.reset(new VkPPRenderPassSetup(fb, key));
 	return passSetup.get();
+}
+
+void VkRenderPassManager::CreateLightTilesPipeline()
+{
+	LightTiles.Layout = PipelineLayoutBuilder()
+		.AddSetLayout(fb->GetDescriptorSetManager()->GetLightTilesLayout())
+		.AddPushConstantRange(VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(LightTilesPushConstants))
+		.DebugName("VkRenderPassManager.LightTiles.Layout")
+		.Create(fb->GetDevice());
+
+	LightTiles.Pipeline = ComputePipelineBuilder()
+		.Cache(PipelineCache.get())
+		.Layout(LightTiles.Layout.get())
+		.ComputeShader(fb->GetShaderManager()->GetLightTilesShader())
+		.DebugName("VkRenderPassManager.LightTiles.Pipeline")
+		.Create(fb->GetDevice());
 }
 
 /////////////////////////////////////////////////////////////////////////////
