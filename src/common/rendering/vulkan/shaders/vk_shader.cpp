@@ -48,6 +48,14 @@ VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 
 	ZMinMax.frag[1] = ShaderBuilder()
 		.Type(ShaderType::Fragment)
+		.DebugName("ZMinMax0.frag")
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("DefinesBlock", "#define MULTISAMPLE\n")
+		.AddSource("shaders/scene/frag_zminmax0.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax0.glsl").GetChars())
+		.Create("ZMinMax0.frag", fb->GetDevice());
+
+	ZMinMax.frag[2] = ShaderBuilder()
+		.Type(ShaderType::Fragment)
 		.DebugName("ZMinMax1.frag")
 		.AddSource("VersionBlock", GetVersionBlock().GetChars())
 		.AddSource("shaders/scene/frag_zminmax1.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax1.glsl").GetChars())

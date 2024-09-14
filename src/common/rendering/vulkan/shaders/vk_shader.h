@@ -149,7 +149,7 @@ private:
 	struct
 	{
 		std::unique_ptr<VulkanShader> vert;
-		std::unique_ptr<VulkanShader> frag[2];
+		std::unique_ptr<VulkanShader> frag[3];
 	} ZMinMax;
 
 	std::unique_ptr<VulkanShader> LightTiles;

@@ -27,12 +27,14 @@ public:
 	VulkanDescriptorSetLayout* GetFixedLayout() { return Fixed.Layout.get(); }
 	VulkanDescriptorSetLayout* GetBindlessLayout() { return Bindless.Layout.get(); }
 	VulkanDescriptorSetLayout* GetLightTilesLayout() { return LightTiles.Layout.get(); }
+	VulkanDescriptorSetLayout* GetZMinMaxLayout() { return ZMinMax.Layout.get(); }
 
 	VulkanDescriptorSet* GetLevelMeshSet() { return LevelMesh.Set.get(); }
 	VulkanDescriptorSet* GetRSBufferSet() { return RSBuffer.Set.get(); }
 	VulkanDescriptorSet* GetFixedSet() { return Fixed.Set.get(); }
 	VulkanDescriptorSet* GetBindlessSet() { return Bindless.Set.get(); }
 	VulkanDescriptorSet* GetLightTilesSet() { return LightTiles.Set.get(); }
+	VulkanDescriptorSet* GetZMinMaxSet(int index) { return ZMinMax.Set[index].get(); }
 
 	VulkanDescriptorSet* GetInput(VkPPRenderPassSetup* passSetup, const TArray<PPTextureInput>& textures, bool bindShadowMapBuffers);
 
@@ -47,14 +49,17 @@ private:
 	void CreateRSBufferLayout();
 	void CreateFixedLayout();
 	void CreateLightTilesLayout();
+	void CreateZMinMaxLayout();
 	void CreateLevelMeshPool();
 	void CreateRSBufferPool();
 	void CreateFixedPool();
 	void CreateLightTilesPool();
+	void CreateZMinMaxPool();
 	void CreateBindlessSet();
 	void UpdateFixedSet();
 	void UpdateLevelMeshSet();
 	void UpdateLightTilesSet();
+	void UpdateZMinMaxSet();
 
 	std::unique_ptr<VulkanDescriptorSet> AllocatePPSet(VulkanDescriptorSetLayout* layout);
 
@@ -101,6 +106,13 @@ private:
 		std::unique_ptr<VulkanDescriptorSet> Set;
 		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
 	} LightTiles;
+
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorPool> Pool;
+		std::unique_ptr<VulkanDescriptorSet> Set[5];
+		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
+	} ZMinMax;
 
 	std::list<VkMaterial*> Materials;
 

@@ -118,6 +118,27 @@ VulkanFramebuffer* VkRenderBuffers::GetFramebuffer(const VkRenderPassKey& key)
 	return framebuffer.get();
 }
 
+VulkanFramebuffer* VkRenderBuffers::GetZMinMaxFramebuffer(int index)
+{
+	auto& framebuffer = SceneZMinMax[index].ZMinMaxFramebuffer;
+	if (framebuffer)
+		return framebuffer.get();
+
+	int width = ((GetWidth() + 63) / 64 * 64) >> 1;
+	int height = ((GetHeight() + 63) / 64 * 64) >> 1;
+
+	width >>= index;
+	height >>= index;
+
+	FramebufferBuilder builder;
+	builder.RenderPass(fb->GetRenderPassManager()->GetZMinMaxRenderPass());
+	builder.Size(width, height);
+	builder.AddAttachment(SceneZMinMax[index].View.get());
+	builder.DebugName("VkRenderBuffers.ZMinMaxFramebuffer");
+	framebuffer = builder.Create(fb->GetDevice());
+	return framebuffer.get();
+}
+
 void VkRenderBuffers::CreatePipelineDepthStencil(int width, int height)
 {
 	ImageBuilder builder;
@@ -284,7 +305,7 @@ void VkRenderBuffers::CreateSceneZMinMax(int width, int height)
 	width = (width + 63) / 64 * 64;
 	height = (height + 63) / 64 * 64;
 
-	for (int i = 4; i >= 0; i--)
+	for (int i = 0; i < 5; i++)
 	{
 		width >>= 1;
 		height >>= 1;

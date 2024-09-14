@@ -118,8 +118,14 @@ public:
 	VulkanPipelineLayout* GetLightTilesLayout() { return LightTiles.Layout.get(); }
 	VulkanPipeline* GetLightTilesPipeline() { return LightTiles.Pipeline.get(); }
 
+	VulkanRenderPass* GetZMinMaxRenderPass() { return ZMinMax.RenderPass.get(); }
+	VulkanPipelineLayout* GetZMinMaxLayout() { return ZMinMax.Layout.get(); }
+	VulkanPipeline* GetZMinMaxPipeline0(VkSampleCountFlagBits samples) { return ZMinMax.Pipeline[samples > 1 ? 1 : 0].get(); }
+	VulkanPipeline* GetZMinMaxPipeline1() { return ZMinMax.Pipeline[2].get(); }
+
 private:
 	void CreateLightTilesPipeline();
+	void CreateZMinMaxPipeline();
 
 	VulkanRenderDevice* fb = nullptr;
 
@@ -134,6 +140,13 @@ private:
 		std::unique_ptr<VulkanPipelineLayout> Layout;
 		std::unique_ptr<VulkanPipeline> Pipeline;
 	} LightTiles;
+
+	struct
+	{
+		std::unique_ptr<VulkanRenderPass> RenderPass;
+		std::unique_ptr<VulkanPipelineLayout> Layout;
+		std::unique_ptr<VulkanPipeline> Pipeline[3];
+	} ZMinMax;
 
 	FString CacheFilename;
 	std::unique_ptr<VulkanPipelineCache> PipelineCache;

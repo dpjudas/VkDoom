@@ -867,16 +867,85 @@ void VkRenderState::ApplyLevelMesh()
 	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetDrawIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
+void VkRenderState::RunZMinMaxPass()
+{
+	auto pipelines = fb->GetRenderPassManager();
+	auto descriptors = fb->GetDescriptorSetManager();
+	auto buffers = fb->GetBuffers();
+	auto cmdbuffer = fb->GetCommands()->GetDrawCommands();
+
+	int width = ((buffers->GetWidth() + 63) / 64 * 64) >> 1;
+	int height = ((buffers->GetHeight() + 63) / 64 * 64) >> 1;
+
+	VkImageTransition()
+		.AddImage(&fb->GetBuffers()->SceneDepthStencil, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
+		.AddImage(&fb->GetBuffers()->SceneZMinMax[0], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true)
+		.Execute(cmdbuffer);
+
+	RenderPassBegin()
+		.RenderPass(pipelines->GetZMinMaxRenderPass())
+		.RenderArea(0, 0, width, height)
+		.Framebuffer(buffers->GetZMinMaxFramebuffer(0))
+		.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
+		.Execute(cmdbuffer);
+
+	VkViewport viewport = {};
+	viewport.width = (float)width;
+	viewport.height = (float)height;
+	cmdbuffer->setViewport(0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.extent.width = width;
+	scissor.extent.height = height;
+	cmdbuffer->setScissor(0, 1, &scissor);
+
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxPipeline0(mRenderTarget.Samples));
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxLayout(), 0, descriptors->GetZMinMaxSet(0));
+	cmdbuffer->draw(6, 1, 0, 0);
+	cmdbuffer->endRenderPass();
+
+	for (int i = 1; i < 5; i++)
+	{
+		VkImageTransition()
+			.AddImage(&fb->GetBuffers()->SceneZMinMax[i - 1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
+			.AddImage(&fb->GetBuffers()->SceneZMinMax[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true)
+			.Execute(cmdbuffer);
+
+		RenderPassBegin()
+			.RenderPass(pipelines->GetZMinMaxRenderPass())
+			.RenderArea(0, 0, width >> i, height >> i)
+			.Framebuffer(buffers->GetZMinMaxFramebuffer(i))
+			.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
+			.Execute(cmdbuffer);
+
+		viewport = {};
+		viewport.width = (float)(width >> i);
+		viewport.height = (float)(height >> i);
+		cmdbuffer->setViewport(0, 1, &viewport);
+
+		scissor = {};
+		scissor.extent.width = (width >> i);
+		scissor.extent.height = (height >> i);
+		cmdbuffer->setScissor(0, 1, &scissor);
+
+		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxPipeline1());
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxLayout(), 0, descriptors->GetZMinMaxSet(i));
+		cmdbuffer->draw(6, 1, 0, 0);
+		cmdbuffer->endRenderPass();
+	}
+
+	VkImageTransition()
+		.AddImage(&fb->GetBuffers()->SceneDepthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false)
+		.AddImage(&fb->GetBuffers()->SceneZMinMax[4], VK_IMAGE_LAYOUT_GENERAL, false)
+		.Execute(cmdbuffer);
+}
+
 void VkRenderState::DispatchLightTiles()
 {
 	EndRenderPass();
+	RunZMinMaxPass();
 
 	auto cmdbuffer = fb->GetCommands()->GetDrawCommands();
-
-	// To do: run the zminmax pass
-	VkImageTransition()
-		.AddImage(&fb->GetBuffers()->SceneZMinMax[4], VK_IMAGE_LAYOUT_GENERAL, true /* false */)
-		.Execute(cmdbuffer);
 
 	PipelineBarrier()
 		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)

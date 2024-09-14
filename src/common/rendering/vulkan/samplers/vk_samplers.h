@@ -28,12 +28,14 @@ public:
 
 	std::unique_ptr<VulkanSampler> ShadowmapSampler;
 	std::unique_ptr<VulkanSampler> LightmapSampler;
+	std::unique_ptr<VulkanSampler> ZMinMaxSampler;
 
 private:
 	void CreateHWSamplers();
 	void DeleteHWSamplers();
 	void CreateShadowmapSampler();
 	void CreateLightmapSampler();
+	void CreateZMinMaxSampler();
 
 	VulkanRenderDevice* fb = nullptr;
 	std::array<std::unique_ptr<VulkanSampler>, NUMSAMPLERS> mSamplers;

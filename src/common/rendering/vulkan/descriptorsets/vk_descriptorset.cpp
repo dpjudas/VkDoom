@@ -44,10 +44,12 @@ VkDescriptorSetManager::VkDescriptorSetManager(VulkanRenderDevice* fb) : fb(fb)
 	CreateRSBufferLayout();
 	CreateFixedLayout();
 	CreateLightTilesLayout();
+	CreateZMinMaxLayout();
 	CreateLevelMeshPool();
 	CreateRSBufferPool();
 	CreateFixedPool();
 	CreateLightTilesPool();
+	CreateZMinMaxPool();
 	CreateBindlessSet();
 }
 
@@ -62,6 +64,9 @@ void VkDescriptorSetManager::Init()
 	RSBuffer.Set = RSBuffer.Pool->allocate(RSBuffer.Layout.get());
 	LevelMesh.Set = LevelMesh.Pool->allocate(LevelMesh.Layout.get());
 	LightTiles.Set = LightTiles.Pool->allocate(LightTiles.Layout.get());
+
+	for (auto& set : ZMinMax.Set)
+		set = ZMinMax.Pool->allocate(ZMinMax.Layout.get());
 
 	auto rsbuffers = fb->GetBufferManager()->GetRSBuffers();
 	WriteDescriptors()
@@ -85,6 +90,7 @@ void VkDescriptorSetManager::BeginFrame()
 	UpdateFixedSet();
 	UpdateLevelMeshSet();
 	UpdateLightTilesSet();
+	UpdateZMinMaxSet();
 }
 
 void VkDescriptorSetManager::UpdateLevelMeshSet()
@@ -108,6 +114,20 @@ void VkDescriptorSetManager::UpdateLightTilesSet()
 		.AddBuffer(LightTiles.Set.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetUniformsBuffer())
 		.AddBuffer(LightTiles.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetBuffers()->SceneLightTiles.get())
 		.Execute(fb->GetDevice());
+}
+
+void VkDescriptorSetManager::UpdateZMinMaxSet()
+{
+	WriteDescriptors()
+		.AddCombinedImageSampler(ZMinMax.Set[0].get(), 0, fb->GetBuffers()->SceneDepthStencil.DepthOnlyView.get(), fb->GetSamplerManager()->ZMinMaxSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		.Execute(fb->GetDevice());
+
+	for (int i = 1; i < 5; i++)
+	{
+		WriteDescriptors()
+			.AddCombinedImageSampler(ZMinMax.Set[i].get(), 0, fb->GetBuffers()->SceneZMinMax[i - 1].View.get(), fb->GetSamplerManager()->ZMinMaxSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			.Execute(fb->GetDevice());
+	}
 }
 
 void VkDescriptorSetManager::UpdateFixedSet()
@@ -273,6 +293,14 @@ void VkDescriptorSetManager::CreateLightTilesLayout()
 		.Create(fb->GetDevice());
 }
 
+void VkDescriptorSetManager::CreateZMinMaxLayout()
+{
+	ZMinMax.Layout = DescriptorSetLayoutBuilder()
+		.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.DebugName("VkDescriptorSetManager.ZMinMax.Layout")
+		.Create(fb->GetDevice());
+}
+
 void VkDescriptorSetManager::CreateLightTilesPool()
 {
 	LightTiles.Pool = DescriptorPoolBuilder()
@@ -280,6 +308,15 @@ void VkDescriptorSetManager::CreateLightTilesPool()
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2)
 		.MaxSets(1)
 		.DebugName("VkDescriptorSetManager.LightTiles.Pool")
+		.Create(fb->GetDevice());
+}
+
+void VkDescriptorSetManager::CreateZMinMaxPool()
+{
+	ZMinMax.Pool = DescriptorPoolBuilder()
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5)
+		.MaxSets(5)
+		.DebugName("VkDescriptorSetManager.ZMinMax.Pool")
 		.Create(fb->GetDevice());
 }
 

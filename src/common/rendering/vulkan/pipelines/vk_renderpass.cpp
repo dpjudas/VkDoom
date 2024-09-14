@@ -66,6 +66,7 @@ VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 	PipelineCache = builder.Create(fb->GetDevice());
 
 	CreateLightTilesPipeline();
+	CreateZMinMaxPipeline();
 }
 
 VkRenderPassManager::~VkRenderPassManager()
@@ -170,6 +171,41 @@ void VkRenderPassManager::CreateLightTilesPipeline()
 		.ComputeShader(fb->GetShaderManager()->GetLightTilesShader())
 		.DebugName("VkRenderPassManager.LightTiles.Pipeline")
 		.Create(fb->GetDevice());
+}
+
+void VkRenderPassManager::CreateZMinMaxPipeline()
+{
+	ZMinMax.RenderPass = RenderPassBuilder()
+		.AddAttachment(VK_FORMAT_R32G32_SFLOAT, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+		.AddExternalSubpassDependency(
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+		.AddSubpass()
+		.AddSubpassColorAttachmentRef(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+		.DebugName("VkRenderPassManager.ZMinMax.RenderPass")
+		.Create(fb->GetDevice());
+
+	ZMinMax.Layout = PipelineLayoutBuilder()
+		.AddSetLayout(fb->GetDescriptorSetManager()->GetZMinMaxLayout())
+		//.AddPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ZMinMaxPushConstants))
+		.DebugName("VkRenderPassManager.ZMinMax.Layout")
+		.Create(fb->GetDevice());
+
+	for (int i = 0; i < 3; i++)
+	{
+		ZMinMax.Pipeline[i] = GraphicsPipelineBuilder()
+			.Cache(PipelineCache.get())
+			.RenderPass(ZMinMax.RenderPass.get())
+			.Layout(ZMinMax.Layout.get())
+			.AddVertexShader(fb->GetShaderManager()->GetZMinMaxVertexShader())
+			.AddFragmentShader(fb->GetShaderManager()->GetZMinMaxFragmentShader(i))
+			.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+			.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+			.DebugName("VkRenderPassManager.ZMinMax.Pipeline")
+			.Create(fb->GetDevice());
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -29,6 +29,7 @@ public:
 	VkSampleCountFlagBits GetSceneSamples() const { return mSamples; }
 
 	VulkanFramebuffer* GetFramebuffer(const VkRenderPassKey& key);
+	VulkanFramebuffer* GetZMinMaxFramebuffer(int index);
 
 	VkTextureImage SceneColor;
 	VkTextureImage SceneDepthStencil;

@@ -90,6 +90,7 @@ protected:
 	void BeginRenderPass(VulkanCommandBuffer *cmdbuffer);
 	void WaitForStreamBuffers();
 
+	void RunZMinMaxPass();
 	void ApplyLevelMesh();
 	void ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool noFragmentShader);
 
