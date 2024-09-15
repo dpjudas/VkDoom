@@ -55,9 +55,14 @@ struct PushConstants
 
 struct LightTilesPushConstants
 {
-	int normalLightCount;
-	int modulatedLightCount;
-	int subtractiveLightCount;
+	int additiveCount;
+	int modulatedCount;
+	int subtractiveCount;
+	int padding;
+	float rcpF;
+	float rcpFDivAspect;
+	float twoRcpViewportSizeX;
+	float twoRcpViewportSizeY;
 };
 
 class VkShaderKey
