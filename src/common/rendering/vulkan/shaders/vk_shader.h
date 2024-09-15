@@ -53,6 +53,14 @@ struct PushConstants
 	int uFogballIndex; // fog balls
 };
 
+struct ZMinMaxPushConstants
+{
+	float LinearizeDepthA;
+	float LinearizeDepthB;
+	float InverseDepthRangeA;
+	float InverseDepthRangeB;
+};
+
 struct LightTilesPushConstants
 {
 	int additiveCount;

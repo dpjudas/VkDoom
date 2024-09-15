@@ -110,7 +110,7 @@ void VkDescriptorSetManager::UpdateLevelMeshSet()
 void VkDescriptorSetManager::UpdateLightTilesSet()
 {
 	WriteDescriptors()
-		.AddStorageImage(LightTiles.Set.get(), 0, fb->GetBuffers()->SceneZMinMax[4].View.get(), VK_IMAGE_LAYOUT_GENERAL)
+		.AddStorageImage(LightTiles.Set.get(), 0, fb->GetBuffers()->SceneZMinMax[5].View.get(), VK_IMAGE_LAYOUT_GENERAL)
 		.AddBuffer(LightTiles.Set.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetUniformsBuffer())
 		.AddBuffer(LightTiles.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetBuffers()->SceneLightTiles.get())
 		.Execute(fb->GetDevice());
@@ -122,7 +122,7 @@ void VkDescriptorSetManager::UpdateZMinMaxSet()
 		.AddCombinedImageSampler(ZMinMax.Set[0].get(), 0, fb->GetBuffers()->SceneDepthStencil.DepthOnlyView.get(), fb->GetSamplerManager()->ZMinMaxSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		.Execute(fb->GetDevice());
 
-	for (int i = 1; i < 5; i++)
+	for (int i = 1; i < 6; i++)
 	{
 		WriteDescriptors()
 			.AddCombinedImageSampler(ZMinMax.Set[i].get(), 0, fb->GetBuffers()->SceneZMinMax[i - 1].View.get(), fb->GetSamplerManager()->ZMinMaxSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
@@ -314,8 +314,8 @@ void VkDescriptorSetManager::CreateLightTilesPool()
 void VkDescriptorSetManager::CreateZMinMaxPool()
 {
 	ZMinMax.Pool = DescriptorPoolBuilder()
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5)
-		.MaxSets(5)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6)
+		.MaxSets(6)
 		.DebugName("VkDescriptorSetManager.ZMinMax.Pool")
 		.Create(fb->GetDevice());
 }

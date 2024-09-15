@@ -189,7 +189,7 @@ void VkRenderPassManager::CreateZMinMaxPipeline()
 
 	ZMinMax.Layout = PipelineLayoutBuilder()
 		.AddSetLayout(fb->GetDescriptorSetManager()->GetZMinMaxLayout())
-		//.AddPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ZMinMaxPushConstants))
+		.AddPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ZMinMaxPushConstants))
 		.DebugName("VkRenderPassManager.ZMinMax.Layout")
 		.Create(fb->GetDevice());
 

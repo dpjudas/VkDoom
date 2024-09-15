@@ -877,6 +877,12 @@ void VkRenderState::RunZMinMaxPass()
 	int width = ((buffers->GetWidth() + 63) / 64 * 64) >> 1;
 	int height = ((buffers->GetHeight() + 63) / 64 * 64) >> 1;
 
+	ZMinMaxPushConstants pushConstants = {};
+	pushConstants.LinearizeDepthA = 1.0f / screen->GetZFar() - 1.0f / screen->GetZNear();
+	pushConstants.LinearizeDepthB = max(1.0f / screen->GetZNear(), 1.e-8f);
+	pushConstants.InverseDepthRangeA = 1.0f;
+	pushConstants.InverseDepthRangeB = 0.0f;
+
 	VkImageTransition()
 		.AddImage(&fb->GetBuffers()->SceneDepthStencil, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
 		.AddImage(&fb->GetBuffers()->SceneZMinMax[0], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true)
@@ -901,10 +907,11 @@ void VkRenderState::RunZMinMaxPass()
 
 	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxPipeline0(mRenderTarget.Samples));
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxLayout(), 0, descriptors->GetZMinMaxSet(0));
+	cmdbuffer->pushConstants(pipelines->GetZMinMaxLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(ZMinMaxPushConstants), &pushConstants);
 	cmdbuffer->draw(6, 1, 0, 0);
 	cmdbuffer->endRenderPass();
 
-	for (int i = 1; i < 5; i++)
+	for (int i = 1; i < 6; i++)
 	{
 		VkImageTransition()
 			.AddImage(&fb->GetBuffers()->SceneZMinMax[i - 1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
@@ -936,7 +943,7 @@ void VkRenderState::RunZMinMaxPass()
 
 	VkImageTransition()
 		.AddImage(&fb->GetBuffers()->SceneDepthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false)
-		.AddImage(&fb->GetBuffers()->SceneZMinMax[4], VK_IMAGE_LAYOUT_GENERAL, false)
+		.AddImage(&fb->GetBuffers()->SceneZMinMax[5], VK_IMAGE_LAYOUT_GENERAL, false)
 		.Execute(cmdbuffer);
 }
 

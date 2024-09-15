@@ -2,6 +2,14 @@
 layout(binding = 0) uniform sampler2D Texture;
 layout(location = 0) out vec4 FragMinMax;
 
+layout(push_constant) uniform ZMinMaxPushConstants
+{
+	float LinearizeDepthA;
+	float LinearizeDepthB;
+	float InverseDepthRangeA;
+	float InverseDepthRangeB;
+};
+
 void main()
 {
 	ivec2 pos = ivec2(gl_FragCoord.xy) * 2;

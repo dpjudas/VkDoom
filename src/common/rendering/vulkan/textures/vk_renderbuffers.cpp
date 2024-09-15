@@ -305,7 +305,7 @@ void VkRenderBuffers::CreateSceneZMinMax(int width, int height)
 	width = (width + 63) / 64 * 64;
 	height = (height + 63) / 64 * 64;
 
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 6; i++)
 	{
 		width >>= 1;
 		height >>= 1;

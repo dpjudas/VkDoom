@@ -110,7 +110,7 @@ private:
 	struct
 	{
 		std::unique_ptr<VulkanDescriptorPool> Pool;
-		std::unique_ptr<VulkanDescriptorSet> Set[5];
+		std::unique_ptr<VulkanDescriptorSet> Set[6];
 		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
 	} ZMinMax;
 

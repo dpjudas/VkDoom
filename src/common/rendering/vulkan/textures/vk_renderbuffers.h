@@ -37,7 +37,7 @@ public:
 	VkTextureImage SceneFog;
 	VkTextureImage SceneLinearDepth;
 
-	VkTextureImage SceneZMinMax[5];
+	VkTextureImage SceneZMinMax[6];
 	std::unique_ptr<VulkanBuffer> SceneLightTiles;
 
 	VkFormat PipelineDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
