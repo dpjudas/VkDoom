@@ -443,7 +443,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetColorMask(false);
 		state.SetCulling(Cull_CW);
 		state.DrawLevelMesh(LevelMeshDrawType::Opaque, true);
-		state.DispatchLightTiles();
+		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
 		state.DrawLevelMesh(LevelMeshDrawType::Masked, false); // To do: properly mark wall top/bottom as opaque so we don't need this
 		if (gl_portals)
 		{

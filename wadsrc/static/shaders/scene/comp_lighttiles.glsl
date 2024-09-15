@@ -15,15 +15,17 @@ layout(set = 0, binding = 2) buffer Tiles
 	vec4 tiles[];
 };
 
-layout(push_constant) uniform PushConstants
+layout(push_constant) uniform LightTilesPushConstants
 {
 	int additiveCount;
 	int modulatedCount;
 	int subtractiveCount;
-	int padding;
-	float rcpF;
-	float rcpFDivAspect;
-	vec2 twoRcpViewportSize;
+	int padding0;
+	vec2 posToViewA;
+	vec2 posToViewB;
+	vec2 viewportPos;
+	vec2 padding1;
+	mat4 worldToView;
 };
 
 struct Tile
@@ -57,10 +59,12 @@ void main()
 	int tileModulatedCount = 0;
 	int tileSubtractiveCount = 0;
 
-	if (isLightVisible(tile, vec3(-316.0, 64.0, 621.0), 200.0))
+	vec4 testLight = vec4(-316.0, 64.0, 621.0, 200.0);
+
+	if (isLightVisible(tile, (worldToView * vec4(testLight.xyz, 1.0)).xyz, testLight.w))
 	{
-		vec3 pos = vec3(-316.0, 64.0, 621.0);
-		float radius = 200.0;
+		vec3 pos = testLight.xyz;
+		float radius = testLight.w;
 		vec3 color = vec3(1.0, 1.0, 1.0);
 		float shadowIndex = -1025.0;
 		vec3 spotDir = vec3(0.0);
@@ -85,12 +89,9 @@ void main()
 
 bool isLightVisible(Tile tile, vec3 lightPos, float lightRadius)
 {
-/*
 	// aabb/sphere test for the light
 	vec3 e = max(tile.aabbMin - lightPos, 0.0f) + max(lightPos - tile.aabbMax, 0.0f);
 	return dot(e, e) <= lightRadius * lightRadius;
-*/
-	return true;
 }
 
 Tile findTileFrustum(float viewZNear, float viewZFar, uint tileX, uint tileY)
@@ -113,9 +114,5 @@ Tile findTileFrustum(float viewZNear, float viewZFar, uint tileX, uint tileY)
 
 vec3 unprojectDirection(vec2 pos)
 {
-	//	float f = 1.0f / tan(fovY * 0.5f);
-	//	float rcpF = 1.0f / f;
-	//	float rcpFDivAspect = 1.0f / (f / aspect);
-	vec2 normalized = vec2(pos * twoRcpViewportSize) - 1.0;
-	return vec3(normalized.x * rcpFDivAspect, normalized.y * rcpF, 1.0f);
+    return vec3(posToViewA * (pos - viewportPos) + posToViewB, 1.0f);
 }

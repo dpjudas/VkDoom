@@ -940,7 +940,7 @@ void VkRenderState::RunZMinMaxPass()
 		.Execute(cmdbuffer);
 }
 
-void VkRenderState::DispatchLightTiles()
+void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
 {
 	EndRenderPass();
 	RunZMinMaxPass();
@@ -951,12 +951,24 @@ void VkRenderState::DispatchLightTiles()
 		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
+	float sceneWidth = (float)fb->GetBuffers()->GetSceneWidth();
+	float sceneHeight = (float)fb->GetBuffers()->GetSceneHeight();
+	float aspect = sceneWidth / sceneHeight;
+
+	//float tanHalfFovy = tan(fovy * (M_PI / 360.0f));
+	float tanHalfFovy = 1.0f / m5;
+	float invFocalLenX = tanHalfFovy * aspect;
+	float invFocalLenY = tanHalfFovy;
+
 	LightTilesPushConstants pushConstants = {};
 	//auto mesh = fb->GetLevelMesh()->GetMesh();
 	//pushConstants.normalLightCount = mesh->Mesh.NormalLightCount;
 	//pushConstants.modulatedLightCount = mesh->Mesh.ModulatedLightCount;
 	//pushConstants.subtractiveLightCount = mesh->Mesh.SubtractiveLightCount;
-
+	pushConstants.posToViewA = { 2.0f * invFocalLenX / sceneWidth, 2.0f * invFocalLenY / sceneHeight };
+	pushConstants.posToViewB = { -invFocalLenX, -invFocalLenY };
+	pushConstants.viewportPos = { 0.0f, 0.0f };
+	pushConstants.worldToView = worldToView;
 	auto pipelines = fb->GetRenderPassManager();
 	auto descriptors = fb->GetDescriptorSetManager();
 	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->GetLightTilesPipeline());

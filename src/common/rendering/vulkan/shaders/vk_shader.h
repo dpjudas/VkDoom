@@ -58,11 +58,12 @@ struct LightTilesPushConstants
 	int additiveCount;
 	int modulatedCount;
 	int subtractiveCount;
-	int padding;
-	float rcpF;
-	float rcpFDivAspect;
-	float twoRcpViewportSizeX;
-	float twoRcpViewportSizeY;
+	int padding0;
+	FVector2 posToViewA;
+	FVector2 posToViewB;
+	FVector2 viewportPos;
+	FVector2 padding1;
+	VSMatrix worldToView;
 };
 
 class VkShaderKey
