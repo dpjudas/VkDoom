@@ -17,10 +17,6 @@ layout(set = 0, binding = 2) buffer Tiles
 
 layout(push_constant) uniform LightTilesPushConstants
 {
-	int additiveCount;
-	int modulatedCount;
-	int subtractiveCount;
-	int padding0;
 	vec2 posToViewA;
 	vec2 posToViewB;
 	vec2 viewportPos;
@@ -53,38 +49,61 @@ void main()
 	const int maxLights = 16;
 	const int lightSize = 4;
 	int tileOffset = (tilePos.x + tilePos.y * zminmaxSize.x) * (1 + maxLights * lightSize);
-	int outLightOffset = tileOffset + 1;
 
-	int tileAdditiveCount = 0;
-	int tileModulatedCount = 0;
-	int tileSubtractiveCount = 0;
+	ivec4 inRanges = ivec4(lights[0]) + ivec4(1);
+	ivec4 outRanges = ivec4(0);
 
-	vec4 testLight = vec4(-316.0, 64.0, 621.0, 200.0);
-
-	if (isLightVisible(tile, (worldToView * vec4(testLight.xyz, 1.0)).xyz, testLight.w))
+	int count = 0;
+	int offset = tileOffset + 1;
+	for (int i = inRanges.x; i < inRanges.y; i += 4)
 	{
-		vec3 pos = testLight.xyz;
-		float radius = testLight.w;
-		vec3 color = vec3(1.0, 1.0, 1.0);
-		float shadowIndex = -1025.0;
-		vec3 spotDir = vec3(0.0);
-		float lightType = 0.0;
-		float spotInnerAngle = 0.0;
-		float spotOuterAngle = 0.0;
-		float softShadowRadius = 0.0;
-
-		tileAdditiveCount++;
-		tiles[outLightOffset++] = vec4(pos, radius);
-		tiles[outLightOffset++] = vec4(color, shadowIndex);
-		tiles[outLightOffset++] = vec4(spotDir, lightType);
-		tiles[outLightOffset++] = vec4(spotInnerAngle, spotOuterAngle, softShadowRadius, 0.0);
+		vec4 inLight = lights[i];
+		vec3 pos = (worldToView * vec4(inLight.xyz, 1.0)).xyz;
+		float radius = inLight.w;
+		if (isLightVisible(tile, pos, radius))
+		{
+			tiles[offset++] = inLight;
+			tiles[offset++] = lights[i + 1];
+			tiles[offset++] = lights[i + 2];
+			tiles[offset++] = lights[i + 3];
+			count += 4;
+		}
 	}
+	outRanges.y = count;
 
-	tiles[tileOffset] = vec4(ivec4(
-		0,
-		tileAdditiveCount,
-		tileAdditiveCount + tileModulatedCount,
-		tileAdditiveCount + tileModulatedCount + tileSubtractiveCount));
+	for (int i = inRanges.y; i < inRanges.z; i += 4)
+	{
+		vec4 inLight = lights[i];
+		vec3 pos = (worldToView * vec4(inLight.xyz, 1.0)).xyz;
+		float radius = inLight.w;
+		if (isLightVisible(tile, pos, radius))
+		{
+			tiles[offset++] = inLight;
+			tiles[offset++] = lights[i + 1];
+			tiles[offset++] = lights[i + 2];
+			tiles[offset++] = lights[i + 3];
+			count += 4;
+		}
+	}
+	outRanges.z = count;
+
+	for (int i = inRanges.z; i < inRanges.w; i += 4)
+	{
+		vec4 inLight = lights[i];
+		vec3 pos = (worldToView * vec4(inLight.xyz, 1.0)).xyz;
+		float radius = inLight.w;
+		if (isLightVisible(tile, pos, radius))
+		{
+			tiles[offset++] = inLight;
+			tiles[offset++] = lights[i + 1];
+			tiles[offset++] = lights[i + 2];
+			tiles[offset++] = lights[i + 3];
+			count += 4;
+		}
+	}
+	outRanges.w = count;
+
+	tiles[tileOffset] = vec4(outRanges);
 }
 
 bool isLightVisible(Tile tile, vec3 lightPos, float lightRadius)

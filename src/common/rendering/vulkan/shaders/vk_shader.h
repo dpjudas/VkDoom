@@ -63,10 +63,6 @@ struct ZMinMaxPushConstants
 
 struct LightTilesPushConstants
 {
-	int additiveCount;
-	int modulatedCount;
-	int subtractiveCount;
-	int padding0;
 	FVector2 posToViewA;
 	FVector2 posToViewB;
 	FVector2 viewportPos;

@@ -33,7 +33,7 @@ void LevelMesh::Reset(const LevelMeshLimits& limits)
 
 	Mesh.Lights.Resize(16);
 	Mesh.LightIndexes.Resize(16);
-	Mesh.DynLights.Resize(16);
+	Mesh.DynLights.Resize(50'000 * 4);
 
 	Mesh.Indexes.Resize(limits.MaxIndexes);
 	Mesh.SurfaceIndexes.Resize(limits.MaxIndexes / 3 + 1);

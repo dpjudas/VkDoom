@@ -9,6 +9,7 @@
 #include "a_dynlight.h"
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
+#include "hw_dynlightdata.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_walldispatcher.h"
@@ -65,7 +66,7 @@ ADD_STAT(levelmesh)
 	auto& stats = level.levelMesh->LastFrameStats;
 	FString out;
 	if (level.levelMesh)
-		out.Format("Sides=%d, flats=%d, portals=%d", stats.SidesUpdated, stats.FlatsUpdated, stats.Portals);
+		out.Format("Sides=%d, flats=%d, portals=%d, dynlights=%d", stats.SidesUpdated, stats.FlatsUpdated, stats.Portals, stats.DynLights);
 	else
 		out = "No level mesh";
 	return out;
@@ -253,6 +254,56 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 
 	CreateLights(doomMap);
 	UpdateWallPortals();
+
+	UploadDynLights(doomMap);
+}
+
+void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
+{
+	lightdata.Clear();
+	for (auto light = doomMap.lights; light; light = light->next)
+	{
+		int portalGroup = 0; // What value should this have?
+		AddLightToList(lightdata, portalGroup, light, false);
+		CurFrameStats.DynLights++;
+	}
+
+	// All meaasurements here are in vec4's.
+	int size0 = lightdata.arrays[0].Size() / 4;
+	int size1 = lightdata.arrays[1].Size() / 4;
+	int size2 = lightdata.arrays[2].Size() / 4;
+	int totalsize = size0 + size1 + size2 + 1;
+	int maxLightData = Mesh.DynLights.Size();
+
+	// Clamp lights so they aren't bigger than what fits into a single dynamic uniform buffer page
+	if (totalsize > maxLightData)
+	{
+		int diff = totalsize - maxLightData;
+
+		size2 -= diff;
+		if (size2 < 0)
+		{
+			size1 += size2;
+			size2 = 0;
+		}
+		if (size1 < 0)
+		{
+			size0 += size1;
+			size1 = 0;
+		}
+		totalsize = size0 + size1 + size2 + 1;
+	}
+	size0 = std::min(size0, maxLightData - 1);
+
+	float parmcnt[] = { 0, float(size0), float(size0 + size1), float(size0 + size1 + size2) };
+
+	float* copyptr = (float*)Mesh.DynLights.Data();
+	memcpy(&copyptr[0], parmcnt, sizeof(FVector4));
+	memcpy(&copyptr[4], &lightdata.arrays[0][0], size0 * sizeof(FVector4));
+	memcpy(&copyptr[4 + 4 * size0], &lightdata.arrays[1][0], size1 * sizeof(FVector4));
+	memcpy(&copyptr[4 + 4 * (size0 + size1)], &lightdata.arrays[2][0], size2 * sizeof(FVector4));
+
+	AddRange(UploadRanges.DynLight, { 0, totalsize });
 }
 
 void DoomLevelMesh::UpdateWallPortals()

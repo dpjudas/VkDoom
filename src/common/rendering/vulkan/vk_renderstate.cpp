@@ -968,10 +968,6 @@ void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
 	float invFocalLenY = tanHalfFovy;
 
 	LightTilesPushConstants pushConstants = {};
-	//auto mesh = fb->GetLevelMesh()->GetMesh();
-	//pushConstants.normalLightCount = mesh->Mesh.NormalLightCount;
-	//pushConstants.modulatedLightCount = mesh->Mesh.ModulatedLightCount;
-	//pushConstants.subtractiveLightCount = mesh->Mesh.SubtractiveLightCount;
 	pushConstants.posToViewA = { 2.0f * invFocalLenX / sceneWidth, 2.0f * invFocalLenY / sceneHeight };
 	pushConstants.posToViewB = { -invFocalLenX, -invFocalLenY };
 	pushConstants.viewportPos = { 0.0f, 0.0f };

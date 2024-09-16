@@ -111,7 +111,7 @@ void VkDescriptorSetManager::UpdateLightTilesSet()
 {
 	WriteDescriptors()
 		.AddStorageImage(LightTiles.Set.get(), 0, fb->GetBuffers()->SceneZMinMax[5].View.get(), VK_IMAGE_LAYOUT_GENERAL)
-		.AddBuffer(LightTiles.Set.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetUniformsBuffer())
+		.AddBuffer(LightTiles.Set.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetDynLightBuffer())
 		.AddBuffer(LightTiles.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetBuffers()->SceneLightTiles.get())
 		.Execute(fb->GetDevice());
 }

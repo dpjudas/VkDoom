@@ -127,6 +127,7 @@ public:
 		int FlatsUpdated = 0;
 		int SidesUpdated = 0;
 		int Portals = 0;
+		int DynLights = 0;
 	};
 	Stats LastFrameStats, CurFrameStats;
 
@@ -169,6 +170,8 @@ private:
 	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType);
 	void RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges);
 	void SortDrawLists();
+
+	void UploadDynLights(FLevelLocals& doomMap);
 
 	TArray<DoomSurfaceInfo> DoomSurfaceInfos;
 
