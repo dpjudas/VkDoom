@@ -527,6 +527,16 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 			sprite.Process(this, state, thing, thing->Sector, in_area, false);
 		}
 
+		// Draw particles
+		for (uint16_t i = level.ActiveParticles; i != NO_PARTICLE; i = level.Particles[i].tnext)
+		{
+			if (Level->Particles[i].subsector)
+			{
+				HWSprite sprite;
+				sprite.ProcessParticle(this, state, &Level->Particles[i], Level->Particles[i].subsector->sector, nullptr);
+			}
+		}
+
 		// Process all the sprites on the current portal's back side which touch the portal.
 		if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
 
