@@ -89,6 +89,9 @@ void main()
 
 bool isLightVisible(Tile tile, vec3 lightPos, float lightRadius)
 {
+	// Negative Z go into the screen, but zminmax is positive Z
+	lightPos.z = -lightPos.z;
+
 	// aabb/sphere test for the light
 	vec3 e = max(tile.aabbMin - lightPos, 0.0f) + max(lightPos - tile.aabbMax, 0.0f);
 	return dot(e, e) <= lightRadius * lightRadius;
