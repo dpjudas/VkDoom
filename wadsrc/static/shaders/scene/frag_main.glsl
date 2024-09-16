@@ -32,6 +32,8 @@ void main()
 	if (material.Base.a <= uAlphaThreshold) discard;
 #endif
 
+#ifndef ALPHATEST_ONLY
+
 #ifdef USE_DEPTHFADETHRESHOLD
 	float behindFragmentDepth = texelFetch(LinearDepth, uViewOffset + ivec2(gl_FragCoord.xy), 0).r;
 	material.Base.a *= clamp((behindFragmentDepth - pixelpos.w) / uDepthFadeThreshold, 0.0, 1.0);
@@ -62,5 +64,7 @@ void main()
 #ifdef GBUFFER_PASS
 	FragFog = vec4(AmbientOcclusionColor(), 1.0);
 	FragNormal = vec4(vEyeNormal.xyz * 0.5 + 0.5, 1.0);
+#endif
+
 #endif
 }

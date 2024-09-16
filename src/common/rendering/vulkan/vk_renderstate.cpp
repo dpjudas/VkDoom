@@ -874,6 +874,8 @@ void VkRenderState::RunZMinMaxPass()
 	auto buffers = fb->GetBuffers();
 	auto cmdbuffer = fb->GetCommands()->GetDrawCommands();
 
+	fb->GetCommands()->PushGroup(cmdbuffer, "zminmax");
+
 	int width = ((buffers->GetWidth() + 63) / 64 * 64) >> 1;
 	int height = ((buffers->GetHeight() + 63) / 64 * 64) >> 1;
 
@@ -945,6 +947,8 @@ void VkRenderState::RunZMinMaxPass()
 		.AddImage(&fb->GetBuffers()->SceneDepthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false)
 		.AddImage(&fb->GetBuffers()->SceneZMinMax[5], VK_IMAGE_LAYOUT_GENERAL, false)
 		.Execute(cmdbuffer);
+
+	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
 void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
@@ -953,6 +957,8 @@ void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
 	RunZMinMaxPass();
 
 	auto cmdbuffer = fb->GetCommands()->GetDrawCommands();
+
+	fb->GetCommands()->PushGroup(cmdbuffer, "lighttiles");
 
 	PipelineBarrier()
 		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
@@ -986,6 +992,8 @@ void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
 	PipelineBarrier()
 		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
 void VkRenderState::DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader)
@@ -998,7 +1006,7 @@ void VkRenderState::DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentSha
 		int pipelineID = it.first;
 		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
 
-		ApplyLevelMeshPipeline(mCommandBuffer, key, noFragmentShader);
+		ApplyLevelMeshPipeline(mCommandBuffer, key, drawType, noFragmentShader);
 
 		for (MeshBufferRange& range : it.second)
 		{
@@ -1009,6 +1017,8 @@ void VkRenderState::DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentSha
 
 void VkRenderState::BeginQuery()
 {
+	if (!mCommandBuffer)
+		ApplyRenderPass(DT_Triangles);
 	mCommandBuffer->beginQuery(mRSBuffers->OcclusionQuery.QueryPool.get(), mRSBuffers->OcclusionQuery.NextIndex++, 0);
 }
 
@@ -1039,8 +1049,15 @@ void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>
 	}
 }
 
-void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool noFragmentShader)
+void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, LevelMeshDrawType drawType, bool noFragmentShader)
 {
+	if (drawType == LevelMeshDrawType::Masked && noFragmentShader)
+	{
+		// We unfortunately have to run the fragment shader to know which pixels are masked. Use a simplified version to reduce the cost.
+		noFragmentShader = false;
+		pipelineKey.ShaderKey.AlphaTestOnly = true;
+	}
+
 	// Global state that don't require rebuilding the mesh
 	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;
 	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;

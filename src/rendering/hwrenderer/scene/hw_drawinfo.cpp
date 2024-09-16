@@ -443,8 +443,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetColorMask(false);
 		state.SetCulling(Cull_CW);
 		state.DrawLevelMesh(LevelMeshDrawType::Opaque, true);
-		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
-		state.DrawLevelMesh(LevelMeshDrawType::Masked, false); // To do: properly mark wall top/bottom as opaque so we don't need this
+		state.DrawLevelMesh(LevelMeshDrawType::Masked, true);
 		if (gl_portals)
 		{
 			state.SetDepthBias(1, 128);
@@ -480,6 +479,8 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetColorMask(true);
 		state.SetDepthMask(true);
 		int queryEnd = state.GetNextQueryIndex();
+
+		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
 
 		// draw opaque level so the GPU has something to do while we examine the query results
 		state.DrawLevelMesh(LevelMeshDrawType::Opaque, false);

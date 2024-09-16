@@ -97,7 +97,8 @@ public:
 			uint64_t FogBalls : 1;      // FOGBALLS
 			uint64_t NoFragmentShader : 1;
 			uint64_t DepthFadeThreshold : 1;
-			uint64_t Unused : 41;
+			uint64_t AlphaTestOnly : 1; // ALPHATEST_ONLY
+			uint64_t Unused : 40;
 		};
 		uint64_t AsQWORD = 0;
 	};

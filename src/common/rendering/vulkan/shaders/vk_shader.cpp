@@ -219,6 +219,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (!fb->GetDevice()->EnabledFeatures.Features.shaderClipDistance) definesBlock << "#define NO_CLIPDISTANCE_SUPPORT\n";
 	if (!key.AlphaTest) definesBlock << "#define NO_ALPHATEST\n";
 	if (key.GBufferPass) definesBlock << "#define GBUFFER_PASS\n";
+	if (key.AlphaTestOnly) definesBlock << "#define ALPHATEST_ONLY\n";
 
 	if (key.DepthFadeThreshold) definesBlock << "#define USE_DEPTHFADETHRESHOLD\n";
 

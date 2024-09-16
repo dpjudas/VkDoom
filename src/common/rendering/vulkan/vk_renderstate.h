@@ -92,7 +92,7 @@ protected:
 
 	void RunZMinMaxPass();
 	void ApplyLevelMesh();
-	void ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool noFragmentShader);
+	void ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, LevelMeshDrawType drawType, bool noFragmentShader);
 
 	VulkanRenderDevice* fb = nullptr;
 
