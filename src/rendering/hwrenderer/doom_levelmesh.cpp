@@ -318,6 +318,44 @@ void DoomLevelMesh::UpdateWallPortals()
 	}
 }
 
+void DoomLevelMesh::ProcessDecals(HWDrawInfo* di, FRenderState& state)
+{
+	for (int sideIndex : level.levelMesh->SideDecals)
+	{
+		const auto& side = Sides[sideIndex];
+
+		Plane p;
+		if (side.Decals[0].Size() != 0 || side.Decals[1].Size() != 0)
+		{
+			if (side.FirstSurface == -1)
+				continue;
+			p.Set(Mesh.Surfaces[side.FirstSurface].Plane.XYZ(), Mesh.Surfaces[side.FirstSurface].Plane.W);
+		}
+
+		for (int onmirror = 0; onmirror < 2; onmirror++)
+		{
+			for (const HWDecal& decal : side.Decals[onmirror])
+			{
+				HWDecal* gldecal = di->AddDecal(onmirror == 1);
+				*gldecal = decal;
+
+				if (di->Level->HasDynamicLights && !di->isFullbrightScene() && decal.texture != nullptr)
+				{
+					gldecal->SetupLights(di, state, lightdata, p, level.sides[sideIndex].lighthead);
+				}
+
+				auto verts = state.AllocVertices(4);
+				for (int i = 0; i < 4; i++)
+				{
+					verts.first[i] = side.DecalVertices[decal.vertindex + i];
+				}
+				gldecal->vertindex = verts.second;
+			}
+		}
+	}
+}
+
+
 void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
 {
 	if (LightsCreated)
@@ -525,6 +563,9 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	Sides[sideIndex].Uniforms.Clear();
 
 	Sides[sideIndex].WallPortals.Clear();
+	Sides[sideIndex].Decals[0].Clear();
+	Sides[sideIndex].Decals[1].Clear();
+	Sides[sideIndex].DecalVertices.Clear();
 }
 
 void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
@@ -553,7 +594,7 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	Flats[sectorIndex].Uniforms.Clear();
 }
 
-void DoomLevelMesh::FloorHeightChanged(struct sector_t* sector)
+void DoomLevelMesh::FloorHeightChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 	for (line_t* line : sector->Lines)
@@ -565,7 +606,7 @@ void DoomLevelMesh::FloorHeightChanged(struct sector_t* sector)
 	}
 }
 
-void DoomLevelMesh::CeilingHeightChanged(struct sector_t* sector)
+void DoomLevelMesh::CeilingHeightChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 	for (line_t* line : sector->Lines)
@@ -577,32 +618,37 @@ void DoomLevelMesh::CeilingHeightChanged(struct sector_t* sector)
 	}
 }
 
-void DoomLevelMesh::MidTex3DHeightChanged(struct sector_t* sector)
+void DoomLevelMesh::MidTex3DHeightChanged(sector_t* sector)
 {
 	// UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::FloorTextureChanged(struct sector_t* sector)
+void DoomLevelMesh::FloorTextureChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::CeilingTextureChanged(struct sector_t* sector)
+void DoomLevelMesh::CeilingTextureChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::SectorChangedOther(struct sector_t* sector)
+void DoomLevelMesh::SectorChangedOther(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::SideTextureChanged(struct side_t* side, int section)
+void DoomLevelMesh::SideTextureChanged(side_t* side, int section)
 {
 	UpdateSide(side->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
+void DoomLevelMesh::SideDecalsChanged(side_t* side)
+{
+	UpdateSide(side->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::SectorLightChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::LightsOnly);
 	for (line_t* line : sector->Lines)
@@ -614,11 +660,11 @@ void DoomLevelMesh::SectorLightChanged(struct sector_t* sector)
 	}
 }
 
-void DoomLevelMesh::SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker)
+void DoomLevelMesh::SectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker)
 {
 }
 
-void DoomLevelMesh::SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker)
+void DoomLevelMesh::SectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker)
 {
 }
 
@@ -676,6 +722,30 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	wall.sub = sub;
 	wall.Process(&disp, state, seg, front, back);
 
+	auto& sideBlock = Sides[sideIndex];
+
+	// Grab the decals generated
+	for (int onmirror = 0; onmirror < 2; onmirror++)
+	{
+		if (result.decals[onmirror].Size() != 0 && !sideBlock.InSideDecalsList)
+		{
+			SideDecals.Push(sideIndex);
+			sideBlock.InSideDecalsList = true;
+		}
+
+		for (const HWDecal& decal : result.decals[onmirror])
+		{
+			int oldvertindex = decal.vertindex;
+			int newvertindex = sideBlock.DecalVertices.Size();
+			for (int i = 0; i < 4; i++)
+			{
+				sideBlock.DecalVertices.Push(state.mVertices[oldvertindex + i]);
+			}
+			sideBlock.Decals[onmirror].Push(decal);
+			sideBlock.Decals[onmirror].Last().vertindex = newvertindex;
+		}
+	}
+
 	// Part 1: solid geometry. This is set up so that there are no transparent parts
 	state.SetDepthFunc(DF_LEqual);
 	state.ClearDepthBias();
@@ -684,16 +754,16 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	CreateWallSurface(side, disp, state, result.list, back ? LevelMeshDrawType::Masked : LevelMeshDrawType::Opaque, true, sideIndex);
 
-	if (result.portals.Size() != 0 && !Sides[sideIndex].InSidePortalsList)
+	if (result.portals.Size() != 0 && !sideBlock.InSidePortalsList)
 	{
 		// Register side having portals
 		SidePortals.Push(sideIndex);
-		Sides[sideIndex].InSidePortalsList = true;
+		sideBlock.InSidePortalsList = true;
 	}
 
 	for (HWWall& portal : result.portals)
 	{
-		Sides[sideIndex].WallPortals.Push(portal);
+		sideBlock.WallPortals.Push(portal);
 	}
 
 	CreateWallSurface(side, disp, state, result.portals, LevelMeshDrawType::Portal, false, sideIndex);

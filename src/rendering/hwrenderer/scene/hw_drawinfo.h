@@ -327,7 +327,7 @@ public:
     void AddSubsectorToPortal(FSectorPortalGroup *portal, subsector_t *sub);
     
     void AddWall(HWWall *w);
-    void AddMirrorSurface(HWWall *w, FRenderState& state);
+    void AddMirrorSurface(HWWallDispatcher* di, HWWall *w, FRenderState& state);
 	void AddFlat(HWFlat *flat, bool fog);
 	void AddSprite(HWSprite *sprite, bool translucent);
 

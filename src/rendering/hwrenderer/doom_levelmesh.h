@@ -15,6 +15,7 @@
 struct FLevelLocals;
 struct FPolyObj;
 struct HWWallDispatcher;
+struct HWDrawInfo;
 class DoomLevelMesh;
 class MeshBuilder;
 
@@ -67,7 +68,10 @@ struct SideSurfaceBlock
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
 	TArray<HWWall> WallPortals;
+	TArray<HWDecal> Decals[2];
+	TArray<FFlatVertex> DecalVertices;
 	bool InSidePortalsList = false;
+	bool InSideDecalsList = false;
 	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 };
@@ -94,6 +98,9 @@ public:
 
 	void BuildSectorGroups(const FLevelLocals& doomMap);
 
+	void ProcessDecals(HWDrawInfo* drawinfo, FRenderState& state);
+
+	TArray<int> SideDecals;
 	TArray<int> SidePortals;
 	TArray<HWWall*> WallPortals;
 
@@ -103,16 +110,17 @@ public:
 
 	void CreateLights(FLevelLocals& doomMap);
 
-	void FloorHeightChanged(struct sector_t* sector) override;
-	void CeilingHeightChanged(struct sector_t* sector) override;
-	void MidTex3DHeightChanged(struct sector_t* sector) override;
-	void FloorTextureChanged(struct sector_t* sector) override;
-	void CeilingTextureChanged(struct sector_t* sector) override;
-	void SectorChangedOther(struct sector_t* sector) override;
-	void SideTextureChanged(struct side_t* side, int section) override;
-	void SectorLightChanged(struct sector_t* sector) override;
-	void SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker) override;
-	void SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker) override;
+	void FloorHeightChanged(sector_t* sector) override;
+	void CeilingHeightChanged(sector_t* sector) override;
+	void MidTex3DHeightChanged(sector_t* sector) override;
+	void FloorTextureChanged(sector_t* sector) override;
+	void CeilingTextureChanged(sector_t* sector) override;
+	void SectorChangedOther(sector_t* sector) override;
+	void SideTextureChanged(side_t* side, int section) override;
+	void SideDecalsChanged(side_t* side) override;
+	void SectorLightChanged(sector_t* sector) override;
+	void SectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker) override;
+	void SectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker) override;
 
 	void Reset(const LevelMeshLimits& limits) override
 	{

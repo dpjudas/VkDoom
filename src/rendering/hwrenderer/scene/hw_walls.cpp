@@ -524,24 +524,23 @@ void HWWall::PutWall(HWWallDispatcher *di, FRenderState& state, bool translucent
 		{
 			flags &= ~HWF_GLOW;
 		}
-
-		bool solid;
-		if (passflag[type] == 1) solid = true;
-		else if (type == RENDERWALL_FFBLOCK) solid = texture && !texture->isMasked();
-		else solid = false;
-
-		bool hasDecals = solid && seg->sidedef && seg->sidedef->AttachedDecals;
-		if (hasDecals)
-		{
-			// If we want to use the light infos for the decal we cannot delay the creation until the render pass.
-			if (ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
-			{
-				SetupLights(ddi, state, lightdata);
-			}
-			ProcessDecals(ddi, state);
-		}
 	}
 
+	bool solid;
+	if (passflag[type] == 1) solid = true;
+	else if (type == RENDERWALL_FFBLOCK) solid = texture && !texture->isMasked();
+	else solid = false;
+
+	bool hasDecals = solid && seg->sidedef && seg->sidedef->AttachedDecals;
+	if (hasDecals)
+	{
+		// If we want to use the light infos for the decal we cannot delay the creation until the render pass.
+		if (ddi && ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
+		{
+			SetupLights(ddi, state, lightdata);
+		}
+		ProcessDecals(di, state);
+	}
 
 	di->AddWall(this);
 
@@ -631,7 +630,7 @@ void HWWall::PutPortal(HWWallDispatcher *di, FRenderState& state, int ptype, int
 			if (gl_mirror_envmap)
 			{
 				// draw a reflective layer over the mirror
-				ddi->AddMirrorSurface(this, state);
+				ddi->AddMirrorSurface(di, this, state);
 			}
 			break;
 

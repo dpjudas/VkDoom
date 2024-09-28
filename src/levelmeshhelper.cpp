@@ -3,20 +3,21 @@
 
 struct NullLevelMeshUpdater : UpdateLevelMesh
 {
-	virtual void FloorHeightChanged(struct sector_t* sector) {};
-	virtual void CeilingHeightChanged(struct sector_t* sector) {};
-	virtual void MidTex3DHeightChanged(struct sector_t* sector) {};
+	void FloorHeightChanged(sector_t* sector) override {}
+	void CeilingHeightChanged(sector_t* sector) override {}
+	void MidTex3DHeightChanged(sector_t* sector) override {}
 
-	virtual void FloorTextureChanged(struct sector_t* sector) {};
-	virtual void CeilingTextureChanged(struct sector_t* sector) {};
+	void FloorTextureChanged(sector_t* sector) override {}
+	void CeilingTextureChanged(sector_t* sector) override {}
 
-	virtual void SectorChangedOther(struct sector_t* sector) {};
+	void SectorChangedOther(sector_t* sector) override {}
 
-	virtual void SideTextureChanged(struct side_t* side, int section) {};
+	void SideTextureChanged(side_t* side, int section) override {}
+	void SideDecalsChanged(side_t* side) override {}
 
-	virtual void SectorLightChanged(struct sector_t* sector) {};
-	virtual void SectorLightThinkerCreated(struct sector_t* sector, class DLighting* lightthinker) {};
-	virtual void SectorLightThinkerDestroyed(struct sector_t* sector, class DLighting* lightthinker) {};
+	void SectorLightChanged(sector_t* sector) override {}
+	void SectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker) override {}
+	void SectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker) override {}
 };
 
 static NullLevelMeshUpdater nullUpdater;

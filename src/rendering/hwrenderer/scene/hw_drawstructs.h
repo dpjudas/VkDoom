@@ -281,8 +281,8 @@ public:
 		float fch1, float fch2, float ffh1, float ffh2,
 		float bch1, float bch2, float bfh1, float bfh2);
 
-	void ProcessDecal(HWDrawInfo* di, FRenderState& state, DBaseDecal* decal, const FVector3& normal);
-	void ProcessDecals(HWDrawInfo* di, FRenderState& state);
+	void ProcessDecal(HWWallDispatcher* di, FRenderState& state, DBaseDecal* decal, const FVector3& normal);
+	void ProcessDecals(HWWallDispatcher* di, FRenderState& state);
 
 	int CreateVertices(FFlatVertex*& ptr, bool nosplit);
 	void SplitLeftEdge(FFlatVertex*& ptr);
@@ -427,8 +427,9 @@ public:
 	void DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent);
 };
 
-
-
+struct FDynLightData;
+struct FLightNode;
+class FRenderState;
 
 struct DecalVertex
 {
@@ -455,7 +456,7 @@ struct HWDecal
 	FVector3 Normal;
 
 	void DrawDecal(HWDrawInfo *di, FRenderState &state);
-
+	void SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, Plane p, FLightNode* node);
 };
 
 

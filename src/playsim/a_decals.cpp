@@ -156,7 +156,8 @@ void DBaseDecal::Remove ()
 {
 	if (WallPrev == nullptr)
 	{
-		if (Side != nullptr) Side->AttachedDecals = WallNext;
+		if (Side != nullptr)
+			Side->AttachedDecals = WallNext;
 	}
 	else WallPrev->WallNext = WallNext;
 
@@ -164,6 +165,9 @@ void DBaseDecal::Remove ()
 
 	WallPrev = nullptr;
 	WallNext = nullptr;
+
+	if (Side)
+		LevelMeshUpdater->SideDecalsChanged(Side);
 }
 
 //----------------------------------------------------------------------------
@@ -261,6 +265,8 @@ FTextureID DBaseDecal::StickToWall (side_t *wall, double x, double y, F3DFloor *
 	if (WallPrev != nullptr) WallPrev->WallNext = this;
 	else wall->AttachedDecals = this;
 	WallNext = nullptr;
+
+	LevelMeshUpdater->SideDecalsChanged(wall);
 
 
 	sector_t *front, *back;

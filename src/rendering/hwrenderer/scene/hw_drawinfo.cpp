@@ -507,6 +507,17 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 			}
 		}
 
+		// Draw Decals
+		{
+			level.levelMesh->ProcessDecals(this, state);
+			state.SetRenderStyle(STYLE_Translucent);
+			state.SetDepthFunc(DF_LEqual);
+			DrawDecals(state, Decals[0]);
+			DrawDecals(state, Decals[1]); // Mirror decals - when should they be drawn?
+			Decals[0].Clear();
+			Decals[1].Clear();
+		}
+
 		// Draw sprites
 		auto it = level.GetThinkerIterator<AActor>();
 		AActor* thing;

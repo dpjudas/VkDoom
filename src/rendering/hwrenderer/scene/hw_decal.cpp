@@ -39,6 +39,9 @@
 #include "flatvertices.h"
 #include "hw_renderstate.h"
 #include "texturemanager.h"
+#include "hw_walldispatcher.h"
+#include "hw_dynlightdata.h"
+#include "a_dynlight.h"
 
 //==========================================================================
 //
@@ -189,7 +192,7 @@ static float mix(float a, float b, float t)
 	return a * (1.0f - t) + b * t;
 }
 
-void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal, const FVector3 &normal)
+void HWWall::ProcessDecal(HWWallDispatcher* di, FRenderState& state, DBaseDecal *decal, const FVector3 &normal)
 {
 	line_t * line = seg->linedef;
 	side_t * side = seg->sidedef;
@@ -448,7 +451,7 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 //
 //==========================================================================
 
-void HWWall::ProcessDecals(HWDrawInfo *di, FRenderState& state)
+void HWWall::ProcessDecals(HWWallDispatcher* di, FRenderState& state)
 {
 	if (seg->sidedef != nullptr)
 	{
@@ -465,3 +468,73 @@ void HWWall::ProcessDecals(HWDrawInfo *di, FRenderState& state)
 	}
 }
 
+//==========================================================================
+
+void HWDecal::SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, Plane p, FLightNode* node)
+{
+	lightdata.Clear();
+
+	// if (RenderStyle == STYLE_Add && !di->Level->lightadditivesurfaces) return;	// no lights on additively blended surfaces.
+
+	//float vtx[] = { glseg.x1,zbottom[0],glseg.y1, glseg.x1,ztop[0],glseg.y1, glseg.x2,ztop[1],glseg.y2, glseg.x2,zbottom[1],glseg.y2 };
+	//Plane p;
+	// auto normal = glseg.Normal();
+	// p.Set(normal, -normal.X * glseg.x1 - normal.Z * glseg.y1);
+
+	// Iterate through all dynamic lights which touch this wall and render them
+	while (node)
+	{
+		if (node->lightsource->IsActive() && !node->lightsource->DontLightMap())
+		{
+			iter_dlight++;
+
+			DVector3 posrel = node->lightsource->PosRelative(frontsector->PortalGroup);
+			float x = posrel.X;
+			float y = posrel.Y;
+			float z = posrel.Z;
+			float dist = fabsf(p.DistToPoint(x, z, y));
+			float radius = node->lightsource->GetRadius();
+			//float scale = 1.0f / ((2.f * radius) - dist);
+			//FVector3 fn, pos;
+
+			if (radius > 0.f && dist < radius)
+			{
+				/*
+				FVector3 nearPt, up, right;
+
+				pos = { x, z, y };
+				fn = p.Normal();
+
+				fn.GetRightUp(right, up);
+
+				FVector3 tmpVec = fn * dist;
+				nearPt = pos + tmpVec;
+
+				FVector3 t1;
+				int outcnt[4] = { 0,0,0,0 };
+				texcoord tcs[4];
+
+				// do a quick check whether the light touches this polygon
+				for (int i = 0; i < 4; i++)
+				{
+					t1 = FVector3(&vtx[i * 3]);
+					FVector3 nearToVert = t1 - nearPt;
+					tcs[i].u = ((nearToVert | right) * scale) + 0.5f;
+					tcs[i].v = ((nearToVert | up) * scale) + 0.5f;
+
+					if (tcs[i].u < 0) outcnt[0]++;
+					if (tcs[i].u > 1) outcnt[1]++;
+					if (tcs[i].v < 0) outcnt[2]++;
+					if (tcs[i].v > 1) outcnt[3]++;
+
+				}
+				if (outcnt[0] != 4 && outcnt[1] != 4 && outcnt[2] != 4 && outcnt[3] != 4)*/
+				{
+					draw_dlight += GetLight(lightdata, frontsector->PortalGroup, p, node->lightsource, true);
+				}
+			}
+		}
+		node = node->nextLight;
+	}
+	dynlightindex = state.UploadLights(lightdata);
+}
