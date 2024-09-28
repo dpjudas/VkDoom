@@ -14,7 +14,7 @@ struct HWMeshHelper
 	TArray<HWWall> portals;
 	TArray<HWMissing> lower;
 	TArray<HWMissing> upper;
-	TArray<HWDecal> decals[2];
+	TArray<HWDecalCreateInfo> decals;
 };
 
 
@@ -78,10 +78,8 @@ struct HWWallDispatcher
 		mh->portals.Push(*wal);
 	}
 
-	HWDecal* AddDecal(bool onmirror)
+	void AddDecal(const HWDecalCreateInfo& info)
 	{
-		if (di) return di->AddDecal(onmirror);
-		mh->decals[onmirror].Reserve(1);
-		return &mh->decals[onmirror].Last();
+		mh->decals.Push(info);
 	}
 };

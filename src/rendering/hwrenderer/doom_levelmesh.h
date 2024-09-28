@@ -68,8 +68,7 @@ struct SideSurfaceBlock
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
 	TArray<HWWall> WallPortals;
-	TArray<HWDecal> Decals[2];
-	TArray<FFlatVertex> DecalVertices;
+	TArray<HWDecalCreateInfo> Decals;
 	bool InSidePortalsList = false;
 	bool InSideDecalsList = false;
 	TArray<DrawRangeInfo> DrawRanges;

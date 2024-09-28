@@ -323,38 +323,21 @@ void DoomLevelMesh::ProcessDecals(HWDrawInfo* di, FRenderState& state)
 	for (int sideIndex : level.levelMesh->SideDecals)
 	{
 		const auto& side = Sides[sideIndex];
+		if (side.Decals.Size() == 0)
+			continue;
 
-		Plane p;
-		if (side.Decals[0].Size() != 0 || side.Decals[1].Size() != 0)
+		int dynlightindex = -1;
+		if (di->Level->HasDynamicLights && !di->isFullbrightScene() && side.Decals[0].texture != nullptr)
 		{
-			if (side.FirstSurface == -1)
-				continue;
-			p.Set(Mesh.Surfaces[side.FirstSurface].Plane.XYZ(), Mesh.Surfaces[side.FirstSurface].Plane.W);
+			dynlightindex = side.Decals[0].SetupLights(di, state, lightdata, level.sides[sideIndex].lighthead);
 		}
 
-		for (int onmirror = 0; onmirror < 2; onmirror++)
+		for (const HWDecalCreateInfo& info : side.Decals)
 		{
-			for (const HWDecal& decal : side.Decals[onmirror])
-			{
-				HWDecal* gldecal = di->AddDecal(onmirror == 1);
-				*gldecal = decal;
-
-				if (di->Level->HasDynamicLights && !di->isFullbrightScene() && decal.texture != nullptr)
-				{
-					gldecal->SetupLights(di, state, lightdata, p, level.sides[sideIndex].lighthead);
-				}
-
-				auto verts = state.AllocVertices(4);
-				for (int i = 0; i < 4; i++)
-				{
-					verts.first[i] = side.DecalVertices[decal.vertindex + i];
-				}
-				gldecal->vertindex = verts.second;
-			}
+			info.ProcessDecal(di, state, dynlightindex);
 		}
 	}
 }
-
 
 void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
 {
@@ -563,9 +546,7 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	Sides[sideIndex].Uniforms.Clear();
 
 	Sides[sideIndex].WallPortals.Clear();
-	Sides[sideIndex].Decals[0].Clear();
-	Sides[sideIndex].Decals[1].Clear();
-	Sides[sideIndex].DecalVertices.Clear();
+	Sides[sideIndex].Decals.Clear();
 }
 
 void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
@@ -725,26 +706,13 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	auto& sideBlock = Sides[sideIndex];
 
 	// Grab the decals generated
-	for (int onmirror = 0; onmirror < 2; onmirror++)
+	if (result.decals.Size() != 0 && !sideBlock.InSideDecalsList)
 	{
-		if (result.decals[onmirror].Size() != 0 && !sideBlock.InSideDecalsList)
-		{
-			SideDecals.Push(sideIndex);
-			sideBlock.InSideDecalsList = true;
-		}
-
-		for (const HWDecal& decal : result.decals[onmirror])
-		{
-			int oldvertindex = decal.vertindex;
-			int newvertindex = sideBlock.DecalVertices.Size();
-			for (int i = 0; i < 4; i++)
-			{
-				sideBlock.DecalVertices.Push(state.mVertices[oldvertindex + i]);
-			}
-			sideBlock.Decals[onmirror].Push(decal);
-			sideBlock.Decals[onmirror].Last().vertindex = newvertindex;
-		}
+		SideDecals.Push(sideIndex);
+		sideBlock.InSideDecalsList = true;
 	}
+
+	sideBlock.Decals = result.decals;
 
 	// Part 1: solid geometry. This is set up so that there are no transparent parts
 	state.SetDepthFunc(DF_LEqual);

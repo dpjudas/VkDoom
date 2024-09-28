@@ -281,7 +281,7 @@ public:
 		float fch1, float fch2, float ffh1, float ffh2,
 		float bch1, float bch2, float bfh1, float bfh2);
 
-	void ProcessDecal(HWWallDispatcher* di, FRenderState& state, DBaseDecal* decal, const FVector3& normal);
+	void ProcessDecal(HWDrawInfo* di, FRenderState& state, DBaseDecal* decal, const FVector3& normal);
 	void ProcessDecals(HWWallDispatcher* di, FRenderState& state);
 
 	int CreateVertices(FFlatVertex*& ptr, bool nosplit);
@@ -456,7 +456,31 @@ struct HWDecal
 	FVector3 Normal;
 
 	void DrawDecal(HWDrawInfo *di, FRenderState &state);
-	void SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, Plane p, FLightNode* node);
+};
+
+struct HWDecalCreateInfo
+{
+	void ProcessDecal(HWDrawInfo* di, FRenderState& state, int dynlightindex) const;
+	int SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, FLightNode* node) const;
+
+	DBaseDecal* decal;
+	FVector3 normal;
+
+	seg_t* seg;
+	sector_t* frontsector;
+
+	uint8_t type;
+	HWSeg glseg;
+	float ztop[2], zbottom[2];
+
+	FColormap Colormap;
+
+	FGameTexture* texture;
+	TArray<lightlist_t>* lightlist;
+	int lightmaptile;
+
+	short lightlevel;
+	short rellight;
 };
 
 
