@@ -73,7 +73,6 @@ layout(push_constant) uniform PushConstants
 #define uVertexColor lightdata[uDataIndex].uVertexColor
 #define uDesaturationFactor lightdata[uDataIndex].uDesaturationFactor
 #define uLightLevel lightdata[uDataIndex].uLightLevel
-//#define uLightIndex lightdata[uDataIndex].uLightIndex
 int uLightIndex;
 #else
 #define uVertexColor data[uDataIndex].uVertexColor

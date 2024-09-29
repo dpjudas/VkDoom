@@ -10,6 +10,7 @@
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
 #include "hw_dynlightdata.h"
+#include "hwrenderer/scene/hw_lighting.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_walldispatcher.h"
@@ -168,6 +169,13 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	SunDirection = doomMap.SunDirection;
 	LightmapSampleDistance = doomMap.LightmapSampleDistance;
 
+	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
+	// but we aren't rendering a specific viewpoint when this function gets called
+	int oldextralight = r_viewpoint.extralight;
+	AActor* oldcamera = r_viewpoint.camera;
+	r_viewpoint.extralight = 0;
+	r_viewpoint.camera = nullptr;
+
 	BuildSectorGroups(doomMap);
 	CreatePortals(doomMap);
 	CreateSurfaces(doomMap);
@@ -178,6 +186,9 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	UploadPortals();
 
 	SortDrawLists();
+
+	r_viewpoint.extralight = oldextralight;
+	r_viewpoint.camera = oldcamera;
 }
 
 void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
@@ -218,6 +229,13 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	LastFrameStats = CurFrameStats;
 	CurFrameStats = Stats();
 
+	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
+	// but we aren't rendering a specific viewpoint when this function gets called
+	int oldextralight = r_viewpoint.extralight;
+	AActor* oldcamera = r_viewpoint.camera;
+	r_viewpoint.extralight = 0;
+	r_viewpoint.camera = nullptr;
+
 	// To do: we don't need to always do this. UpdateLevelMesh should tell us when polyobjs move.
 	for (side_t* side : PolySides)
 	{
@@ -256,6 +274,9 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	UpdateWallPortals();
 
 	UploadDynLights(doomMap);
+
+	r_viewpoint.extralight = oldextralight;
+	r_viewpoint.camera = oldcamera;
 }
 
 void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
@@ -785,6 +806,35 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 
 void DoomLevelMesh::SetSideLights(FLevelLocals& doomMap, unsigned int sideIndex)
 {
+	ELightMode lightmode = getRealLightmode(&doomMap, true);
+
+	side_t* side = &doomMap.sides[sideIndex];
+
+	// Global modifiers that affects EVERYTHING.
+	// We need to find a way to apply this in the shader.
+	int rel = getExtraLight();
+	bool fullbrightScene = isFullbrightScene();
+
+	// To do: we need to know where each uniform block came from:
+	sector_t* frontsector = side->sector;
+	FColormap Colormap = frontsector->Colormap; // To do: this may come from the lightlist
+	bool foggy = (!Colormap.FadeColor.isBlack() || doomMap.flags & LEVEL_HASFADETABLE);	// fog disables fake contrast
+	float alpha = 1.0f;
+	if (side->linedef->alpha != 0)
+	{
+		switch (side->linedef->flags & ML_ADDTRANS)
+		{
+		case 0:
+		case ML_ADDTRANS:
+			alpha = side->linedef->alpha;
+		}
+	}
+	float absalpha = fabsf(alpha);
+
+	// GetLightLevel changes global extra light. Used for the fake contrast:
+	int orglightlevel = hw_ClampLight(frontsector->lightlevel);
+	int lightlevel = hw_ClampLight(side->GetLightLevel(foggy, orglightlevel, side_t::mid, false, &rel));
+
 	for (UniformsAllocInfo& uinfo : Sides[sideIndex].Uniforms)
 	{
 		for (int i = 0, count = uinfo.Count; i < count; i++)
@@ -796,6 +846,8 @@ void DoomLevelMesh::SetSideLights(FLevelLocals& doomMap, unsigned int sideIndex)
 			{
 				uinfo.LightUniforms[i].uLightLevel = clamp(doomMap.sides[sideIndex].sector->lightlevel * (1.0f / 255.0f), 0.0f, 1.0f);
 			}
+
+			SetColor(uinfo.LightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, absalpha);
 		}
 		AddRange(UploadRanges.LightUniforms, { uinfo.Start, uinfo.Start + uinfo.Count });
 	}
@@ -803,17 +855,25 @@ void DoomLevelMesh::SetSideLights(FLevelLocals& doomMap, unsigned int sideIndex)
 
 void DoomLevelMesh::SetFlatLights(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
+	ELightMode lightmode = getRealLightmode(&doomMap, true);
+
+	// Global modifiers that affects EVERYTHING.
+	// We need to find a way to apply this in the shader.
+	int rel = 0;// getExtraLight();
+	bool fullbrightScene = false; // isFullbrightScene();
+
+	// To do: we need to know where each uniform block came from:
+	sector_t* frontsector = &doomMap.sectors[sectorIndex];
+	int lightlevel = hw_ClampLight(frontsector->GetFloorLight());
+	FColormap Colormap = frontsector->Colormap;
+	FSectorPortal* portal = frontsector->ValidatePortal(sector_t::floor);
+	double alpha = portal ? frontsector->GetAlpha(sector_t::floor) : 1.0f - frontsector->GetReflect(sector_t::floor);
+
 	for (UniformsAllocInfo& uinfo : Flats[sectorIndex].Uniforms)
 	{
 		for (int i = 0, count = uinfo.Count; i < count; i++)
 		{
-			// To do: calculate this correctly (see HWDrawInfo::SetColor)
-			// uinfo.LightUniforms[i].uVertexColor
-			// uinfo.LightUniforms[i].uDesaturationFactor
-			if (uinfo.LightUniforms[i].uLightLevel >= 0.0f)
-			{
-				uinfo.LightUniforms[i].uLightLevel = clamp(doomMap.sectors[sectorIndex].lightlevel * (1.0f / 255.0f), 0.0f, 1.0f);
-			}
+			SetColor(uinfo.LightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, alpha);
 		}
 		AddRange(UploadRanges.LightUniforms, { uinfo.Start, uinfo.Start + uinfo.Count });
 	}
@@ -916,7 +976,6 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			curLightUniforms->uVertexColor = applyState.surfaceUniforms.uVertexColor;
 			curLightUniforms->uDesaturationFactor = applyState.surfaceUniforms.uDesaturationFactor;
 			curLightUniforms->uLightLevel = applyState.surfaceUniforms.uLightLevel;
-			curLightUniforms->uLightIndex = -1;
 			curLightUniforms++;
 
 			uniformsIndex++;
@@ -1202,7 +1261,6 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		uinfo.LightUniforms->uVertexColor = uniforms->uVertexColor;
 		uinfo.LightUniforms->uDesaturationFactor = uniforms->uDesaturationFactor;
 		uinfo.LightUniforms->uLightLevel = uniforms->uLightLevel;
-		uinfo.LightUniforms->uLightIndex = -1;
 
 		int uniformsIndex = uinfo.Start;
 		int vertIndex = ginfo.VertexStart;

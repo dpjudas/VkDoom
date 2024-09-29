@@ -56,6 +56,24 @@ void SetColor(FRenderState &state, FLevelLocals* Level, ELightMode lightmode, in
 	}
 }
 
+void SetColor(SurfaceLightUniforms& uniforms, FLevelLocals* Level, ELightMode lightmode, int sectorlightlevel, int rellight, bool fullbright, const FColormap& cm, float alpha, bool weapon)
+{
+	if (fullbright)
+	{
+		uniforms.SetColorAlpha(0xffffff, alpha, 0);
+		if (isSoftwareLighting(lightmode)) uniforms.SetSoftLightLevel(255);
+		else uniforms.SetNoSoftLightLevel();
+	}
+	else
+	{
+		int hwlightlevel = CalcLightLevel(lightmode, sectorlightlevel, rellight, weapon, cm.BlendFactor);
+		PalEntry pe = CalcLightColor(lightmode, hwlightlevel, cm.LightColor, cm.BlendFactor);
+		uniforms.SetColorAlpha(pe, alpha, cm.Desaturation);
+		if (isSoftwareLighting(lightmode)) uniforms.SetSoftLightLevel(hw_ClampLight(sectorlightlevel + rellight), cm.BlendFactor);
+		else uniforms.SetNoSoftLightLevel();
+	}
+}
+
 //==========================================================================
 //
 // Lighting stuff 

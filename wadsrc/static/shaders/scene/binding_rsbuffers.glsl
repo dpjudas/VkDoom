@@ -81,8 +81,8 @@ struct SurfaceLightUniforms
 	vec4 uVertexColor;
 	float uDesaturationFactor;
 	float uLightLevel;
-	uint uLightIndex;
-	uint padding;
+	uint padding0;
+	uint padding1;
 };
 
 struct Fogball
