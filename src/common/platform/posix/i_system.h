@@ -74,3 +74,5 @@ bool I_ChDir(const char* path);
 void I_OpenShellFolder(const char*);
 
 #endif
+
+void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FString& logText);
