@@ -3745,6 +3745,9 @@ static int D_DoomMain_Internal (void)
 
 	if (Args->CheckParm("-showcrashreport"))
 	{
+		FString text;
+		text.Format("%s has performed an illegal operation", GAMENAME);
+
 		FString minidumpFilename = Args->GetArg(2);
 		FString logFilename = Args->GetArg(3);
 		
@@ -3766,15 +3769,18 @@ static int D_DoomMain_Internal (void)
 			if (fr.OpenFile(minidumpFilename.GetChars()))
 			{
 				minidump.resize(fr.GetLength());
-				if (fr.Read(minidump.data(), minidump.size()) != (FileReader::Size)minidump.size())
+				if (fr.Read(minidump.data(), minidump.size()) == (FileReader::Size)minidump.size())
+				{
+					fr.Close();
+					I_AddMinidumpCallstack(minidumpFilename, text, logText);
+				}
+				else
 				{
 					minidump.clear();
 				}
 			}
 		}
 
-		FString text;
-		text.Format("%s fatally crashed!", GAMENAME);
 		ErrorWindow::ExecModal(text.GetChars(), logText.GetChars(), std::move(minidump));
 
 		// Crash reporter only uses -showcrashreport on Windows at the moment and there seems to be no abstraction available

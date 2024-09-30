@@ -388,3 +388,6 @@ void I_OpenShellFolder(const char* infolder)
 	free(curdir);
 }
 
+void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FString& logText)
+{
+}

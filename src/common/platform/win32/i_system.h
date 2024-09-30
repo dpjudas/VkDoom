@@ -84,3 +84,5 @@ FString I_GetCWD();
 bool I_ChDir(const char* path);
 
 #endif
+
+void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FString& logText);

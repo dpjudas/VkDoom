@@ -30,6 +30,9 @@
 #ifdef _MSC_VER
 #include <dbghelp.h>
 #include <signal.h>
+#include <Dbgeng.h>
+
+#pragma comment(lib, "dbgeng.lib")
 
 class CrashReporter
 {
@@ -404,3 +407,123 @@ const BYTE CrashReporter::patch_bytes[5] = { 0x33, 0xC0, 0xC2, 0x04, 0x00 };
 #endif
 
 #endif
+
+template<typename T>
+class DbgPtr
+{
+public:
+	DbgPtr() { Ptr = nullptr; }
+	DbgPtr(const DbgPtr& other) { Ptr = other.Ptr; if (Ptr) Ptr->AddRef(); }
+	DbgPtr(DbgPtr&& move) { Ptr = move.Ptr; move.Ptr = nullptr; }
+	~DbgPtr() { reset(); }
+
+	void reset() { if (Ptr) Ptr->Release(); Ptr = nullptr; }
+	T* get() { return Ptr; }
+
+	static IID GetIID() { return __uuidof(T); }
+
+	void** InitPtr() { return (void**)TypedInitPtr(); }
+	T** TypedInitPtr() { reset(); return &Ptr; }
+
+	DbgPtr& operator=(const DbgPtr& other)
+	{
+		if (this != &other)
+		{
+			if (Ptr)
+				Ptr->Release();
+			Ptr = other.Ptr;
+			if (Ptr)
+				Ptr->AddRef();
+		}
+		return *this;
+	}
+
+	operator T* () const { return Ptr; }
+	T* operator ->() const { return Ptr; }
+
+	T* Ptr;
+};
+
+void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FString& logText)
+{
+	DbgPtr<IDebugClient5> client;
+	HRESULT result = DebugCreate(client.GetIID(), client.InitPtr());
+	if (FAILED(result))
+		return;
+
+	DbgPtr<IDebugControl> control;
+	result = client->QueryInterface(control.GetIID(), control.InitPtr());
+	if (FAILED(result))
+		return;
+
+	DbgPtr<IDebugSymbols3> symbols;
+	result = client->QueryInterface(symbols.GetIID(), symbols.InitPtr());
+	if (FAILED(result))
+		return;
+
+	result = client->OpenDumpFileWide(minidumpFilename.WideString().c_str(), 0);
+	if (FAILED(result))
+		return;
+
+	result = control->WaitForEvent(0, INFINITE);
+	if (FAILED(result))
+		return;
+
+	ULONG eventType, processId = 0, threadId = 0, descriptionSize = 0;
+	char descriptionText[1024] = {};
+	result = control->GetLastEventInformation(&eventType, &processId, &threadId, nullptr, 0, nullptr, descriptionText, 1024, &descriptionSize);
+	if (SUCCEEDED(result) && descriptionSize > 0)
+	{
+		std::string description(descriptionText, descriptionSize - 1);
+		text = description;
+		logText.AppendFormat("\n%s\n", description.c_str());
+	}
+
+	DEBUG_STACK_FRAME frames[20] = {};
+	ULONG filled = 0;
+	result = control->GetStackTrace(0, 0, 0, frames, 20, &filled);
+	if (FAILED(result))
+		return;
+
+	for (ULONG i = 0; i < filled; i++)
+	{
+		char nameBuffer[1024] = {};
+		ULONG nameSize = 0;
+		ULONG64 displacement = 0;
+		result = symbols->GetNameByOffset(frames[i].InstructionOffset, nameBuffer, 1024, &nameSize, &displacement);
+		if (SUCCEEDED(result) && nameSize > 0)
+		{
+			std::string name(nameBuffer, nameSize - 1);
+			std::string module;
+			size_t moduleend = name.find('!');
+			if (moduleend != std::string::npos)
+			{
+				module = name.substr(0, moduleend);
+				name = name.substr(moduleend + 1);
+			}
+
+			ULONG line = 0;
+			char fileBuffer[1024] = {};
+			ULONG fileSize = 0;
+			ULONG64 displacement = 0;
+			result = symbols->GetLineByOffset(frames[i].InstructionOffset, &line, fileBuffer, 1024, &fileSize, &displacement);
+			if (SUCCEEDED(result) && fileSize > 0)
+			{
+				std::string file(fileBuffer, fileSize - 1);
+				size_t lastpart = file.find_last_of("/\\");
+				if (lastpart != std::string::npos)
+					file = file.substr(lastpart + 1);
+
+				logText.AppendFormat("Called from %s at %s, line %d\n", name.c_str(), file.c_str(), line);
+			}
+			else
+			{
+				// logText.AppendFormat("Called from %s in module %s\n", name.c_str(), module.c_str());
+			}
+		}
+		else
+		{
+			// logText.AppendFormat("Called from %d\n", frames[i].InstructionOffset);
+		}
+	}
+}

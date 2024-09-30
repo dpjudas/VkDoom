@@ -195,3 +195,6 @@ void I_OpenShellFolder(const char* folder)
 	[filemgr changeCurrentDirectoryPath:currentpath];
 }
 
+void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FString& logText)
+{
+}
