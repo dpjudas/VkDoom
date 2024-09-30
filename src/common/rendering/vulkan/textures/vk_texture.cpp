@@ -267,3 +267,40 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 		.AddImage(&Lightmap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, 1, 0, LMTextureCount)
 		.Execute(cmdbuffer);
 }
+
+void VkTextureManager::DownloadLightmap(int arrayIndex, uint16_t* buffer)
+{
+	unsigned int totalSize = LMTextureSize * LMTextureSize * 4;
+
+	auto stagingBuffer = BufferBuilder()
+		.Size(totalSize * sizeof(uint16_t))
+		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.DebugName("DownloadLightmap")
+		.Create(fb->GetDevice());
+
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	PipelineBarrier()
+		.AddImage(Lightmap.Image.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arrayIndex, 1)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+	VkBufferImageCopy region = {};
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.baseArrayLayer = arrayIndex;
+	region.imageSubresource.layerCount = 1;
+	region.imageSubresource.mipLevel = 0;
+	region.imageExtent.width = LMTextureSize;
+	region.imageExtent.height = LMTextureSize;
+	region.imageExtent.depth = 1;
+	cmdbuffer->copyImageToBuffer(Lightmap.Image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer->buffer, 1, &region);
+
+	PipelineBarrier()
+		.AddImage(Lightmap.Image.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arrayIndex, 1)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	fb->GetCommands()->WaitForCommands(false);
+
+	uint16_t* srcdata = (uint16_t*)stagingBuffer->Map(0, totalSize * sizeof(uint16_t));
+	memcpy(buffer, srcdata, totalSize * sizeof(uint16_t));
+	stagingBuffer->Unmap();
+}

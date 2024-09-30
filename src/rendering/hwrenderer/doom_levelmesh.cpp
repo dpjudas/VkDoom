@@ -94,6 +94,20 @@ CCMD(invalidatelightmap)
 	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->LightmapTiles.Size());
 }
 
+CCMD(savelightmap)
+{
+	if (!RequireLightmap()) return;
+
+	level.levelMesh->SaveLightmapLump(level);
+}
+
+CCMD(deletelightmap)
+{
+	if (!RequireLightmap()) return;
+
+	level.levelMesh->DeleteLightmapLump(level);
+}
+
 void DoomLevelMesh::PrintSurfaceInfo(const LevelMeshSurface* surface)
 {
 	if (!RequireLevelMesh()) return;
@@ -1768,4 +1782,406 @@ void DoomLevelMesh::CreatePortals(FLevelLocals& doomMap)
 			linePortals[i] = index;
 		}
 	}
+}
+
+class LumpWriter
+{
+public:
+	LumpWriter(size_t size) { buffer.Reserve(size); }
+
+	void Write(const void* data, size_t size)
+	{
+		if (pos + size > buffer.size() || size > 0xffffffff)
+			I_FatalError("LumpWriter ran out of space!");
+		memcpy(buffer.data() + pos, data, size);
+		pos += size;
+	}
+
+	void Write8(const uint8_t val) { Write(&val, sizeof(uint8_t)); }
+	void Write16(const short val) { Write(&val, sizeof(uint16_t)); }
+	void Write32(const int val) { Write(&val, sizeof(uint32_t)); }
+	void WriteFloat(const float val) { Write(&val, sizeof(float)); }
+
+	TArray<uint8_t> DeflateCompress()
+	{
+		TArray<uint8_t> output;
+
+		enum { BUFFER_SIZE = 8192 };
+		uint8_t Buffer[BUFFER_SIZE];
+
+		mz_stream Stream = {};
+		int err = deflateInit(&Stream, 9);
+		if (err != Z_OK)
+			I_FatalError("Could not initialize deflate buffer.");
+
+		Stream.next_out = Buffer;
+		Stream.avail_out = BUFFER_SIZE;
+		Stream.next_in = buffer.data();
+		Stream.avail_in = buffer.size();
+		err = mz_deflate(&Stream, 0);
+		while (Stream.avail_out == 0 && err == Z_OK)
+		{
+			AddBytes(output, Buffer, BUFFER_SIZE);
+
+			Stream.next_out = Buffer;
+			Stream.avail_out = BUFFER_SIZE;
+			if (Stream.avail_in != 0)
+			{
+				err = mz_deflate(&Stream, 0);
+			}
+		}
+		if (err != Z_OK)
+			I_FatalError("Error deflating data.");
+
+		while (true)
+		{
+			err = mz_deflate(&Stream, Z_FINISH);
+			if (err != Z_OK)
+			{
+				break;
+			}
+			if (Stream.avail_out == 0)
+			{
+				AddBytes(output, Buffer, BUFFER_SIZE);
+				Stream.next_out = Buffer;
+				Stream.avail_out = BUFFER_SIZE;
+			}
+		}
+		mz_deflateEnd(&Stream);
+		AddBytes(output, Buffer, BUFFER_SIZE - Stream.avail_out);
+
+		return output;
+	}
+
+private:
+	static void AddBytes(TArray<uint8_t>& output, const void* data, size_t size)
+	{
+		int index = output.Reserve(size);
+		memcpy(&output[index], data, size);
+	}
+
+	size_t pos = 0;
+	TArray<uint8_t> buffer;
+};
+
+class MapLump
+{
+public:
+	FString Name;
+	TArray<uint8_t> Data;
+};
+
+TArray<MapLump> LoadMapLumps(FileReader* reader, const char* wadType)
+{
+	char magic[4] = {};
+	uint32_t numlumps = 0;
+	uint32_t infotableofs = 0;
+	if (reader->Read(magic, 4) != 4) return {};
+	if (memcmp(magic, wadType, 4) != 0) return {};
+	if (reader->Read(&numlumps, 4) != 4) return {};
+	if (reader->Read(&infotableofs, 4) != 4) return {};
+	if (reader->Seek(infotableofs, FileReader::SeekSet) == -1) return {};
+
+	TArray<MapLump> lumps;
+	TArray<uint32_t> offsets;
+	lumps.Reserve(numlumps);
+	offsets.Reserve(numlumps);
+
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		uint32_t filepos = 0, lumpsize = 0;
+		char name[9] = {};
+		if (reader->Read(&filepos, 4) != 4) return {};
+		if (reader->Read(&lumpsize, 4) != 4) return {};
+		if (reader->Read(name, 8) != 8) return {};
+
+		offsets[i] = filepos;
+		lumps[i].Name = name;
+		lumps[i].Data.Reserve(lumpsize);
+	}
+
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		if (reader->Seek(offsets[i], FileReader::SeekSet) == -1) return {};
+		if (reader->Read(lumps[i].Data.data(), lumps[i].Data.size()) != lumps[i].Data.size()) return {};
+	}
+
+	return lumps;
+}
+
+void SaveMapLumps(FileWriter* writer, const TArray<MapLump>& lumps, const char* wadType)
+{
+	uint32_t numlumps = (uint32_t)lumps.size();
+	uint32_t infotableofs = 12;
+	for (uint32_t i = 0; i < numlumps; i++)
+		infotableofs += lumps[i].Data.size();
+
+	writer->Write(wadType, 4);
+	writer->Write(&numlumps, 4);
+	writer->Write(&infotableofs, 4);
+
+	TArray<uint32_t> offsets;
+	offsets.Reserve(numlumps);
+
+	uint32_t pos = 12;
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		offsets[i] = pos;
+		writer->Write(lumps[i].Data.data(), lumps[i].Data.size());
+		pos += lumps[i].Data.size();
+	}
+
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		uint32_t filepos = offsets[i];
+		uint32_t lumpsize = lumps[i].Data.size();
+		char name[8] = {};
+		memcpy(name, lumps[i].Name.GetChars(), lumps[i].Name.Len());
+		writer->Write(&filepos, 4);
+		writer->Write(&lumpsize, 4);
+		writer->Write(name, 8);
+	}
+}
+
+void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
+{
+	/*
+	// LIGHTMAP V3 pseudo-C specification:
+
+	struct LightmapLump
+	{
+		int version = 2;
+		uint32_t tileCount;
+		uint32_t pixelCount;
+		uint32_t uvCount;
+		SurfaceEntry surfaces[surfaceCount];
+		uint16_t pixels[pixelCount * 3];
+	};
+
+	struct TileEntry
+	{
+		uint32_t type, typeIndex;
+		uint32_t controlSector; // 0xFFFFFFFF is none
+		uint16_t width, height; // in pixels
+		uint32_t pixelsOffset; // offset in pixels array
+		vec3 translateWorldToLocal;
+		vec3 projLocalToU;
+		vec3 projLocalToV;
+	};
+	*/
+
+	LMTextureData.Resize(LMTextureSize * LMTextureSize * LMTextureCount * 4);
+	for (int arrayIndex = 0; arrayIndex < LMTextureCount; arrayIndex++)
+	{
+		screen->DownloadLightmap(arrayIndex, LMTextureData.Data() + arrayIndex * LMTextureSize * LMTextureSize * 4);
+	}
+
+	// Calculate size of lump
+	uint32_t tileCount = 0;
+	uint32_t pixelCount = 0;
+
+	for (unsigned int i = 0; i < LightmapTiles.Size(); i++)
+	{
+		LightmapTile* tile = &LightmapTiles[i];
+		if (tile->AtlasLocation.ArrayIndex != -1)
+		{
+			tileCount++;
+			pixelCount += tile->AtlasLocation.Area();
+		}
+	}
+
+	const int version = 3;
+
+	const uint32_t headerSize = sizeof(int) + 2 * sizeof(uint32_t);
+	const uint32_t bytesPerTileEntry = sizeof(uint32_t) * 4 + sizeof(uint16_t) * 2 + sizeof(float) * 9;
+	const uint32_t bytesPerPixel = sizeof(uint16_t) * 3; // F16 RGB
+
+	uint32_t lumpSize = headerSize + tileCount * bytesPerTileEntry + pixelCount * bytesPerPixel;
+
+	LumpWriter lumpFile(lumpSize);
+
+	// Write header
+	lumpFile.Write32(version);
+	lumpFile.Write32(tileCount);
+	lumpFile.Write32(pixelCount);
+
+	// Write tiles
+	uint32_t pixelsOffset = 0;
+
+	for (unsigned int i = 0; i < LightmapTiles.Size(); i++)
+	{
+		LightmapTile* tile = &LightmapTiles[i];
+
+		if (tile->AtlasLocation.ArrayIndex == -1)
+			continue;
+
+		lumpFile.Write32(tile->Binding.Type);
+		lumpFile.Write32(tile->Binding.TypeIndex);
+		lumpFile.Write32(tile->Binding.ControlSector);
+
+		lumpFile.Write16(uint16_t(tile->AtlasLocation.Width));
+		lumpFile.Write16(uint16_t(tile->AtlasLocation.Height));
+
+		lumpFile.Write32(pixelsOffset * 3);
+
+		lumpFile.WriteFloat(tile->Transform.TranslateWorldToLocal.X);
+		lumpFile.WriteFloat(tile->Transform.TranslateWorldToLocal.Y);
+		lumpFile.WriteFloat(tile->Transform.TranslateWorldToLocal.Z);
+
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToU.X);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToU.Y);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToU.Z);
+
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToV.X);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToV.Y);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToV.Z);
+
+		pixelsOffset += tile->AtlasLocation.Area();
+	}
+
+	// Write surface pixels
+	for (unsigned int i = 0; i < LightmapTiles.Size(); i++)
+	{
+		LightmapTile* tile = &LightmapTiles[i];
+
+		if (tile->AtlasLocation.ArrayIndex == -1)
+			continue;
+
+		const uint16_t* pixels = LMTextureData.Data() + tile->AtlasLocation.ArrayIndex * LMTextureSize * LMTextureSize * 4;
+		int width = tile->AtlasLocation.Width;
+		int height = tile->AtlasLocation.Height;
+		for (int y = 0; y < height; y++)
+		{
+			const uint16_t* srcline = pixels + (tile->AtlasLocation.X + (tile->AtlasLocation.Y + y) * LMTextureSize) * 4;
+			for (int x = 0; x < width; x++)
+			{
+				lumpFile.Write16(*(srcline++));
+				lumpFile.Write16(*(srcline++));
+				lumpFile.Write16(*(srcline++));
+				srcline++;
+			}
+		}
+	}
+
+	FString fullpath = GetMapFilename(doomMap);
+	if (fullpath.Len() == 0)
+		return;
+
+	Printf("Saving LIGHTMAP lump into %s\n", fullpath.GetChars());
+
+	FileReader reader;
+	if (!reader.OpenFile(fullpath.GetChars()))
+	{
+		I_Error("Could not open map WAD file");
+		return;
+	}
+
+	TArray<MapLump> lumps = LoadMapLumps(&reader, "PWAD");
+	if (lumps.Size() == 0)
+	{
+		I_Error("Could not read map WAD file");
+		return;
+	}
+
+	reader.Close();
+
+	int lightmapIndex = -1;
+	int endmapIndex = lumps.size();
+	FString strLightmap = "LIGHTMAP";
+	FString strEndmap = "ENDMAP";
+	for (int i = 0, count = lumps.size(); i < count; i++)
+	{
+		if (lumps[i].Name == strLightmap)
+			lightmapIndex = i;
+		else if (lumps[i].Name == strEndmap)
+			endmapIndex = i;
+	}
+
+	if (lightmapIndex != -1)
+		lumps[lightmapIndex].Data = lumpFile.DeflateCompress();
+	else
+		lumps.Insert(endmapIndex, { "LIGHTMAP", lumpFile.DeflateCompress()});
+
+	std::unique_ptr<FileWriter> writer(FileWriter::Open(fullpath.GetChars()));
+	if (writer)
+	{
+		SaveMapLumps(writer.get(), lumps, "PWAD");
+	}
+	else
+	{
+		I_Error("Could not write map WAD file");
+	}
+}
+
+void DoomLevelMesh::DeleteLightmapLump(FLevelLocals& doomMap)
+{
+	FString fullpath = GetMapFilename(doomMap);
+	if (fullpath.Len() == 0)
+		return;
+
+	Printf("Deleting LIGHTMAP lump into %s\n", fullpath.GetChars());
+
+	FileReader reader;
+	if (!reader.OpenFile(fullpath.GetChars()))
+	{
+		I_Error("Could not open map WAD file");
+		return;
+	}
+
+	TArray<MapLump> lumps = LoadMapLumps(&reader, "PWAD");
+	if (lumps.Size() == 0)
+	{
+		I_Error("Could not read map WAD file");
+		return;
+	}
+	reader.Close();
+
+	int lightmapIndex = -1;
+	FString strLightmap = "LIGHTMAP";
+	for (int i = 0, count = lumps.size(); i < count; i++)
+	{
+		if (lumps[i].Name == strLightmap)
+			lightmapIndex = i;
+	}
+
+	if (lightmapIndex == -1)
+		return;
+
+	lumps.Delete(lightmapIndex);
+
+	std::unique_ptr<FileWriter> writer(FileWriter::Open(fullpath.GetChars()));
+	if (writer)
+	{
+		SaveMapLumps(writer.get(), lumps, "PWAD");
+	}
+	else
+	{
+		I_Error("Could not write map WAD file");
+	}
+}
+
+FString DoomLevelMesh::GetMapFilename(FLevelLocals& doomMap)
+{
+	const char* mapname = doomMap.MapName.GetChars();
+
+	FString fmt;
+	fmt.Format("maps/%s.wad", mapname);
+	int lump_wad = fileSystem.CheckNumForFullName(fmt.GetChars());
+	if (lump_wad == -1)
+	{
+		I_Error("Could not find map lump");
+		return {};
+	}
+
+	int wadnum = fileSystem.GetFileContainer(lump_wad);
+	if (wadnum == -1)
+	{
+		I_Error("Could not find map folder");
+		return {};
+	}
+
+	FString filename = fileSystem.GetFileFullName(lump_wad);
+	FString folder = fileSystem.GetResourceFileFullName(wadnum);
+	FString fullpath = folder + filename;
+	return fullpath;
 }

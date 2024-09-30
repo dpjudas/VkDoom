@@ -24,6 +24,7 @@ public:
 	void BeginFrame();
 
 	void CreateLightmap(int newLMTextureSize, int newLMTextureCount, TArray<uint16_t>&& newPixelData);
+	void DownloadLightmap(int arrayIndex, uint16_t* buffer);
 
 	VkTextureImage* GetTexture(const PPTextureType& type, PPTexture* tex);
 	VkFormat GetTextureFormat(PPTexture* texture);

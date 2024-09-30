@@ -649,6 +649,11 @@ void VulkanRenderDevice::SetSceneRenderTarget(bool useSSAO)
 	mRenderState->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
 }
 
+void VulkanRenderDevice::DownloadLightmap(int arrayIndex, uint16_t* buffer)
+{
+	mTextureManager->DownloadLightmap(arrayIndex, buffer);
+}
+
 int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation)
 {
 	FMaterialState materialState;

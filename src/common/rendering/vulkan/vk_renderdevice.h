@@ -94,6 +94,7 @@ public:
 	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
 
 	int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) override;
+	void DownloadLightmap(int arrayIndex, uint16_t* buffer) override;
 
 	const VkPipelineKey& GetLevelMeshPipelineKey(int id) const;
 

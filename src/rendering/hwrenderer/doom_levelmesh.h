@@ -109,6 +109,10 @@ public:
 
 	void CreateLights(FLevelLocals& doomMap);
 
+	void SaveLightmapLump(FLevelLocals& doomMap);
+	void DeleteLightmapLump(FLevelLocals& doomMap);
+	static FString GetMapFilename(FLevelLocals& doomMap);
+
 	void FloorHeightChanged(sector_t* sector) override;
 	void CeilingHeightChanged(sector_t* sector) override;
 	void MidTex3DHeightChanged(sector_t* sector) override;
