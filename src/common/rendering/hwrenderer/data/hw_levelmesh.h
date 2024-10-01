@@ -175,7 +175,7 @@ public:
 	int LMTextureSize = 1024;
 	TArray<uint16_t> LMTextureData;
 
-	uint16_t LightmapSampleDistance = 16;
+	uint16_t LightmapSampleDistance = 8;
 
 	TArray<LightmapTile> LightmapTiles;
 	bool LMAtlasPacked = false; // Tile sizes can't be changed anymore
