@@ -2119,7 +2119,7 @@ void DoomLevelMesh::DeleteLightmapLump(FLevelLocals& doomMap)
 	if (fullpath.Len() == 0)
 		return;
 
-	Printf("Deleting LIGHTMAP lump into %s\n", fullpath.GetChars());
+	Printf("Deleting LIGHTMAP lump from %s\n", fullpath.GetChars());
 
 	FileReader reader;
 	if (!reader.OpenFile(fullpath.GetChars()))
