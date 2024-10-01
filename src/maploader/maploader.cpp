@@ -2967,7 +2967,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 	if (map->Size(ML_LIGHTMAP))
 	{
 		// Arbitrary ZDRay limit. This will break lightmap lump loading if not enforced.
-		Level->LightmapSampleDistance = Level->LightmapSampleDistance < 8 ? 8 : Level->LightmapSampleDistance;
+		Level->LightmapSampleDistance = std::clamp((int)Level->LightmapSampleDistance, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX);
 
 		if (!Level->lightmaps) // We are unfortunately missing ZDRayInfo
 		{

@@ -5,6 +5,9 @@
 #include "vectors.h"
 #include "bounds.h"
 
+#define LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN (int)4
+#define LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX (int)64
+
 struct LevelMeshSurface;
 
 struct LightmapTileBinding

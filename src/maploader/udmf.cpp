@@ -810,14 +810,12 @@ public:
 				break;
 			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
-				if (CheckInt(key) >= 0 && CheckInt(key) <= 0xFFFF)
+				if (CheckInt(key) < LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN || CheckInt(key) > LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX)
 				{
-					Level->LightmapSampleDistance = CheckInt(key);
+					DPrintf(DMSG_WARNING, "Current lm_sampledist value, %x, on the ZDRayInfo thing is out of range (min: %i, max: %i)\n",
+						CheckInt(key), LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX);
 				}
-				else
-				{
-					DPrintf(DMSG_WARNING, "Can't set the global lm_sampledist to %s\n", key.GetChars());
-				}
+				Level->LightmapSampleDistance = CheckInt(key);
 				break;
 
 			default:
