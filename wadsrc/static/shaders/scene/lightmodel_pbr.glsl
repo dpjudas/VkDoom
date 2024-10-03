@@ -66,8 +66,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 {
 	vec3 worldpos = pixelpos.xyz;
 
-	vec3 albedo = pow(material.Base.rgb, vec3(2.2)); // sRGB to linear
-	ambientLight = pow(ambientLight, vec3(2.2));
+	vec3 albedo = material.Base.rgb;
 
 	float metallic = material.Metallic;
 	float roughness = material.Roughness;
@@ -168,28 +167,50 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 		}
 	}
 
-	// Pretend we sampled the sector light level from an irradiance map
+	// Treat the ambient sector light as if it is a light source next to the wall
+	{
+		vec3 NN = N;
+		vec3 VV = V;
+		vec3 LL = N;
+		vec3 HH = normalize(VV + LL);
+
+		vec3 radiance = ambientLight.rgb * 2.5;
+
+		// cook-torrance brdf
+		float NDF = DistributionGGX(NN, HH, roughness);
+		float G = GeometrySmith(NN, VV, LL, roughness);
+		vec3 F = fresnelSchlick(clamp(dot(HH, VV), 0.0, 1.0), F0);
+
+		vec3 kS = F;
+		vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+
+		vec3 nominator = NDF * G * F;
+		float denominator = 4.0 * clamp(dot(NN, VV), 0.0, 1.0) * clamp(dot(NN, LL), 0.0, 1.0);
+		vec3 specular = nominator / max(denominator, 0.001);
+		specular = metallic * albedo * 0.40;
+
+		Lo += (kD * albedo / PI + specular) * radiance;
+	}
+
+	float probeIndex = 0.0; // To do: get this from an uniform
 
 	vec3 F = fresnelSchlickRoughness(clamp(dot(N, V), 0.0, 1.0), F0, roughness);
 
 	vec3 kS = F;
 	vec3 kD = 1.0 - kS;
 
-	vec3 irradiance = ambientLight; // texture(irradianceMap, N).rgb
+	vec3 irradiance = texture(IrradianceMap, vec4(N, probeIndex)).rgb;
 	vec3 diffuse = irradiance * albedo;
 
-	//kD *= 1.0 - metallic;
-	//const float MAX_REFLECTION_LOD = 4.0;
-	//vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
-	//vec2 envBRDF = texture(brdfLUT, vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
-	//vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+	kD *= 1.0 - metallic;
+	const float MAX_REFLECTION_LOD = 4.0;
+	vec3 R = reflect(-V, N); 
+	vec3 prefilteredColor = textureLod(PrefilterMap, vec4(R, probeIndex),  roughness * MAX_REFLECTION_LOD).rgb;
+	vec2 envBRDF = texture(BrdfLUT, vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
+	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
-	//vec3 ambient = (kD * diffuse + specular) * ao;
-	vec3 ambient = (kD * diffuse) * ao;
+	vec3 ambient = (kD * diffuse + specular) * ao;
 
 	vec3 color = max(ambient + Lo, vec3(0.0));
-
-	// Tonemap (reinhard) and apply sRGB gamma
-	//color = color / (color + vec3(1.0));
-	return pow(color, vec3(1.0 / 2.2));
+	return color;
 }

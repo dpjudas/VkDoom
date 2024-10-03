@@ -378,8 +378,8 @@ void VkLightmapper::CopyResult()
 	if (pixels == 0)
 		return;
 
-	VkTextureImage* destTexture = &fb->GetTextureManager()->Lightmap;
-	int destSize = fb->GetTextureManager()->LMTextureSize;
+	VkTextureImage* destTexture = &fb->GetTextureManager()->Lightmap.Image;
+	int destSize = fb->GetTextureManager()->Lightmap.Size;
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 

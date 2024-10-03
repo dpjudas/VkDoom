@@ -276,6 +276,18 @@ ImageBuilder::ImageBuilder()
 	imageInfo.flags = 0;
 }
 
+ImageBuilder& ImageBuilder::Type(VkImageType type)
+{
+	imageInfo.imageType = type;
+	return *this;
+}
+
+ImageBuilder& ImageBuilder::Flags(VkImageCreateFlags flags)
+{
+	imageInfo.flags = flags;
+	return *this;
+}
+
 ImageBuilder& ImageBuilder::Size(int width, int height, int mipLevels, int arrayLayers)
 {
 	imageInfo.extent.width = width;
@@ -1759,6 +1771,7 @@ std::vector<VulkanCompatibleDevice> VulkanDeviceBuilder::FindDevices(const std::
 		enabledFeatures.Features.shaderClipDistance = deviceFeatures.Features.shaderClipDistance;
 		enabledFeatures.Features.multiDrawIndirect = deviceFeatures.Features.multiDrawIndirect;
 		enabledFeatures.Features.independentBlend = deviceFeatures.Features.independentBlend;
+		enabledFeatures.Features.imageCubeArray = deviceFeatures.Features.imageCubeArray;
 		enabledFeatures.BufferDeviceAddress.bufferDeviceAddress = deviceFeatures.BufferDeviceAddress.bufferDeviceAddress;
 		enabledFeatures.AccelerationStructure.accelerationStructure = deviceFeatures.AccelerationStructure.accelerationStructure;
 		enabledFeatures.RayQuery.rayQuery = deviceFeatures.RayQuery.rayQuery;
