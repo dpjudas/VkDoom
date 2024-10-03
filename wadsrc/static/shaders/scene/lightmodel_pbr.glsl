@@ -169,25 +169,16 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 
 	// Treat the ambient sector light as if it is a light source next to the wall
 	{
-		vec3 NN = N;
 		vec3 VV = V;
 		vec3 LL = N;
 		vec3 HH = normalize(VV + LL);
 
-		vec3 radiance = ambientLight.rgb * 2.5;
+		vec3 radiance = ambientLight.rgb * 2.25;
 
-		// cook-torrance brdf
-		float NDF = DistributionGGX(NN, HH, roughness);
-		float G = GeometrySmith(NN, VV, LL, roughness);
 		vec3 F = fresnelSchlick(clamp(dot(HH, VV), 0.0, 1.0), F0);
-
 		vec3 kS = F;
 		vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-
-		vec3 nominator = NDF * G * F;
-		float denominator = 4.0 * clamp(dot(NN, VV), 0.0, 1.0) * clamp(dot(NN, LL), 0.0, 1.0);
-		vec3 specular = nominator / max(denominator, 0.001);
-		specular = metallic * albedo * 0.40;
+		vec3 specular = metallic * albedo * 0.40;
 
 		Lo += (kD * albedo / PI + specular) * radiance;
 	}
