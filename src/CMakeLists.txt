@@ -739,6 +739,7 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/vk_pprenderstate.cpp
 	common/rendering/vulkan/vk_levelmesh.cpp
 	common/rendering/vulkan/vk_lightmapper.cpp
+	common/rendering/vulkan/vk_lightprober.cpp
 	common/rendering/vulkan/commands/vk_commandbuffer.cpp
 	common/rendering/vulkan/buffers/vk_rsbuffers.cpp
 	common/rendering/vulkan/buffers/vk_hwbuffer.cpp
