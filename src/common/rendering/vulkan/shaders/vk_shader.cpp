@@ -221,6 +221,29 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (key.GBufferPass) definesBlock << "#define GBUFFER_PASS\n";
 	if (key.AlphaTestOnly) definesBlock << "#define ALPHATEST_ONLY\n";
 
+	switch(key.LightBlendMode)
+	{
+	case 0:
+		definesBlock << "#define LIGHT_BLEND_CLAMPED\n";
+		break;
+	case 1:
+		definesBlock << "#define LIGHT_BLEND_COLORED_CLAMP\n";
+		break;
+	case 2:
+		definesBlock << "#define LIGHT_BLEND_UNCLAMPED\n";
+		break;
+	}
+
+	switch(key.LightAttenuationMode)
+	{
+	case 0:
+		definesBlock << "#define LIGHT_ATTENUATION_LINEAR\n";
+		break;
+	case 1:
+		definesBlock << "#define LIGHT_ATTENUATION_INVERSE_SQUARE\n";
+		break;
+	}
+
 	if (key.DepthFadeThreshold) definesBlock << "#define USE_DEPTHFADETHRESHOLD\n";
 
 	if (key.Simple2D) definesBlock << "#define SIMPLE2D\n";

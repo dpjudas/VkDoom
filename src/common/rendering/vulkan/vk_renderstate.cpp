@@ -38,6 +38,8 @@
 #include "hw_clock.h"
 #include "flatvertices.h"
 
+#include "g_levellocals.h"
+
 CVAR(Int, vk_submit_size, 1000, 0);
 EXTERN_CVAR(Bool, r_skipmats)
 
@@ -304,6 +306,9 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
 
 	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
+
+	pipelineKey.ShaderKey.LightBlendMode = (level.info ? static_cast<int>(level.info->lightblendmode) : 0);
+	pipelineKey.ShaderKey.LightAttenuationMode = (level.info ? static_cast<int>(level.info->lightattenuationmode) : 0);
 
 	// Is this the one we already have?
 	bool inRenderPass = mCommandBuffer;
