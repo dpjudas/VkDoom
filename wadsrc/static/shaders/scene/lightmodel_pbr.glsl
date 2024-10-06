@@ -1,3 +1,24 @@
+#ifdef LIGHT_ATTENUATION_INVERSE_SQUARE
+
+float distanceAttenuation(vec4 lightpos)
+{
+	float strength = 1500.0;
+	float d = distance(lightpos.xyz, pixelpos.xyz);
+	float r = lightpos.w;
+	float a = d / r;
+	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
+	return (b * b) / (d * d + 1.0) * strength;
+}
+
+#else //elif defined(LIGHT_ATTENUATION_LINEAR)
+
+float distanceAttenuation(vec4 lightpos)
+{
+	float lightdistance = distance(lightpos.xyz, pixelpos.xyz);
+	return clamp((lightpos.w - lightdistance) / lightpos.w, 0.0, 1.0);
+}
+
+#endif
 
 const float PI = 3.14159265359;
 
@@ -43,34 +64,6 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
 	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-float linearDistanceAttenuation(vec4 lightpos)
-{
-	float lightdistance = distance(lightpos.xyz, pixelpos.xyz);
-	return clamp((lightpos.w - lightdistance) / lightpos.w, 0.0, 1.0);
-}
-
-float inverseSquareDistanceAttenuation(vec4 lightpos)
-{
-	float strength = 1500.0;
-	float d = distance(lightpos.xyz, pixelpos.xyz);
-	float r = lightpos.w;
-	float a = d / r;
-	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
-	return (b * b) / (d * d + 1.0) * strength;
-}
-
-float distanceAttenuation(vec4 lightpos)
-{
-    if ( uLightAttenuationMode == 1 )
-    {
-        return inverseSquareDistanceAttenuation(lightpos);
-    }
-    else
-    {
-        return linearDistanceAttenuation(lightpos);
-    }
 }
 
 vec3 ProcessMaterialLight(Material material, vec3 ambientLight)

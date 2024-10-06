@@ -98,7 +98,9 @@ public:
 			uint64_t NoFragmentShader : 1;
 			uint64_t DepthFadeThreshold : 1;
 			uint64_t AlphaTestOnly : 1; // ALPHATEST_ONLY
-			uint64_t Unused : 40;
+			uint64_t LightBlendMode : 2; // LIGHT_BLEND_CLAMPED , LIGHT_BLEND_COLORED_CLAMP , LIGHT_BLEND_UNCLAMPED
+			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
+			uint64_t Unused : 37;
 		};
 		uint64_t AsQWORD = 0;
 	};

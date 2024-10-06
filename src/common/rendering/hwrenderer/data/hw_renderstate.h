@@ -646,8 +646,6 @@ public:
 		matrices.mPalLightLevels = palLightLevels;
 		matrices.mClipLine.X = -10000000.0f;
 		matrices.mShadowFilter = gl_light_shadow_filter;
-		matrices.mLightBlendMode = 0;
-		matrices.mLightAttenuationMode = 0;
 		matrices.mProjectionMatrix.ortho(0, (float)width, (float)height, 0, -1.0f, 1.0f);
 		matrices.CalcDependencies();
 		return SetViewpoint(matrices);
