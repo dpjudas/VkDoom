@@ -1,3 +1,28 @@
+float linearDistanceAttenuation(vec4 lightpos, float d)
+{
+	return clamp((lightpos.w - d) / lightpos.w, 0.0, 1.0);
+}
+
+float inverseSquareDistanceAttenuation(vec4 lightpos, float d)
+{
+	float strength = 1500.0;
+	float r = lightpos.w;
+	float a = d / r;
+	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
+	return (b * b) / (d * d + 1.0) * strength;
+}
+
+float distanceAttenuation(vec4 lightpos, float d)
+{
+    if ( uLightAttenuationMode == 1 )
+    {
+        return inverseSquareDistanceAttenuation(lightpos, d);
+    }
+    else
+    {
+        return linearDistanceAttenuation(lightpos, d);
+    }
+}
 
 vec2 lightAttenuation(int i, vec3 normal, vec3 viewdir, float lightcolorA, float glossiness, float specularLevel)
 {
@@ -9,7 +34,7 @@ vec2 lightAttenuation(int i, vec3 normal, vec3 viewdir, float lightcolorA, float
 	if (lightpos.w < lightdistance)
 		return vec2(0.0); // Early out lights touching surface but not this fragment
 
-	float attenuation = clamp((lightpos.w - lightdistance) / lightpos.w, 0.0, 1.0);
+	float attenuation = distanceAttenuation(lightpos, lightdistance);
 
 	if (lightspot1.w == 1.0)
 		attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);

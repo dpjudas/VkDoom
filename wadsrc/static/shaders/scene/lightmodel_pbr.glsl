@@ -61,6 +61,18 @@ float inverseSquareDistanceAttenuation(vec4 lightpos)
 	return (b * b) / (d * d + 1.0) * strength;
 }
 
+float distanceAttenuation(vec4 lightpos)
+{
+    if ( uLightAttenuationMode == 1 )
+    {
+        return inverseSquareDistanceAttenuation(lightpos);
+    }
+    else
+    {
+        return linearDistanceAttenuation(lightpos);
+    }
+}
+
 vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 {
 	vec3 worldpos = pixelpos.xyz;
@@ -96,7 +108,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = inverseSquareDistanceAttenuation(lightpos);
+				float attenuation = distanceAttenuation(lightpos);
 				if (lightspot1.w == 1.0)
 					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
 				if (lightcolor.a < 0.0)
@@ -136,7 +148,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = linearDistanceAttenuation(lightpos);
+				float attenuation = distanceAttenuation(lightpos);
 				if (lightspot1.w == 1.0)
 					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
 				if (lightcolor.a < 0.0)

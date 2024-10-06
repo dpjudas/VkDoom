@@ -325,6 +325,7 @@ void level_info_t::Reset()
 	skyrotatevector = FVector3(0, 0, 1);
 	skyrotatevector2 = FVector3(0, 0, 1);
 	lightblendmode = ELightBlendMode::DEFAULT;
+	lightattenuationmode = ELightAttenuationMode::DEFAULT;
 	tonemap = ETonemapMode::None;
 }
 
@@ -1596,9 +1597,13 @@ DEFINE_MAP_OPTION(lightblendmode, false)
 	parse.ParseAssign();
 	parse.sc.MustGetString();
 
-	if (parse.sc.Compare("Default") || parse.sc.Compare("Clamp"))
+	if (parse.sc.Compare("Default"))
 	{
 		info->lightblendmode = ELightBlendMode::DEFAULT;
+	}
+	else if (parse.sc.Compare("Clamp"))
+	{
+		info->lightblendmode = ELightBlendMode::CLAMP;
 	}
 	else if (parse.sc.Compare("ColoredClamp"))
 	{
@@ -1639,6 +1644,29 @@ DEFINE_MAP_OPTION(lightblendmode, false)
 	else
 	{
 		parse.sc.ScriptMessage("Invalid light blend mode %s", parse.sc.String);
+	}
+}
+
+DEFINE_MAP_OPTION(lightattenuationmode, false)
+{
+	parse.ParseAssign();
+	parse.sc.MustGetString();
+
+	if (parse.sc.Compare("Default"))
+	{
+		info->lightattenuationmode = ELightAttenuationMode::DEFAULT;
+	}
+	else if (parse.sc.Compare("Linear"))
+	{
+		info->lightattenuationmode = ELightAttenuationMode::LINEAR;
+	}
+	else if (parse.sc.Compare("InverseSquare"))
+	{
+		info->lightattenuationmode = ELightAttenuationMode::INVERSE_SQUARE;
+	}
+	else
+	{
+		parse.sc.ScriptMessage("Invalid light attenuation mode %s", parse.sc.String);
 	}
 }
 

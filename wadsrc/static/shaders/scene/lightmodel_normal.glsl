@@ -1,3 +1,28 @@
+float linearDistanceAttenuation(vec4 lightpos, float d)
+{
+	return clamp((lightpos.w - d) / lightpos.w, 0.0, 1.0);
+}
+
+float inverseSquareDistanceAttenuation(vec4 lightpos, float d)
+{
+	float strength = 1500.0;
+	float r = lightpos.w;
+	float a = d / r;
+	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
+	return (b * b) / (d * d + 1.0) * strength;
+}
+
+float distanceAttenuation(vec4 lightpos, float d)
+{
+    if ( uLightAttenuationMode == 1 )
+    {
+        return inverseSquareDistanceAttenuation(lightpos, d);
+    }
+    else
+    {
+        return linearDistanceAttenuation(lightpos, d);
+    }
+}
 
 vec3 lightContribution(int i, vec3 normal)
 {
@@ -14,7 +39,7 @@ vec3 lightContribution(int i, vec3 normal)
 	float dotprod = dot(normal, lightdir);
 	if (dotprod < -0.0001) return vec3(0.0);	// light hits from the backside. This can happen with full sector light lists and must be rejected for all cases. Note that this can cause precision issues.
 
-	float attenuation = clamp((lightpos.w - lightdistance) / lightpos.w, 0.0, 1.0);
+	float attenuation = distanceAttenuation(lightpos, lightdistance);
 
 	if (lightspot1.w == 1.0)
 		attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
