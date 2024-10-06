@@ -792,7 +792,7 @@ public:
 				th->friendlyseeblocks = CheckInt(key);
 				break;
 
-			case NAME_SoftShadowRadius:
+			case NAME_light_softshadowradius:
 				th->SoftShadowRadius = (float)CheckFloat(key);
 				break;
 
