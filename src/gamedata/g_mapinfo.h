@@ -431,6 +431,7 @@ struct level_info_t
 	FString		acsName;
 	bool		fs_nocheckposition;
 	ELightBlendMode lightblendmode;
+	ELightAttenuationMode lightattenuationmode;
 	ETonemapMode tonemap;
 	
 	CutsceneDef intro, outro;

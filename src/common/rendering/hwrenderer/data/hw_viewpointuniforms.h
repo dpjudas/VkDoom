@@ -13,6 +13,14 @@ enum class ELightBlendMode : uint8_t
 	DEFAULT = CLAMP,
 };
 
+enum class ELightAttenuationMode : uint8_t
+{
+	LINEAR = 0,
+	INVERSE_SQUARE = 1,
+
+	DEFAULT = LINEAR,
+};
+
 struct HWViewpointUniforms
 {
 	VSMatrix mProjectionMatrix;
@@ -34,6 +42,8 @@ struct HWViewpointUniforms
 	int mLightBlendMode = 0;
 
 	int mLightTilesWidth = 0;
+
+	int mLightAttenuationMode = 0;
 
 	void CalcDependencies()
 	{
