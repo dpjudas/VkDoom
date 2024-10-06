@@ -164,6 +164,7 @@ bool M_SetSpecialMenu(FName& menu, int param);	// game specific checks
 
 const FIWADInfo *D_FindIWAD(TArray<FString> &wadfiles, const char *iwad, const char *basewad);
 void InitWidgetResources(const char* basewad);
+void CloseWidgetResources();
 
 // PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 
@@ -3938,6 +3939,7 @@ int GameMain()
 	M_SaveDefaultsFinal();
 	DeleteStartupScreen();
 	C_UninitCVars(); // must come last so that nothing will access the CVARs anymore after deletion.
+	CloseWidgetResources();
 	delete Args;
 	Args = nullptr;
 	return ret;
@@ -4030,7 +4032,7 @@ void D_Cleanup()
 //
 //==========================================================================
 
-UNSAFE_CCMD(restart)
+UNSAFE_CCMD(debug_restart)
 {
 	// remove command line args that would get in the way during restart
 	Args->RemoveArgs("-iwad");
