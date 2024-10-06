@@ -1,24 +1,4 @@
-#ifdef LIGHT_ATTENUATION_INVERSE_SQUARE
-
-float distanceAttenuation(vec4 lightpos)
-{
-	float strength = 1500.0;
-	float d = distance(lightpos.xyz, pixelpos.xyz);
-	float r = lightpos.w;
-	float a = d / r;
-	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
-	return (b * b) / (d * d + 1.0) * strength;
-}
-
-#else //elif defined(LIGHT_ATTENUATION_LINEAR)
-
-float distanceAttenuation(vec4 lightpos)
-{
-	float lightdistance = distance(lightpos.xyz, pixelpos.xyz);
-	return clamp((lightpos.w - lightdistance) / lightpos.w, 0.0, 1.0);
-}
-
-#endif
+#include "shaders/scene/lightmodel_shared.glsl"
 
 const float PI = 3.14159265359;
 
@@ -101,7 +81,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = distanceAttenuation(lightpos);
+				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), lightpos.w);
 				if (lightspot1.w == 1.0)
 					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
 				if (lightcolor.a < 0.0)
@@ -141,7 +121,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = distanceAttenuation(lightpos);
+				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), lightpos.w);
 				if (lightspot1.w == 1.0)
 					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
 				if (lightcolor.a < 0.0)

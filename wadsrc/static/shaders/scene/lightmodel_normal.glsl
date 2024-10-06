@@ -1,22 +1,4 @@
-#ifdef LIGHT_ATTENUATION_INVERSE_SQUARE
-
-float distanceAttenuation(vec4 lightpos, float d)
-{
-	float strength = 1500.0;
-	float r = lightpos.w;
-	float a = d / r;
-	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
-	return (b * b) / (d * d + 1.0) * strength;
-}
-
-#else //elif defined(LIGHT_ATTENUATION_LINEAR)
-
-float distanceAttenuation(vec4 lightpos, float d)
-{
-	return clamp((lightpos.w - d) / lightpos.w, 0.0, 1.0);
-}
-
-#endif
+#include "shaders/scene/lightmodel_shared.glsl"
 
 vec3 lightContribution(int i, vec3 normal)
 {
@@ -33,7 +15,7 @@ vec3 lightContribution(int i, vec3 normal)
 	float dotprod = dot(normal, lightdir);
 	if (dotprod < -0.0001) return vec3(0.0);	// light hits from the backside. This can happen with full sector light lists and must be rejected for all cases. Note that this can cause precision issues.
 
-	float attenuation = distanceAttenuation(lightpos, lightdistance);
+	float attenuation = distanceAttenuation(lightdistance, lightpos.w);
 
 	if (lightspot1.w == 1.0)
 		attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
