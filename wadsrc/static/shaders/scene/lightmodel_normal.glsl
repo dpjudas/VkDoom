@@ -1,5 +1,3 @@
-#include "shaders/scene/lightmodel_shared.glsl"
-
 vec3 lightContribution(int i, vec3 normal)
 {
 	vec4 lightpos = lights[i];
