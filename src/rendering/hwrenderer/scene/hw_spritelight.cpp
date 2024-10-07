@@ -115,7 +115,7 @@ public:
 
 float inverseSquareAttenuation(float dist, float radius)
 {
-	float strength = 1500.0;
+	float strength = std::min(1500.0f, (radius * radius) / 10);
 	float a = dist / radius;
 	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
 	return (b * b) / (dist * dist + 1.0) * strength;
