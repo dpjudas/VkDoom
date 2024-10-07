@@ -1,5 +1,3 @@
-#include "shaders/scene/lightmodel_shared.glsl"
-
 const float PI = 3.14159265359;
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)

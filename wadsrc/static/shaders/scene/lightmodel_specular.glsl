@@ -1,5 +1,3 @@
-#include "shaders/scene/lightmodel_shared.glsl"
-
 vec2 lightAttenuation(int i, vec3 normal, vec3 viewdir, float lightcolorA, float glossiness, float specularLevel)
 {
 	vec4 lightpos = lights[i];
