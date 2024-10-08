@@ -113,9 +113,8 @@ public:
 //==========================================================================
 
 
-float inverseSquareAttenuation(float dist, float radius)
+float inverseSquareAttenuation(float dist, float radius, float strength)
 {
-	float strength = std::min(1500.0f, (radius * radius) / 10);
 	float a = dist / radius;
 	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
 	return (b * b) / (dist * dist + 1.0) * strength;
@@ -178,7 +177,7 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, float x, float y, float z, FLig
 				{
 					if(level.info->lightattenuationmode == ELightAttenuationMode::INVERSE_SQUARE)
 					{
-						frac = (inverseSquareAttenuation(std::max(dist, sqrt(radius) * 2), radius));
+						frac = (inverseSquareAttenuation(std::max(dist, sqrt(radius) * 2), radius, light->GetStrength()));
 					}
 					else
 					{
