@@ -6218,6 +6218,21 @@ AActor *FLevelLocals::SpawnMapThing (FMapThing *mthing, int position)
 		{
 			mobj->FloatVar(NAME_LightStrength) = mthing->LightStrength;
 		}
+
+		if (mthing->LightNoShadowMap)
+		{
+			mobj->IntVar(NAME_lightflags) |= LF_NOSHADOWMAP;
+		}
+
+		if (mthing->LightDontLightActors)
+		{
+			mobj->IntVar(NAME_lightflags) |= LF_DONTLIGHTACTORS;
+		}
+
+		if (mthing->LightDontLightMap)
+		{
+			mobj->IntVar(NAME_lightflags) |= LF_DONTLIGHTMAP;
+		}
 	}
 
 	mobj->CallBeginPlay ();

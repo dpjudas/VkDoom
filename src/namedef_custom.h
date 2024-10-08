@@ -872,6 +872,9 @@ xx(lm_suncolor)
 // Light keywords
 xx(light_softshadowradius)
 xx(light_strength)
+xx(light_noshadowmap)
+xx(light_dontlightactors)
+xx(light_dontlightmap)
 
 xx(skew_bottom_type)
 xx(skew_middle_type)
