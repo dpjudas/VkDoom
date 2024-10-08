@@ -384,6 +384,7 @@ struct FMapThing
 	int			friendlyseeblocks;
 	FName arg0str;
 	double		SoftShadowRadius;
+	double		LightStrength;
 };
 
 

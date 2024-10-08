@@ -793,7 +793,11 @@ public:
 				break;
 
 			case NAME_light_softshadowradius:
-				th->SoftShadowRadius = (float)CheckFloat(key);
+				th->SoftShadowRadius = CheckFloat(key);
+				break;
+
+			case NAME_light_strength:
+				th->LightStrength = CheckFloat(key);
 				break;
 
 			case NAME_lm_suncolor:

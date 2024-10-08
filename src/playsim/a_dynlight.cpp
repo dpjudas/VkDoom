@@ -99,6 +99,12 @@ static FDynamicLight *GetLight(FLevelLocals *Level)
 }
 
 
+static inline constexpr float calcStrength(float radius)
+{
+	radius *= 2; // radius in shaders is actualy diameter, so multiply it here to match
+	return std::min(1500.0f, (radius * radius) / 10);
+}
+
 //==========================================================================
 //
 // Attaches a dynamic light descriptor to a dynamic light actor.
@@ -115,7 +121,14 @@ void AttachLight(AActor *self)
 	light->pPitch = &self->Angles.Pitch;
 	light->pLightFlags = (LightFlags*)&self->IntVar(NAME_lightflags);
 	light->pArgs = self->args;
-	light->pSoftShadowRadius = &self->SoftShadowRadius;
+	light->pSoftShadowRadius = &self->FloatVar(NAME_SoftShadowRadius);
+	light->pStrength = &self->FloatVar(NAME_LightStrength);
+
+	if(*light->pStrength <= 0)
+	{
+		*light->pStrength = -calcStrength(light->m_currentRadius);
+	}
+
 	light->specialf1 = DAngle::fromDeg(double(self->SpawnAngle)).Normalized360().Degrees();
 	light->Sector = self->Sector;
 	light->target = self;
@@ -213,7 +226,6 @@ void FDynamicLight::ReleaseLight()
 	FreeList.Push(this);
 }
 
-
 //==========================================================================
 //
 // [TS]
@@ -237,6 +249,11 @@ void FDynamicLight::Activate()
 		m_currentRadius = float(m_cycler.GetVal());
 	}
 	if (m_currentRadius <= 0) m_currentRadius = 1;
+
+	if(pStrength && *pStrength <= 0)
+	{
+		*pStrength = -calcStrength(m_currentRadius);
+	}
 }
 
 
@@ -253,6 +270,8 @@ void FDynamicLight::Tick()
 		ReleaseLight();
 		return;
 	}
+
+	int oldradius = m_currentRadius;
 
 	if (owned)
 	{
@@ -345,8 +364,9 @@ void FDynamicLight::Tick()
 		
 		intensity = Sector? Sector->lightlevel * scale : 0;
 		intensity = clamp<float>(intensity, 0.f, 255.f);
-		
+
 		m_currentRadius = intensity;
+
 		break;
 	}
 
@@ -355,6 +375,12 @@ void FDynamicLight::Tick()
 		break;
 	}
 	if (m_currentRadius <= 0) m_currentRadius = 1;
+
+
+	if(pStrength && *pStrength <= 0 && oldradius != m_currentRadius)
+	{
+		*pStrength = -calcStrength(m_currentRadius);
+	}
 	UpdateLocation();
 }
 

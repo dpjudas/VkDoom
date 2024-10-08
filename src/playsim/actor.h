@@ -1375,8 +1375,6 @@ public:
 	// (note: this is put into AActor instead of the PlayerPawn because non-players also use the value)
 	double LandingSpeed;
 
-	double SoftShadowRadius = 5.0; // Light source's soft shadow radius
-
 	// ThingIDs
 	void SetTID (int newTID);
 

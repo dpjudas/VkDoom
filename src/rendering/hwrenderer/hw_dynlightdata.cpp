@@ -31,6 +31,7 @@
 #include"hw_cvars.h"
 #include "v_video.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
+#include "g_levellocals.h"
 
 // If we want to share the array to avoid constant allocations it needs to be thread local unless it'd be littered with expensive synchronization.
 thread_local FDynLightData lightdata;
@@ -140,6 +141,8 @@ void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool f
 	}
 	float softShadowRadius = light->GetSoftShadowRadius();
 
+	float strength = light->GetStrength();
+
 	float *data = &dld.arrays[i][dld.arrays[i].Reserve(16)];
 	data[0] = float(pos.X);
 	data[1] = float(pos.Z);
@@ -156,7 +159,7 @@ void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool f
 	data[12] = spotInnerAngle;
 	data[13] = spotOuterAngle;
 	data[14] = softShadowRadius;
-	data[15] = 0.0f; // unused
+	data[15] = strength;
 }
 
 void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVector3& sundir, const FVector3& suncolor)
@@ -177,6 +180,8 @@ void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVec
 	float spotDirZ = 0.0f;
 	float shadowIndex = -1025.f; // Note: 1025 disables shadowmap and the attenuate flag is in the sign bit of the float
 
+	float strength = 1500.0f;
+
 	float* data = &dld.arrays[i][dld.arrays[i].Reserve(16)];
 	data[0] = float(x);
 	data[1] = float(z);
@@ -193,5 +198,5 @@ void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVec
 	data[12] = spotInnerAngle;
 	data[13] = spotOuterAngle;
 	data[14] = 0.0f; // unused
-	data[15] = 0.0f; // unused
+	data[15] = strength;
 }
