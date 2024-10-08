@@ -127,6 +127,17 @@ void FLightDefaults::ApplyProperties(FDynamicLight * light) const
 	light->specialf1 = m_Param;
 	light->pArgs = m_Args;
 	light->pSoftShadowRadius = &SoftShadowRadius;
+
+	if(Strength > 0.0)
+	{
+		light->pStrength = const_cast<double*>(&Strength); // casting const to non-const, but positive strength values will not be modified
+	}
+	else
+	{
+		light->tmpStrength = 0.0;
+		light->pStrength = &light->tmpStrength;
+	}
+
 	light->pLightFlags = &m_lightFlags;
 	if (m_lightFlags & LF_SPOT)
 	{

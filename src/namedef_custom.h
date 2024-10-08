@@ -320,6 +320,8 @@ xx(RedSkull)
 xx(DynamicLight)
 xx(SpotInnerAngle)
 xx(SpotOuterAngle)
+xx(SoftShadowRadius)
+xx(LightStrength)
 xx(lightflags)
 xx(lighttype)
 xx(InternalDynamicLight)
@@ -869,6 +871,7 @@ xx(lm_suncolor)
 
 // Light keywords
 xx(light_softshadowradius)
+xx(light_strength)
 
 xx(skew_bottom_type)
 xx(skew_middle_type)

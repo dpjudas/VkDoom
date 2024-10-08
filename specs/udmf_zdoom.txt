@@ -429,6 +429,9 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       lm_suncolor = <int>;          // ZDRay lightmap sun color. Default is white (0xFFFFFF).
 
       light_softshadowradius = <float>;   // ZDRay lightmap light and raytraced dynamic light soft shadow amount. Higher values produce softer shadows. Default = 5.0
+      
+      light_strength = <float>;   // Light strenght for Inverse-square falloff lights. Default = 0.0 (auto)
+      
 
       friendlyseeblocks = <int>;    // How far (in block units) a friendly monster can see other monsters. Default 10
 
