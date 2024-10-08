@@ -432,6 +432,9 @@ Note: All <bool> fields default to false unless mentioned otherwise.
       
       light_strength = <float>;   // Light strenght for Inverse-square falloff lights. Default = 0.0 (auto)
       
+      light_noshadowmap = <bool>; // Disable shadows for light
+      light_dontlightactors = <bool>; // Don't light actors
+      light_dontlightmap = <bool>; // Don't light map geometry
 
       friendlyseeblocks = <int>;    // How far (in block units) a friendly monster can see other monsters. Default 10
 

@@ -800,6 +800,18 @@ public:
 				th->LightStrength = CheckFloat(key);
 				break;
 
+			case NAME_light_noshadowmap:
+				th->LightNoShadowMap = CheckBool(key);
+				break;
+
+			case NAME_light_dontlightactors:
+				th->LightDontLightActors = CheckBool(key);
+				break;
+
+			case NAME_light_dontlightmap:
+				th->LightDontLightMap = CheckBool(key);
+				break;
+
 			case NAME_lm_suncolor:
 				CHECK_N(Zd | Zdt)
 				if (CheckInt(key) < 0 || CheckInt(key) > 0xFFFFFF)
