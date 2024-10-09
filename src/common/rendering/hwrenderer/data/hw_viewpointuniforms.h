@@ -39,11 +39,7 @@ struct HWViewpointUniforms
 	float mClipHeightDirection = 0.f;
 	int mShadowFilter = 1;
 
-	int mLightBlendMode = 0;
-
 	int mLightTilesWidth = 0;
-
-	int mLightAttenuationMode = 0;
 
 	void CalcDependencies()
 	{
