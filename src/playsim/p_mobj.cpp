@@ -6214,9 +6214,9 @@ AActor *FLevelLocals::SpawnMapThing (FMapThing *mthing, int position)
 			mobj->FloatVar(NAME_SoftShadowRadius) = 5.0;
 		}
 
-		if (mthing->LightStrength > 0.0)
+		if (mthing->LightLinearity > 0.0)
 		{
-			mobj->FloatVar(NAME_LightStrength) = mthing->LightStrength;
+			mobj->FloatVar(NAME_LightLinearity) = mthing->LightLinearity;
 		}
 
 		if (mthing->LightNoShadowMap)

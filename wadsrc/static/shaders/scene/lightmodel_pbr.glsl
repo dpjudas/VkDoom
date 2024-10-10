@@ -79,9 +79,9 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), lightpos.w, lightspot2.w);
-				if (lightspot1.w == 1.0)
-					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
+				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), abs(lightpos.w), lightspot2.w, lightspot1.w);
+				if (lightpos.w < 0.0)
+					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y); // Sign bit is the spotlight flag
 				if (lightcolor.a < 0.0)
 					attenuation *= clamp(dot(N, L), 0.0, 1.0); // Sign bit is the attenuated light flag
 
@@ -119,9 +119,9 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), lightpos.w, lightspot2.w);
-				if (lightspot1.w == 1.0)
-					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
+				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), abs(lightpos.w), lightspot2.w, lightspot1.w);
+				if (lightpos.w < 0.0)
+					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y); // Sign bit is the spotlight flag
 				if (lightcolor.a < 0.0)
 					attenuation *= clamp(dot(N, L), 0.0, 1.0); // Sign bit is the attenuated light flag
 

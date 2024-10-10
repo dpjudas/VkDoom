@@ -796,8 +796,8 @@ public:
 				th->SoftShadowRadius = CheckFloat(key);
 				break;
 
-			case NAME_light_strength:
-				th->LightStrength = CheckFloat(key);
+			case NAME_light_linearity:
+				th->LightLinearity = CheckFloat(key);
 				break;
 
 			case NAME_light_noshadowmap:
