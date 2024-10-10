@@ -3,7 +3,7 @@ class DynamicLight : Actor
 	double SpotInnerAngle;
 	double SpotOuterAngle;
 	double SoftShadowRadius;
-	double LightStrength; // used for Inverse-square falloff lights
+	double LightLinearity; // used for Inverse-square falloff lights
 	private int lighttype;
 	private int lightflags;
 
