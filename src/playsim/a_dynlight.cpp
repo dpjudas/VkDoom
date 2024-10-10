@@ -99,7 +99,7 @@ static FDynamicLight *GetLight(FLevelLocals *Level)
 }
 
 
-static inline constexpr float calcStrength(float radius)
+float LightCalcStrength(float radius)
 {
 	radius *= 2; // radius in shaders is actualy diameter, so multiply it here to match
 	return std::min(1500.0f, (radius * radius) / 10);
@@ -122,12 +122,10 @@ void AttachLight(AActor *self)
 	light->pLightFlags = (LightFlags*)&self->IntVar(NAME_lightflags);
 	light->pArgs = self->args;
 	light->pSoftShadowRadius = &self->FloatVar(NAME_SoftShadowRadius);
-	light->pStrength = &self->FloatVar(NAME_LightStrength);
+	light->pLinearity = &self->FloatVar(NAME_LightLinearity);
 
-	if(*light->pStrength <= 0)
-	{
-		*light->pStrength = -calcStrength(light->m_currentRadius);
-	}
+	light->lightStrength = LightCalcStrength(light->pArgs[LIGHT_INTENSITY]);
+	
 
 	light->specialf1 = DAngle::fromDeg(double(self->SpawnAngle)).Normalized360().Degrees();
 	light->Sector = self->Sector;
@@ -250,10 +248,7 @@ void FDynamicLight::Activate()
 	}
 	if (m_currentRadius <= 0) m_currentRadius = 1;
 
-	if(pStrength && *pStrength <= 0)
-	{
-		*pStrength = -calcStrength(m_currentRadius);
-	}
+	lightStrength = LightCalcStrength(m_currentRadius);
 }
 
 
@@ -377,9 +372,9 @@ void FDynamicLight::Tick()
 	if (m_currentRadius <= 0) m_currentRadius = 1;
 
 
-	if(pStrength && *pStrength <= 0 && oldradius != m_currentRadius)
+	if(oldradius != m_currentRadius)
 	{
-		*pStrength = -calcStrength(m_currentRadius);
+		lightStrength = LightCalcStrength(m_currentRadius);
 	}
 	UpdateLocation();
 }

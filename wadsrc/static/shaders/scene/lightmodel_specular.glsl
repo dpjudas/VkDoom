@@ -3,15 +3,17 @@ vec2 lightAttenuation(int i, vec3 normal, vec3 viewdir, float lightcolorA, float
 	vec4 lightpos = lights[i];
 	vec4 lightspot1 = lights[i+2];
 	vec4 lightspot2 = lights[i+3];
+    
+    float radius = abs(lightpos.w);
 
 	float lightdistance = distance(lightpos.xyz, pixelpos.xyz);
-	if (lightpos.w < lightdistance)
+	if (radius < lightdistance)
 		return vec2(0.0); // Early out lights touching surface but not this fragment
 
-	float attenuation = distanceAttenuation(lightdistance, lightpos.w, lightspot2.w);
+	float attenuation = distanceAttenuation(lightdistance, radius, lightspot2.w, lightspot1.w);
 
-	if (lightspot1.w == 1.0)
-		attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
+	if (lightpos.w < 0.0)
+		attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y); // Sign bit is the spotlight flag
 
 	vec3 lightdir = normalize(lightpos.xyz - pixelpos.xyz);
 
