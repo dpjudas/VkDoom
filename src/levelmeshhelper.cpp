@@ -3,43 +3,50 @@
 #include "r_defs.h"
 #include "g_levellocals.h"
 
-#define PROPAGATE_CORRELATIONS_SECTOR(func)\
-	func(sector);\
-	TArray<int>* c = sector->Level->SecCorrelations.CheckKey(sector->Index());\
-	if(c) for(int index : *c) func(&sector->Level->sectors[index]);
+template<typename Self, typename Fn, typename... Args>
+void PropagateCorrelations(Self self, Fn fn, sector_t *sector, Args... args)
+{
+	(self->*fn)(sector, args...);
+	
+	TArray<int>* c = sector->Level->SecCorrelations.CheckKey(sector->Index());
 
-#define PROPAGATE_CORRELATIONS_SECTOR2(func, arg2)\
-	func(sector, arg2);\
-	TArray<int>* c = sector->Level->SecCorrelations.CheckKey(sector->Index());\
-	if(c) for(int index : *c) func(&sector->Level->sectors[index], arg2);
+	if(c)
+	{
+		for(int index : *c)
+		{
+			(self->*fn)(&sector->Level->sectors[index], args...);
+		}
+	}
+
+}
 
 void UpdateLevelMesh::FloorHeightChanged(sector_t* sector)
 {
-	PROPAGATE_CORRELATIONS_SECTOR(OnFloorHeightChanged);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnFloorHeightChanged, sector);
 }
 
 void UpdateLevelMesh::CeilingHeightChanged(sector_t* sector)
 {
-	PROPAGATE_CORRELATIONS_SECTOR(OnCeilingHeightChanged);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnCeilingHeightChanged, sector);
 }
 
 void UpdateLevelMesh::MidTex3DHeightChanged(sector_t* sector)
 {
-	PROPAGATE_CORRELATIONS_SECTOR(OnMidTex3DHeightChanged);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnMidTex3DHeightChanged, sector);
 }
 
 void UpdateLevelMesh::FloorTextureChanged(sector_t* sector)
 {
-	PROPAGATE_CORRELATIONS_SECTOR(OnFloorTextureChanged);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnFloorTextureChanged, sector);
 }
 void UpdateLevelMesh::CeilingTextureChanged(sector_t* sector)
 {
-	PROPAGATE_CORRELATIONS_SECTOR(OnCeilingTextureChanged);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnCeilingTextureChanged, sector);
 }
 
 void UpdateLevelMesh::SectorChangedOther(sector_t* sector)
 {
-	PROPAGATE_CORRELATIONS_SECTOR(OnSectorChangedOther);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnSectorChangedOther, sector);
 }
 
 void UpdateLevelMesh::SideTextureChanged(side_t* side, int section)
@@ -68,17 +75,17 @@ void UpdateLevelMesh::SideDecalsChanged(side_t* side)
 
 void UpdateLevelMesh::SectorLightChanged(sector_t* sector)
 {
-	PROPAGATE_CORRELATIONS_SECTOR(OnSectorLightChanged);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnSectorLightChanged, sector);
 }
 
 void UpdateLevelMesh::SectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker)
 {
-	PROPAGATE_CORRELATIONS_SECTOR2(OnSectorLightThinkerCreated, lightthinker);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnSectorLightThinkerCreated, sector, lightthinker);
 }
 
 void UpdateLevelMesh::SectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker)
 {
-	PROPAGATE_CORRELATIONS_SECTOR2(OnSectorLightThinkerDestroyed, lightthinker);
+	PropagateCorrelations(this, &UpdateLevelMesh::OnSectorLightThinkerDestroyed, sector, lightthinker);
 }
 
 struct NullLevelMeshUpdater : UpdateLevelMesh
