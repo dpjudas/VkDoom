@@ -729,6 +729,7 @@ struct sector_t
 	int				ibocount;		// number of indices per plane (identical for all planes.) If this is -1 the index buffer is not in use.
 
 	bool HasLightmaps = false;		// Sector has lightmaps, each subsector vertex needs its own unique lightmap UV data
+	bool Sec3dControlUseMidTex = false;
 
 	// Below are all properties which are not used by the renderer.
 

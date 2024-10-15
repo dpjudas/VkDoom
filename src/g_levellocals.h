@@ -680,6 +680,8 @@ public:
 	bool		HasDynamicLights;		// Another render optimization for maps with no lights at all.
 	int		frozenstate;
 
+	TMap<int, TArray<int>> SecCorrelations; // links sectors to a list of sectors it provides fake height/3d floors for
+
 	double		teamdamage;
 
 	// former OpenGL-exclusive properties that should also be usable by the true color software renderer.

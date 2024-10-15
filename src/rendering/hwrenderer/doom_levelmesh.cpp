@@ -610,7 +610,7 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	Flats[sectorIndex].Uniforms.Clear();
 }
 
-void DoomLevelMesh::FloorHeightChanged(sector_t* sector)
+void DoomLevelMesh::OnFloorHeightChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 	for (line_t* line : sector->Lines)
@@ -622,7 +622,7 @@ void DoomLevelMesh::FloorHeightChanged(sector_t* sector)
 	}
 }
 
-void DoomLevelMesh::CeilingHeightChanged(sector_t* sector)
+void DoomLevelMesh::OnCeilingHeightChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 	for (line_t* line : sector->Lines)
@@ -634,37 +634,37 @@ void DoomLevelMesh::CeilingHeightChanged(sector_t* sector)
 	}
 }
 
-void DoomLevelMesh::MidTex3DHeightChanged(sector_t* sector)
+void DoomLevelMesh::OnMidTex3DHeightChanged(sector_t* sector)
 {
 	// UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::FloorTextureChanged(sector_t* sector)
+void DoomLevelMesh::OnFloorTextureChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::CeilingTextureChanged(sector_t* sector)
+void DoomLevelMesh::OnCeilingTextureChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::SectorChangedOther(sector_t* sector)
+void DoomLevelMesh::OnSectorChangedOther(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::SideTextureChanged(side_t* side, int section)
+void DoomLevelMesh::OnSideTextureChanged(side_t* side, int section)
 {
 	UpdateSide(side->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::SideDecalsChanged(side_t* side)
+void DoomLevelMesh::OnSideDecalsChanged(side_t* side)
 {
 	UpdateSide(side->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::SectorLightChanged(sector_t* sector)
+void DoomLevelMesh::OnSectorLightChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::LightsOnly);
 	for (line_t* line : sector->Lines)
@@ -676,11 +676,11 @@ void DoomLevelMesh::SectorLightChanged(sector_t* sector)
 	}
 }
 
-void DoomLevelMesh::SectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker)
+void DoomLevelMesh::OnSectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker)
 {
 }
 
-void DoomLevelMesh::SectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker)
+void DoomLevelMesh::OnSectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker)
 {
 }
 

@@ -113,17 +113,17 @@ public:
 	void DeleteLightmapLump(FLevelLocals& doomMap);
 	static FString GetMapFilename(FLevelLocals& doomMap);
 
-	void FloorHeightChanged(sector_t* sector) override;
-	void CeilingHeightChanged(sector_t* sector) override;
-	void MidTex3DHeightChanged(sector_t* sector) override;
-	void FloorTextureChanged(sector_t* sector) override;
-	void CeilingTextureChanged(sector_t* sector) override;
-	void SectorChangedOther(sector_t* sector) override;
-	void SideTextureChanged(side_t* side, int section) override;
-	void SideDecalsChanged(side_t* side) override;
-	void SectorLightChanged(sector_t* sector) override;
-	void SectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker) override;
-	void SectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker) override;
+	void OnFloorHeightChanged(sector_t* sector) override;
+	void OnCeilingHeightChanged(sector_t* sector) override;
+	void OnMidTex3DHeightChanged(sector_t* sector) override;
+	void OnFloorTextureChanged(sector_t* sector) override;
+	void OnCeilingTextureChanged(sector_t* sector) override;
+	void OnSectorChangedOther(sector_t* sector) override;
+	void OnSideTextureChanged(side_t* side, int section) override;
+	void OnSideDecalsChanged(side_t* side) override;
+	void OnSectorLightChanged(sector_t* sector) override;
+	void OnSectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker) override;
+	void OnSectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker) override;
 
 	void Reset(const LevelMeshLimits& limits) override
 	{
