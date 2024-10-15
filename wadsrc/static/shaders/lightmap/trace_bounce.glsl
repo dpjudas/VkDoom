@@ -38,7 +38,7 @@ vec3 TraceBounceLight(vec3 origin, vec3 normal)
 
 		for (uint j = LightStart; j < LightEnd; j++)
 		{
-			incoming += TraceLight(surfacepos, surface.Normal, lights[lightIndexes[j]], result.t) * angleAttenuation;
+			incoming += TraceLight(surfacepos, surface.Normal, lights[lightIndexes[j]], result.t, true) * angleAttenuation;
 		}
 	}
 	return incoming / float(SampleCount);

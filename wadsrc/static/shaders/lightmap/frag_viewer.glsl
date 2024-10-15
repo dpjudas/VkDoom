@@ -29,7 +29,7 @@ void main()
 			uint LightEnd = surface.LightEnd;
 			for (uint j = LightStart; j < LightEnd; j++)
 			{
-				incoming += TraceLight(surfacepos, surface.Normal, lights[lightIndexes[j]], 0.0);
+				incoming += TraceLight(surfacepos, surface.Normal, lights[lightIndexes[j]], 0.0, false);
 			}
 
 			// incoming *= TraceAmbientOcclusion(surfacepos, surface.Normal);

@@ -3,7 +3,7 @@
 
 vec3 TracePointLightRay(vec3 origin, vec3 lightpos, float tmin, vec3 rayColor);
 
-vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
+vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance, bool noSoftShadow)
 {
 	const float minDistance = 0.01;
 	vec3 incoming = vec3(0.0);
@@ -29,7 +29,7 @@ vec3 TraceLight(vec3 origin, vec3 normal, LightInfo light, float extraDistance)
 
 #if defined(USE_SOFTSHADOWS)
 
-			if (light.SoftShadowRadius != 0.0)
+			if (!noSoftShadow && light.SoftShadowRadius != 0.0)
 			{
 				vec3 v = (abs(dir.x) > abs(dir.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
 				vec3 xdir = normalize(cross(dir, v));
