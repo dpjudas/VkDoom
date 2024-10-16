@@ -298,9 +298,12 @@ void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
 	lightdata.Clear();
 	for (auto light = doomMap.lights; light; light = light->next)
 	{
-		int portalGroup = 0; // What value should this have?
-		AddLightToList(lightdata, portalGroup, light, false);
-		CurFrameStats.DynLights++;
+		if (!light->Trace()) // Skip lightmap lights
+		{
+			int portalGroup = 0; // What value should this have?
+			AddLightToList(lightdata, portalGroup, light, false);
+			CurFrameStats.DynLights++;
+		}
 	}
 
 	// All meaasurements here are in vec4's.
