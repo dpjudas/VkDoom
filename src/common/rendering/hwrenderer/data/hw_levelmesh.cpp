@@ -31,9 +31,12 @@ void LevelMesh::Reset(const LevelMeshLimits& limits)
 	Mesh.LightUniforms.Resize(limits.MaxUniforms);
 	Mesh.Materials.Resize(limits.MaxUniforms);
 
-	Mesh.Lights.Resize(16);
-	Mesh.LightIndexes.Resize(16);
-	Mesh.DynLights.Resize(50'000 * 4);
+	int maxLights = 20'000;
+	int maxDynlights = 50'000;
+
+	Mesh.Lights.Resize(maxLights);
+	Mesh.LightIndexes.Resize(limits.MaxSurfaces * 10);
+	Mesh.DynLights.Resize(maxDynlights * 4);
 
 	Mesh.Indexes.Resize(limits.MaxIndexes);
 	Mesh.SurfaceIndexes.Resize(limits.MaxIndexes / 3 + 1);
@@ -45,6 +48,8 @@ void LevelMesh::Reset(const LevelMeshLimits& limits)
 	FreeLists.Uniforms.Clear(); FreeLists.Uniforms.Push({ 0, limits.MaxUniforms });
 	FreeLists.Surface.Clear(); FreeLists.Surface.Push({ 0, limits.MaxSurfaces });
 	FreeLists.DrawIndex.Clear(); FreeLists.DrawIndex.Push({ 0, limits.MaxIndexes });
+	FreeLists.LightIndex.Clear(); FreeLists.LightIndex.Push({ 0, limits.MaxSurfaces * 10 });
+	FreeLists.Light.Clear(); FreeLists.Light.Push({ 0, maxLights });
 }
 
 void LevelMesh::AddEmptyMesh()

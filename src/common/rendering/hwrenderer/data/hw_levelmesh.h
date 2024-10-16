@@ -52,6 +52,13 @@ struct LightAllocInfo
 	int Index = 0;
 };
 
+struct LightListAllocInfo
+{
+	int32_t* List = nullptr;
+	int Start = 0;
+	int Count = 0;
+};
+
 struct MeshBufferRange
 {
 	int Start = 0;
@@ -96,10 +103,13 @@ public:
 	GeometryAllocInfo AllocGeometry(int vertexCount, int indexCount);
 	UniformsAllocInfo AllocUniforms(int count);
 	SurfaceAllocInfo AllocSurface();
+	LightAllocInfo AllocLight();
+	LightListAllocInfo AllocLightList(int count);
 
 	void FreeGeometry(int vertexStart, int vertexCount, int indexStart, int indexCount);
 	void FreeUniforms(int start, int count);
 	void FreeSurface(unsigned int surfaceIndex);
+	void FreeLightList(int start, int count);
 
 	// Sets the sizes of all the GPU buffers and empties the mesh
 	virtual void Reset(const LevelMeshLimits& limits);
@@ -149,8 +159,8 @@ public:
 		TArray<MeshBufferRange> LightUniforms;
 		TArray<MeshBufferRange> Portals;
 		TArray<MeshBufferRange> Light;
-		TArray<MeshBufferRange> DynLight;
 		TArray<MeshBufferRange> LightIndex;
+		TArray<MeshBufferRange> DynLight;
 		TArray<MeshBufferRange> DrawIndex;
 	} UploadRanges;
 
@@ -161,6 +171,8 @@ public:
 		TArray<MeshBufferRange> Index;
 		TArray<MeshBufferRange> Uniforms;
 		TArray<MeshBufferRange> Surface;
+		TArray<MeshBufferRange> Light;
+		TArray<MeshBufferRange> LightIndex;
 		TArray<MeshBufferRange> DrawIndex;
 	} FreeLists;
 
@@ -242,6 +254,25 @@ inline UniformsAllocInfo LevelMesh::AllocUniforms(int count)
 	return info;
 }
 
+inline LightListAllocInfo LevelMesh::AllocLightList(int count)
+{
+	LightListAllocInfo info;
+	info.Start = RemoveRange(FreeLists.LightIndex, count);
+	info.Count = count;
+	info.List = &Mesh.LightIndexes[info.Start];
+	AddRange(UploadRanges.LightIndex, { info.Start, info.Start + info.Count });
+	return info;
+}
+
+inline LightAllocInfo LevelMesh::AllocLight()
+{
+	LightAllocInfo info;
+	info.Index = RemoveRange(FreeLists.Light, 1);
+	info.Light = &Mesh.Lights[info.Index];
+	AddRange(UploadRanges.Light, { info.Index, info.Index + 1 });
+	return info;
+}
+
 inline SurfaceAllocInfo LevelMesh::AllocSurface()
 {
 	SurfaceAllocInfo info;
@@ -269,10 +300,13 @@ inline void LevelMesh::FreeUniforms(int start, int count)
 	AddRange(FreeLists.Uniforms, { start, start + count });
 }
 
+inline void LevelMesh::FreeLightList(int start, int count)
+{
+	AddRange(FreeLists.LightIndex, { start, start + count });
+}
+
 inline void LevelMesh::FreeSurface(unsigned int surfaceIndex)
 {
-	// To do: remove the surface from the surface tile, if attached
-
 	AddRange(FreeLists.Surface, { (int)surfaceIndex, (int)surfaceIndex + 1 });
 }
 

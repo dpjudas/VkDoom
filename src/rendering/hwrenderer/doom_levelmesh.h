@@ -73,6 +73,7 @@ struct SideSurfaceBlock
 	bool InSideDecalsList = false;
 	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
+	LightListAllocInfo Lights;
 };
 
 struct FlatSurfaceBlock
@@ -82,6 +83,7 @@ struct FlatSurfaceBlock
 	TArray<UniformsAllocInfo> Uniforms;
 	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
+	TArray<LightListAllocInfo> Lights;
 };
 
 class DoomLevelMesh : public LevelMesh, public UpdateLevelMesh
@@ -106,8 +108,6 @@ public:
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 	TArray<int> sectorPortals[2]; // index is sector+plane, value is index into the portal list
 	TArray<int> linePortals; // index is linedef, value is index into the portal list
-
-	void CreateLights(FLevelLocals& doomMap);
 
 	void SaveLightmapLump(FLevelLocals& doomMap);
 	void DeleteLightmapLump(FLevelLocals& doomMap);
@@ -146,7 +146,6 @@ private:
 	void SetLimits(FLevelLocals& doomMap);
 
 	void CreateSurfaces(FLevelLocals& doomMap);
-	void CreateLightList(FLevelLocals& doomMap, int surfaceIndex);
 
 	void UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType);
 	void UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updateType);
@@ -165,8 +164,8 @@ private:
 	void SetSubsectorLightmap(int surfaceIndex);
 	void SetSideLightmap(int surfaceIndex);
 
-	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex);
-	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex);
+	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist);
+	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist);
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
@@ -174,9 +173,11 @@ private:
 	int GetSampleDimension(uint16_t sampleDimension);
 
 	void CreatePortals(FLevelLocals& doomMap);
-	std::pair<FLightNode*, int> GetSurfaceLightNode(int surfaceIndex);
 
+	LightListAllocInfo CreateLightList(FLightNode* node, int portalgroup);
 	int GetLightIndex(FDynamicLight* light, int portalgroup);
+	void UpdateLight(FDynamicLight* light);
+	void CopyToMeshLight(FDynamicLight* light, LevelMeshLight& meshlight, int portalgroup);
 
 	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType);
 	void RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges);
@@ -195,5 +196,4 @@ private:
 
 	std::map<LightmapTileBinding, int> bindings;
 	MeshBuilder state;
-	bool LightsCreated = false;
 };
