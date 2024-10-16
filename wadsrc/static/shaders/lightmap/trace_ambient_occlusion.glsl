@@ -7,17 +7,19 @@ float TraceAmbientOcclusion(vec3 origin, vec3 normal)
 {
 	const float minDistance = 0.01;
 	const float aoDistance = 100;
-	const int SampleCount = 128;
+	const int SampleCount = 16;
 
 	vec3 N = normal;
 	vec3 up = abs(N.x) < abs(N.y) ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
 	vec3 tangent = normalize(cross(up, N));
 	vec3 bitangent = cross(N, tangent);
 
+	int fragoffset = int(gl_FragCoord.x * 13.37 + gl_FragCoord.y * 6.66) % 9;
+
 	float ambience = 0.0f;
 	for (uint i = 0; i < SampleCount; i++)
 	{
-		vec2 Xi = Hammersley(i, SampleCount);
+		vec2 Xi = Hammersley(i * 9 + fragoffset, SampleCount * 9);
 		vec3 H = normalize(vec3(Xi.x * 2.0f - 1.0f, Xi.y * 2.0f - 1.0f, 1.5 - length(Xi)));
 		vec3 L = H.x * tangent + H.y * bitangent + H.z * N;
 		ambience += clamp(TraceAORay(origin, minDistance, L, aoDistance) / aoDistance, 0.0, 1.0);
