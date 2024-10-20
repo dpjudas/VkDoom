@@ -184,7 +184,8 @@ void CPUAccelStruct::Upload()
 
 		if (node.left != -1 && TLAS.Nodes[node.left].blas_index != -1)
 		{
-			info.left = blasOffsets[TLAS.Nodes[node.left].blas_index];
+			int blas_index = TLAS.Nodes[node.left].blas_index;
+			info.left = blasOffsets[blas_index] + DynamicBLAS[blas_index]->GetRoot();
 		}
 		else
 		{
@@ -193,7 +194,8 @@ void CPUAccelStruct::Upload()
 
 		if (node.right != -1 && TLAS.Nodes[node.right].blas_index != -1)
 		{
-			info.right = blasOffsets[TLAS.Nodes[node.right].blas_index];
+			int blas_index = TLAS.Nodes[node.right].blas_index;
+			info.right = blasOffsets[blas_index] + DynamicBLAS[blas_index]->GetRoot();
 		}
 		else
 		{
