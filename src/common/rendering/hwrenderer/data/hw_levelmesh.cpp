@@ -16,9 +16,12 @@ LevelMesh::LevelMesh()
 	Portals.Push(portal);
 
 	AddEmptyMesh();
-	UpdateCollision();
+	CreateCollision();
+}
 
-	Mesh.MaxNodes = (int)std::max(Collision->get_nodes().size() * 2, (size_t)10000);
+void LevelMesh::CreateCollision()
+{
+	Collision = std::make_unique<CPUAccelStruct>(this);
 }
 
 void LevelMesh::Reset(const LevelMeshLimits& limits)
@@ -92,7 +95,7 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 	{
 		FVector3 end = origin + direction * maxDist;
 
-		TraceHit hit = TriangleMeshShape::find_first_hit(Collision.get(), origin, end);
+		TraceHit hit = Collision->FindFirstHit(origin, end);
 
 		if (hit.triangle < 0)
 		{
@@ -140,12 +143,6 @@ LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 	}
 	stats.tiles.total += LightmapTiles.Size();
 	return stats;
-}
-
-void LevelMesh::UpdateCollision()
-{
-	Collision = std::make_unique<TriangleMeshShape>(Mesh.Vertices.Data(), Mesh.Vertices.Size(), Mesh.Indexes.Data(), Mesh.IndexCount);
-	UploadCollision();
 }
 
 struct LevelMeshPlaneGroup

@@ -143,7 +143,8 @@ public:
 		TArray<uint32_t> DrawIndexes;
 
 		// GPU buffer size for collision nodes
-		int MaxNodes = 0;
+		TArray<CollisionNode> Nodes;
+		int RootNode = 0;
 	} Mesh;
 
 	// Ranges in mesh that have changed since last upload
@@ -177,7 +178,7 @@ public:
 	} FreeLists;
 
 	// Data structure for doing mesh traces on the CPU
-	std::unique_ptr<TriangleMeshShape> Collision;
+	std::unique_ptr<CPUAccelStruct> Collision;
 
 	// Draw index ranges for rendering the level mesh, grouped by pipeline
 	std::unordered_map<int, TArray<MeshBufferRange>> DrawList[(int)LevelMeshDrawType::NumDrawTypes];
@@ -194,14 +195,13 @@ public:
 
 	uint32_t AtlasPixelCount() const { return uint32_t(LMTextureCount * LMTextureSize * LMTextureSize); }
 
-	void UpdateCollision();
 	void SetupTileTransforms();
 	void PackLightmapAtlas(int lightmapStartIndex);
 
 	void AddEmptyMesh();
 	
 	void UploadPortals();
-	void UploadCollision();
+	void CreateCollision();
 
 	void AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range);
 	void RemoveRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range);
@@ -314,13 +314,6 @@ inline void LevelMesh::UploadPortals()
 {
 	UploadRanges.Portals.Clear();
 	AddRange(UploadRanges.Portals, { 0, (int)Portals.Size() });
-}
-
-inline void LevelMesh::UploadCollision()
-{
-	UploadRanges.Node.Clear();
-	if (Collision)
-		UploadRanges.Node.Push({ 0, (int)Collision->get_nodes().size() });
 }
 
 inline void LevelMesh::AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)

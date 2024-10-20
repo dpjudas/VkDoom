@@ -26,16 +26,10 @@
 #include "flatvertices.h"
 #include <vector>
 #include <cmath>
+#include <memory>
 
-class SphereShape
-{
-public:
-	SphereShape() { }
-	SphereShape(const FVector3 &center, float radius) : center(center), radius(radius) { }
-
-	FVector3 center;
-	float radius = 0.0f;
-};
+class LevelMesh;
+class CPUBottomLevelAccelStruct;
 
 struct TraceHit
 {
@@ -45,12 +39,24 @@ struct TraceHit
 	float c = 0.0f;
 };
 
+struct CollisionNode
+{
+	FVector3 center;
+	float padding1;
+	FVector3 extents;
+	float padding2;
+	int left;
+	int right;
+	int element_index;
+	int padding3;
+};
+
 class CollisionBBox
 {
 public:
 	CollisionBBox() = default;
 
-	CollisionBBox(const FVector3 &aabb_min, const FVector3 &aabb_max)
+	CollisionBBox(const FVector3& aabb_min, const FVector3& aabb_max)
 	{
 		min = aabb_min;
 		max = aabb_max;
@@ -70,7 +76,7 @@ public:
 class RayBBox
 {
 public:
-	RayBBox(const FVector3 &ray_start, const FVector3 &ray_end) : start(ray_start), end(ray_end)
+	RayBBox(const FVector3& ray_start, const FVector3& ray_end) : start(ray_start), end(ray_end)
 	{
 		c = (ray_start + ray_end) * 0.5f;
 		w = ray_end - c;
@@ -84,27 +90,72 @@ public:
 	float ssePadding = 0.0f; // Needed to safely load v directly into a sse register
 };
 
-class TriangleMeshShape
+class AccelStructScratchBuffer
 {
 public:
-	TriangleMeshShape(const FFlatVertex *vertices, int num_vertices, const unsigned int *elements, int num_elements);
+	std::vector<int> leafs;
+	std::vector<FVector3> centroids;
+	std::vector<int> workbuffer;
+};
 
-	int get_min_depth() const;
-	int get_max_depth() const;
-	float get_average_depth() const;
-	float get_balanced_depth() const;
+class CPUAccelStruct
+{
+public:
+	CPUAccelStruct(LevelMesh* mesh);
+	~CPUAccelStruct();
 
-	const CollisionBBox &get_bbox() const { return nodes[root].aabb; }
+	void Update();
+	TraceHit FindFirstHit(const FVector3& rayStart, const FVector3& rayEnd);
 
-	static float sweep(TriangleMeshShape *shape1, SphereShape *shape2, const FVector3 &target);
+private:
+	void FindFirstHit(const RayBBox& ray, int a, TraceHit* hit);
+	void CreateTLAS();
+	int Subdivide(int* instances, int numInstances, const FVector3* centroids, int* workBuffer);
+	std::unique_ptr<CPUBottomLevelAccelStruct> CreateBLAS(int indexStart, int indexCount);
+	void Upload();
 
-	static bool find_any_hit(TriangleMeshShape *shape1, TriangleMeshShape *shape2);
-	static bool find_any_hit(TriangleMeshShape *shape1, SphereShape *shape2);
-	static bool find_any_hit(TriangleMeshShape *shape, const FVector3 &ray_start, const FVector3 &ray_end);
+	LevelMesh* Mesh = nullptr;
 
-	static std::vector<int> find_all_hits(TriangleMeshShape* shape1, SphereShape* shape2);
+	struct Node
+	{
+		Node() = default;
+		Node(const FVector3& aabb_min, const FVector3& aabb_max, int blas_index) : aabb(aabb_min, aabb_max), blas_index(blas_index) { }
+		Node(const FVector3& aabb_min, const FVector3& aabb_max, int left, int right) : aabb(aabb_min, aabb_max), left(left), right(right) { }
 
-	static TraceHit find_first_hit(TriangleMeshShape *shape, const FVector3 &ray_start, const FVector3 &ray_end);
+		bool IsLeaf() const { return blas_index != -1; }
+
+		CollisionBBox aabb;
+		int left = -1;
+		int right = -1;
+		int blas_index = -1;
+	};
+
+	struct
+	{
+		std::vector<Node> Nodes;
+		int Root = 0;
+	} TLAS;
+
+	std::vector<std::unique_ptr<CPUBottomLevelAccelStruct>> DynamicBLAS;
+	int IndexesPerBLAS = 0;
+	int InstanceCount = 0;
+
+	AccelStructScratchBuffer Scratch;
+};
+
+class CPUBottomLevelAccelStruct
+{
+public:
+	CPUBottomLevelAccelStruct(const FFlatVertex *vertices, int num_vertices, const unsigned int *elements, int num_elements, AccelStructScratchBuffer& scratch);
+
+	int GetMinDepth() const;
+	int GetMaxDepth() const;
+	float GetAverageDepth() const;
+	float GetBalancedDepth() const;
+
+	const CollisionBBox &GetBBox() const { return nodes[root].aabb; }
+
+	TraceHit FindFirstHit(const FVector3 &ray_start, const FVector3 &ray_end);
 
 	struct Node
 	{
@@ -112,14 +163,16 @@ public:
 		Node(const FVector3 &aabb_min, const FVector3 &aabb_max, int element_index) : aabb(aabb_min, aabb_max), element_index(element_index) { }
 		Node(const FVector3 &aabb_min, const FVector3 &aabb_max, int left, int right) : aabb(aabb_min, aabb_max), left(left), right(right) { }
 
+		bool IsLeaf() const { return element_index != -1; }
+
 		CollisionBBox aabb;
 		int left = -1;
 		int right = -1;
 		int element_index = -1;
 	};
 
-	const std::vector<Node>& get_nodes() const { return nodes; }
-	int get_root() const { return root; }
+	const std::vector<Node>& GetNodes() const { return nodes; }
+	int GetRoot() const { return root; }
 
 private:
 	const FFlatVertex* vertices = nullptr;
@@ -130,51 +183,19 @@ private:
 	std::vector<Node> nodes;
 	int root = -1;
 
-	static float sweep(TriangleMeshShape *shape1, SphereShape *shape2, int a, const FVector3 &target);
-
-	static bool find_any_hit(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b);
-	static bool find_any_hit(TriangleMeshShape *shape1, SphereShape *shape2, int a);
-	static bool find_any_hit(TriangleMeshShape *shape1, const RayBBox &ray, int a);
-
-	static void find_all_hits(TriangleMeshShape* shape1, SphereShape* shape2, int a, std::vector<int>& hits);
-
-	static void find_first_hit(TriangleMeshShape *shape1, const RayBBox &ray, int a, TraceHit *hit);
-
-	inline static bool overlap_bv_ray(TriangleMeshShape *shape, const RayBBox &ray, int a);
-	inline static float intersect_triangle_ray(TriangleMeshShape *shape, const RayBBox &ray, int a, float &barycentricB, float &barycentricC);
-
-	inline static bool sweep_overlap_bv_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int a, const FVector3 &target);
-	inline static float sweep_intersect_triangle_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int a, const FVector3 &target);
-
-	inline static bool overlap_bv(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b);
-	inline static bool overlap_bv_triangle(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b);
-	inline static bool overlap_bv_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int a);
-	inline static bool overlap_triangle_triangle(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b);
-	inline static bool overlap_triangle_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int a);
-
-	inline bool is_leaf(int node_index);
-	inline float volume(int node_index);
-
-	int subdivide(int *triangles, int num_triangles, const FVector3 *centroids, int *work_buffer);
+	void FindFirstHit(const RayBBox& ray, int a, TraceHit* hit);
+	float IntersectTriangleRay(const RayBBox &ray, int a, float &barycentricB, float &barycentricC);
+	int Subdivide(int *triangles, int num_triangles, const FVector3 *centroids, int *work_buffer);
 };
 
 class IntersectionTest
 {
 public:
-	enum Result
-	{
-		outside,
-		inside,
-		intersecting,
-	};
-
 	enum OverlapResult
 	{
 		disjoint,
 		overlap
 	};
 
-	static OverlapResult sphere_aabb(const FVector3 &center, float radius, const CollisionBBox &aabb);
-	static OverlapResult aabb(const CollisionBBox &a, const CollisionBBox &b);
 	static OverlapResult ray_aabb(const RayBBox &ray, const CollisionBBox &box);
 };

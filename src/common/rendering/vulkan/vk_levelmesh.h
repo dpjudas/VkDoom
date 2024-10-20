@@ -18,18 +18,6 @@ struct CollisionNodeBufferHeader
 	int padding3;
 };
 
-struct CollisionNode
-{
-	FVector3 center;
-	float padding1;
-	FVector3 extents;
-	float padding2;
-	int left;
-	int right;
-	int element_index;
-	int padding3;
-};
-
 struct SurfaceInfo
 {
 	FVector3 Normal;

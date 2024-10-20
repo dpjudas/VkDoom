@@ -269,7 +269,7 @@ void VkLevelMesh::CreateBuffers()
 
 	NodeBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(sizeof(CollisionNodeBufferHeader) + Mesh->Mesh.MaxNodes * sizeof(CollisionNode))
+		.Size(sizeof(CollisionNodeBufferHeader) + Mesh->Mesh.Nodes.Size() * sizeof(CollisionNode))
 		.DebugName("NodeBuffer")
 		.Create(fb->GetDevice());
 
@@ -789,7 +789,7 @@ void VkLevelMeshUploader::UploadNodes()
 	if (Mesh->Mesh->UploadRanges.Node.Size() > 0)
 	{
 		CollisionNodeBufferHeader nodesHeader;
-		nodesHeader.root = Mesh->Mesh->Collision->get_root();
+		nodesHeader.root = Mesh->Mesh->Mesh.RootNode;
 
 		*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
 		copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
@@ -800,21 +800,8 @@ void VkLevelMeshUploader::UploadNodes()
 	// Copy collision nodes
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Node)
 	{
-		const auto& srcnodes = Mesh->Mesh->Collision->get_nodes();
-		CollisionNode* nodes = (CollisionNode*)(data + datapos);
-		for (int i = 0, count = range.Count(); i < count; i++)
-		{
-			const auto& node = srcnodes[range.Start + i];
-			CollisionNode info;
-			info.center = SwapYZ(node.aabb.Center);
-			info.extents = SwapYZ(node.aabb.Extents);
-			info.left = node.left;
-			info.right = node.right;
-			info.element_index = node.element_index;
-			*(nodes++) = info;
-		}
-
 		size_t copysize = range.Count() * sizeof(CollisionNode);
+		memcpy(data + datapos, Mesh->Mesh->Mesh.Nodes.Data() + range.Start, copysize);
 		if (copysize > 0)
 			copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, sizeof(CollisionNodeBufferHeader) + range.Start * sizeof(CollisionNode), copysize);
 		datapos += copysize;

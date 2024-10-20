@@ -201,11 +201,8 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	for (unsigned int i = 0; i < Flats.Size(); i++)
 		UpdateFlat(i, SurfaceUpdateType::Full);
 
-	UpdateCollision();
-	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
-
+	CreateCollision();
 	UploadPortals();
-
 	SortDrawLists();
 
 	r_viewpoint.extralight = oldextralight;
@@ -294,6 +291,8 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	UpdateWallPortals();
 
 	UploadDynLights(doomMap);
+
+	Collision->Update();
 
 	r_viewpoint.extralight = oldextralight;
 	r_viewpoint.camera = oldcamera;
