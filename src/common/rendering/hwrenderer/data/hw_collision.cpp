@@ -104,7 +104,7 @@ void CPUAccelStruct::Update()
 
 	for (int instance = 0; instance < InstanceCount; instance++)
 	{
-		if (needsUpdate)
+		if (needsUpdate[instance])
 		{
 			int indexStart = instance * IndexesPerBLAS;
 			int indexEnd = std::min(indexStart + IndexesPerBLAS, Mesh->Mesh.IndexCount);
