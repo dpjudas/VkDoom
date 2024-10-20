@@ -235,11 +235,11 @@ int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector3* 
 
 	// Find bounding box and median of the instance centroids
 	FVector3 median;
-	FVector3 min = DynamicBLAS[0]->GetBBox().min;
-	FVector3 max = DynamicBLAS[0]->GetBBox().max;
+	FVector3 min = DynamicBLAS[instances[0]]->GetBBox().min;
+	FVector3 max = DynamicBLAS[instances[0]]->GetBBox().max;
 	for (int i = 0; i < numInstances; i++)
 	{
-		const CollisionBBox& bbox = DynamicBLAS[i]->GetBBox();
+		const CollisionBBox& bbox = DynamicBLAS[instances[i]]->GetBBox();
 
 		min.X = std::min(min.X, bbox.min.X);
 		min.Y = std::min(min.Y, bbox.min.Y);
