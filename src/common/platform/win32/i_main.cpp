@@ -122,11 +122,22 @@ void I_SetIWADInfo()
 
 bool isConsoleApp()
 {
-	DWORD pids[2];
-	DWORD num_pids = GetConsoleProcessList(pids, 2);
-	bool win32con_is_exclusive = (num_pids <= 1);
+	static bool alreadychecked = false;
+	static bool returnvalue;
 
-	return GetConsoleWindow() != NULL && !win32con_is_exclusive;
+	if (!alreadychecked)
+	{
+		DWORD pids[2];
+		DWORD num_pids = GetConsoleProcessList(pids, 2);
+		bool win32con_is_exclusive = (num_pids <= 1);
+
+		returnvalue = ((GetConsoleWindow() != NULL && !win32con_is_exclusive) || (GetStdHandle(STD_OUTPUT_HANDLE) != NULL));
+		alreadychecked = true;
+	}
+
+	//printf("isConsoleApp is %i\n", returnvalue);
+
+	return returnvalue;
 }
 
 //==========================================================================
@@ -152,18 +163,16 @@ int DoMain (HINSTANCE hInstance)
 	if (isConsoleApp())
 	{
 		StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-		BY_HANDLE_FILE_INFORMATION info;
 
-		if (!GetFileInformationByHandle(StdOut, &info) && StdOut != nullptr)
+		SetConsoleCP(CP_UTF8);
+		SetConsoleOutputCP(CP_UTF8);
+
+		DWORD mode;
+
+		if (GetConsoleMode(StdOut, &mode))
 		{
-			SetConsoleCP(CP_UTF8);
-			SetConsoleOutputCP(CP_UTF8);
-			DWORD mode;
-			if (GetConsoleMode(StdOut, &mode))
-			{
-				if (SetConsoleMode(StdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
-					FancyStdOut = IsWindows10OrGreater(); // Windows 8.1 and lower do not understand ANSI formatting.
-			}
+			if (SetConsoleMode(StdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+				FancyStdOut = IsWindows10OrGreater(); // Windows 8.1 and lower do not understand ANSI formatting.
 		}
 	}
 	else if (Args->CheckParm("-stdout") || Args->CheckParm("-norun"))
@@ -326,8 +335,14 @@ void I_ShowFatalError(const char *msg)
 
 //==========================================================================
 
+int wmain()
+{
+    return wWinMain(GetModuleHandle(0), 0, GetCommandLineW(), SW_SHOW);
+}
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow)
 {
+
 	g_hInst = hInstance;
 
 	InitCommonControls();
