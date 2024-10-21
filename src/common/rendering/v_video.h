@@ -136,6 +136,7 @@ public:
 	virtual void InitializeState() = 0;	// For stuff that needs 'screen' set.
 	virtual bool IsVulkan() { return false; }
 	virtual bool IsPoly() { return false; }
+	virtual bool IsRayQueryEnabled() const { return false; }
 	virtual bool CompileNextShader() { return true; }
 	virtual void SetLevelMesh(LevelMesh *mesh) { }
 	virtual void UpdateLightmaps(const TArray<LightmapTile*>& tiles) {}

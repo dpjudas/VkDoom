@@ -47,7 +47,7 @@ public:
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
 	FRenderState* RenderState() override;
 
-	bool IsRayQueryEnabled() const { return mUseRayQuery; }
+	bool IsRayQueryEnabled() const override { return mUseRayQuery; }
 	bool IsVulkan() override { return true; }
 
 	void Update() override;
