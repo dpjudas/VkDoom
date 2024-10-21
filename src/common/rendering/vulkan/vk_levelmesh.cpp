@@ -782,20 +782,15 @@ static FVector3 SwapYZ(const FVector3& v)
 
 void VkLevelMeshUploader::UploadNodes()
 {
-	if (Mesh->useRayQuery)
+	if (Mesh->useRayQuery || Mesh->Mesh->UploadRanges.Node.Size() == 0)
 		return;
 
 	// Always update the header struct of the collision storage buffer block if something changed
-	if (Mesh->Mesh->UploadRanges.Node.Size() > 0)
-	{
-		CollisionNodeBufferHeader nodesHeader;
-		nodesHeader.root = Mesh->Mesh->Mesh.RootNode;
-
-		*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
-		copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
-
-		datapos += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
-	}
+	CollisionNodeBufferHeader nodesHeader;
+	nodesHeader.root = Mesh->Mesh->Mesh.RootNode;
+	*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
+	copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
+	datapos += sizeof(CollisionNodeBufferHeader);
 
 	// Copy collision nodes
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Node)
@@ -942,7 +937,7 @@ size_t VkLevelMeshUploader::GetTransferSize()
 	size_t transferBufferSize = 0;
 	if (!Mesh->useRayQuery)
 	{
-		if (Mesh->Mesh->UploadRanges.Node.Size() > 0) transferBufferSize += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
+		if (Mesh->Mesh->UploadRanges.Node.Size() > 0) transferBufferSize += sizeof(CollisionNodeBufferHeader);
 		for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Node) transferBufferSize += range.Count() * sizeof(CollisionNode);
 	}
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Vertex) transferBufferSize += range.Count() * sizeof(FFlatVertex);
