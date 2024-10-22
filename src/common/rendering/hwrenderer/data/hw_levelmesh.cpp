@@ -145,13 +145,6 @@ LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 	return stats;
 }
 
-struct LevelMeshPlaneGroup
-{
-	FVector4 plane = FVector4(0, 0, 1, 0);
-	int sectorGroup = 0;
-	std::vector<LevelMeshSurface*> surfaces;
-};
-
 void LevelMesh::PackStaticLightmapAtlas()
 {
 	Lightmap.StaticAtlasPacked = true;
