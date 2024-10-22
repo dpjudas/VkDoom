@@ -129,7 +129,7 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 {
 	LevelMeshTileStats stats;
-	for (const LightmapTile& tile : LightmapTiles)
+	for (const LightmapTile& tile : Lightmap.Tiles)
 	{
 		auto area = tile.AtlasLocation.Area();
 
@@ -141,7 +141,7 @@ LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 			stats.pixels.dirty += area;
 		}
 	}
-	stats.tiles.total += LightmapTiles.Size();
+	stats.tiles.total += Lightmap.Tiles.Size();
 	return stats;
 }
 
@@ -152,40 +152,36 @@ struct LevelMeshPlaneGroup
 	std::vector<LevelMeshSurface*> surfaces;
 };
 
-void LevelMesh::SetupTileTransforms()
+void LevelMesh::PackStaticLightmapAtlas()
 {
-	for (auto& tile : LightmapTiles)
-	{
-		tile.SetupTileTransform(LMTextureSize);
-	}
-}
+	Lightmap.StaticAtlasPacked = true;
+	Lightmap.DynamicTilesStart = Lightmap.Tiles.Size();
 
-void LevelMesh::PackLightmapAtlas(int lightmapStartIndex)
-{
-	LMAtlasPacked = true;
+	for (auto& tile : Lightmap.Tiles)
+	{
+		if (tile.NeedsUpdate) // false for tiles loaded from lump
+			tile.SetupTileTransform(Lightmap.TextureSize);
+	}
 
 	std::vector<LightmapTile*> sortedTiles;
-	sortedTiles.reserve(LightmapTiles.Size());
-
-	for (auto& tile : LightmapTiles)
-	{
+	sortedTiles.reserve(Lightmap.Tiles.Size());
+	for (auto& tile : Lightmap.Tiles)
 		sortedTiles.push_back(&tile);
-	}
 
 	std::sort(sortedTiles.begin(), sortedTiles.end(), [](LightmapTile* a, LightmapTile* b) { return a->AtlasLocation.Height != b->AtlasLocation.Height ? a->AtlasLocation.Height > b->AtlasLocation.Height : a->AtlasLocation.Width > b->AtlasLocation.Width; });
 
 	// We do not need to add spacing here as this is already built into the tile size itself.
-	RectPacker packer(LMTextureSize, LMTextureSize, RectPacker::Spacing(0), RectPacker::Padding(0));
+	RectPacker packer(Lightmap.TextureSize, Lightmap.TextureSize, RectPacker::Spacing(0), RectPacker::Padding(0));
 
 	for (LightmapTile* tile : sortedTiles)
 	{
 		auto result = packer.insert(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
 		tile->AtlasLocation.X = result.pos.x;
 		tile->AtlasLocation.Y = result.pos.y;
-		tile->AtlasLocation.ArrayIndex = lightmapStartIndex + (int)result.pageIndex;
+		tile->AtlasLocation.ArrayIndex = (int)result.pageIndex;
 	}
 
-	LMTextureCount = (int)packer.getNumPages();
+	Lightmap.TextureCount = (int)packer.getNumPages();
 
 	// Calculate final texture coordinates
 	for (int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
@@ -193,61 +189,67 @@ void LevelMesh::PackLightmapAtlas(int lightmapStartIndex)
 		auto surface = &Mesh.Surfaces[i];
 		if (surface->LightmapTileIndex >= 0)
 		{
-			const LightmapTile& tile = LightmapTiles[surface->LightmapTileIndex];
+			const LightmapTile& tile = Lightmap.Tiles[surface->LightmapTileIndex];
 			for (int i = 0; i < surface->MeshLocation.NumVerts; i++)
 			{
 				auto& vertex = Mesh.Vertices[surface->MeshLocation.StartVertIndex + i];
-				FVector2 uv = tile.ToUV(vertex.fPos(), (float)LMTextureSize);
+				FVector2 uv = tile.ToUV(vertex.fPos(), (float)Lightmap.TextureSize);
 				vertex.lu = uv.X;
 				vertex.lv = uv.Y;
 				vertex.lindex = (float)tile.AtlasLocation.ArrayIndex;
 			}
 		}
 	}
+}
 
-#if 0 // Debug atlas tile locations:
-	float colors[30] =
+void LevelMesh::ClearDynamicLightmapAtlas()
+{
+	for (int surfIndex : Lightmap.DynamicSurfaces)
 	{
-		1.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f,
-		1.0f, 1.0f, 0.0f,
-		0.0f, 1.0f, 1.0f,
-		1.0f, 0.0f, 1.0f,
-		0.5f, 0.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,
-		0.5f, 0.5f, 0.0f,
-		0.0f, 0.5f, 0.5f,
-		0.5f, 0.0f, 0.5f
-	};
-	LMTextureData.Resize(LMTextureSize * LMTextureSize * LMTextureCount * 3);
-	uint16_t* pixels = LMTextureData.Data();
-	for (LightmapTile& tile : LightmapTiles)
+		Mesh.Surfaces[surfIndex].LightmapTileIndex = -1;
+	}
+	Lightmap.DynamicSurfaces.Clear();
+	Lightmap.Tiles.Resize(Lightmap.DynamicTilesStart);
+}
+
+void LevelMesh::PackDynamicLightmapAtlas()
+{
+	std::vector<LightmapTile*> sortedTiles;
+	sortedTiles.reserve(Lightmap.Tiles.Size() - Lightmap.DynamicTilesStart);
+
+	for (unsigned int i = Lightmap.DynamicTilesStart; i < Lightmap.Tiles.Size(); i++)
 	{
-		tile.NeedsUpdate = false;
+		Lightmap.Tiles[i].SetupTileTransform(Lightmap.TextureSize);
+		sortedTiles.push_back(&Lightmap.Tiles[i]);
+	}
 
-		int index = tile.Binding.TypeIndex;
-		float* color = colors + (index % 10) * 3;
+	std::sort(sortedTiles.begin(), sortedTiles.end(), [](LightmapTile* a, LightmapTile* b) { return a->AtlasLocation.Height != b->AtlasLocation.Height ? a->AtlasLocation.Height > b->AtlasLocation.Height : a->AtlasLocation.Width > b->AtlasLocation.Width; });
 
-		int x = tile.AtlasLocation.X;
-		int y = tile.AtlasLocation.Y;
-		int w = tile.AtlasLocation.Width;
-		int h = tile.AtlasLocation.Height;
-		for (int yy = y; yy < y + h; yy++)
+	// We do not need to add spacing here as this is already built into the tile size itself.
+	RectPacker packer(Lightmap.TextureSize, Lightmap.TextureSize, RectPacker::Spacing(0), RectPacker::Padding(0));
+
+	for (LightmapTile* tile : sortedTiles)
+	{
+		auto result = packer.insert(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
+		tile->AtlasLocation.X = result.pos.x;
+		tile->AtlasLocation.Y = result.pos.y;
+		tile->AtlasLocation.ArrayIndex = Lightmap.TextureCount; // (int)result.pageIndex;
+	}
+
+	for (int surfIndex : Lightmap.DynamicSurfaces)
+	{
+		auto surface = &Mesh.Surfaces[surfIndex];
+		if (surface->LightmapTileIndex >= 0)
 		{
-			uint16_t* line = pixels + tile.AtlasLocation.ArrayIndex * LMTextureSize * LMTextureSize + yy * LMTextureSize * 3;
-			for (int xx = x; xx < x + w; xx++)
+			const LightmapTile& tile = Lightmap.Tiles[surface->LightmapTileIndex];
+			for (int i = 0; i < surface->MeshLocation.NumVerts; i++)
 			{
-				float gray = (yy - y) / (float)h;
-				line[xx * 3] = floatToHalf(color[0] * gray);
-				line[xx * 3 + 1] = floatToHalf(color[1] * gray);
-				line[xx * 3 + 2] = floatToHalf(color[2] * gray);
+				auto& vertex = Mesh.Vertices[surface->MeshLocation.StartVertIndex + i];
+				FVector2 uv = tile.ToUV(vertex.fPos(), (float)Lightmap.TextureSize);
+				vertex.lu = uv.X;
+				vertex.lv = uv.Y;
+				vertex.lindex = (float)tile.AtlasLocation.ArrayIndex;
 			}
 		}
 	}
-	for (int i = 0, count = GetSurfaceCount(); i < count; i++)
-	{
-		auto surface = GetSurface(i);
-		surface->AlwaysUpdate = false;
-	}
-#endif
 }

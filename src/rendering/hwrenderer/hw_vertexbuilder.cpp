@@ -246,8 +246,8 @@ static int CreateIndexedSectorVerticesLM(sector_t* sec, const secplane_t& plane,
 			int lightmap = sub->LightmapTiles[h].Size() > lightmapIndex ? sub->LightmapTiles[h][lightmapIndex] : -1;
 			if (lightmap >= 0) // tile may be missing if the subsector is degenerate triangle
 			{
-				const auto& tile = level.levelMesh->LightmapTiles[lightmap];
-				float textureSize = (float)level.levelMesh->LMTextureSize;
+				const auto& tile = level.levelMesh->Lightmap.Tiles[lightmap];
+				float textureSize = (float)level.levelMesh->Lightmap.TextureSize;
 				float lindex = (float)tile.AtlasLocation.ArrayIndex;
 				for (unsigned int j = 0, end = sub->numlines; j < end; j++)
 				{

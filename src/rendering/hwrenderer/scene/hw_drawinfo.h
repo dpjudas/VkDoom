@@ -229,16 +229,16 @@ public:
 
 	void PushVisibleTile(int tileIndex)
 	{
+		if (tileIndex < 0)
+			return;
+
 		if (outer)
 		{
 			outer->PushVisibleTile(tileIndex);
 			return;
 		}
 
-		if (tileIndex < 0)
-			return;
-
-		LightmapTile* tile = &Level->levelMesh->LightmapTiles[tileIndex];
+		LightmapTile* tile = &Level->levelMesh->Lightmap.Tiles[tileIndex];
 		if (lm_always_update || tile->AlwaysUpdate)
 		{
 			tile->NeedsUpdate = true;

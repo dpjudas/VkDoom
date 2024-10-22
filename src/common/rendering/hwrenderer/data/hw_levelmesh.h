@@ -142,7 +142,7 @@ public:
 		// Indexes sorted by pipeline
 		TArray<uint32_t> DrawIndexes;
 
-		// GPU buffer size for collision nodes
+		// Acceleration structure nodes for when the GPU doesn't support rayquery
 		TArray<CollisionNode> Nodes;
 		int RootNode = 0;
 	} Mesh;
@@ -183,20 +183,23 @@ public:
 	// Draw index ranges for rendering the level mesh, grouped by pipeline
 	std::unordered_map<int, TArray<MeshBufferRange>> DrawList[(int)LevelMeshDrawType::NumDrawTypes];
 
-	// Lightmap atlas
-	int LMTextureCount = 0;
-	int LMTextureSize = 1024;
-	TArray<uint16_t> LMTextureData;
+	// Lightmap tiles and their locations in the texture atlas
+	struct
+	{
+		int TextureCount = 0;
+		int TextureSize = 1024;
+		TArray<uint16_t> TextureData;
+		uint16_t SampleDistance = 8;
+		TArray<LightmapTile> Tiles;
+		bool StaticAtlasPacked = false;
+		int DynamicTilesStart = 0;
+		TArray<int> DynamicSurfaces;
+	} Lightmap;
 
-	uint16_t LightmapSampleDistance = 8;
-
-	TArray<LightmapTile> LightmapTiles;
-	bool LMAtlasPacked = false; // Tile sizes can't be changed anymore
-
-	uint32_t AtlasPixelCount() const { return uint32_t(LMTextureCount * LMTextureSize * LMTextureSize); }
-
-	void SetupTileTransforms();
-	void PackLightmapAtlas(int lightmapStartIndex);
+	uint32_t AtlasPixelCount() const { return uint32_t(Lightmap.TextureCount * Lightmap.TextureSize * Lightmap.TextureSize); }
+	void PackStaticLightmapAtlas();
+	void ClearDynamicLightmapAtlas();
+	void PackDynamicLightmapAtlas();
 
 	void AddEmptyMesh();
 	

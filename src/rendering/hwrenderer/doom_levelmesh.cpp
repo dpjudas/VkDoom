@@ -85,13 +85,13 @@ CCMD(invalidatelightmap)
 	if (!RequireLightmap()) return;
 
 	int count = 0;
-	for (auto& tile : level.levelMesh->LightmapTiles)
+	for (auto& tile : level.levelMesh->Lightmap.Tiles)
 	{
 		if (!tile.NeedsUpdate)
 			++count;
 		tile.NeedsUpdate = true;
 	}
-	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->LightmapTiles.Size());
+	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->Lightmap.Tiles.Size());
 }
 
 CCMD(savelightmap)
@@ -120,7 +120,7 @@ void DoomLevelMesh::PrintSurfaceInfo(const LevelMeshSurface* surface)
 	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", surfaceIndex, surface, info.Type, info.TypeIndex, info.ControlSector ? info.ControlSector->Index() : -1);
 	if (surface->LightmapTileIndex >= 0)
 	{
-		LightmapTile* tile = &LightmapTiles[surface->LightmapTileIndex];
+		LightmapTile* tile = &Lightmap.Tiles[surface->LightmapTileIndex];
 		Printf("    Atlas page: %d, x:%d, y:%d\n", tile->AtlasLocation.ArrayIndex, tile->AtlasLocation.X, tile->AtlasLocation.Y);
 		Printf("    Pixels: %dx%d (area: %d)\n", tile->AtlasLocation.Width, tile->AtlasLocation.Height, tile->AtlasLocation.Area());
 		Printf("    Sample dimension: %d\n", tile->SampleDimension);
@@ -181,7 +181,7 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 
 	SunColor = doomMap.SunColor; // TODO keep only one copy?
 	SunDirection = doomMap.SunDirection;
-	LightmapSampleDistance = doomMap.LightmapSampleDistance;
+	Lightmap.SampleDistance = doomMap.LightmapSampleDistance;
 
 	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
 	// but we aren't rendering a specific viewpoint when this function gets called
@@ -254,7 +254,8 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	r_viewpoint.extralight = 0;
 	r_viewpoint.camera = nullptr;
 
-	// To do: we don't need to always do this. UpdateLevelMesh should tell us when polyobjs move.
+	ClearDynamicLightmapAtlas();
+
 	for (side_t* side : PolySides)
 	{
 		UpdateSide(side->Index(), SurfaceUpdateType::Full);
@@ -288,8 +289,8 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	}
 	FlatUpdateList.Clear();
 
+	PackDynamicLightmapAtlas();
 	UpdateWallPortals();
-
 	UploadDynLights(doomMap);
 
 	Collision->Update();
@@ -1020,10 +1021,32 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		sinfo.Surface->PortalIndex = (drawType == LevelMeshDrawType::Portal) ? linePortals[side->linedef->Index()] : 0;
 		sinfo.Surface->IsSky = (drawType == LevelMeshDrawType::Portal) ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
 		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
-		sinfo.Surface->LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC)) : -1;
 		sinfo.Surface->LightList.Pos = lightlist.Start;
 		sinfo.Surface->LightList.Count = lightlist.Count;
 
+		if (side->Flags & WALLF_POLYOBJ) // Polyobjects gets a new tile every frame
+		{
+			LightmapTileBinding binding;
+			binding.Type = info.Type;
+			binding.TypeIndex = info.TypeIndex;
+			binding.ControlSector = info.ControlSector ? info.ControlSector->Index() : (int)0xffffffffUL;
+
+			LightmapTile tile;
+			tile.Binding = binding;
+			tile.Bounds = sinfo.Surface->Bounds;
+			tile.Plane = sinfo.Surface->Plane;
+			tile.SampleDimension = GetSampleDimension(sampleDimension);
+			tile.AlwaysUpdate = true;
+
+			sinfo.Surface->LightmapTileIndex = Lightmap.Tiles.Size();
+			Lightmap.Tiles.Push(tile);
+			Lightmap.DynamicSurfaces.Push(sinfo.Index);
+		}
+		else
+		{
+			sinfo.Surface->LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC)) : -1;
+		}
+		
 		SetSideLightmap(sinfo.Index);
 
 		for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
@@ -1129,9 +1152,9 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 	{
 		int index = it->second;
 
-		if (!LMAtlasPacked)
+		if (!Lightmap.StaticAtlasPacked)
 		{
-			LightmapTile& tile = LightmapTiles[index];
+			LightmapTile& tile = Lightmap.Tiles[index];
 			tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
 			tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
 			tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
@@ -1145,10 +1168,10 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 	}
 	else
 	{
-		if (LMAtlasPacked)
+		if (Lightmap.StaticAtlasPacked)
 			return -1;
 
-		int index = LightmapTiles.Size();
+		int index = Lightmap.Tiles.Size();
 
 		LightmapTile tile;
 		tile.Binding = binding;
@@ -1157,7 +1180,7 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 		tile.SampleDimension = GetSampleDimension(sampleDimension);
 		tile.AlwaysUpdate = alwaysUpdate;
 
-		LightmapTiles.Push(tile);
+		Lightmap.Tiles.Push(tile);
 		bindings[binding] = index;
 		return index;
 	}
@@ -1167,7 +1190,7 @@ int DoomLevelMesh::GetSampleDimension(uint16_t sampleDimension)
 {
 	if (sampleDimension <= 0)
 	{
-		sampleDimension = LightmapSampleDistance;
+		sampleDimension = Lightmap.SampleDistance;
 	}
 
 	sampleDimension = uint16_t(max(int(roundf(float(sampleDimension) / max(1.0f / 4, float(lm_scale)))), 1));
@@ -1569,7 +1592,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 
 				if (surface.LightmapTileIndex >= 0)
 				{
-					auto& tile = LightmapTiles[surface.LightmapTileIndex];
+					auto& tile = Lightmap.Tiles[surface.LightmapTileIndex];
 					fprintf(f, "usemtl lightmap%d\n", tile.AtlasLocation.ArrayIndex);
 
 					if (tile.AtlasLocation.ArrayIndex > highestUsedAtlasPage)
@@ -1960,19 +1983,19 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 	};
 	*/
 
-	LMTextureData.Resize(LMTextureSize * LMTextureSize * LMTextureCount * 4);
-	for (int arrayIndex = 0; arrayIndex < LMTextureCount; arrayIndex++)
+	Lightmap.TextureData.Resize(Lightmap.TextureSize * Lightmap.TextureSize * Lightmap.TextureCount * 4);
+	for (int arrayIndex = 0; arrayIndex < Lightmap.TextureCount; arrayIndex++)
 	{
-		screen->DownloadLightmap(arrayIndex, LMTextureData.Data() + arrayIndex * LMTextureSize * LMTextureSize * 4);
+		screen->DownloadLightmap(arrayIndex, Lightmap.TextureData.Data() + arrayIndex * Lightmap.TextureSize * Lightmap.TextureSize * 4);
 	}
 
 	// Calculate size of lump
 	uint32_t tileCount = 0;
 	uint32_t pixelCount = 0;
 
-	for (unsigned int i = 0; i < LightmapTiles.Size(); i++)
+	for (unsigned int i = 0; i < Lightmap.Tiles.Size(); i++)
 	{
-		LightmapTile* tile = &LightmapTiles[i];
+		LightmapTile* tile = &Lightmap.Tiles[i];
 		if (tile->AtlasLocation.ArrayIndex != -1)
 		{
 			tileCount++;
@@ -1998,9 +2021,9 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 	// Write tiles
 	uint32_t pixelsOffset = 0;
 
-	for (unsigned int i = 0; i < LightmapTiles.Size(); i++)
+	for (unsigned int i = 0; i < Lightmap.Tiles.Size(); i++)
 	{
-		LightmapTile* tile = &LightmapTiles[i];
+		LightmapTile* tile = &Lightmap.Tiles[i];
 
 		if (tile->AtlasLocation.ArrayIndex == -1)
 			continue;
@@ -2030,19 +2053,19 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 	}
 
 	// Write surface pixels
-	for (unsigned int i = 0; i < LightmapTiles.Size(); i++)
+	for (unsigned int i = 0; i < Lightmap.Tiles.Size(); i++)
 	{
-		LightmapTile* tile = &LightmapTiles[i];
+		LightmapTile* tile = &Lightmap.Tiles[i];
 
 		if (tile->AtlasLocation.ArrayIndex == -1)
 			continue;
 
-		const uint16_t* pixels = LMTextureData.Data() + tile->AtlasLocation.ArrayIndex * LMTextureSize * LMTextureSize * 4;
+		const uint16_t* pixels = Lightmap.TextureData.Data() + tile->AtlasLocation.ArrayIndex * Lightmap.TextureSize * Lightmap.TextureSize * 4;
 		int width = tile->AtlasLocation.Width;
 		int height = tile->AtlasLocation.Height;
 		for (int y = 0; y < height; y++)
 		{
-			const uint16_t* srcline = pixels + (tile->AtlasLocation.X + (tile->AtlasLocation.Y + y) * LMTextureSize) * 4;
+			const uint16_t* srcline = pixels + (tile->AtlasLocation.X + (tile->AtlasLocation.Y + y) * Lightmap.TextureSize) * 4;
 			for (int x = 0; x < width; x++)
 			{
 				lumpFile.Write16(*(srcline++));

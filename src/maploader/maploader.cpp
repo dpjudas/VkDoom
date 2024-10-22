@@ -3018,8 +3018,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 	{
 		if (Level->lightmaps)
 		{
-			Level->levelMesh->SetupTileTransforms();
-			Level->levelMesh->PackLightmapAtlas(0);
+			Level->levelMesh->PackStaticLightmapAtlas();
 		}
 	}
 }
@@ -3101,11 +3100,11 @@ bool MapLoader::LoadLightmap(MapData* map)
 	uint8_t* data = (uint8_t*)&textureData[0];
 	fr.Read(data, numTexPixels * 3 * sizeof(uint16_t));
 
-	const auto textureSize = Level->levelMesh->LMTextureSize;
+	const auto textureSize = Level->levelMesh->Lightmap.TextureSize;
 
 	// Create lookup for finding tiles
 	std::map<LightmapTileBinding, LightmapTile*> levelTiles;
-	for (LightmapTile& tile : Level->levelMesh->LightmapTiles)
+	for (LightmapTile& tile : Level->levelMesh->Lightmap.Tiles)
 	{
 		levelTiles[tile.Binding] = &tile;
 	}
@@ -3147,19 +3146,12 @@ bool MapLoader::LoadLightmap(MapData* map)
 		foundBindings.Push({ &entry, tile });
 	}
 
-	// Setup the tile transform for any tile missing in the lump (shouldn't be any, but if there are we let the lightmapper bake them)
-	for (auto& tile : Level->levelMesh->LightmapTiles)
-	{
-		if (tile.NeedsUpdate)
-			tile.SetupTileTransform(Level->levelMesh->LMTextureSize);
-	}
-
 	// Place all tiles in atlas textures
-	Level->levelMesh->PackLightmapAtlas(0);
+	Level->levelMesh->PackStaticLightmapAtlas();
 
 	// Start with empty lightmap textures
-	Level->levelMesh->LMTextureData.Resize(Level->levelMesh->LMTextureCount * textureSize * textureSize * 3);
-	memset(Level->levelMesh->LMTextureData.Data(), 0, Level->levelMesh->LMTextureData.Size() * sizeof(uint16_t));
+	Level->levelMesh->Lightmap.TextureData.Resize(Level->levelMesh->Lightmap.TextureCount * textureSize * textureSize * 3);
+	memset(Level->levelMesh->Lightmap.TextureData.Data(), 0, Level->levelMesh->Lightmap.TextureData.Size() * sizeof(uint16_t));
 
 	// Copy tile pixels to the texture
 	for (auto& binding : foundBindings)
@@ -3168,7 +3160,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		LightmapTile* tile = binding.second;
 
 		const uint16_t* src = textureData.Data() + entry->pixelsOffset;
-		uint16_t* dst = &Level->levelMesh->LMTextureData[tile->AtlasLocation.ArrayIndex * textureSize * textureSize * 3];
+		uint16_t* dst = &Level->levelMesh->Lightmap.TextureData[tile->AtlasLocation.ArrayIndex * textureSize * textureSize * 3];
 		int destx = tile->AtlasLocation.X;
 		int desty = tile->AtlasLocation.Y;
 		int width = tile->AtlasLocation.Width;

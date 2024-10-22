@@ -427,12 +427,12 @@ void HWWall::ProcessDecal(HWDrawInfo* di, FRenderState& state, DBaseDecal *decal
 
 	if (!(decal->RenderFlags & RF_FULLBRIGHT) && lightmaptile >= 0)
 	{
-		LightmapTile* tile = &di->Level->levelMesh->LightmapTiles[lightmaptile];
+		LightmapTile* tile = &di->Level->levelMesh->Lightmap.Tiles[lightmaptile];
 		float lightmapindex = (float)tile->AtlasLocation.ArrayIndex;
 
 		for (i = 0; i < 4; i++)
 		{
-			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->LMTextureSize);
+			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->Lightmap.TextureSize);
 			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, lightmapuv.X, lightmapuv.Y, lightmapindex);
 		}
 	}
@@ -680,12 +680,12 @@ void HWDecalCreateInfo::ProcessDecal(HWDrawInfo* di, FRenderState& state, int dy
 
 	if (!(decal->RenderFlags & RF_FULLBRIGHT) && lightmaptile >= 0)
 	{
-		LightmapTile* tile = &di->Level->levelMesh->LightmapTiles[lightmaptile];
+		LightmapTile* tile = &di->Level->levelMesh->Lightmap.Tiles[lightmaptile];
 		float lightmapindex = (float)tile->AtlasLocation.ArrayIndex;
 
 		for (i = 0; i < 4; i++)
 		{
-			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->LMTextureSize);
+			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->Lightmap.TextureSize);
 			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, lightmapuv.X, lightmapuv.Y, lightmapindex);
 		}
 	}

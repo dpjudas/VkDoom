@@ -687,7 +687,7 @@ void HWDrawInfo::UpdateLightmaps()
 {
 	if (!outer && VisibleTiles.Size() < unsigned(lm_background_updates))
 	{
-		for (auto& e : level.levelMesh->LightmapTiles)
+		for (auto& e : level.levelMesh->Lightmap.Tiles)
 		{
 			if (e.NeedsUpdate)
 			{
