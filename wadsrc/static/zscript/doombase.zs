@@ -817,9 +817,9 @@ struct Lightmap
 	// Mark all lightmap surfaces for recalculation. The internal lightmapper will gradually recalculate every single lightmap surface in the level.
 	native static void Invalidate();
 
-	// Set direction of the light towards the sun.
+	// Set direction of the light towards the sun. Angle and pitch matches ZDRayInfo.
 	// Calling this does NOT recalculate the lightmap.
-	native static void SetSunDirection(Vector3 dir);
+	native static void SetSunDirection(double ang, double pch);
 
 	// Can go above 1.0 (call Invalidate())
 	// Calling this does NOT recalculate the lightmap.

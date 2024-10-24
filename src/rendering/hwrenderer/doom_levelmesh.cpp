@@ -2238,11 +2238,13 @@ DEFINE_ACTION_FUNCTION(_Lightmap, Invalidate)
 DEFINE_ACTION_FUNCTION(_Lightmap, SetSunDirection)
 {
 	PARAM_PROLOGUE;
-	PARAM_FLOAT(x);
-	PARAM_FLOAT(y);
-	PARAM_FLOAT(z);
+	PARAM_FLOAT(ang);
+	PARAM_FLOAT(pch);
 
-	auto vec = FVector3(float(x), float(y), float(z));
+	auto a = FAngle::fromDeg(float(ang));
+	auto p = FAngle::fromDeg(float(pch));
+	auto cosp = p.Cos();
+	auto vec = -FVector3{ cosp * a.Cos(), cosp * a.Sin(), -p.Sin() };
 
 	if (!vec.isZero() && level.levelMesh)
 	{
