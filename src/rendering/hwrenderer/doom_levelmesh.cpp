@@ -44,7 +44,7 @@ static int InvalidateLightmap()
 {
 	int count = 0;
 
-	for (auto& tile : level.levelMesh->LightmapTiles)
+	for (auto& tile : level.levelMesh->Lightmap.Tiles)
 	{
 		if (!tile.NeedsUpdate)
 			++count;
