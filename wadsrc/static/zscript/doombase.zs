@@ -109,6 +109,10 @@ extend struct GameInfoStruct
 	native double normforwardmove[2];
 	native double normsidemove[2];
 	native bool mHideParTimes;
+	native bool forceEnableLightmaps;
+	native FVector3 defaultSunColor;
+	native FVector3 defaultSunDirection;
+	native int defaultLightmapSampleDistance;
 }
 
 extend class Object
@@ -806,3 +810,18 @@ struct FRailParams
 	native int SpiralOffset;
 	native int limit;
 };	// [RH] Shoot a railgun
+
+
+struct Lightmap
+{
+	// Mark all lightmap surfaces for recalculation. The internal lightmapper will gradually recalculate every single lightmap surface in the level.
+	native static void Invalidate();
+
+	// Set direction of the light towards the sun.
+	// Calling this does NOT recalculate the lightmap.
+	native static void SetSunDirection(Vector3 dir);
+
+	// Can go above 1.0 (call Invalidate())
+	// Calling this does NOT recalculate the lightmap.
+	native static void SetSunColor(Vector3 color);
+};

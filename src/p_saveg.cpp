@@ -1016,7 +1016,9 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 		("scrolls", Scrolls)
 		("automap", automap)
 		("interpolator", interpolator)
-		("frozenstate", frozenstate);
+		("frozenstate", frozenstate)
+		("suncolor", SunColor)
+		("sundirection", SunDirection);
 
 
 	// Hub transitions must keep the current total time
@@ -1027,6 +1029,9 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 	{
 		InitSkyMap(this);
 		AirControlChanged();
+
+		levelMesh->SunColor = SunColor;
+		levelMesh->SunDirection = SunDirection;
 	}
 
 	Behaviors.SerializeModuleStates(arc);
