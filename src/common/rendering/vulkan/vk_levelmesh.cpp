@@ -24,13 +24,17 @@
 #include "zvulkan/vulkanbuilders.h"
 #include "vulkan/vk_renderdevice.h"
 #include "vulkan/commands/vk_commandbuffer.h"
+#include "vulkan/descriptorsets/vk_descriptorset.h"
+#include "vulkan/pipelines/vk_renderpass.h"
 #include "hw_levelmesh.h"
 #include "hw_material.h"
 #include "texturemanager.h"
+#include "cmdlib.h"
 
 VkLevelMesh::VkLevelMesh(VulkanRenderDevice* fb) : fb(fb)
 {
 	useRayQuery = fb->IsRayQueryEnabled();
+	CreateViewerObjects();
 
 	SetLevelMesh(nullptr);
 }
@@ -53,16 +57,19 @@ void VkLevelMesh::Reset()
 	deletelist->Add(std::move(NodeBuffer));
 	deletelist->Add(std::move(SurfaceBuffer));
 	deletelist->Add(std::move(UniformsBuffer));
+	deletelist->Add(std::move(LightUniformsBuffer));
 	deletelist->Add(std::move(SurfaceIndexBuffer));
 	deletelist->Add(std::move(PortalBuffer));
 	deletelist->Add(std::move(LightBuffer));
 	deletelist->Add(std::move(LightIndexBuffer));
-	deletelist->Add(std::move(StaticBLAS.ScratchBuffer));
-	deletelist->Add(std::move(StaticBLAS.AccelStructBuffer));
-	deletelist->Add(std::move(StaticBLAS.AccelStruct));
-	deletelist->Add(std::move(DynamicBLAS.ScratchBuffer));
-	deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
-	deletelist->Add(std::move(DynamicBLAS.AccelStruct));
+	deletelist->Add(std::move(DrawIndexBuffer));
+	for (BLAS& blas : DynamicBLAS)
+	{
+		deletelist->Add(std::move(blas.ScratchBuffer));
+		deletelist->Add(std::move(blas.AccelStructBuffer));
+		deletelist->Add(std::move(blas.AccelStruct));
+	}
+	DynamicBLAS.clear();
 	deletelist->Add(std::move(TopLevelAS.TransferBuffer));
 	deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
 	deletelist->Add(std::move(TopLevelAS.ScratchBuffer));
@@ -74,7 +81,7 @@ void VkLevelMesh::CreateVulkanObjects()
 {
 	Reset();
 	CreateBuffers();
-	UploadMeshes(false);
+	UploadMeshes();
 
 	if (useRayQuery)
 	{
@@ -83,10 +90,20 @@ void VkLevelMesh::CreateVulkanObjects()
 			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-		CreateStaticBLAS();
-		CreateDynamicBLAS();
-		CreateTLASInstanceBuffer();
+		// Find out how many segments we should split the map into
+		DynamicBLAS.resize(32); // fb->GetDevice()->PhysicalDevice.Properties.AccelerationStructure.maxInstanceCount is 65 or 382 on current devices (aug 2024)
+		IndexesPerBLAS = ((Mesh->Mesh.Indexes.size() + 2) / 3 / DynamicBLAS.size() + 1) * 3;
+		InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
 
+		// Create a BLAS for each segment in use
+		for (int instance = 0; instance < InstanceCount; instance++)
+		{
+			int indexStart = instance * IndexesPerBLAS;
+			int indexEnd = std::min(indexStart + IndexesPerBLAS, Mesh->Mesh.IndexCount);
+			DynamicBLAS[instance] = CreateBLAS(true, indexStart, indexEnd - indexStart);
+		}
+
+		CreateTLASInstanceBuffer();
 		UploadTLASInstanceBuffer();
 
 		// Wait for bottom level builds to finish before using it as input to a toplevel accel structure. Also wait for the instance buffer upload to complete.
@@ -94,7 +111,7 @@ void VkLevelMesh::CreateVulkanObjects()
 			.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
 
-		CreateTopLevelAS(DynamicBLAS.AccelStruct ? 2 : 1);
+		CreateTopLevelAS(InstanceCount);
 
 		// Finish building the accel struct before using it from the shaders
 		PipelineBarrier()
@@ -112,7 +129,24 @@ void VkLevelMesh::CreateVulkanObjects()
 
 void VkLevelMesh::BeginFrame()
 {
-	UploadMeshes(true);
+	bool accelStructNeedsUpdate = false;
+	if (useRayQuery)
+	{
+		InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
+
+		accelStructNeedsUpdate = Mesh->UploadRanges.Index.Size() != 0;
+		for (const MeshBufferRange& range : Mesh->UploadRanges.Index)
+		{
+			int start = range.Start / IndexesPerBLAS;
+			int end = (range.End + IndexesPerBLAS - 1) / IndexesPerBLAS;
+			for (int i = start; i < end; i++)
+			{
+				DynamicBLAS[i].NeedsUpdate = true;
+			}
+		}
+	}
+
+	UploadMeshes();
 
 	if (useRayQuery)
 	{
@@ -121,28 +155,39 @@ void VkLevelMesh::BeginFrame()
 			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-		// Create a new dynamic BLAS
+		if (accelStructNeedsUpdate)
+		{
+			// To do: we should reuse the buffers.
 
-		// To do: we should reuse the buffers. However this requires we know when the command buffers are completely done with them first.
-		auto deletelist = fb->GetCommands()->DrawDeleteList.get();
-		deletelist->Add(std::move(DynamicBLAS.ScratchBuffer));
-		deletelist->Add(std::move(DynamicBLAS.AccelStructBuffer));
-		deletelist->Add(std::move(DynamicBLAS.AccelStruct));
-		deletelist->Add(std::move(TopLevelAS.TransferBuffer));
-		deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
+			// Create a new BLAS for each segment that changed
+			auto deletelist = fb->GetCommands()->DrawDeleteList.get();
+			for (int instance = 0; instance < InstanceCount; instance++)
+			{
+				BLAS& blas = DynamicBLAS[instance];
+				if (blas.NeedsUpdate)
+				{
+					deletelist->Add(std::move(blas.ScratchBuffer));
+					deletelist->Add(std::move(blas.AccelStructBuffer));
+					deletelist->Add(std::move(blas.AccelStruct));
 
-		if (Mesh->Mesh.DynamicIndexStart < (int)Mesh->Mesh.Indexes.Size())
-			DynamicBLAS = CreateBLAS(true, Mesh->Mesh.DynamicIndexStart, Mesh->Mesh.Indexes.Size() - Mesh->Mesh.DynamicIndexStart);
+					int indexStart = instance * IndexesPerBLAS;
+					int indexEnd = std::min(indexStart + IndexesPerBLAS, Mesh->Mesh.IndexCount);
+					blas = CreateBLAS(true, indexStart, indexEnd - indexStart);
+				}
+			}
 
-		CreateTLASInstanceBuffer();
-		UploadTLASInstanceBuffer();
+			deletelist->Add(std::move(TopLevelAS.TransferBuffer));
+			deletelist->Add(std::move(TopLevelAS.InstanceBuffer));
+			CreateTLASInstanceBuffer();
+			UploadTLASInstanceBuffer();
+		}
 
 		// Wait for bottom level builds to finish before using it as input to a toplevel accel structure. Also wait for the instance buffer upload to complete.
 		PipelineBarrier()
 			.AddMemory(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
 
-		UpdateTopLevelAS(DynamicBLAS.AccelStruct ? 2 : 1);
+		UpdateTopLevelAS(InstanceCount);
 
 		// Finish building the accel struct before using it from the shaders
 		PipelineBarrier()
@@ -156,29 +201,28 @@ void VkLevelMesh::BeginFrame()
 			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
-}
 
-void VkLevelMesh::UploadMeshes(bool dynamicOnly)
-{
-	if (dynamicOnly)
+	WriteDescriptors write;
+	write.AddBuffer(Viewer.DescriptorSet.get(), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetSurfaceIndexBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetSurfaceBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetLightBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetLightIndexBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetPortalBuffer());
+	if (useRayQuery)
 	{
-		Locations.Index.Push({ Mesh->Mesh.DynamicIndexStart, (int)(Mesh->Mesh.Indexes.Size() - Mesh->Mesh.DynamicIndexStart) });
+		write.AddAccelerationStructure(Viewer.DescriptorSet.get(), 5, GetAccelStruct());
 	}
 	else
 	{
-		if (!useRayQuery)
-			Locations.Node.Push({ 0, (int)Mesh->Collision->get_nodes().size() });
-		Locations.Vertex.Push({ 0, (int)Mesh->Mesh.Vertices.Size() });
-		Locations.Index.Push({ 0, (int)Mesh->Mesh.Indexes.Size() });
-		Locations.SurfaceIndex.Push({ 0, (int)Mesh->Mesh.SurfaceIndexes.Size() });
-		Locations.Surface.Push({ 0, Mesh->GetSurfaceCount() });
-		Locations.UniformIndexes.Push({ 0, (int)Mesh->Mesh.UniformIndexes.Size() });
-		Locations.Uniforms.Push({ 0, (int)Mesh->Mesh.Uniforms.Size() });
-		Locations.Portals.Push({ 0, (int)Mesh->Portals.Size() });
-		Locations.Light.Push({ 0, (int)Mesh->Mesh.Lights.Size() });
-		Locations.LightIndex.Push({ 0, (int)Mesh->Mesh.LightIndexes.Size() });
+		write.AddBuffer(Viewer.DescriptorSet.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetNodeBuffer());
 	}
+	write.AddBuffer(Viewer.DescriptorSet.get(), 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetVertexBuffer());
+	write.AddBuffer(Viewer.DescriptorSet.get(), 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GetIndexBuffer());
+	write.Execute(fb->GetDevice());
+}
 
+void VkLevelMesh::UploadMeshes()
+{
 	VkLevelMeshUploader uploader(this);
 	uploader.Upload();
 }
@@ -193,7 +237,7 @@ void VkLevelMesh::CreateBuffers()
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 				VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0) |
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-		.Size(Mesh->Mesh.MaxVertices * sizeof(FFlatVertex))
+		.Size(Mesh->Mesh.Vertices.Size() * sizeof(FFlatVertex))
 		.DebugName("VertexBuffer")
 		.Create(fb->GetDevice());
 
@@ -201,7 +245,7 @@ void VkLevelMesh::CreateBuffers()
 		.Usage(
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->Mesh.MaxVertices * sizeof(int))
+		.Size(Mesh->Mesh.UniformIndexes.size() * sizeof(int))
 		.DebugName("UniformIndexes")
 		.Create(fb->GetDevice());
 
@@ -213,32 +257,44 @@ void VkLevelMesh::CreateBuffers()
 				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 				VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0) |
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-		.Size((size_t)Mesh->Mesh.MaxIndexes * sizeof(uint32_t))
+		.Size((size_t)Mesh->Mesh.Indexes.Size() * sizeof(uint32_t))
 		.DebugName("IndexBuffer")
+		.Create(fb->GetDevice());
+
+	DrawIndexBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size((size_t)Mesh->Mesh.DrawIndexes.Size() * sizeof(uint32_t))
+		.DebugName("DrawIndexBuffer")
 		.Create(fb->GetDevice());
 
 	NodeBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(sizeof(CollisionNodeBufferHeader) + Mesh->Mesh.MaxNodes * sizeof(CollisionNode))
+		.Size(sizeof(CollisionNodeBufferHeader) + Mesh->Mesh.Nodes.Size() * sizeof(CollisionNode))
 		.DebugName("NodeBuffer")
 		.Create(fb->GetDevice());
 
 	SurfaceIndexBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->Mesh.MaxSurfaceIndexes * sizeof(int))
+		.Size(Mesh->Mesh.SurfaceIndexes.Size() * sizeof(int))
 		.DebugName("SurfaceBuffer")
 		.Create(fb->GetDevice());
 
 	SurfaceBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->Mesh.MaxSurfaces * sizeof(SurfaceInfo))
+		.Size(Mesh->Mesh.Surfaces.Size() * sizeof(SurfaceInfo))
 		.DebugName("SurfaceBuffer")
 		.Create(fb->GetDevice());
 
 	UniformsBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->Mesh.MaxUniforms * sizeof(SurfaceUniforms))
+		.Size(Mesh->Mesh.Uniforms.Size() * sizeof(SurfaceUniforms))
 		.DebugName("SurfaceUniformsBuffer")
+		.Create(fb->GetDevice());
+
+	LightUniformsBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(Mesh->Mesh.LightUniforms.Size() * sizeof(SurfaceLightUniforms))
+		.DebugName("SurfaceLightUniformsBuffer")
 		.Create(fb->GetDevice());
 
 	PortalBuffer = BufferBuilder()
@@ -249,14 +305,20 @@ void VkLevelMesh::CreateBuffers()
 
 	LightBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->Mesh.MaxLights * sizeof(LightInfo))
+		.Size(Mesh->Mesh.Lights.Size() * sizeof(LightInfo))
 		.DebugName("LightBuffer")
 		.Create(fb->GetDevice());
 
 	LightIndexBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->Mesh.MaxLightIndexes * sizeof(int32_t))
+		.Size(Mesh->Mesh.LightIndexes.Size() * sizeof(int32_t))
 		.DebugName("LightIndexBuffer")
+		.Create(fb->GetDevice());
+
+	DynLightBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Size(Mesh->Mesh.DynLights.Size() * sizeof(FVector4))
+		.DebugName("DynLightBuffer")
 		.Create(fb->GetDevice());
 }
 
@@ -308,6 +370,9 @@ VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(bool preferFastBuild, int indexOffset,
 		.DebugName("BLAS.ScratchBuffer")
 		.Create(fb->GetDevice());
 
+	blas.DeviceAddress = blas.AccelStruct->GetDeviceAddress();
+	blas.InstanceCustomIndex = indexOffset / 3;
+
 	buildInfo.dstAccelerationStructure = blas.AccelStruct->accelstruct;
 	buildInfo.scratchData.deviceAddress = blas.ScratchBuffer->GetDeviceAddress();
 
@@ -320,28 +385,17 @@ VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(bool preferFastBuild, int indexOffset,
 	return blas;
 }
 
-void VkLevelMesh::CreateStaticBLAS()
-{
-	StaticBLAS = CreateBLAS(false, 0, Mesh->Mesh.DynamicIndexStart);
-}
-
-void VkLevelMesh::CreateDynamicBLAS()
-{
-	if (Mesh->Mesh.DynamicIndexStart < (int)Mesh->Mesh.Indexes.Size())
-		DynamicBLAS = CreateBLAS(true, Mesh->Mesh.DynamicIndexStart, Mesh->Mesh.Indexes.Size() - Mesh->Mesh.DynamicIndexStart);
-}
-
 void VkLevelMesh::CreateTLASInstanceBuffer()
 {
 	TopLevelAS.TransferBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
-		.Size(sizeof(VkAccelerationStructureInstanceKHR) * 2)
+		.Size(sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size())
 		.DebugName("TopLevelAS.TransferBuffer")
 		.Create(fb->GetDevice());
 
 	TopLevelAS.InstanceBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(sizeof(VkAccelerationStructureInstanceKHR) * 2)
+		.Size(sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size())
 		.DebugName("TopLevelAS.InstanceBuffer")
 		.Create(fb->GetDevice());
 }
@@ -362,7 +416,7 @@ void VkLevelMesh::CreateTopLevelAS(int instanceCount)
 	accelStructTLDesc.geometry.instances = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR };
 	accelStructTLDesc.geometry.instances.data.deviceAddress = TopLevelAS.InstanceBuffer->GetDeviceAddress();
 
-	uint32_t maxInstanceCount = 2;
+	uint32_t maxInstanceCount = (uint32_t)DynamicBLAS.size();
 
 	VkAccelerationStructureBuildSizesInfoKHR sizeInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 	vkGetAccelerationStructureBuildSizesKHR(fb->GetDevice()->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxInstanceCount, &sizeInfo);
@@ -424,29 +478,221 @@ void VkLevelMesh::UpdateTopLevelAS(int instanceCount)
 
 void VkLevelMesh::UploadTLASInstanceBuffer()
 {
-	VkAccelerationStructureInstanceKHR instances[2] = {};
-	instances[0].transform.matrix[0][0] = 1.0f;
-	instances[0].transform.matrix[1][1] = 1.0f;
-	instances[0].transform.matrix[2][2] = 1.0f;
-	instances[0].mask = 0xff;
-	instances[0].flags = 0;
-	instances[0].accelerationStructureReference = StaticBLAS.AccelStruct->GetDeviceAddress();
+	VkAccelerationStructureInstanceKHR instance = {};
+	instance.transform.matrix[0][0] = 1.0f;
+	instance.transform.matrix[1][1] = 1.0f;
+	instance.transform.matrix[2][2] = 1.0f;
+	instance.mask = 0xff;
+	instance.flags = 0;
 
-	if (DynamicBLAS.AccelStruct)
+	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size());
+	for (BLAS& blas : DynamicBLAS)
 	{
-		instances[1].transform.matrix[0][0] = 1.0f;
-		instances[1].transform.matrix[1][1] = 1.0f;
-		instances[1].transform.matrix[2][2] = 1.0f;
-		instances[1].mask = 0xff;
-		instances[1].flags = 0;
-		instances[1].accelerationStructureReference = DynamicBLAS.AccelStruct->GetDeviceAddress();
-	}
+		instance.instanceCustomIndex = blas.InstanceCustomIndex;
+		instance.accelerationStructureReference = blas.DeviceAddress;
 
-	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * 2);
-	memcpy(data, instances, sizeof(VkAccelerationStructureInstanceKHR) * 2);
+		memcpy(data, &instance, sizeof(VkAccelerationStructureInstanceKHR));
+		data += sizeof(VkAccelerationStructureInstanceKHR);
+	}
 	TopLevelAS.TransferBuffer->Unmap();
 
 	fb->GetCommands()->GetTransferCommands()->copyBuffer(TopLevelAS.TransferBuffer.get(), TopLevelAS.InstanceBuffer.get());
+}
+
+void VkLevelMesh::RaytraceScene(const VkRenderPassKey& renderPassKey, VulkanCommandBuffer* commands, const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect)
+{
+	auto& pipeline = Viewer.Pipeline[renderPassKey];
+	if (!pipeline)
+	{
+		GraphicsPipelineBuilder builder;
+		builder.RenderPass(fb->GetRenderPassManager()->GetRenderPass(renderPassKey)->GetRenderPass(0));
+		builder.Layout(Viewer.PipelineLayout.get());
+		builder.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
+		builder.AddVertexShader(Viewer.VertexShader.get());
+		builder.AddFragmentShader(Viewer.FragmentShader.get());
+		builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
+		builder.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR);
+		builder.RasterizationSamples((VkSampleCountFlagBits)renderPassKey.Samples);
+		builder.DebugName("Viewer.Pipeline");
+		pipeline = builder.Create(fb->GetDevice());
+	}
+
+	/*
+	RenderPassBegin()
+		.RenderPass(Viewer.RenderPass.get())
+		.Framebuffer(Framebuffers[imageIndex].get())
+		.RenderArea(0, 0, CurrentWidth, CurrentHeight)
+		.AddClearColor(0.0f, 0.0f, 0.0f, 1.0f)
+		.AddClearDepth(1.0f)
+		.Execute(commands);
+
+	VkViewport viewport = {};
+	viewport.width = (float)CurrentWidth;
+	viewport.height = (float)CurrentHeight;
+	viewport.maxDepth = 1.0f;
+	commands->setViewport(0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.extent.width = CurrentWidth;
+	scissor.extent.height = CurrentHeight;
+	commands->setScissor(0, 1, &scissor);
+	*/
+
+	float f = 1.0f / std::tan(fovy * (pi::pif() / 360.0f));
+
+	ViewerPushConstants pushconstants;
+	pushconstants.ViewToWorld = viewToWorld;
+	pushconstants.CameraPos = cameraPos;
+	pushconstants.ProjX = f / aspect;
+	pushconstants.ProjY = f;
+	pushconstants.SunDir = FVector3(Mesh->SunDirection.X, Mesh->SunDirection.Z, Mesh->SunDirection.Y);
+	pushconstants.SunColor = Mesh->SunColor;
+	pushconstants.SunIntensity = 1.0f;
+
+	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 0, Viewer.DescriptorSet.get());
+	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 1, fb->GetDescriptorSetManager()->GetBindlessSet());
+	commands->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.get());
+	commands->pushConstants(Viewer.PipelineLayout.get(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ViewerPushConstants), &pushconstants);
+	commands->draw(4, 1, 0, 0);
+	
+	//commands->endRenderPass();
+}
+
+void VkLevelMesh::CreateViewerObjects()
+{
+	DescriptorSetLayoutBuilder builder;
+	builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	if (useRayQuery)
+	{
+		builder.AddBinding(5, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	}
+	else
+	{
+		builder.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	}
+	builder.AddBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.DebugName("Viewer.DescriptorSetLayout");
+	Viewer.DescriptorSetLayout = builder.Create(fb->GetDevice());
+
+	DescriptorPoolBuilder poolbuilder;
+	if (useRayQuery)
+	{
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 7);
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1);
+	}
+	else
+	{
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 8);
+	}
+	poolbuilder.MaxSets(1);
+	poolbuilder.DebugName("Viewer.DescriptorPool");
+	Viewer.DescriptorPool = poolbuilder.Create(fb->GetDevice());
+
+	Viewer.DescriptorSet = Viewer.DescriptorPool->allocate(Viewer.DescriptorSetLayout.get());
+	Viewer.DescriptorSet->SetDebugName("raytrace.descriptorSet1");
+
+	std::string versionBlock = R"(
+			#version 460
+			#extension GL_GOOGLE_include_directive : enable
+			#extension GL_EXT_nonuniform_qualifier : enable
+		)";
+
+	if (useRayQuery)
+	{
+		versionBlock += "#extension GL_EXT_ray_query : require\r\n";
+		versionBlock += "#define USE_RAYQUERY\r\n";
+	}
+
+	auto onIncludeLocal = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); };
+	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
+
+	Viewer.VertexShader = ShaderBuilder()
+		.Type(ShaderType::Vertex)
+		.AddSource("versionblock", versionBlock)
+		.AddSource("vert_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_viewer.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
+		.DebugName("Viewer.VertexShader")
+		.Create("vertex", fb->GetDevice());
+
+	Viewer.FragmentShader = ShaderBuilder()
+		.Type(ShaderType::Fragment)
+		.AddSource("versionblock", versionBlock)
+		.AddSource("frag_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_viewer.glsl").GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
+		.DebugName("Viewer.FragmentShader")
+		.Create("vertex", fb->GetDevice());
+
+	Viewer.PipelineLayout = PipelineLayoutBuilder()
+		.AddSetLayout(Viewer.DescriptorSetLayout.get())
+		.AddSetLayout(fb->GetDescriptorSetManager()->GetBindlessLayout())
+		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ViewerPushConstants))
+		.DebugName("Viewer.PipelineLayout")
+		.Create(fb->GetDevice());
+
+	/*
+	Viewer.RenderPass = RenderPassBuilder()
+		.AddAttachment(VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+		.AddSubpass()
+		.AddSubpassColorAttachmentRef(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+		.Create(fb->GetDevice());
+
+	Viewer.Pipeline = GraphicsPipelineBuilder()
+		.RenderPass(Viewer.RenderPass.get())
+		.Layout(Viewer.PipelineLayout.get())
+		.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
+		.AddVertexShader(Viewer.VertexShader.get())
+		.AddFragmentShader(Viewer.FragmentShader.get())
+		.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+		.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+		.DebugName("Viewer.Pipeline")
+		.Create(fb->GetDevice());
+	*/
+}
+
+FString VkLevelMesh::LoadPrivateShaderLump(const char* lumpname)
+{
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
+	return GetStringFromLump(lump);
+}
+
+FString VkLevelMesh::LoadPublicShaderLump(const char* lumpname)
+{
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
+	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
+	return GetStringFromLump(lump);
+}
+
+ShaderIncludeResult VkLevelMesh::OnInclude(FString headerName, FString includerName, size_t depth, bool system)
+{
+	if (depth > 8)
+		I_Error("Too much include recursion!");
+
+	FString includeguardname;
+	includeguardname << "_HEADERGUARD_" << headerName.GetChars();
+	includeguardname.ReplaceChars("/\\.", '_');
+
+	FString code;
+	code << "#ifndef " << includeguardname.GetChars() << "\n";
+	code << "#define " << includeguardname.GetChars() << "\n";
+	code << "#line 1\n";
+
+	if (system)
+		code << LoadPrivateShaderLump(headerName.GetChars()).GetChars() << "\n";
+	else
+		code << LoadPublicShaderLump(headerName.GetChars()).GetChars() << "\n";
+
+	code << "#endif\n";
+
+	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -467,37 +713,52 @@ void VkLevelMeshUploader::Upload()
 	BeginTransfer(transferBufferSize);
 
 	UploadNodes();
-	UploadRanges(Mesh->Locations.Vertex, Mesh->Mesh->Mesh.Vertices.Data(), Mesh->VertexBuffer.get());
-	UploadRanges(Mesh->Locations.UniformIndexes, Mesh->Mesh->Mesh.UniformIndexes.Data(), Mesh->UniformIndexBuffer.get());
-	UploadRanges(Mesh->Locations.Index, Mesh->Mesh->Mesh.Indexes.Data(), Mesh->IndexBuffer.get());
-	UploadRanges(Mesh->Locations.SurfaceIndex, Mesh->Mesh->Mesh.SurfaceIndexes.Data(), Mesh->SurfaceIndexBuffer.get());
-	UploadRanges(Mesh->Locations.LightIndex, Mesh->Mesh->Mesh.LightIndexes.Data(), Mesh->LightIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.Vertex, Mesh->Mesh->Mesh.Vertices.Data(), Mesh->VertexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.UniformIndexes, Mesh->Mesh->Mesh.UniformIndexes.Data(), Mesh->UniformIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.Index, Mesh->Mesh->Mesh.Indexes.Data(), Mesh->IndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.SurfaceIndex, Mesh->Mesh->Mesh.SurfaceIndexes.Data(), Mesh->SurfaceIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.LightIndex, Mesh->Mesh->Mesh.LightIndexes.Data(), Mesh->LightIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.DrawIndex, Mesh->Mesh->Mesh.DrawIndexes.Data(), Mesh->DrawIndexBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.LightUniforms, Mesh->Mesh->Mesh.LightUniforms.Data(), Mesh->LightUniformsBuffer.get());
+	UploadRanges(Mesh->Mesh->UploadRanges.DynLight, Mesh->Mesh->Mesh.DynLights.Data(), Mesh->DynLightBuffer.get());
 	UploadSurfaces();
 	UploadUniforms();
 	UploadPortals();
 	UploadLights();
 
 	EndTransfer(transferBufferSize);
+
+	// We can't add these as we go because UploadUniforms might load textures, which may invalidate the transfer command buffer.
+	VulkanCommandBuffer* cmdbuffer = Mesh->fb->GetCommands()->GetTransferCommands();
+	for (const CopyCommand& copy : copyCommands)
+	{
+		cmdbuffer->copyBuffer(copy.srcBuffer, copy.dstBuffer, copy.srcOffset, copy.dstOffset, copy.size);
+	}
+	copyCommands.clear();
+	Mesh->fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
+
 	ClearRanges();
 }
 
 void VkLevelMeshUploader::ClearRanges()
 {
-	Mesh->Locations.Vertex.clear();
-	Mesh->Locations.Index.clear();
-	Mesh->Locations.Node.clear();
-	Mesh->Locations.SurfaceIndex.clear();
-	Mesh->Locations.Surface.clear();
-	Mesh->Locations.UniformIndexes.clear();
-	Mesh->Locations.Uniforms.clear();
-	Mesh->Locations.Portals.clear();
-	Mesh->Locations.Light.clear();
-	Mesh->Locations.LightIndex.clear();
+	Mesh->Mesh->UploadRanges.Vertex.clear();
+	Mesh->Mesh->UploadRanges.Index.clear();
+	Mesh->Mesh->UploadRanges.Node.clear();
+	Mesh->Mesh->UploadRanges.SurfaceIndex.clear();
+	Mesh->Mesh->UploadRanges.Surface.clear();
+	Mesh->Mesh->UploadRanges.UniformIndexes.clear();
+	Mesh->Mesh->UploadRanges.Uniforms.clear();
+	Mesh->Mesh->UploadRanges.LightUniforms.clear();
+	Mesh->Mesh->UploadRanges.Portals.clear();
+	Mesh->Mesh->UploadRanges.Light.clear();
+	Mesh->Mesh->UploadRanges.LightIndex.clear();
+	Mesh->Mesh->UploadRanges.DynLight.clear();
+	Mesh->Mesh->UploadRanges.DrawIndex.clear();
 }
 
 void VkLevelMeshUploader::BeginTransfer(size_t transferBufferSize)
 {
-	cmdbuffer = Mesh->fb->GetCommands()->GetTransferCommands();
 	transferBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
 		.Size(transferBufferSize)
@@ -511,9 +772,7 @@ void VkLevelMeshUploader::BeginTransfer(size_t transferBufferSize)
 void VkLevelMeshUploader::EndTransfer(size_t transferBufferSize)
 {
 	assert(datapos == transferBufferSize);
-
 	transferBuffer->Unmap();
-	Mesh->fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
 }
 
 static FVector3 SwapYZ(const FVector3& v)
@@ -523,38 +782,23 @@ static FVector3 SwapYZ(const FVector3& v)
 
 void VkLevelMeshUploader::UploadNodes()
 {
+	if (Mesh->useRayQuery || Mesh->Mesh->UploadRanges.Node.Size() == 0)
+		return;
+
 	// Always update the header struct of the collision storage buffer block if something changed
-	if (Mesh->Locations.Node.Size() > 0)
-	{
-		CollisionNodeBufferHeader nodesHeader;
-		nodesHeader.root = Mesh->Mesh->Collision->get_root();
-
-		*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
-		cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
-
-		datapos += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
-	}
+	CollisionNodeBufferHeader nodesHeader;
+	nodesHeader.root = Mesh->Mesh->Mesh.RootNode;
+	*((CollisionNodeBufferHeader*)(data + datapos)) = nodesHeader;
+	copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, 0, sizeof(CollisionNodeBufferHeader));
+	datapos += sizeof(CollisionNodeBufferHeader);
 
 	// Copy collision nodes
-	for (const MeshBufferRange& range : Mesh->Locations.Node)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Node)
 	{
-		const auto& srcnodes = Mesh->Mesh->Collision->get_nodes();
-		CollisionNode* nodes = (CollisionNode*)(data + datapos);
-		for (int i = 0, count = range.Size; i < count; i++)
-		{
-			const auto& node = srcnodes[range.Offset + i];
-			CollisionNode info;
-			info.center = SwapYZ(node.aabb.Center);
-			info.extents = SwapYZ(node.aabb.Extents);
-			info.left = node.left;
-			info.right = node.right;
-			info.element_index = node.element_index;
-			*(nodes++) = info;
-		}
-
-		size_t copysize = range.Size * sizeof(CollisionNode);
+		size_t copysize = range.Count() * sizeof(CollisionNode);
+		memcpy(data + datapos, Mesh->Mesh->Mesh.Nodes.Data() + range.Start, copysize);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, sizeof(CollisionNodeBufferHeader) + range.Offset * sizeof(CollisionNode), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->NodeBuffer.get(), datapos, sizeof(CollisionNodeBufferHeader) + range.Start * sizeof(CollisionNode), copysize);
 		datapos += copysize;
 	}
 }
@@ -564,22 +808,22 @@ void VkLevelMeshUploader::UploadRanges(const TArray<MeshBufferRange>& ranges, co
 {
 	for (const MeshBufferRange& range : ranges)
 	{
-		size_t copysize = range.Size * sizeof(T);
-		memcpy(data + datapos, srcbuffer + range.Offset, copysize);
+		size_t copysize = range.Count() * sizeof(T);
+		memcpy(data + datapos, srcbuffer + range.Start, copysize);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), destbuffer, datapos, range.Offset * sizeof(T), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), destbuffer, datapos, range.Start * sizeof(T), copysize);
 		datapos += copysize;
 	}
 }
 
 void VkLevelMeshUploader::UploadSurfaces()
 {
-	for (const MeshBufferRange& range : Mesh->Locations.Surface)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Surface)
 	{
 		SurfaceInfo* surfaces = (SurfaceInfo*)(data + datapos);
-		for (int j = 0, count = range.Size; j < count; j++)
+		for (int j = 0, count = range.Count(); j < count; j++)
 		{
-			LevelMeshSurface* surface = Mesh->Mesh->GetSurface(range.Offset + j);
+			LevelMeshSurface* surface = &Mesh->Mesh->Mesh.Surfaces[range.Start + j];
 
 			SurfaceInfo info;
 			info.Normal = FVector3(surface->Plane.X, surface->Plane.Z, surface->Plane.Y);
@@ -601,70 +845,72 @@ void VkLevelMeshUploader::UploadSurfaces()
 			*(surfaces++) = info;
 		}
 
-		size_t copysize = range.Size * sizeof(SurfaceInfo);
+		size_t copysize = range.Count() * sizeof(SurfaceInfo);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->SurfaceBuffer.get(), datapos, range.Offset * sizeof(SurfaceInfo), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->SurfaceBuffer.get(), datapos, range.Start * sizeof(SurfaceInfo), copysize);
 		datapos += copysize;
 	}
 }
 
 void VkLevelMeshUploader::UploadUniforms()
 {
-	for (const MeshBufferRange& range : Mesh->Locations.Uniforms)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Uniforms)
 	{
-		for (int j = 0, count = range.Size; j < count; j++)
+		for (int j = 0, count = range.Count(); j < count; j++)
 		{
-			auto& surfaceUniforms = Mesh->Mesh->Mesh.Uniforms[range.Offset + j];
-			auto& material = Mesh->Mesh->Mesh.Materials[range.Offset + j];
+			auto& surfaceUniforms = Mesh->Mesh->Mesh.Uniforms[range.Start + j];
+			auto& material = Mesh->Mesh->Mesh.Materials[range.Start + j];
 			if (material.mMaterial)
 			{
 				auto source = material.mMaterial->Source();
 				surfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+				surfaceUniforms.uDepthFadeThreshold = source->GetDepthFadeThreshold();
 				surfaceUniforms.uTextureIndex = Mesh->fb->GetBindlessTextureIndex(material.mMaterial, material.mClampMode, material.mTranslation);
 			}
 			else
 			{
+				surfaceUniforms.uDepthFadeThreshold = 0.f;
 				surfaceUniforms.uTextureIndex = 0;
 			}
 		}
 
 		SurfaceUniforms* uniforms = (SurfaceUniforms*)(data + datapos);
-		size_t copysize = range.Size * sizeof(SurfaceUniforms);
-		memcpy(uniforms, Mesh->Mesh->Mesh.Uniforms.Data(), copysize);
+		size_t copysize = range.Count() * sizeof(SurfaceUniforms);
+		memcpy(uniforms, Mesh->Mesh->Mesh.Uniforms.Data() + range.Start, copysize);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->UniformsBuffer.get(), datapos, range.Offset * sizeof(SurfaceUniforms), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->UniformsBuffer.get(), datapos, range.Start * sizeof(SurfaceUniforms), copysize);
 		datapos += copysize;
 	}
 }
 
 void VkLevelMeshUploader::UploadPortals()
 {
-	for (const MeshBufferRange& range : Mesh->Locations.Portals)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Portals)
 	{
 		PortalInfo* portals = (PortalInfo*)(data + datapos);
-		for (int i = 0, count = range.Size; i < count; i++)
+		for (int i = 0, count = range.Count(); i < count; i++)
 		{
-			const auto& portal = Mesh->Mesh->Portals[range.Offset + i];
+			const auto& portal = Mesh->Mesh->Portals[range.Start + i];
 			PortalInfo info;
 			info.transformation = portal.transformation;
 			*(portals++) = info;
 		}
 
-		size_t copysize = range.Size * sizeof(PortalInfo);
+		size_t copysize = range.Count() * sizeof(PortalInfo);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->PortalBuffer.get(), datapos, range.Offset * sizeof(PortalInfo), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->PortalBuffer.get(), datapos, range.Start * sizeof(PortalInfo), copysize);
 		datapos += copysize;
 	}
 }
 
 void VkLevelMeshUploader::UploadLights()
 {
-	for (const MeshBufferRange& range : Mesh->Locations.Light)
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Light)
 	{
 		LightInfo* lights = (LightInfo*)(data + datapos);
-		for (int i = 0, count = range.Size; i < count; i++)
+		for (int i = 0, count = range.Count(); i < count; i++)
 		{
-			const auto& light = Mesh->Mesh->Mesh.Lights[range.Offset + i];
+			const auto& light = Mesh->Mesh->Mesh.Lights[range.Start + i];
 			LightInfo info;
 			info.Origin = SwapYZ(light.Origin);
 			info.RelativeOrigin = SwapYZ(light.RelativeOrigin);
@@ -674,13 +920,13 @@ void VkLevelMeshUploader::UploadLights()
 			info.OuterAngleCos = light.OuterAngleCos;
 			info.SpotDir = SwapYZ(light.SpotDir);
 			info.Color = light.Color;
-			info.SourceRadius = light.SourceRadius;
+			info.SoftShadowRadius = light.SoftShadowRadius;
 			*(lights++) = info;
 		}
 
-		size_t copysize = range.Size * sizeof(LightInfo);
+		size_t copysize = range.Count() * sizeof(LightInfo);
 		if (copysize > 0)
-			cmdbuffer->copyBuffer(transferBuffer.get(), Mesh->LightBuffer.get(), datapos, range.Offset * sizeof(LightInfo), copysize);
+			copyCommands.emplace_back(transferBuffer.get(), Mesh->LightBuffer.get(), datapos, range.Start * sizeof(LightInfo), copysize);
 		datapos += copysize;
 	}
 }
@@ -689,16 +935,22 @@ size_t VkLevelMeshUploader::GetTransferSize()
 {
 	// Figure out how much memory we need to transfer it to the GPU
 	size_t transferBufferSize = 0;
-	if (Mesh->Locations.Node.Size() > 0) transferBufferSize += sizeof(CollisionNodeBufferHeader) + sizeof(CollisionNode);
-	for (const MeshBufferRange& range : Mesh->Locations.Node) transferBufferSize += range.Size * sizeof(CollisionNode);
-	for (const MeshBufferRange& range : Mesh->Locations.Vertex) transferBufferSize += range.Size * sizeof(FFlatVertex);
-	for (const MeshBufferRange& range : Mesh->Locations.UniformIndexes) transferBufferSize += range.Size * sizeof(int);
-	for (const MeshBufferRange& range : Mesh->Locations.Index) transferBufferSize += range.Size * sizeof(uint32_t);
-	for (const MeshBufferRange& range : Mesh->Locations.SurfaceIndex) transferBufferSize += range.Size * sizeof(int);
-	for (const MeshBufferRange& range : Mesh->Locations.Surface) transferBufferSize += range.Size * sizeof(SurfaceInfo);
-	for (const MeshBufferRange& range : Mesh->Locations.Uniforms) transferBufferSize += range.Size * sizeof(SurfaceUniforms);
-	for (const MeshBufferRange& range : Mesh->Locations.Portals) transferBufferSize += range.Size * sizeof(PortalInfo);
-	for (const MeshBufferRange& range : Mesh->Locations.LightIndex) transferBufferSize += range.Size * sizeof(int32_t);
-	for (const MeshBufferRange& range : Mesh->Locations.Light) transferBufferSize += range.Size * sizeof(LightInfo);
+	if (!Mesh->useRayQuery)
+	{
+		if (Mesh->Mesh->UploadRanges.Node.Size() > 0) transferBufferSize += sizeof(CollisionNodeBufferHeader);
+		for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Node) transferBufferSize += range.Count() * sizeof(CollisionNode);
+	}
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Vertex) transferBufferSize += range.Count() * sizeof(FFlatVertex);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.UniformIndexes) transferBufferSize += range.Count() * sizeof(int);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Index) transferBufferSize += range.Count() * sizeof(uint32_t);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.SurfaceIndex) transferBufferSize += range.Count() * sizeof(int);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Surface) transferBufferSize += range.Count() * sizeof(SurfaceInfo);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Uniforms) transferBufferSize += range.Count() * sizeof(SurfaceUniforms);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.LightUniforms) transferBufferSize += range.Count() * sizeof(SurfaceLightUniforms);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Portals) transferBufferSize += range.Count() * sizeof(PortalInfo);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.LightIndex) transferBufferSize += range.Count() * sizeof(int32_t);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Light) transferBufferSize += range.Count() * sizeof(LightInfo);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.DynLight) transferBufferSize += range.Count() * sizeof(FVector4);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.DrawIndex) transferBufferSize += range.Count() * sizeof(uint32_t);
 	return transferBufferSize;
 }

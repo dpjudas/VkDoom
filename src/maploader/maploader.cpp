@@ -2967,7 +2967,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 	if (map->Size(ML_LIGHTMAP))
 	{
 		// Arbitrary ZDRay limit. This will break lightmap lump loading if not enforced.
-		Level->LightmapSampleDistance = Level->LightmapSampleDistance < 8 ? 8 : Level->LightmapSampleDistance;
+		Level->LightmapSampleDistance = std::clamp((int)Level->LightmapSampleDistance, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX);
 
 		if (!Level->lightmaps) // We are unfortunately missing ZDRayInfo
 		{
@@ -2989,23 +2989,24 @@ void MapLoader::InitLevelMesh(MapData* map)
 	for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
 		allSurfaces += 2 + Level->subsectors[i].sector->e->XFloor.ffloors.Size() * 2;
 
-	Level->Surfaces.Resize(allSurfaces);
-	memset(Level->Surfaces.Data(), 0, sizeof(DoomLevelMeshSurface*) * allSurfaces);
+	Level->LightmapTiles.Resize(allSurfaces);
+	for (int& value : Level->LightmapTiles)
+		value = -1;
 
 	unsigned int offset = 0;
 	for (unsigned int i = 0; i < Level->sides.Size(); i++)
 	{
 		auto& side = Level->sides[i];
 		int count = 4 + side.sector->e->XFloor.ffloors.Size();
-		side.surface = TArrayView<DoomLevelMeshSurface*>(&Level->Surfaces[offset], count);
+		side.LightmapTiles = TArrayView<int>(&Level->LightmapTiles[offset], count);
 		offset += count;
 	}
 	for (unsigned int i = 0; i < Level->subsectors.Size(); i++)
 	{
 		auto& subsector = Level->subsectors[i];
 		unsigned int count = 1 + subsector.sector->e->XFloor.ffloors.Size();
-		subsector.surface[0] = TArrayView<DoomLevelMeshSurface*>(&Level->Surfaces[offset], count);
-		subsector.surface[1] = TArrayView<DoomLevelMeshSurface*>(&Level->Surfaces[offset + count], count);
+		subsector.LightmapTiles[0] = TArrayView<int>(&Level->LightmapTiles[offset], count);
+		subsector.LightmapTiles[1] = TArrayView<int>(&Level->LightmapTiles[offset + count], count);
 		offset += count * 2;
 	}
 
@@ -3017,8 +3018,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 	{
 		if (Level->lightmaps)
 		{
-			Level->levelMesh->SetupTileTransforms();
-			Level->levelMesh->PackLightmapAtlas(0);
+			Level->levelMesh->PackStaticLightmapAtlas();
 		}
 	}
 }
@@ -3100,11 +3100,11 @@ bool MapLoader::LoadLightmap(MapData* map)
 	uint8_t* data = (uint8_t*)&textureData[0];
 	fr.Read(data, numTexPixels * 3 * sizeof(uint16_t));
 
-	const auto textureSize = Level->levelMesh->LMTextureSize;
+	const auto textureSize = Level->levelMesh->Lightmap.TextureSize;
 
 	// Create lookup for finding tiles
 	std::map<LightmapTileBinding, LightmapTile*> levelTiles;
-	for (LightmapTile& tile : Level->levelMesh->LightmapTiles)
+	for (LightmapTile& tile : Level->levelMesh->Lightmap.Tiles)
 	{
 		levelTiles[tile.Binding] = &tile;
 	}
@@ -3146,19 +3146,12 @@ bool MapLoader::LoadLightmap(MapData* map)
 		foundBindings.Push({ &entry, tile });
 	}
 
-	// Setup the tile transform for any tile missing in the lump (shouldn't be any, but if there are we let the lightmapper bake them)
-	for (auto& tile : Level->levelMesh->LightmapTiles)
-	{
-		if (tile.NeedsUpdate)
-			tile.SetupTileTransform(Level->levelMesh->LMTextureSize);
-	}
-
 	// Place all tiles in atlas textures
-	Level->levelMesh->PackLightmapAtlas(0);
+	Level->levelMesh->PackStaticLightmapAtlas();
 
 	// Start with empty lightmap textures
-	Level->levelMesh->LMTextureData.Resize(Level->levelMesh->LMTextureCount * textureSize * textureSize * 3);
-	memset(Level->levelMesh->LMTextureData.Data(), 0, Level->levelMesh->LMTextureData.Size() * sizeof(uint16_t));
+	Level->levelMesh->Lightmap.TextureData.Resize(Level->levelMesh->Lightmap.TextureCount * textureSize * textureSize * 3);
+	memset(Level->levelMesh->Lightmap.TextureData.Data(), 0, Level->levelMesh->Lightmap.TextureData.Size() * sizeof(uint16_t));
 
 	// Copy tile pixels to the texture
 	for (auto& binding : foundBindings)
@@ -3167,7 +3160,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		LightmapTile* tile = binding.second;
 
 		const uint16_t* src = textureData.Data() + entry->pixelsOffset;
-		uint16_t* dst = &Level->levelMesh->LMTextureData[tile->AtlasLocation.ArrayIndex * textureSize * textureSize * 3];
+		uint16_t* dst = &Level->levelMesh->Lightmap.TextureData[tile->AtlasLocation.ArrayIndex * textureSize * textureSize * 3];
 		int destx = tile->AtlasLocation.X;
 		int desty = tile->AtlasLocation.Y;
 		int width = tile->AtlasLocation.Width;
@@ -3202,6 +3195,8 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 {
+	SetNullLevelMeshUpdater();
+
 	const int *oldvertextable  = nullptr;
 
 	// Reset defaults for lightmapping
@@ -3524,4 +3519,25 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	}
 
 	Level->aabbTree = new DoomLevelAABBTree(Level);
+
+	// [DVR] Populate subsector->bbox for alternative space culling in orthographic projection with no fog of war
+	subsector_t* sub = &Level->subsectors[0];
+	seg_t* seg;
+	for (unsigned int kk = 0; kk < Level->subsectors.Size(); kk++)
+	{
+		sub[kk].bbox.ClearBox();
+		unsigned int count = sub[kk].numlines;
+		seg = sub[kk].firstline;
+		while(count--)
+		{
+			if((seg->v1 != nullptr) && (seg->v2 != nullptr))
+			{
+				sub[kk].bbox.AddToBox(seg->v1->fPos());
+				sub[kk].bbox.AddToBox(seg->v2->fPos());
+			}
+			seg++;
+		}
+	}
+
+	LevelMeshUpdater = Level->levelMesh; // Start tracking level changes
 }

@@ -660,7 +660,7 @@ void FLevelLocals::SerializePlayers(FSerializer &arc, bool skipload)
 				for (unsigned int i = 0u; i < MAXPLAYERS; ++i)
 				{
 					if (PlayerInGame(i) && Players[i]->mo != nullptr)
-						NetworkEntityManager::SetClientNetworkEntity(Players[i]);
+						NetworkEntityManager::SetClientNetworkEntity(Players[i]->mo, i);
 				}
 			}
 		}
@@ -987,6 +987,8 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 		("flags3", flags3)
 		("vkdflags", vkdflags)
 		("fadeto", fadeto)
+		("skyspeed1", skyspeed1)
+		("skyspeed2", skyspeed2)
 		("found_secrets", found_secrets)
 		("found_items", found_items)
 		("killed_monsters", killed_monsters)

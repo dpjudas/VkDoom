@@ -573,4 +573,3 @@ FWrapperTexture::FWrapperTexture(int w, int h, int bits)
 	// todo: Initialize here.
 	SystemTextures.AddHardwareTexture(0, false, hwtex);
 }
-

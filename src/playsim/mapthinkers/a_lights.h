@@ -5,6 +5,7 @@ class DLighting : public DSectorEffect
 	DECLARE_CLASS(DLighting, DSectorEffect)
 public:
 	static const int DEFAULT_STAT = STAT_LIGHT;
+	void OnDestroy() override;
 };
 
 class DFireFlicker : public DLighting

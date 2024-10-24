@@ -10,9 +10,9 @@ class Scrollbar;
 class ErrorWindow : public Widget
 {
 public:
-	static bool ExecModal(const std::string& text, const std::string& log);
+	static bool ExecModal(const std::string& text, const std::string& log, std::vector<uint8_t> minidump = {});
 
-	ErrorWindow();
+	ErrorWindow(std::vector<uint8_t> minidump);
 
 	bool Restart = false;
 
@@ -25,11 +25,14 @@ private:
 
 	void OnClipboardButtonClicked();
 	void OnRestartButtonClicked();
+	void OnSaveReportButtonClicked();
 
 	LogViewer* LogView = nullptr;
 	PushButton* ClipboardButton = nullptr;
 	PushButton* RestartButton = nullptr;
+	PushButton* SaveReportButton = nullptr;
 
+	std::vector<uint8_t> minidump;
 	std::string clipboardtext;
 };
 

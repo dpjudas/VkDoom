@@ -99,6 +99,12 @@ static FDynamicLight *GetLight(FLevelLocals *Level)
 }
 
 
+float LightCalcStrength(float radius)
+{
+	radius *= 2; // radius in shaders is actualy diameter, so multiply it here to match
+	return std::min(1500.0f, (radius * radius) / 10);
+}
+
 //==========================================================================
 //
 // Attaches a dynamic light descriptor to a dynamic light actor.
@@ -115,7 +121,12 @@ void AttachLight(AActor *self)
 	light->pPitch = &self->Angles.Pitch;
 	light->pLightFlags = (LightFlags*)&self->IntVar(NAME_lightflags);
 	light->pArgs = self->args;
-	light->pSourceRadius = &self->SourceRadius;
+	light->pSoftShadowRadius = &self->FloatVar(NAME_SoftShadowRadius);
+	light->pLinearity = &self->FloatVar(NAME_LightLinearity);
+
+	light->lightStrength = LightCalcStrength(light->pArgs[LIGHT_INTENSITY]);
+	
+
 	light->specialf1 = DAngle::fromDeg(double(self->SpawnAngle)).Normalized360().Degrees();
 	light->Sector = self->Sector;
 	light->target = self;
@@ -213,7 +224,6 @@ void FDynamicLight::ReleaseLight()
 	FreeList.Push(this);
 }
 
-
 //==========================================================================
 //
 // [TS]
@@ -237,6 +247,8 @@ void FDynamicLight::Activate()
 		m_currentRadius = float(m_cycler.GetVal());
 	}
 	if (m_currentRadius <= 0) m_currentRadius = 1;
+
+	lightStrength = LightCalcStrength(m_currentRadius);
 }
 
 
@@ -254,9 +266,11 @@ void FDynamicLight::Tick()
 		return;
 	}
 
+	int oldradius = m_currentRadius;
+
 	if (owned)
 	{
-		if (!target->state)
+		if (!target->state || !target->ShouldRenderLocally())
 		{
 			Deactivate();
 			return;
@@ -345,8 +359,9 @@ void FDynamicLight::Tick()
 		
 		intensity = Sector? Sector->lightlevel * scale : 0;
 		intensity = clamp<float>(intensity, 0.f, 255.f);
-		
+
 		m_currentRadius = intensity;
+
 		break;
 	}
 
@@ -355,6 +370,12 @@ void FDynamicLight::Tick()
 		break;
 	}
 	if (m_currentRadius <= 0) m_currentRadius = 1;
+
+
+	if(oldradius != m_currentRadius)
+	{
+		lightStrength = LightCalcStrength(m_currentRadius);
+	}
 	UpdateLocation();
 }
 

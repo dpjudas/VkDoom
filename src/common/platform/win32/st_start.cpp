@@ -53,7 +53,7 @@
 #include "startupinfo.h"
 #include "i_interface.h"
 #include "texturemanager.h"
-#include "i_mainwindow.h"
+#include "common/widgets/netstartwindow.h"
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 
@@ -140,7 +140,7 @@ void FBasicStartupScreen::Progress()
 void FBasicStartupScreen::NetInit(const char *message, int numplayers)
 {
 	NetMaxPos = numplayers;
-	mainwindow.ShowNetStartPane(message, numplayers);
+	NetStartWindow::ShowNetStartPane(message, numplayers);
 
 	NetMaxPos = numplayers;
 	NetCurPos = 0;
@@ -157,7 +157,7 @@ void FBasicStartupScreen::NetInit(const char *message, int numplayers)
 
 void FBasicStartupScreen::NetDone()
 {
-	mainwindow.HideNetStartPane();
+	NetStartWindow::HideNetStartPane();
 }
 
 //==========================================================================
@@ -180,7 +180,7 @@ void FBasicStartupScreen::NetProgress(int count)
 		NetCurPos = count;
 	}
 
-	mainwindow.SetNetStartProgress(count);
+	NetStartWindow::SetNetStartProgress(count);
 }
 
 //==========================================================================
@@ -199,5 +199,5 @@ void FBasicStartupScreen::NetProgress(int count)
 
 bool FBasicStartupScreen::NetLoop(bool (*timer_callback)(void *), void *userdata)
 {
-	return mainwindow.RunMessageLoop(timer_callback, userdata);
+	return NetStartWindow::RunMessageLoop(timer_callback, userdata);
 }

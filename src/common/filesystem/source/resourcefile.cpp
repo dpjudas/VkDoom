@@ -34,6 +34,7 @@
 **
 */
 
+#include <algorithm>
 #include <miniz.h>
 #include "resourcefile.h"
 #include "md5.hpp"
@@ -43,9 +44,10 @@
 #include "fs_findfile.h"
 #include "fs_decompress.h"
 #include "wildcards.hpp"
+#include <algorithm>
 
 namespace FileSys {
-	
+
 // this is for restricting shared file readers to the main thread.
 thread_local bool mainThread;
 void SetMainThread()
@@ -161,6 +163,7 @@ static int nulPrintf(FSMessageLevel msg, const char* fmt, ...)
 
 FResourceFile *FResourceFile::DoOpenResourceFile(const char *filename, FileReader &file, bool containeronly, LumpFilterInfo* filter, FileSystemMessageFunc Printf, StringPool* sp)
 {
+	if (!file.isOpen()) return nullptr;
 	if (Printf == nullptr) Printf = nulPrintf;
 	for(auto func : funcs)
 	{

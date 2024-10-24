@@ -32,14 +32,13 @@
 **
 */
 
-// HEADER FILES ------------------------------------------------------------
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mmsystem.h>
 #include <objbase.h>
 #include <commctrl.h>
-#include <richedit.h>
+#include <string>
+#include <ShlObj.h>
 
 #include <processenv.h>
 #include <shellapi.h>
@@ -80,8 +79,6 @@
 
 #include "i_mainwindow.h"
 
-// MACROS ------------------------------------------------------------------
-
 // The main window's title.
 #ifdef _M_X64
 #define X64 " 64-bit"
@@ -91,44 +88,20 @@
 #define X64 ""
 #endif
 
-// TYPES -------------------------------------------------------------------
+void InitCrashReporter(const std::wstring& reports_directory, const std::wstring& uploader_executable);
+FString GetKnownFolder(int shell_folder, REFKNOWNFOLDERID known_folder, bool create);
 
-// EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
-
-LRESULT CALLBACK WndProc (HWND, UINT, WPARAM, LPARAM);
-void CreateCrashLog (const char *custominfo, DWORD customsize);
-void DisplayCrashLog ();
 void DestroyCustomCursor();
 int GameMain();
 
-// PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
-
-// PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
-
-// EXTERNAL DATA DECLARATIONS ----------------------------------------------
-
-extern EXCEPTION_POINTERS CrashPointers;
 extern UINT TimerPeriod;
-
-// PUBLIC DATA DEFINITIONS -------------------------------------------------
 
 // The command line arguments.
 FArgs *Args;
 
 HINSTANCE		g_hInst;
-HANDLE			MainThread;
-DWORD			MainThreadID;
 HANDLE			StdOut;
 bool			FancyStdOut, AttachedStdOut;
-
-// CODE --------------------------------------------------------------------
-
-
-//==========================================================================
-//
-// I_SetIWADInfo
-//
-//==========================================================================
 
 void I_SetIWADInfo()
 {
@@ -136,8 +109,37 @@ void I_SetIWADInfo()
 
 //==========================================================================
 //
-// DoMain
+// isConsoleApp()
 //
+// runtime detection to detect if this is a console subsystem app.
+//
+// the reason for doing this is because it is possible to edit a binary directly and change its subsystem
+// type via hexedit so in order to gain flexibility it makes no sense to just compile out the unused code.
+//
+// we may plan to publish tools to allow users to do this manually on their own.
+//
+//==========================================================================
+
+bool isConsoleApp()
+{
+	static bool alreadychecked = false;
+	static bool returnvalue;
+
+	if (!alreadychecked)
+	{
+		DWORD pids[2];
+		DWORD num_pids = GetConsoleProcessList(pids, 2);
+		bool win32con_is_exclusive = (num_pids <= 1);
+
+		returnvalue = ((GetConsoleWindow() != NULL && !win32con_is_exclusive) || (GetStdHandle(STD_OUTPUT_HANDLE) != NULL));
+		alreadychecked = true;
+	}
+
+	//printf("isConsoleApp is %i\n", returnvalue);
+
+	return returnvalue;
+}
+
 //==========================================================================
 
 int DoMain (HINSTANCE hInstance)
@@ -158,7 +160,22 @@ int DoMain (HINSTANCE hInstance)
 		Args->AppendArg(FString(wargv[i]));
 	}
 
-	if (Args->CheckParm("-stdout"))
+	if (isConsoleApp())
+	{
+		StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+		SetConsoleCP(CP_UTF8);
+		SetConsoleOutputCP(CP_UTF8);
+
+		DWORD mode;
+
+		if (GetConsoleMode(StdOut, &mode))
+		{
+			if (SetConsoleMode(StdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+				FancyStdOut = IsWindows10OrGreater(); // Windows 8.1 and lower do not understand ANSI formatting.
+		}
+	}
+	else if (Args->CheckParm("-stdout") || Args->CheckParm("-norun"))
 	{
 		// As a GUI application, we don't normally get a console when we start.
 		// If we were run from the shell and are on XP+, we can attach to its
@@ -167,7 +184,7 @@ int DoMain (HINSTANCE hInstance)
 		// handle instead of creating a console window.
 
 		StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-		if (StdOut != NULL)
+		if (StdOut != nullptr)
 		{
 			// It seems that running from a shell always creates a std output
 			// for us, even if it doesn't go anywhere. (Running from Explorer
@@ -177,7 +194,7 @@ int DoMain (HINSTANCE hInstance)
 			BY_HANDLE_FILE_INFORMATION info;
 			if (!GetFileInformationByHandle(StdOut, &info))
 			{
-				StdOut = NULL;
+				StdOut = nullptr;
 			}
 		}
 		if (StdOut == nullptr)
@@ -185,7 +202,7 @@ int DoMain (HINSTANCE hInstance)
 			if (AttachConsole(ATTACH_PARENT_PROCESS))
 			{
 				StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-				DWORD foo; WriteFile(StdOut, "\n", 1, &foo, NULL);
+				DWORD foo; WriteFile(StdOut, "\n", 1, &foo, nullptr);
 				AttachedStdOut = true;
 			}
 			if (StdOut == nullptr && AllocConsole())
@@ -217,7 +234,7 @@ int DoMain (HINSTANCE hInstance)
 
 	// Figure out what directory the program resides in.
 	WCHAR progbuff[1024];
-	if (GetModuleFileNameW(nullptr, progbuff, sizeof progbuff) == 0)
+	if (GetModuleFileNameW(nullptr, progbuff, 1024) == 0)
 	{
 		MessageBoxA(nullptr, "Fatal", "Could not determine program location.", MB_ICONEXCLAMATION|MB_OK);
 		exit(-1);
@@ -242,7 +259,7 @@ int DoMain (HINSTANCE hInstance)
 	// element. DEVMODE is not one of those structures.
 	memset (&displaysettings, 0, sizeof(displaysettings));
 	displaysettings.dmSize = sizeof(displaysettings);
-	EnumDisplaySettings (NULL, ENUM_CURRENT_SETTINGS, &displaysettings);
+	EnumDisplaySettings (nullptr, ENUM_CURRENT_SETTINGS, &displaysettings);
 	x = (displaysettings.dmPelsWidth - width) / 2;
 	y = (displaysettings.dmPelsHeight - height) / 2;
 
@@ -260,17 +277,14 @@ int DoMain (HINSTANCE hInstance)
 	WinWidth = cRect.right;
 	WinHeight = cRect.bottom;
 
-	CoInitialize (NULL);
-	atexit ([](){ CoUninitialize(); }); // beware of calling convention.
-
 	int ret = GameMain ();
 
 	if (mainwindow.CheckForRestart())
 	{
-		HMODULE hModule = GetModuleHandleW(NULL);
+		HMODULE hModule = GetModuleHandleW(nullptr);
 		WCHAR path[MAX_PATH];
 		GetModuleFileNameW(hModule, path, MAX_PATH);
-		ShellExecuteW(NULL, L"open", path, GetCommandLineW(), NULL, SW_SHOWNORMAL);
+		ShellExecuteW(nullptr, L"open", path, GetCommandLineW(), nullptr, SW_SHOWNORMAL);
 	}
 
 	DestroyCustomCursor();
@@ -287,7 +301,7 @@ int DoMain (HINSTANCE hInstance)
 				if (StdOut != nullptr) WriteFile(StdOut, "Press any key to exit...", 24, &bytes, nullptr);
 				FlushConsoleInputBuffer(stdinput);
 				SetConsoleMode(stdinput, 0);
-				ReadConsole(stdinput, &bytes, 1, &bytes, NULL);
+				ReadConsole(stdinput, &bytes, 1, &bytes, nullptr);
 			}
 			else if (StdOut == nullptr)
 			{
@@ -319,231 +333,22 @@ void I_ShowFatalError(const char *msg)
 	}
 }
 
-// Here is how the error logging system works.
-//
-// To catch exceptions that occur in secondary threads, CatchAllExceptions is
-// set as the UnhandledExceptionFilter for this process. It records the state
-// of the thread at the time of the crash using CreateCrashLog and then queues
-// an APC on the primary thread. When the APC executes, it raises a software
-// exception that gets caught by the __try/__except block in WinMain.
-// I_GetEvent calls SleepEx to put the primary thread in a waitable state
-// periodically so that the APC has a chance to execute.
-//
-// Exceptions on the primary thread are caught by the __try/__except block in
-// WinMain. Not only does it record the crash information, it also shuts
-// everything down and displays a dialog with the information present. If a
-// console log is being produced, the information will also be appended to it.
-//
-// If a debugger is running, CatchAllExceptions never executes, so secondary
-// thread exceptions will always be caught by the debugger. For the primary
-// thread, IsDebuggerPresent is called to determine if a debugger is present.
-// Note that this function is not present on Windows 95, so we cannot
-// statically link to it.
-//
-// To make this work with MinGW, you will need to use inline assembly
-// because GCC offers no native support for Windows' SEH.
-
-//==========================================================================
-//
-// SleepForever
-//
 //==========================================================================
 
-void SleepForever ()
+int wmain()
 {
-	Sleep (INFINITE);
+    return wWinMain(GetModuleHandle(0), 0, GetCommandLineW(), SW_SHOW);
 }
 
-//==========================================================================
-//
-// ExitMessedUp
-//
-// An exception occurred while exiting, so don't do any standard processing.
-// Just die.
-//
-//==========================================================================
-
-LONG WINAPI ExitMessedUp (LPEXCEPTION_POINTERS foo)
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow)
 {
-	ExitProcess (1000);
-}
 
-//==========================================================================
-//
-// ExitFatally
-//
-//==========================================================================
-
-void CALLBACK ExitFatally (ULONG_PTR dummy)
-{
-	SetUnhandledExceptionFilter (ExitMessedUp);
-	I_ShutdownGraphics ();
-	mainwindow.RestoreConView ();
-	DisplayCrashLog ();
-	exit(-1);
-}
-
-#ifndef _M_ARM64
-//==========================================================================
-//
-// CatchAllExceptions
-//
-//==========================================================================
-
-namespace
-{
-	CONTEXT MainThreadContext;
-}
-
-LONG WINAPI CatchAllExceptions (LPEXCEPTION_POINTERS info)
-{
-#ifdef _DEBUG
-	if (info->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT)
-	{
-		return EXCEPTION_CONTINUE_SEARCH;
-	}
-#endif
-
-	static bool caughtsomething = false;
-
-	if (caughtsomething) return EXCEPTION_EXECUTE_HANDLER;
-	caughtsomething = true;
-
-	char *custominfo = (char *)HeapAlloc (GetProcessHeap(), 0, 16384);
-
-	CrashPointers = *info;
-	if (sysCallbacks.CrashInfo && custominfo) sysCallbacks.CrashInfo(custominfo, 16384, "\r\n");
-	CreateCrashLog (custominfo, (DWORD)strlen(custominfo));
-
-	// If the main thread crashed, then make it clean up after itself.
-	// Otherwise, put the crashing thread to sleep and signal the main thread to clean up.
-	if (GetCurrentThreadId() == MainThreadID)
-	{
-#ifdef _M_X64
-		*info->ContextRecord = MainThreadContext;
-#else
-		info->ContextRecord->Eip = (DWORD_PTR)ExitFatally;
-#endif // _M_X64
-	}
-	else
-	{
-#ifndef _M_X64
-		info->ContextRecord->Eip = (DWORD_PTR)SleepForever;
-#else
-		info->ContextRecord->Rip = (DWORD_PTR)SleepForever;
-#endif
-		QueueUserAPC (ExitFatally, MainThread, 0);
-	}
-	return EXCEPTION_CONTINUE_EXECUTION;
-}
-#else // !_M_ARM64
-// stub this function for ARM64
-LONG WINAPI CatchAllExceptions (LPEXCEPTION_POINTERS info)
-{
-	return EXCEPTION_CONTINUE_EXECUTION;
-}
-#endif // !_M_ARM64
-
-//==========================================================================
-//
-// infiniterecursion
-//
-// Debugging routine for testing the crash logger.
-//
-//==========================================================================
-
-#ifdef _DEBUG
-static void infiniterecursion(int foo)
-{
-	if (foo)
-	{
-		infiniterecursion(foo);
-	}
-}
-#endif
-
-// Setting this to 'true' allows getting the standard notification for a crash
-// which offers the very important feature to open a debugger and see the crash in context right away.
-CUSTOM_CVAR(Bool, disablecrashlog, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-{
-	SetUnhandledExceptionFilter(!*self ? CatchAllExceptions : nullptr);
-}
-
-//==========================================================================
-//
-// WinMain
-//
-//==========================================================================
-
-int WINAPI wWinMain (HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow)
-{
 	g_hInst = hInstance;
 
-	InitCommonControls ();			// Load some needed controls and be pretty under XP
+	InitCommonControls();
 
-	// We need to load riched20.dll so that we can create the control.
-	if (NULL == LoadLibraryA ("riched20.dll"))
-	{
-		// This should only happen on basic Windows 95 installations, but since we
-		// don't support Windows 95, we have no obligation to provide assistance in
-		// getting it installed.
-		MessageBoxA(NULL, "Could not load riched20.dll", GAMENAME " Error", MB_OK | MB_ICONSTOP);
-		return 0;
-	}
-
-#if !defined(__GNUC__) && defined(_DEBUG)
-	if (__argc == 2 && __wargv != nullptr && wcscmp (__wargv[1], L"TestCrash") == 0)
-	{
-		__try
-		{
-			*(int *)0 = 0;
-		}
-		__except(CrashPointers = *GetExceptionInformation(),
-			CreateCrashLog ("TestCrash", 9), EXCEPTION_EXECUTE_HANDLER)
-		{
-		}
-		DisplayCrashLog ();
-		return 0;
-	}
-	if (__argc == 2 && __wargv != nullptr && wcscmp (__wargv[1], L"TestStackCrash") == 0)
-	{
-		__try
-		{
-			infiniterecursion(1);
-		}
-		__except(CrashPointers = *GetExceptionInformation(),
-			CreateCrashLog ("TestStackCrash", 14), EXCEPTION_EXECUTE_HANDLER)
-		{
-		}
-		DisplayCrashLog ();
-		return 0;
-	}
-#endif
-
-	MainThread = INVALID_HANDLE_VALUE;
-	DuplicateHandle (GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &MainThread,
-		0, FALSE, DUPLICATE_SAME_ACCESS);
-	MainThreadID = GetCurrentThreadId();
-
-#ifndef _DEBUG
-	if (MainThread != INVALID_HANDLE_VALUE)
-	{
-#ifndef _M_ARM64
-		SetUnhandledExceptionFilter (CatchAllExceptions);
-#endif
-
-#ifdef _M_X64
-		static bool setJumpResult = false;
-		RtlCaptureContext(&MainThreadContext);
-		if (setJumpResult)
-		{
-			ExitFatally(0);
-			return 0;
-		}
-		setJumpResult = true;
-#endif // _M_X64
-	}
-#endif
+	if (SUCCEEDED(CoInitialize(nullptr)))
+		atexit([]() { CoUninitialize(); }); // beware of calling convention.
 
 #if defined(_DEBUG) && defined(_MSC_VER)
 	// Uncomment this line to make the Visual C++ CRT check the heap before
@@ -558,14 +363,24 @@ int WINAPI wWinMain (HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int
 	//_crtBreakAlloc = 227524;
 #endif
 
-	int ret = DoMain (hInstance);
+	// Setup crash reporting, unless it is the crash reporter launching us in response to a crash
+	if (wcsstr(cmdline, L"-showcrashreport") == nullptr)
+	{
+		WCHAR exeFilename[1024] = {};
+		if (GetModuleFileName(0, exeFilename, 1023) != 0)
+		{
+			FString reportsDirectory = GetKnownFolder(CSIDL_LOCAL_APPDATA, FOLDERID_LocalAppData, true);
+			reportsDirectory += "/" GAMENAMELOWERCASE;
+			reportsDirectory += "/crashreports";
+			CreatePath(reportsDirectory.GetChars());
 
-	CloseHandle (MainThread);
-	MainThread = INVALID_HANDLE_VALUE;
-	return ret;
+			InitCrashReporter(reportsDirectory.WideString(), exeFilename);
+		}
+	}
+
+	return DoMain(hInstance);
 }
 
-// each platform has its own specific version of this function.
 void I_SetWindowTitle(const char* caption)
 {
 	mainwindow.SetWindowTitle(caption);

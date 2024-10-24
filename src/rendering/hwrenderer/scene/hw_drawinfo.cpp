@@ -89,7 +89,12 @@ HWDrawInfo *HWDrawInfo::StartDrawInfo(HWDrawContext* drawctx, FLevelLocals *lev,
 void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms)
 {
 	drawctx->staticClipper.Clear();
+	drawctx->staticVClipper.Clear();
+	drawctx->staticRClipper.Clear();
 	mClipper = &drawctx->staticClipper;
+	vClipper = &drawctx->staticVClipper;
+	rClipper = &drawctx->staticRClipper;
+	rClipper->amRadar = true;
 
 	Viewpoint = parentvp;
 	lightmode = getRealLightmode(Level, true);
@@ -106,7 +111,10 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		VPUniforms.mProjectionMatrix.loadIdentity();
 		VPUniforms.mViewMatrix.loadIdentity();
 		VPUniforms.mNormalViewMatrix.loadIdentity();
+		VPUniforms.mViewOffsetX = -screen->mSceneViewport.left;
+		VPUniforms.mViewOffsetY = -screen->mSceneViewport.top;
 		VPUniforms.mViewHeight = viewheight;
+		VPUniforms.mLightTilesWidth = (screen->mScreenViewport.width + 63) / 64;
 		if (lightmode == ELightMode::Build)
 		{
 			VPUniforms.mGlobVis = 1 / 64.f;
@@ -119,9 +127,10 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		}
 		VPUniforms.mClipLine.X = -10000000.0f;
 		VPUniforms.mShadowFilter = static_cast<int>(gl_light_shadow_filter);
-		VPUniforms.mLightBlendMode = (level.info ? (int)level.info->lightblendmode : 0);
 	}
 	mClipper->SetViewpoint(Viewpoint);
+	vClipper->SetViewpoint(Viewpoint);
+	rClipper->SetViewpoint(Viewpoint);
 
 	ClearBuffers();
 
@@ -167,10 +176,10 @@ HWDrawInfo *HWDrawInfo::EndDrawInfo()
 
 void HWDrawInfo::ClearBuffers()
 {
-    otherFloorPlanes.Clear();
-    otherCeilingPlanes.Clear();
-    floodFloorSegs.Clear();
-    floodCeilingSegs.Clear();
+	otherFloorPlanes.Clear();
+	otherCeilingPlanes.Clear();
+	floodFloorSegs.Clear();
+	floodCeilingSegs.Clear();
 
 	// clear all the lists that might not have been cleared already
 	MissingUpperTextures.Clear();
@@ -212,7 +221,9 @@ void HWDrawInfo::ClearBuffers()
 
 void HWDrawInfo::UpdateCurrentMapSection()
 {
-	const int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
+	int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
+	if (Viewpoint.IsAllowedOoB())
+		mapsection = Level->PointInRenderSubsector(Viewpoint.camera->Pos())->mapsection;
 	CurrentMapSections.Set(mapsection);
 }
 
@@ -225,9 +236,11 @@ void HWDrawInfo::UpdateCurrentMapSection()
 
 void HWDrawInfo::SetViewArea()
 {
-    auto &vp = Viewpoint;
+	auto &vp = Viewpoint;
 	// The render_sector is better suited to represent the current position in GL
 	vp.sector = Level->PointInRenderSubsector(vp.Pos)->render_sector;
+	if (Viewpoint.IsAllowedOoB())
+	  vp.sector = Level->PointInRenderSubsector(vp.camera->Pos())->render_sector;
 
 	// Get the heightsec state from the render sector, not the current one!
 	if (vp.sector->GetHeightSec())
@@ -306,16 +319,22 @@ int HWDrawInfo::SetFullbrightFlags(player_t *player)
 
 angle_t HWDrawInfo::FrustumAngle()
 {
-	float tilt = fabs(Viewpoint.HWAngles.Pitch.Degrees());
+	// If pitch is larger than this you can look all around at an FOV of 90 degrees
+	if (fabs(Viewpoint.HWAngles.Pitch.Degrees()) > 89.0)  return 0xffffffff;
+	else if (fabs(Viewpoint.HWAngles.Pitch.Degrees()) > 46.0 && !Viewpoint.IsAllowedOoB())  return 0xffffffff; // Just like 4.12.2 and older did
+	int aspMult = AspectMultiplier(r_viewwindow.WidescreenRatio); // 48 == square window
+	double absPitch = fabs(Viewpoint.HWAngles.Pitch.Degrees());
+	 // Smaller aspect ratios still clip too much. Need a better solution
+	if (aspMult > 36 && absPitch > 30.0)  return 0xffffffff;
+	else if (aspMult > 40 && absPitch > 25.0)  return 0xffffffff;
+	else if (aspMult > 45 && absPitch > 20.0)  return 0xffffffff;
+	else if (aspMult > 47 && absPitch > 10.0) return 0xffffffff;
 
-	// If the pitch is larger than this you can look all around at a FOV of 90°
-	if (tilt > 46.0f) return 0xffffffff;
+	double xratio = r_viewwindow.FocalTangent / Viewpoint.PitchCos;
+	double floatangle = 0.05 + atan ( xratio ) * 48.0 / aspMult; // this is radians
+	angle_t a1 = DAngle::fromRad(floatangle).BAMs();
 
-	// ok, this is a gross hack that barely works...
-	// but at least it doesn't overestimate too much...
-	double floatangle = 2.0 + (45.0 + ((tilt / 1.9)))*Viewpoint.FieldOfView.Degrees() * 48.0 / AspectMultiplier(r_viewwindow.WidescreenRatio) / 90.0;
-	angle_t a1 = DAngle::fromDeg(floatangle).BAMs();
-	if (a1 >= ANGLE_180) return 0xffffffff;
+	if (a1 >= ANGLE_90) return 0xffffffff;
 	return a1;
 }
 
@@ -395,6 +414,13 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	const auto &vp = Viewpoint;
 	angle_t a1 = FrustumAngle();
 	mClipper->SafeAddClipRangeRealAngles(vp.Angles.Yaw.BAMs() + a1, vp.Angles.Yaw.BAMs() - a1);
+	Viewpoint.FrustAngle = a1;
+	if (Viewpoint.IsAllowedOoB()) // No need for vertical clipper if viewpoint not allowed out of bounds
+	{
+		double a2 = 20.0 + 0.5*Viewpoint.FieldOfView.Degrees(); // FrustumPitch for vertical clipping
+		if (a2 > 179.0) a2 = 179.0;
+		vClipper->SafeAddClipRangeDegPitches(vp.HWAngles.Pitch.Degrees() - a2, vp.HWAngles.Pitch.Degrees() + a2); // clip the suplex range
+	}
 
 	// reset the portal manager
 	drawctx->portalState.StartFrame();
@@ -416,11 +442,12 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		// draw level into depth buffer
 		state.SetColorMask(false);
 		state.SetCulling(Cull_CW);
-		state.DrawLevelMeshSurfaces(true);
+		state.DrawLevelMesh(LevelMeshDrawType::Opaque, true);
+		state.DrawLevelMesh(LevelMeshDrawType::Masked, true);
 		if (gl_portals)
 		{
 			state.SetDepthBias(1, 128);
-			state.DrawLevelMeshPortals(true);
+			state.DrawLevelMesh(LevelMeshDrawType::Portal, true);
 			state.SetDepthBias(0, 0);
 		}
 
@@ -429,13 +456,21 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetDepthMask(false);
 		state.EnableTexture(false);
 		state.SetEffect(EFF_PORTAL);
-		for (HWWall& wall : portals)
+
+		if (!gl_portals)
+			state.SetColorMask(true); // For debugging where the query is
+
+		for (HWWall* wall : portals)
 		{
 			state.BeginQuery();
 
-			wall.MakeVertices(state, false);
-			wall.RenderWall(state, HWWall::RWF_BLANK);
-			wall.vertcount = 0;
+			// sector portals not handled yet by PutWallPortal
+			if (wall->portaltype != PORTALTYPE_SECTORSTACK)
+			{
+				wall->MakeVertices(state, false);
+				wall->RenderWall(state, HWWall::RWF_BLANK);
+				wall->vertcount = 0;
+			}
 
 			state.EndQuery();
 		}
@@ -445,25 +480,42 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.SetDepthMask(true);
 		int queryEnd = state.GetNextQueryIndex();
 
+		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
+
 		// draw opaque level so the GPU has something to do while we examine the query results
-		state.DrawLevelMeshSurfaces(false);
+		state.DrawLevelMesh(LevelMeshDrawType::Opaque, false);
+		state.DrawLevelMesh(LevelMeshDrawType::Masked, false);
 		if (!gl_portals)
 		{
 			state.SetDepthBias(1, 128);
-			state.DrawLevelMeshPortals(false);
+			state.DrawLevelMesh(LevelMeshDrawType::Portal, false);
 			state.SetDepthBias(0, 0);
 		}
 		state.SetCulling(Cull_None);
 
-		// retrieve the query results and use them to fill the portal manager with portals
-		state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);
-		for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
+		if (queryStart != queryEnd)
 		{
-			bool portalVisible = QueryResultsBuffer[i];
-			if (portalVisible)
+			// retrieve the query results and use them to fill the portal manager with portals
+			state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);
+			for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
 			{
-				PutWallPortal(portals[i], state);
+				bool portalVisible = QueryResultsBuffer[i];
+				if (portalVisible)
+				{
+					PutWallPortal(*portals[i], state);
+				}
 			}
+		}
+
+		// Draw Decals
+		{
+			level.levelMesh->ProcessDecals(this, state);
+			state.SetRenderStyle(STYLE_Translucent);
+			state.SetDepthFunc(DF_LEqual);
+			DrawDecals(state, Decals[0]);
+			DrawDecals(state, Decals[1]); // Mirror decals - when should they be drawn?
+			Decals[0].Clear();
+			Decals[1].Clear();
 		}
 
 		// Draw sprites
@@ -486,6 +538,16 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 			sprite.Process(this, state, thing, thing->Sector, in_area, false);
 		}
 
+		// Draw particles
+		for (uint16_t i = level.ActiveParticles; i != NO_PARTICLE; i = level.Particles[i].tnext)
+		{
+			if (Level->Particles[i].subsector)
+			{
+				HWSprite sprite;
+				sprite.ProcessParticle(this, state, &Level->Particles[i], Level->Particles[i].subsector->sector, nullptr);
+			}
+		}
+
 		// Process all the sprites on the current portal's back side which touch the portal.
 		if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
 
@@ -494,6 +556,9 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	}
 	else
 	{
+		if (gl_levelmesh && level.levelMesh)
+			level.levelMesh->CurFrameStats.Portals++;
+
 		RenderBSP(Level->HeadNode(), drawpsprites, state);
 	}
 
@@ -622,7 +687,7 @@ void HWDrawInfo::UpdateLightmaps()
 {
 	if (!outer && VisibleTiles.Size() < unsigned(lm_background_updates))
 	{
-		for (auto& e : level.levelMesh->LightmapTiles)
+		for (auto& e : level.levelMesh->Lightmap.Tiles)
 		{
 			if (e.NeedsUpdate)
 			{
@@ -794,6 +859,9 @@ void HWDrawInfo::DrawCorona(FRenderState& state, AActor* corona, float coronaFad
 	state.SetTextureMode(TM_NORMAL); // This is needed because the next line doesn't always set the mode...
 	state.SetTextureMode(corona->RenderStyle);
 
+	// no need for alpha test, coronas are meant to be translucent
+	state.AlphaFunc(Alpha_GEqual, 0.f);
+
 	state.SetMaterial(tex, UF_Sprite, CTF_Expand, CLAMP_XY_NOMIP, 0, 0);
 
 	float scale = screen->GetHeight() / 1000.0f;
@@ -826,6 +894,122 @@ static ETraceStatus CheckForViewpointActor(FTraceResults& res, void* userdata)
 	}
 
 	return TRACE_Stop;
+}
+
+//==========================================================================
+//
+// TraceCallbackForDitherTransparency
+// Toggles dither flag on anything that occludes the actor's
+// position from viewpoint.
+//
+//==========================================================================
+
+static ETraceStatus TraceCallbackForDitherTransparency(FTraceResults& res, void* userdata)
+{
+	int* count = (int*)userdata;
+	double bf, bc;
+	(*count)++;
+	switch(res.HitType)
+	{
+	case TRACE_HitWall:
+		if (!(res.Line->sidedef[res.Side]->Flags & WALLF_DITHERTRANS))
+		{
+			bf = res.Line->sidedef[res.Side]->sector->floorplane.ZatPoint(res.HitPos.XY());
+			bc = res.Line->sidedef[res.Side]->sector->ceilingplane.ZatPoint(res.HitPos.XY());
+			if ((res.HitPos.Z <= bc) && (res.HitPos.Z >= bf))
+			{
+				res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS;
+			}
+		}
+		break;
+	case TRACE_HitFloor:
+		if (res.HitPos.Z == res.Sector->floorplane.ZatPoint(res.HitPos))
+		{
+			res.Sector->floorplane.dithertransflag = true;
+		}
+		else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
+		{
+			F3DFloor *rover;
+			int kk;
+			for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
+			{
+				rover = res.Sector->e->XFloor.ffloors[kk];
+				if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
+				{
+					if (res.HitPos.Z == rover->top.plane->ZatPoint(res.HitPos))
+					{
+						rover->top.plane->dithertransflag = true;
+						break; // Out of for loop
+					}
+				}
+			}
+		}
+		break;
+	case TRACE_HitCeiling:
+		if (res.HitPos.Z == res.Sector->ceilingplane.ZatPoint(res.HitPos))
+		{
+			res.Sector->ceilingplane.dithertransflag = true;
+		}
+		else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
+		{
+			F3DFloor *rover;
+			int kk;
+			for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
+			{
+				rover = res.Sector->e->XFloor.ffloors[kk];
+				if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
+				{
+					if (res.HitPos.Z == rover->bottom.plane->ZatPoint(res.HitPos))
+					{
+						rover->bottom.plane->dithertransflag = true;
+						break; // Out of for loop
+					}
+				}
+			}
+		}
+		break;
+	case TRACE_HitActor:
+	default:
+		break;
+	}
+
+	return TRACE_ContinueOutOfBounds;
+}
+
+
+void HWDrawInfo::SetDitherTransFlags(AActor* actor)
+{
+	if (actor && actor->Sector)
+	{
+		FTraceResults results;
+		double horix = Viewpoint.Sin * actor->radius;
+		double horiy = Viewpoint.Cos * actor->radius;
+		DVector3 actorpos = actor->Pos();
+		DVector3 vvec = actorpos - Viewpoint.Pos;
+		if (Viewpoint.IsOrtho())
+		{
+			vvec += Viewpoint.camera->Pos() - actorpos;
+			vvec *= 5.0; // Should be 4.0? (since zNear is behind screen by 3*dist in VREyeInfo::GetProjection())
+		}
+		double distance = vvec.Length() - actor->radius;
+		DVector3 campos = actorpos - vvec;
+		sector_t* startsec;
+		int count = 0;
+
+		vvec = vvec.Unit();
+		campos.X -= horix; campos.Y += horiy; campos.Z += actor->Height * 0.25;
+		for (int iter = 0; iter < 3; iter++)
+		{
+			startsec = Level->PointInRenderSubsector(campos)->sector;
+			Trace(campos, startsec, vvec, distance,
+				  0, 0, actor, results, 0, TraceCallbackForDitherTransparency, &count);
+			campos.Z += actor->Height * 0.5;
+			Trace(campos, startsec, vvec, distance,
+				  0, 0, actor, results, 0, TraceCallbackForDitherTransparency, &count);
+			campos.Z -= actor->Height * 0.5;
+			campos.X += horix; campos.Y -= horiy;
+		}
+	}
 }
 
 
@@ -870,6 +1054,7 @@ void HWDrawInfo::DrawCoronas(FRenderState& state)
 			DrawCorona(state, corona, (float)coronaFade, dist);
 	}
 
+	state.AlphaFunc(Alpha_Greater, 0.f);
 	state.SetTextureMode(TM_NORMAL);
 	state.SetViewpoint(vpIndex);
 	state.EnableDepthTest(true);
@@ -969,13 +1154,20 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 {
 	static int recursion = 0;
 	static int ssao_portals_available = 0;
-	const auto& vp = Viewpoint;
+	auto& vp = Viewpoint;
 
 	bool applySSAO = false;
 	if (drawmode == DM_MAINVIEW)
 	{
 		ssao_portals_available = gl_ssao_portals;
 		applySSAO = true;
+		if (r_dithertransparency && vp.IsAllowedOoB())
+		{
+			if (vp.camera->tracer)
+				SetDitherTransFlags(vp.camera->tracer);
+			else
+				SetDitherTransFlags(players[consoleplayer].mo);
+		}
 	}
 	else if (drawmode == DM_OFFSCREEN)
 	{
@@ -1009,6 +1201,8 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 
 	RenderScene(state);
 
+	screen->UpdateLinearDepthTexture();
+
 	if (applySSAO && state.GetPassType() == GBUFFER_PASS)
 	{
 		screen->AmbientOccludeScene(VPUniforms.mProjectionMatrix.get()[5]);
@@ -1040,6 +1234,8 @@ void HWDrawInfo::ProcessScene(bool toscreen, FRenderState& state)
 	drawctx->portalState.BeginScene();
 
 	int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
+	if (Viewpoint.IsAllowedOoB())
+		mapsection = Level->PointInRenderSubsector(Viewpoint.camera->Pos())->mapsection;
 	CurrentMapSections.Set(mapsection);
 	DrawScene(toscreen ? DM_MAINVIEW : DM_OFFSCREEN, state);
 
@@ -1056,10 +1252,10 @@ void HWDrawInfo::AddSubsectorToPortal(FSectorPortalGroup *ptg, subsector_t *sub)
 	auto portal = FindPortal(ptg);
 	if (!portal)
 	{
-        portal = new HWSectorStackPortal(&drawctx->portalState, ptg);
+		portal = new HWSectorStackPortal(&drawctx->portalState, ptg);
 		Portals.Push(portal);
 	}
-    auto ptl = static_cast<HWSectorStackPortal*>(portal);
+	auto ptl = static_cast<HWSectorStackPortal*>(portal);
 	ptl->AddSubsector(sub);
 }
 

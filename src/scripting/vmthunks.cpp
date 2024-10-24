@@ -1806,19 +1806,6 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Secplane, isEqual, isPlaneEqual)
 	ACTION_RETURN_BOOL(*self == *other);
 }
 
-static void ChangeHeight(secplane_t *self, double hdiff)
-{
-	self->ChangeHeight(hdiff);
-}
-
-DEFINE_ACTION_FUNCTION_NATIVE(_Secplane, ChangeHeight, ChangeHeight)
-{
-	PARAM_SELF_STRUCT_PROLOGUE(secplane_t);
-	PARAM_FLOAT(hdiff);
-	self->ChangeHeight(hdiff);
-	return 0;
-}
-
 static double GetChangedHeight(const secplane_t *self, double hdiff)
 {
 	return self->GetChangedHeight(hdiff);
@@ -2263,7 +2250,12 @@ void FormatMapName(FLevelLocals *self, int cr, FString *result)
 	bool ishub = (cluster != nullptr && (cluster->flags & CLUSTER_HUB));
 
 	*result = "";
-	if (am_showmaplabel == 1 || (am_showmaplabel == 2 && !ishub))
+	// If a label is specified, use it uncontitionally here.
+	if (self->info->MapLabel.IsNotEmpty())
+	{
+		*result << self->info->MapLabel << ": ";
+	}
+	else if (am_showmaplabel == 1 || (am_showmaplabel == 2 && !ishub))
 	{
 		*result << self->MapName << ": ";
 	}
@@ -2768,6 +2760,7 @@ DEFINE_FIELD_X(LevelInfo, level_info_t, Music)
 DEFINE_FIELD_X(LevelInfo, level_info_t, LightningSound)
 DEFINE_FIELD_X(LevelInfo, level_info_t, LevelName)
 DEFINE_FIELD_X(LevelInfo, level_info_t, AuthorName)
+DEFINE_FIELD_X(LevelInfo, level_info_t, MapLabel)
 DEFINE_FIELD_X(LevelInfo, level_info_t, musicorder)
 DEFINE_FIELD_X(LevelInfo, level_info_t, skyspeed1)
 DEFINE_FIELD_X(LevelInfo, level_info_t, skyspeed2)

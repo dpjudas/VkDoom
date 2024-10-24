@@ -25,11 +25,6 @@ public:
 	void PrintStr(const char* cp);
 	void GetLog(std::function<bool(const void* data, uint32_t size, uint32_t& written)> writeFile);
 
-	void ShowNetStartPane(const char* message, int maxpos);
-	void SetNetStartProgress(int pos);
-	bool RunMessageLoop(bool (*timer_callback)(void*), void* userdata);
-	void HideNetStartPane();
-
 	void SetWindowTitle(const char* caption);
 
 	HWND GetHandle() { return Window; }

@@ -38,6 +38,8 @@
 #include "hw_clock.h"
 #include "flatvertices.h"
 
+#include "g_levellocals.h"
+
 CVAR(Int, vk_submit_size, 1000, 0);
 EXTERN_CVAR(Bool, r_skipmats)
 
@@ -258,6 +260,8 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.Detailmap = (uTextureMode & TEXF_Detailmap) != 0;
 	pipelineKey.ShaderKey.Glowmap = (uTextureMode & TEXF_Glowmap) != 0;
 
+	pipelineKey.ShaderKey.DepthFadeThreshold = mSurfaceUniforms.uDepthFadeThreshold > 0.0f;
+
 	// The way GZDoom handles state is just plain insanity!
 	int fogset = 0;
 	if (mFogEnabled)
@@ -302,6 +306,9 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
 
 	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
+
+	pipelineKey.ShaderKey.LightBlendMode = (level.info ? static_cast<int>(level.info->lightblendmode) : 0);
+	pipelineKey.ShaderKey.LightAttenuationMode = (level.info ? static_cast<int>(level.info->lightattenuationmode) : 0);
 
 	// Is this the one we already have?
 	bool inRenderPass = mCommandBuffer;
@@ -411,9 +418,11 @@ void VkRenderState::ApplySurfaceUniforms()
 
 			mSurfaceUniforms.uTextureIndex = static_cast<VkMaterial*>(mMaterial.mMaterial)->GetBindlessIndex(mMaterial);
 			mSurfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
+			mSurfaceUniforms.uDepthFadeThreshold = source->GetDepthFadeThreshold();
 		}
 		else
 		{
+			mSurfaceUniforms.uDepthFadeThreshold = 0.f;
 			mSurfaceUniforms.uTextureIndex = 0;
 		}
 		mMaterial.mChanged = false;
@@ -829,6 +838,24 @@ void VkRenderState::BeginRenderPass(VulkanCommandBuffer *cmdbuffer)
 	mClearTargets = 0;
 }
 
+void VkRenderState::RaytraceScene(const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect)
+{
+	ApplyMatrices();
+	ApplyRenderPass(DT_Triangles);
+	ApplyScissor();
+	ApplyViewport();
+	ApplyStencilRef();
+	ApplyDepthBias();
+	mNeedApply = true;
+
+	VkRenderPassKey key = {};
+	key.DrawBufferFormat = mRenderTarget.Format;
+	key.Samples = mRenderTarget.Samples;
+	key.DrawBuffers = mRenderTarget.DrawBuffers;
+	key.DepthStencil = !!mRenderTarget.DepthStencil;
+	fb->GetLevelMesh()->RaytraceScene(key, mCommandBuffer, cameraPos, viewToWorld, fovy, aspect);
+}
+
 void VkRenderState::ApplyLevelMesh()
 {
 	ApplyMatrices();
@@ -842,33 +869,161 @@ void VkRenderState::ApplyLevelMesh()
 	VkBuffer vertexBuffers[2] = { fb->GetLevelMesh()->GetVertexBuffer()->buffer, fb->GetLevelMesh()->GetUniformIndexBuffer()->buffer };
 	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
 	mCommandBuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);
-	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetDrawIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-void VkRenderState::DrawLevelMeshSurfaces(bool noFragmentShader)
+void VkRenderState::RunZMinMaxPass()
 {
-	ApplyLevelMesh();
+	auto pipelines = fb->GetRenderPassManager();
+	auto descriptors = fb->GetDescriptorSetManager();
+	auto buffers = fb->GetBuffers();
+	auto cmdbuffer = fb->GetCommands()->GetDrawCommands();
 
-	auto mesh = fb->GetLevelMesh()->GetMesh();
-	for (LevelSubmeshDrawRange& range : mesh->DrawList)
+	fb->GetCommands()->PushGroup(cmdbuffer, "zminmax");
+
+	int width = ((buffers->GetWidth() + 63) / 64 * 64) >> 1;
+	int height = ((buffers->GetHeight() + 63) / 64 * 64) >> 1;
+
+	ZMinMaxPushConstants pushConstants = {};
+	pushConstants.LinearizeDepthA = 1.0f / screen->GetZFar() - 1.0f / screen->GetZNear();
+	pushConstants.LinearizeDepthB = max(1.0f / screen->GetZNear(), 1.e-8f);
+	pushConstants.InverseDepthRangeA = 1.0f;
+	pushConstants.InverseDepthRangeB = 0.0f;
+
+	VkImageTransition()
+		.AddImage(&fb->GetBuffers()->SceneDepthStencil, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
+		.AddImage(&fb->GetBuffers()->SceneZMinMax[0], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true)
+		.Execute(cmdbuffer);
+
+	RenderPassBegin()
+		.RenderPass(pipelines->GetZMinMaxRenderPass())
+		.RenderArea(0, 0, width, height)
+		.Framebuffer(buffers->GetZMinMaxFramebuffer(0))
+		.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
+		.Execute(cmdbuffer);
+
+	VkViewport viewport = {};
+	viewport.width = (float)width;
+	viewport.height = (float)height;
+	cmdbuffer->setViewport(0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.extent.width = width;
+	scissor.extent.height = height;
+	cmdbuffer->setScissor(0, 1, &scissor);
+
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxPipeline0(mRenderTarget.Samples));
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxLayout(), 0, descriptors->GetZMinMaxSet(0));
+	cmdbuffer->pushConstants(pipelines->GetZMinMaxLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(ZMinMaxPushConstants), &pushConstants);
+	cmdbuffer->draw(6, 1, 0, 0);
+	cmdbuffer->endRenderPass();
+
+	for (int i = 1; i < 6; i++)
 	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, noFragmentShader);
+		VkImageTransition()
+			.AddImage(&fb->GetBuffers()->SceneZMinMax[i - 1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
+			.AddImage(&fb->GetBuffers()->SceneZMinMax[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true)
+			.Execute(cmdbuffer);
+
+		RenderPassBegin()
+			.RenderPass(pipelines->GetZMinMaxRenderPass())
+			.RenderArea(0, 0, width >> i, height >> i)
+			.Framebuffer(buffers->GetZMinMaxFramebuffer(i))
+			.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
+			.Execute(cmdbuffer);
+
+		viewport = {};
+		viewport.width = (float)(width >> i);
+		viewport.height = (float)(height >> i);
+		cmdbuffer->setViewport(0, 1, &viewport);
+
+		scissor = {};
+		scissor.extent.width = (width >> i);
+		scissor.extent.height = (height >> i);
+		cmdbuffer->setScissor(0, 1, &scissor);
+
+		cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxPipeline1());
+		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->GetZMinMaxLayout(), 0, descriptors->GetZMinMaxSet(i));
+		cmdbuffer->draw(6, 1, 0, 0);
+		cmdbuffer->endRenderPass();
 	}
+
+	VkImageTransition()
+		.AddImage(&fb->GetBuffers()->SceneDepthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false)
+		.AddImage(&fb->GetBuffers()->SceneZMinMax[5], VK_IMAGE_LAYOUT_GENERAL, false)
+		.Execute(cmdbuffer);
+
+	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
-void VkRenderState::DrawLevelMeshPortals(bool noFragmentShader)
+void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
+{
+	EndRenderPass();
+	RunZMinMaxPass();
+
+	auto cmdbuffer = fb->GetCommands()->GetDrawCommands();
+
+	fb->GetCommands()->PushGroup(cmdbuffer, "lighttiles");
+
+	PipelineBarrier()
+		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+	float sceneWidth = (float)fb->GetBuffers()->GetSceneWidth();
+	float sceneHeight = (float)fb->GetBuffers()->GetSceneHeight();
+	float aspect = sceneWidth / sceneHeight;
+
+	//float tanHalfFovy = tan(fovy * (M_PI / 360.0f));
+	float tanHalfFovy = 1.0f / m5;
+	float invFocalLenX = tanHalfFovy * aspect;
+	float invFocalLenY = tanHalfFovy;
+
+	LightTilesPushConstants pushConstants = {};
+	pushConstants.posToViewA = { 2.0f * invFocalLenX / sceneWidth, 2.0f * invFocalLenY / sceneHeight };
+	pushConstants.posToViewB = { -invFocalLenX, -invFocalLenY };
+	pushConstants.viewportPos = { 0.0f, 0.0f };
+	pushConstants.worldToView = worldToView;
+	auto pipelines = fb->GetRenderPassManager();
+	auto descriptors = fb->GetDescriptorSetManager();
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->GetLightTilesPipeline());
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->GetLightTilesLayout(), 0, descriptors->GetLightTilesSet());
+	cmdbuffer->pushConstants(pipelines->GetLightTilesLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, (uint32_t)sizeof(LightTilesPushConstants), &pushConstants);
+
+	cmdbuffer->dispatch(
+		(fb->GetBuffers()->GetWidth() + 63) / 64,
+		(fb->GetBuffers()->GetHeight() + 63) / 64,
+		1);
+
+	PipelineBarrier()
+		.AddBuffer(fb->GetBuffers()->SceneLightTiles.get(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	fb->GetCommands()->PopGroup(cmdbuffer);
+}
+
+void VkRenderState::DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader)
 {
 	ApplyLevelMesh();
 
 	auto mesh = fb->GetLevelMesh()->GetMesh();
-	for (LevelSubmeshDrawRange& range : mesh->PortalList)
+	for (auto& it : mesh->DrawList[(int)drawType])
 	{
-		DrawLevelMeshRange(mCommandBuffer, fb->GetLevelMeshPipelineKey(range.PipelineID), range.Start, range.Count, noFragmentShader);
+		int pipelineID = it.first;
+		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
+
+		ApplyLevelMeshPipeline(mCommandBuffer, key, drawType, noFragmentShader);
+
+		for (MeshBufferRange& range : it.second)
+		{
+			mCommandBuffer->drawIndexed(range.End - range.Start, 1, range.Start, 0, 0);
+		}
 	}
 }
 
 void VkRenderState::BeginQuery()
 {
+	if (!mCommandBuffer)
+		ApplyRenderPass(DT_Triangles);
 	mCommandBuffer->beginQuery(mRSBuffers->OcclusionQuery.QueryPool.get(), mRSBuffers->OcclusionQuery.NextIndex++, 0);
 }
 
@@ -899,12 +1054,22 @@ void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>
 	}
 }
 
-void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, int start, int count, bool noFragmentShader)
+void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, LevelMeshDrawType drawType, bool noFragmentShader)
 {
-	if (noFragmentShader && pipelineKey.ShaderKey.AlphaTest)
-		return;
+	if (drawType == LevelMeshDrawType::Masked && noFragmentShader)
+	{
+		// We unfortunately have to run the fragment shader to know which pixels are masked. Use a simplified version to reduce the cost.
+		noFragmentShader = false;
+		pipelineKey.ShaderKey.AlphaTestOnly = true;
+	}
 
+	// Global state that don't require rebuilding the mesh
 	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;
+	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
+	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
+	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
+
+	// State overridden by the renderstate drawing the mesh
 	pipelineKey.DepthTest = mDepthTest;
 	pipelineKey.DepthWrite = mDepthTest && mDepthWrite;
 	pipelineKey.DepthClamp = mDepthClamp;
@@ -915,27 +1080,25 @@ void VkRenderState::DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelin
 	pipelineKey.CullMode = mCullMode;
 	if (!mTextureEnabled)
 		pipelineKey.ShaderKey.EffectState = SHADER_NoTexture;
+
 	mPipelineKey = pipelineKey;
 
 	PushConstants pushConstants = {};
-	pushConstants.uDataIndex = 0;
-	pushConstants.uLightIndex = -1;
 	pushConstants.uBoneIndexBase = -1;
+	pushConstants.uFogballIndex = -1;
 
 	VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(pipelineKey.ShaderKey.UseLevelMesh);
 	uint32_t viewpointOffset = mViewpointOffset;
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
-	uint32_t lightsOffset = 0;
 	uint32_t fogballsOffset = 0;
-	uint32_t offsets[] = { viewpointOffset, matrixOffset, lightsOffset, fogballsOffset };
+	uint32_t offsets[] = { viewpointOffset, matrixOffset, fogballsOffset };
 
 	auto descriptors = fb->GetDescriptorSetManager();
 	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, mPassSetup->GetPipeline(pipelineKey));
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
-	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 4, offsets);
+	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 3, offsets);
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());
 	cmdbuffer->pushConstants(layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &pushConstants);
-	cmdbuffer->drawIndexed(count, 1, start, 0, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -31,7 +31,7 @@ void main()
 
 	for (uint j = LightStart; j < LightEnd; j++)
 	{
-		incoming += TraceLight(origin, normal, lights[lightIndexes[j]], 0.0);
+		incoming += TraceLight(origin, normal, lights[lightIndexes[j]], 0.0, false);
 	}
 
 #if defined(USE_BOUNCE)

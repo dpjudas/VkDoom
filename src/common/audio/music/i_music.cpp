@@ -70,7 +70,7 @@ int		nomusic = 0;
 // Maximum volume of MOD/stream music.
 //==========================================================================
 
-CUSTOM_CVARD(Float, snd_musicvolume, 0.5, CVAR_ARCHIVE|CVAR_GLOBALCONFIG, "controls music volume")
+CUSTOM_CVARD(Float, snd_musicvolume, 0.65, CVAR_ARCHIVE|CVAR_GLOBALCONFIG, "controls music volume")
 {
 	if (self < 0.f)
 		self = 0.f;
@@ -82,7 +82,7 @@ CUSTOM_CVARD(Float, snd_musicvolume, 0.5, CVAR_ARCHIVE|CVAR_GLOBALCONFIG, "contr
 		ChangeMusicSetting(zmusic_snd_musicvolume, nullptr, self);
 		if (GSnd != nullptr)
 		{
-			GSnd->SetMusicVolume(clamp<float>(self * relative_volume * snd_mastervolume, 0, 1));
+			GSnd->SetMusicVolume(clamp<float>(self * relative_volume * snd_mastervolume * 0.75f, 0, 1));
 		}
 		// For music not implemented through the digital sound system,
 		// let them know about the change.

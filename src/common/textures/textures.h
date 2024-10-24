@@ -268,7 +268,7 @@ public:
 		Height = BaseTexture->GetHeight();
 	}
 
-	// This is only used for the null texture and for Heretic's skies.
+	// This is only used for the null texture, for Heretic's skies and scene textures.
 	void SetSize(int w, int h)
 	{
 		Width = w;
@@ -357,7 +357,6 @@ private:
 		bHdr = hdr;
 	}
 };
-
 
 // A wrapper around a hardware texture, to allow using it in the 2D drawing interface.
 class FWrapperTexture : public FTexture

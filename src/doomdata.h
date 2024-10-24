@@ -199,6 +199,7 @@ enum SPAC
 	SPAC_UseBack = 1<<10,	// Can be used from the backside
 	SPAC_Damage = 1<<11,	// [ZZ] when linedef receives damage
 	SPAC_Death = 1<<12,		// [ZZ] when linedef receives damage and has 0 health
+	SPAC_Walking = 1<<13,	// Can only be used when standing on a floor (not falling or floating) - only for line cross, not use
 
 	SPAC_PlayerActivate = (SPAC_Cross|SPAC_Use|SPAC_Impact|SPAC_Push|SPAC_AnyCross|SPAC_UseThrough|SPAC_UseBack),
 };
@@ -382,7 +383,11 @@ struct FMapThing
 	int			FloatbobPhase;
 	int			friendlyseeblocks;
 	FName arg0str;
-	double		SourceRadius;
+	double		SoftShadowRadius;
+	double		LightLinearity;
+	bool		LightNoShadowMap;
+	bool		LightDontLightActors;
+	bool		LightDontLightMap;
 };
 
 

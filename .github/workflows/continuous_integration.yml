@@ -13,7 +13,7 @@ jobs:
         - name: Visual Studio 2022
           os: windows-2022
           extra_options: -DCMAKE_TOOLCHAIN_FILE=build/vcpkg/scripts/buildsystems/vcpkg.cmake
-          build_type: Release
+          build_type: RelWithDebInfo
 
         - name: Visual Studio 2022
           os: windows-2022
@@ -21,14 +21,14 @@ jobs:
           build_type: Debug
 
         - name: macOS
-          os: macos-12
-          deps_cmdline: brew install libvpx webp
+          os: macos-14
+          deps_cmdline: brew install libvpx
           build_type: Release
 
         - name: macOS
-          os: macos-12
+          os: macos-14
           extra_options: -G Xcode -DDYN_OPENAL=OFF
-          deps_cmdline: brew install libvpx webp
+          deps_cmdline: brew install libvpx
           build_type: Debug
 
         - name: Linux GCC 9
@@ -66,9 +66,9 @@ jobs:
         fi
         mkdir build
         if [[ "${{ runner.os }}" == 'macOS' ]]; then
-          export ZMUSIC_PACKAGE=zmusic-1.1.9-macos.tar.xz
+          export ZMUSIC_PACKAGE=zmusic-1.1.14-macos-arm.tar.xz
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          export ZMUSIC_PACKAGE=zmusic-1.1.9-linux.tar.xz
+          export ZMUSIC_PACKAGE=zmusic-1.1.14-linux.tar.xz
         fi
         if [[ -n "${ZMUSIC_PACKAGE}" ]]; then
           cd build
@@ -95,7 +95,7 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
-      if: runner.os == 'Windows' || matrix.config.name == 'Linux GCC 12'
+      if: (runner.os == 'Windows' || matrix.config.name == 'Linux GCC 12') && matrix.config.build_type == 'RelWithDebInfo'
       shell: bash
       run: |
         cd build
@@ -103,6 +103,7 @@ jobs:
         if [[ "${{ runner.os }}" == 'Windows' ]]; then
           cp -r ${{ matrix.config.build_type }}/vkdoom.exe ${{ matrix.config.build_type }}/*.pk3 ${{ matrix.config.build_type }}/fm_banks ${{ matrix.config.build_type }}/soundfonts package
           cp ../bin/licenses.zip ../bin/windows/libsndfile/64bit/libsndfile-1.dll ../bin/windows/openal/64bit/openal32.dll ../bin/windows/zmusic/64bit/zmusic.dll package
+          cp ${{ matrix.config.build_type }}/vkdoom-stripped.pdb package/vkdoom.pdb
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
           cp -r vkdoom.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
@@ -134,7 +135,7 @@ jobs:
     - name: Download Windows artifact
       uses: actions/download-artifact@v4
       with:
-        name: Visual Studio 2022 Release
+        name: Visual Studio 2022 RelWithDebInfo
         path: build/vkdoom-windows-prerelease
 
     - name: Download Linux artifact

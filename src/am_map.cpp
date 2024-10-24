@@ -2630,7 +2630,7 @@ void DAutomap::drawWalls (bool allmap)
 				}
 				else if (line.flags & ML_SECRET)
 				{ // secret door
-					if (am_cheat != 0 && line.backsector != nullptr)
+					if (am_cheat != 0 && am_cheat < 4 && line.backsector != nullptr)
 						drawMline(&l, AMColors.SecretWallColor);
 					else
 						drawMline(&l, AMColors.WallColor);
@@ -2822,7 +2822,7 @@ void DAutomap::drawPlayers ()
 		int numarrowlines;
 
 		double vh = players[consoleplayer].viewheight;
-		DVector2 pos = players[consoleplayer].camera->InterpolatedPosition(r_viewpoint.TicFrac).XY();
+		DVector2 pos = players[consoleplayer].mo->InterpolatedPosition(r_viewpoint.TicFrac).XY();
 		pt.x = pos.X;
 		pt.y = pos.Y;
 		if (am_rotate == 1 || (am_rotate == 2 && viewactive))
@@ -2832,7 +2832,7 @@ void DAutomap::drawPlayers ()
 		}
 		else
 		{
-			angle = players[consoleplayer].camera->InterpolatedAngles(r_viewpoint.TicFrac).Yaw;
+			angle = players[consoleplayer].mo->InterpolatedAngles(r_viewpoint.TicFrac).Yaw;
 		}
 		
 		if (am_cheat != 0 && CheatMapArrow.Size() > 0)
@@ -2886,7 +2886,8 @@ void DAutomap::drawPlayers ()
 
 		if (p->mo != nullptr)
 		{
-			DVector3 pos = p->mo->PosRelative(MapPortalGroup);
+			DVector2 pos = p->mo->InterpolatedPosition(r_viewpoint.TicFrac).XY();
+			pos += Level->Displacements.getOffset(Level->PointInSector(pos)->PortalGroup, MapPortalGroup);
 			pt.x = pos.X;
 			pt.y = pos.Y;
 

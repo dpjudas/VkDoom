@@ -262,8 +262,8 @@ enum ActorFlag4
 	MF4_STRIFEDAMAGE	= 0x00000100,	// Strife projectiles only do up to 4x damage, not 8x
 
 	MF4_CANUSEWALLS		= 0x00000200,	// Can activate 'use' specials
-	MF4_MISSILEMORE		= 0x00000400,	// increases the chance of a missile attack
-	MF4_MISSILEEVENMORE	= 0x00000800,	// significantly increases the chance of a missile attack
+	//		= 0x00000400,
+	//		= 0x00000800,
 	MF4_FORCERADIUSDMG	= 0x00001000,	// if put on an object it will override MF3_NORADIUSDMG
 	MF4_DONTFALL		= 0x00002000,	// Doesn't have NOGRAVITY disabled when dying.
 	MF4_SEESDAGGERS		= 0x00004000,	// This actor can see you striking with a dagger
@@ -442,7 +442,8 @@ enum ActorFlag9
 	MF9_DOSHADOWBLOCK			= 0x00000002,	// [inkoalawetrust] Should the monster look for SHADOWBLOCK actors ?
 	MF9_SHADOWBLOCK				= 0x00000004,	// [inkoalawetrust] Actors in the line of fire with this flag trigger the MF_SHADOW aiming penalty.
 	MF9_SHADOWAIMVERT			= 0x00000008,	// [inkoalawetrust] Monster aim is also offset vertically when aiming at shadow actors.
-	MF9_DECOUPLEDANIMATIONS	= 0x00000010,	// [RL0] Decouple model animations from states
+	MF9_DECOUPLEDANIMATIONS		= 0x00000010,	// [RL0] Decouple model animations from states
+	MF9_ISPUFF					= 0x00000040,	// [AA] Set on actors by P_SpawnPuff
 };
 
 // --- mobj.renderflags ---
@@ -501,6 +502,9 @@ enum ActorRenderFlag2
 	RF2_FLIPSPRITEOFFSETX		= 0x0010,
 	RF2_FLIPSPRITEOFFSETY		= 0x0020,
 	RF2_CAMFOLLOWSPLAYER		= 0x0040,	// Matches the cam's base position and angles to the main viewpoint.
+	RF2_ISOMETRICSPRITES		= 0x0080,
+	RF2_SQUAREPIXELS			= 0x0100,	// apply +ROLLSPRITE scaling math so that non rolling sprites get the same scaling
+	RF2_STRETCHPIXELS			= 0x0200,	// don't apply SQUAREPIXELS for ROLLSPRITES
 };
 
 // This translucency value produces the closest match to Heretic's TINTTAB.
@@ -691,26 +695,10 @@ struct FDropItem
 
 enum EViewPosFlags // [MC] Flags for SetViewPos.
 {
-	VPSF_ABSOLUTEOFFSET =	1 << 1,			// Don't include angles.
-	VPSF_ABSOLUTEPOS =		1 << 2,			// Use absolute position.
-};
-
-enum EAnimOverrideFlags
-{
-	ANIMOVERRIDE_NONE	= 1 << 0, // no animation
-	ANIMOVERRIDE_LOOP	= 1 << 1, // animation loops, otherwise it stays on the last frame once it ends
-};
-
-struct AnimOverride
-{
-	int firstFrame;
-	int lastFrame;
-	int loopFrame;
-	double startFrame;
-	int flags = ANIMOVERRIDE_NONE;
-	float framerate;
-	double startTic; // when the current animation started (changing framerates counts as restarting) (or when animation starts if interpolating from previous animation)
-	double switchTic; // when the animation was changed -- where to interpolate the switch from
+	VPSF_ABSOLUTEOFFSET =		1 << 1,			// Don't include angles.
+	VPSF_ABSOLUTEPOS =			1 << 2,			// Use absolute position.
+	VPSF_ALLOWOUTOFBOUNDS =	1 << 3,			// Allow viewpoint to go out of bounds (hardware renderer only).
+	VPSF_ORTHOGRAPHIC =		1 << 4,			// Use orthographic projection (hardware renderer only).
 };
 
 struct ModelOverride
@@ -748,8 +736,8 @@ public:
 	int							overrideFlagsSet;
 	int							overrideFlagsClear;
 
-	AnimOverride curAnim;
-	AnimOverride prevAnim; // used for interpolation when switching anims
+	ModelAnim curAnim;
+	ModelAnimFrame prevAnim; // used for interpolation when switching anims
 
 	DActorModelData() = default;
 	virtual void Serialize(FSerializer& arc) override;
@@ -774,6 +762,9 @@ public:
 
 	void Set(DVector3 &off, int f = -1)
 	{
+		ZeroSubnormalsF(off.X);
+		ZeroSubnormalsF(off.Y);
+		ZeroSubnormalsF(off.Z);
 		Offset = off;
 
 		if (f > -1)
@@ -1119,6 +1110,8 @@ public:
 	DAngle			SpriteAngle;
 	DAngle			SpriteRotation;
 	DVector2		AutomapOffsets;		// Offset the actors' sprite view on the automap by these coordinates.
+	float			isoscaleY;				// Y-scale to compensate for Y-billboarding for isometric sprites
+	float			isotheta;				// Rotation angle to compensate for Y-billboarding for isometric sprites
 	DRotator		Angles;
 	DRotator		ViewAngles;			// Angle offsets for cameras
 	TObjPtr<DViewPosition*> ViewPos;			// Position offsets for cameras
@@ -1239,6 +1232,7 @@ public:
 	TObjPtr<AActor*>	alternative;	// (Un)Morphed actors stored here. Those with the MF_UNMORPHED flag are the originals.
 	TObjPtr<AActor*>	tracer;			// Thing being chased/attacked for tracers
 	TObjPtr<AActor*>	master;			// Thing which spawned this one (prevents mutual attacks)
+	TObjPtr<AActor*>	damagesource;	// [AA] Thing that fired a hitscan using this actor as a puff
 
 	int				tid;			// thing identifier
 	int				special;		// special
@@ -1260,6 +1254,7 @@ public:
 									// but instead tries to come closer for a melee attack.
 									// This is not the same as meleerange
 	double			maxtargetrange;	// any target farther away cannot be attacked
+	double			missilechancemult; // distance multiplier for CheckMeleeRange, formerly done with MISSILE(EVEN)MORE flags.
 	double			bouncefactor;	// Strife's grenades use 50%, Hexen's Flechettes 70.
 	double			wallbouncefactor;	// The bounce factor for walls can be different.
 	double			Gravity;		// [GRB] Gravity factor
@@ -1312,6 +1307,7 @@ public:
 	uint8_t FloatBobPhase;
 	uint8_t FriendPlayer;				// [RH] Player # + 1 this friendly monster works for (so 0 is no player, 1 is player 0, etc)
 	double FloatBobStrength;
+	double FloatBobFactor;
 	PalEntry BloodColor;
 	FTranslationID BloodTranslation;
 
@@ -1362,19 +1358,21 @@ public:
 	DVector3 Prev;
 	DRotator PrevAngles;
 	DAngle   PrevFOV;
-	int PrevPortalGroup;
 	TArray<FDynamicLight *> AttachedLights;
 	TDeletingArray<FLightDefaults *> UserLights;
+	int PrevPortalGroup;
 
 	// When was this actor spawned?
 	int SpawnTime;
 	uint32_t SpawnOrder;
 
+	int UnmorphTime;
+	int MorphFlags;
+	int PremorphProperties;
+	PClassActor* MorphExitFlash;
 	// landing speed from a jump with normal gravity (squats the player's view)
 	// (note: this is put into AActor instead of the PlayerPawn because non-players also use the value)
 	double LandingSpeed;
-
-	double SourceRadius = 5.0; // Light source radius
 
 	// ThingIDs
 	void SetTID (int newTID);
@@ -1399,6 +1397,7 @@ public:
 	bool IsMapActor();
 	bool SetState (FState *newstate, bool nofunction=false);
 	void SplashCheck();
+	void PlayDiveOrSurfaceSounds(int oldlevel = 0);
 	bool UpdateWaterLevel (bool splash=true);
 	bool isFast();
 	bool isSlow();
@@ -1527,9 +1526,13 @@ public:
 	{
 		return Z() + Height;
 	}
+	double CenterOffset() const
+	{
+		return Height / 2;
+	}
 	double Center() const
 	{
-		return Z() + Height/2;
+		return Z() + CenterOffset();
 	}
 	void SetZ(double newz, bool moving = true)
 	{
@@ -1604,6 +1607,11 @@ public:
 	{
 		Vel.X += speed * angle.Cos();
 		Vel.Y += speed * angle.Sin();
+	}
+
+	void Thrust(const DVector3& vel)
+	{
+		Vel += vel;
 	}
 
 	void Vel3DFromAngle(DAngle angle, DAngle pitch, double speed)

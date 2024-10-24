@@ -61,6 +61,7 @@
 
 #include "printf.h"
 
+#include "engineerrors.h"
 #include "version.h"
 #include "i_sound.h"
 #include "stats.h"
@@ -224,6 +225,13 @@ TArray<FString> I_GetGogPaths()
 		result.Push(path + "/DOOM II_Data/StreamingAssets");	// in a subdirectory
 	}
 
+	// Look for Doom + Doom II
+	gamepath = gogregistrypath + L"\\1413291984";
+	if (QueryPathKey(HKEY_LOCAL_MACHINE, gamepath.c_str(), L"Path", path))
+	{
+		result.Push(path);	// directly in install folder
+	}
+
 	// Look for Final Doom
 	gamepath = gogregistrypath + L"\\1435848742";
 	if (QueryPathKey(HKEY_LOCAL_MACHINE, gamepath.c_str(), L"Path", path))
@@ -291,9 +299,13 @@ TArray<FString> I_GetSteamPath()
 		"hexen/base",
 		"hexen deathkings of the dark citadel/base",
 		"ultimate doom/base",
+		"ultimate doom/base/doom2",                          // 2024 Update
+		"ultimate doom/base/tnt",                            // 2024 Update
+		"ultimate doom/base/plutonia",                       // 2024 Update
 		"DOOM 3 BFG Edition/base/wads",
 		"Strife",
-		"Ultimate Doom/rerelease/DOOM_Data/StreamingAssets",
+		"Ultimate Doom/rerelease/DOOM_Data/StreamingAssets", // 2019 Unity port (previous-re-release branch in Doom + Doom II app)
+		"Ultimate Doom/rerelease",                           // 2024 KEX Port
 		"Doom 2/rerelease/DOOM II_Data/StreamingAssets",
 		"Doom 2/finaldoombase",
         "Master Levels of Doom/doom2"
@@ -307,22 +319,29 @@ TArray<FString> I_GetSteamPath()
 			return result;
 	}
 
-	TArray<FString> paths = ParseSteamRegistry((steamPath + "/config/libraryfolders.vdf").GetChars());
-
-	for(FString &path : paths)
+	try
 	{
-		path.ReplaceChars('\\','/');
-		path+="/";
-	}
+		TArray<FString> paths = ParseSteamRegistry((steamPath + "/config/libraryfolders.vdf").GetChars());
 
-	paths.Push(steamPath + "/steamapps/common/");
-
-	for(unsigned int i = 0; i < countof(steam_dirs); ++i)
-	{
-		for(const FString &path : paths)
+		for (FString& path : paths)
 		{
-			result.Push(path + steam_dirs[i]);
+			path.ReplaceChars('\\', '/');
+			path += "/";
 		}
+
+		paths.Push(steamPath + "/steamapps/common/");
+
+		for (unsigned int i = 0; i < countof(steam_dirs); ++i)
+		{
+			for (const FString& path : paths)
+			{
+				result.Push(path + steam_dirs[i]);
+			}
+		}
+	}
+	catch (const CRecoverableError& err)
+	{
+		// don't abort on errors in here. Just return an empty path.
 	}
 
 	return result;

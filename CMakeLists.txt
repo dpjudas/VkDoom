@@ -225,7 +225,6 @@ if( ${TARGET_ARCHITECTURE} MATCHES "x86_64" )
 endif()
 
 option (HAVE_VULKAN "Enable Vulkan support" ON)
-option (HAVE_GLES2 "Enable GLES2 support" ON)
 
 # no, we're not using external asmjit for now, we made too many modifications to our's.
 # if the asmjit author uses our changes then we'll update this.
@@ -246,10 +245,6 @@ if( MSVC )
 
 	if ( HAVE_VULKAN )
 		set( ALL_C_FLAGS "${ALL_C_FLAGS} /DHAVE_VULKAN" )
-	endif()
-
-	if ( HAVE_GLES2 )
-		set( ALL_C_FLAGS "${ALL_C_FLAGS} /DHAVE_GLES2" )
 	endif()
 
 	# Use SSE 2 as minimum always as the true color drawers needs it for __vectorcall
@@ -281,10 +276,6 @@ else()
 		set( ALL_C_FLAGS "${ALL_C_FLAGS} -DHAVE_VULKAN" )
 	endif()
 
-	if ( HAVE_GLES2 )
-		set( ALL_C_FLAGS "${ALL_C_FLAGS} -DHAVE_GLES2" )
-	endif()
-
 	if ( UNIX )
 		include(CheckSymbolExists)
 		check_symbol_exists( "fts_set" "sys/types.h;sys/stat.h;fts.h" HAVE_FTS )
@@ -304,7 +295,7 @@ else()
 
 
 	if( APPLE )
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15")
 		if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
 			# If we're compiling with a custom GCC on the Mac (which we know since g++-4.2 doesn't support C++11) statically link libgcc.
 			set( ALL_C_FLAGS "-static-libgcc" )

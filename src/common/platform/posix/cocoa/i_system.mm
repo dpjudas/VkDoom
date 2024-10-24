@@ -122,7 +122,7 @@ void I_ShowFatalError(const char *message)
 }
 
 
-int I_PickIWad(WadStuff* const wads, const int numwads, const bool showwin, const int defaultiwad, int&)
+int I_PickIWad(WadStuff* const wads, const int numwads, const bool showwin, const int defaultiwad, int&, FString&)
 {
 	if (!showwin)
 	{
@@ -195,3 +195,6 @@ void I_OpenShellFolder(const char* folder)
 	[filemgr changeCurrentDirectoryPath:currentpath];
 }
 
+void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FString& logText)
+{
+}

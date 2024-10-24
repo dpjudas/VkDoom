@@ -467,7 +467,7 @@ public:
 
 	// Lightmaps
 	bool lightmaps = false;
-	TArray<DoomLevelMeshSurface*> Surfaces;
+	TArray<int> LightmapTiles;
 	FVector3 SunDirection;
 	FVector3 SunColor;
 	uint16_t LightmapSampleDistance;
@@ -679,6 +679,8 @@ public:
 	bool		HasHeightSecs;			// true if some Transfer_Heights effects are present in the map. If this is false, some checks in the renderer can be shortcut.
 	bool		HasDynamicLights;		// Another render optimization for maps with no lights at all.
 	int		frozenstate;
+
+	TMap<int, TArray<int>> SecCorrelations; // links sectors to a list of sectors it provides fake height/3d floors for
 
 	double		teamdamage;
 

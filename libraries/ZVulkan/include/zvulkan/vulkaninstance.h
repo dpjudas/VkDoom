@@ -65,7 +65,7 @@ public:
 	std::vector<VkLayerProperties> AvailableLayers;
 	std::vector<VkExtensionProperties> AvailableExtensions;
 
-	std::set<std::string> EnabledValidationLayers;
+	std::set<std::string> EnabledLayers;
 	std::set<std::string> EnabledExtensions;
 
 	std::vector<VulkanPhysicalDevice> PhysicalDevices;

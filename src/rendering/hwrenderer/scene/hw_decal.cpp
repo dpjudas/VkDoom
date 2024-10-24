@@ -39,6 +39,9 @@
 #include "flatvertices.h"
 #include "hw_renderstate.h"
 #include "texturemanager.h"
+#include "hw_walldispatcher.h"
+#include "hw_dynlightdata.h"
+#include "a_dynlight.h"
 
 //==========================================================================
 //
@@ -189,7 +192,7 @@ static float mix(float a, float b, float t)
 	return a * (1.0f - t) + b * t;
 }
 
-void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal, const FVector3 &normal)
+void HWWall::ProcessDecal(HWDrawInfo* di, FRenderState& state, DBaseDecal *decal, const FVector3 &normal)
 {
 	line_t * line = seg->linedef;
 	side_t * side = seg->sidedef;
@@ -422,14 +425,267 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 	auto verts = state.AllocVertices(4);
 	gldecal->vertindex = verts.second;
 
-	if (surface && surface->LightmapTileIndex >= 0)
+	if (!(decal->RenderFlags & RF_FULLBRIGHT) && lightmaptile >= 0)
 	{
-		LightmapTile* tile = &di->Level->levelMesh->LightmapTiles[surface->LightmapTileIndex];
+		LightmapTile* tile = &di->Level->levelMesh->Lightmap.Tiles[lightmaptile];
 		float lightmapindex = (float)tile->AtlasLocation.ArrayIndex;
 
 		for (i = 0; i < 4; i++)
 		{
-			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->LMTextureSize);
+			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->Lightmap.TextureSize);
+			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, lightmapuv.X, lightmapuv.Y, lightmapindex);
+		}
+	}
+	else
+	{
+		for (i = 0; i < 4; i++)
+		{
+			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, 0.0f, 0.0f, -1.0f);
+		}
+	}
+}
+
+void HWDecalCreateInfo::ProcessDecal(HWDrawInfo* di, FRenderState& state, int dynlightindex) const
+{
+	line_t * line = seg->linedef;
+	side_t * side = seg->sidedef;
+	int i;
+	float zpos;
+	bool flipx, flipy;
+	FTextureID decalTile;
+	
+	
+	if (decal->RenderFlags & RF_INVISIBLE) return;
+	if (type == RENDERWALL_FFBLOCK && texture->isMasked()) return;	// No decals on 3D floors with transparent textures.
+	if (seg == nullptr) return;
+	
+	
+	decalTile = decal->PicNum;
+	flipx = !!(decal->RenderFlags & RF_XFLIP);
+	flipy = !!(decal->RenderFlags & RF_YFLIP);
+
+	
+	auto texture = TexMan.GetGameTexture(decalTile);
+	if (texture == NULL) return;
+
+	
+	// the sectors are only used for their texture origin coordinates
+	// so we don't need the fake sectors for deep water etc.
+	// As this is a completely split wall fragment no further splits are
+	// necessary for the decal.
+	sector_t *frontsector;
+	
+	// for 3d-floor segments use the model sector as reference
+	if ((decal->RenderFlags&RF_CLIPMASK) == RF_CLIPMID) frontsector = decal->Sector;
+	else frontsector = seg->frontsector;
+	
+	switch (decal->RenderFlags & RF_RELMASK)
+	{
+		default:
+			// No valid decal can have this type. If one is encountered anyway
+			// it is in some way invalid so skip it.
+			return;
+			//zpos = decal->z;
+			//break;
+			
+		case RF_RELUPPER:
+			if (type != RENDERWALL_TOP) return;
+			if (line->flags & ML_DONTPEGTOP)
+			{
+				zpos = decal->Z + frontsector->GetPlaneTexZ(sector_t::ceiling);
+			}
+			else
+			{
+				zpos = decal->Z + seg->backsector->GetPlaneTexZ(sector_t::ceiling);
+			}
+			break;
+		case RF_RELLOWER:
+			if (type != RENDERWALL_BOTTOM) return;
+			if (line->flags & ML_DONTPEGBOTTOM)
+			{
+				zpos = decal->Z + frontsector->GetPlaneTexZ(sector_t::ceiling);
+			}
+			else
+			{
+				zpos = decal->Z + seg->backsector->GetPlaneTexZ(sector_t::floor);
+			}
+			break;
+		case RF_RELMID:
+			if (type == RENDERWALL_TOP || type == RENDERWALL_BOTTOM) return;
+			if (line->flags & ML_DONTPEGBOTTOM)
+			{
+				zpos = decal->Z + frontsector->GetPlaneTexZ(sector_t::floor);
+			}
+			else
+			{
+				zpos = decal->Z + frontsector->GetPlaneTexZ(sector_t::ceiling);
+			}
+	}
+
+	// now clip the decal to the actual polygon
+
+	float decalwidth = texture->GetDisplayWidth()  * decal->ScaleX;
+	float decalheight = texture->GetDisplayHeight() * decal->ScaleY;
+	float decallefto = texture->GetDisplayLeftOffset() * decal->ScaleX;
+	float decaltopo = texture->GetDisplayTopOffset()  * decal->ScaleY;
+	
+	float leftedge = glseg.fracleft * side->TexelLength;
+	float linelength = glseg.fracright * side->TexelLength - leftedge;
+	
+	// texel index of the decal's left edge
+	float decalpixpos = (float)side->TexelLength * decal->LeftDistance - (flipx ? decalwidth - decallefto : decallefto) - leftedge;
+	
+	float left, right;
+	float lefttex, righttex;
+	
+	// decal is off the left edge
+	if (decalpixpos < 0)
+	{
+		left = 0;
+		lefttex = -decalpixpos;
+	}
+	else
+	{
+		left = decalpixpos;
+		lefttex = 0;
+	}
+	
+	// decal is off the right edge
+	if (decalpixpos + decalwidth > linelength)
+	{
+		right = linelength;
+		righttex = right - decalpixpos;
+	}
+	else
+	{
+		right = decalpixpos + decalwidth;
+		righttex = decalwidth;
+	}
+	if (right <= left) 
+		return;	// nothing to draw
+	
+
+	// one texture unit on the wall as vector
+	float vx = (glseg.x2 - glseg.x1) / linelength;
+	float vy = (glseg.y2 - glseg.y1) / linelength;
+	
+	DecalVertex dv[4];
+	enum
+	{
+		LL, UL, LR,	UR
+	};
+	dv[UL].x = dv[LL].x = glseg.x1 + vx * left;
+	dv[UL].y = dv[LL].y = glseg.y1 + vy * left;
+	
+	dv[LR].x = dv[UR].x = glseg.x1 + vx * right;
+	dv[LR].y = dv[UR].y = glseg.y1 + vy * right;
+	
+	zpos += (flipy ? decalheight - decaltopo : decaltopo);
+	
+	dv[UL].z = dv[UR].z = zpos;
+	dv[LL].z = dv[LR].z = dv[UL].z - decalheight;
+	dv[UL].v = dv[UR].v = 0.f;
+	
+	float decalscale = float(decal->ScaleX * texture->GetDisplayWidth());
+	dv[UL].u = dv[LL].u = lefttex / decalscale;
+	dv[LR].u = dv[UR].u = righttex / decalscale;
+	dv[LL].v = dv[LR].v = 1.f;
+
+
+	// now clip to the top plane
+	float vzt = (ztop[UL] - ztop[LL]) / linelength;
+	float topleft = ztop[LL] + vzt * left;
+	float topright = ztop[LL] + vzt * right;
+	
+	// completely below the wall
+	if (topleft < dv[LL].z && topright < dv[LR].z)
+		return;
+	
+	if (topleft < dv[UL].z || topright < dv[UR].z)
+	{
+		// decal has to be clipped at the top
+		// let texture clamping handle all extreme cases
+		float t0 = (dv[UL].z - topleft) / (dv[UL].z - dv[LL].z);
+		float t1 = (dv[UR].z - topright) / (dv[UR].z - dv[LR].z);
+		dv[UL].v = t0 * dv[LL].v;
+		dv[UR].v = t1 * dv[LR].v;
+		dv[UL].z = topleft;
+		dv[UR].z = topright;
+	}
+	
+	// now clip to the bottom plane
+	float vzb = (zbottom[UL] - zbottom[LL]) / linelength;
+	float bottomleft = zbottom[LL] + vzb * left;
+	float bottomright = zbottom[LL] + vzb * right;
+	
+	// completely above the wall
+	if (bottomleft > dv[UL].z && bottomright > dv[UR].z)
+		return;
+	
+	if (bottomleft > dv[LL].z || bottomright > dv[LR].z)
+	{
+		// decal has to be clipped at the bottom
+		// let texture clamping handle all extreme cases
+		float t0 = (dv[UL].z - bottomleft) / (dv[UL].z - dv[LL].z);
+		float t1 = (dv[UR].z - bottomright) / (dv[UR].z - dv[LR].z);
+		dv[LL].v = t0 * (dv[LL].v - dv[UL].v) + dv[UL].v;
+		dv[LR].v = t1 * (dv[LR].v - dv[UR].v) + dv[UR].v;
+		dv[LL].z = bottomleft;
+		dv[LR].z = bottomright;
+	}
+	
+	
+	if (flipx)
+	{
+		for (i = 0; i < 4; i++) dv[i].u = 1.f - dv[i].u;
+	}
+	if (flipy)
+	{
+		for (i = 0; i < 4; i++) dv[i].v = 1.f - dv[i].v;
+	}
+
+	HWDecal *gldecal = di->AddDecal(type == RENDERWALL_MIRRORSURFACE);
+	gldecal->texture = texture;
+	gldecal->decal = decal;
+
+	if (decal->RenderFlags & RF_FULLBRIGHT)
+	{
+		gldecal->lightlevel = 255;
+		gldecal->rellight = 0;
+		gldecal->dynlightindex = -1;
+	}
+	else
+	{
+		gldecal->lightlevel = lightlevel;
+		gldecal->rellight = rellight + getExtraLight();
+		gldecal->dynlightindex = dynlightindex;
+	}
+
+	gldecal->Colormap = Colormap;
+
+	if (di->Level->flags3 & LEVEL3_NOCOLOREDSPRITELIGHTING)
+	{
+		gldecal->Colormap.Decolorize();
+	}
+
+	gldecal->alpha = decal->Alpha;
+	gldecal->zcenter = zpos - decalheight * 0.5f;
+	gldecal->frontsector = frontsector;
+	gldecal->Normal = normal;
+	gldecal->lightlist = lightlist;
+	memcpy(gldecal->dv, dv, sizeof(dv));
+	
+	auto verts = state.AllocVertices(4);
+	gldecal->vertindex = verts.second;
+
+	if (!(decal->RenderFlags & RF_FULLBRIGHT) && lightmaptile >= 0)
+	{
+		LightmapTile* tile = &di->Level->levelMesh->Lightmap.Tiles[lightmaptile];
+		float lightmapindex = (float)tile->AtlasLocation.ArrayIndex;
+
+		for (i = 0; i < 4; i++)
+		{
+			FVector2 lightmapuv = tile->ToUV(FVector3(dv[i].x, dv[i].y, dv[i].z), di->Level->levelMesh->Lightmap.TextureSize);
 			verts.first[i].Set(dv[i].x, dv[i].z, dv[i].y, dv[i].u, dv[i].v, lightmapuv.X, lightmapuv.Y, lightmapindex);
 		}
 	}
@@ -448,7 +704,7 @@ void HWWall::ProcessDecal(HWDrawInfo *di, FRenderState& state, DBaseDecal *decal
 //
 //==========================================================================
 
-void HWWall::ProcessDecals(HWDrawInfo *di, FRenderState& state)
+void HWWall::ProcessDecals(HWWallDispatcher* di, FRenderState& state)
 {
 	if (seg->sidedef != nullptr)
 	{
@@ -456,12 +712,108 @@ void HWWall::ProcessDecals(HWDrawInfo *di, FRenderState& state)
 		if (decal)
 		{
 			auto normal = glseg.Normal();	// calculate the normal only once per wall because it requires a square root.
-			while (decal)
+			if (di->di)
 			{
-				ProcessDecal(di, state, decal, normal);
-				decal = decal->WallNext;
+				while (decal)
+				{
+					ProcessDecal(di->di, state, decal, normal);
+					decal = decal->WallNext;
+				}
+			}
+			else
+			{
+				while (decal)
+				{
+					HWDecalCreateInfo info;
+					info.decal = decal;
+					info.normal = normal;
+					info.seg = seg;
+					info.frontsector = frontsector;
+					info.type = type;
+					info.glseg = glseg;
+					info.ztop[0] = ztop[0];
+					info.ztop[1] = ztop[1];
+					info.zbottom[0] = zbottom[0];
+					info.zbottom[1] = zbottom[1];
+					info.Colormap = Colormap;
+					info.texture = texture;
+					info.lightlist = lightlist;
+					info.lightmaptile = lightmaptile;
+					info.lightlevel = lightlevel;
+					info.rellight = rellight;
+					di->AddDecal(info);
+					decal = decal->WallNext;
+				}
 			}
 		}
 	}
 }
 
+//==========================================================================
+
+int HWDecalCreateInfo::SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, FLightNode* node) const
+{
+	lightdata.Clear();
+
+	// if (RenderStyle == STYLE_Add && !di->Level->lightadditivesurfaces) return -1;	// no lights on additively blended surfaces.
+
+	float vtx[] = { glseg.x1,zbottom[0],glseg.y1, glseg.x1,ztop[0],glseg.y1, glseg.x2,ztop[1],glseg.y2, glseg.x2,zbottom[1],glseg.y2 };
+	Plane p;
+	p.Set(normal, -normal.X * glseg.x1 - normal.Z * glseg.y1);
+
+	// Iterate through all dynamic lights which touch this wall and render them
+	while (node)
+	{
+		if (node->lightsource->IsActive() && !node->lightsource->DontLightMap())
+		{
+			iter_dlight++;
+
+			DVector3 posrel = node->lightsource->PosRelative(frontsector->PortalGroup);
+			float x = posrel.X;
+			float y = posrel.Y;
+			float z = posrel.Z;
+			float dist = fabsf(p.DistToPoint(x, z, y));
+			float radius = node->lightsource->GetRadius();
+			float scale = 1.0f / ((2.f * radius) - dist);
+			FVector3 fn, pos;
+
+			if (radius > 0.f && dist < radius)
+			{
+				FVector3 nearPt, up, right;
+
+				pos = { x, z, y };
+				fn = p.Normal();
+
+				fn.GetRightUp(right, up);
+
+				FVector3 tmpVec = fn * dist;
+				nearPt = pos + tmpVec;
+
+				FVector3 t1;
+				int outcnt[4] = { 0,0,0,0 };
+				texcoord tcs[4];
+
+				// do a quick check whether the light touches this polygon
+				for (int i = 0; i < 4; i++)
+				{
+					t1 = FVector3(&vtx[i * 3]);
+					FVector3 nearToVert = t1 - nearPt;
+					tcs[i].u = ((nearToVert | right) * scale) + 0.5f;
+					tcs[i].v = ((nearToVert | up) * scale) + 0.5f;
+
+					if (tcs[i].u < 0) outcnt[0]++;
+					if (tcs[i].u > 1) outcnt[1]++;
+					if (tcs[i].v < 0) outcnt[2]++;
+					if (tcs[i].v > 1) outcnt[3]++;
+
+				}
+				if (outcnt[0] != 4 && outcnt[1] != 4 && outcnt[2] != 4 && outcnt[3] != 4)
+				{
+					draw_dlight += GetLight(lightdata, frontsector->PortalGroup, p, node->lightsource, true);
+				}
+			}
+		}
+		node = node->nextLight;
+	}
+	return state.UploadLights(lightdata);
+}

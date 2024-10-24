@@ -102,14 +102,16 @@ void BasicWidgetStyle::Paint(Widget* widget, Canvas* canvas, Size size)
 	Colorf borderright = widget->GetStyleColor("border-right-color");
 	Colorf borderbottom = widget->GetStyleColor("border-bottom-color");
 
+	double borderwidth = widget->GridFitSize(1.0);
+
 	if (bordertop.a > 0.0f)
-		canvas->fillRect(Rect::xywh(0.0, 0.0, size.width, 1.0), bordertop);
+		canvas->fillRect(Rect::xywh(0.0, 0.0, size.width, borderwidth), bordertop);
 	if (borderbottom.a > 0.0f)
-		canvas->fillRect(Rect::xywh(0.0, size.height - 1.0, size.width, 1.0), borderbottom);
+		canvas->fillRect(Rect::xywh(0.0, size.height - borderwidth, size.width, borderwidth), borderbottom);
 	if (borderleft.a > 0.0f)
-		canvas->fillRect(Rect::xywh(0.0, 0.0, 1.0, size.height - 0.0), borderleft);
+		canvas->fillRect(Rect::xywh(0.0, 0.0, borderwidth, size.height), borderleft);
 	if (borderright.a > 0.0f)
-		canvas->fillRect(Rect::xywh(size.width - 1.0, 0.0, 1.0, size.height - 0.0), borderright);
+		canvas->fillRect(Rect::xywh(size.width - borderwidth, 0.0, borderwidth, size.height), borderright);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -154,6 +156,9 @@ DarkWidgetTheme::DarkWidgetTheme()
 	auto tabbar_tab = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "tabbar-tab");
 	auto tabwidget_stack = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "tabwidget-stack");
 	auto checkbox_label = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "checkbox-label");
+	auto menubaritem = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "menubaritem");
+	auto menu = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "menu");
+	auto menuitem = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "menuitem");
 
 	widget->SetString("font-family", "NotoSans");
 	widget->SetColor("color", Colorf::fromRgba8(226, 223, 219));
@@ -229,6 +234,21 @@ DarkWidgetTheme::DarkWidgetTheme()
 	checkbox_label->SetColor("checked-color", Colorf::fromRgba8(226, 223, 219));
 	checkbox_label->SetColor("unchecked-outer-border-color", Colorf::fromRgba8(99, 99, 99));
 	checkbox_label->SetColor("unchecked-inner-border-color", Colorf::fromRgba8(51, 51, 51));
+
+	menubaritem->SetColor("hover", "background-color", Colorf::fromRgba8(78, 78, 78));
+	menubaritem->SetColor("down", "background-color", Colorf::fromRgba8(88, 88, 88));
+
+	menu->SetDouble("noncontent-left", 5.0);
+	menu->SetDouble("noncontent-top", 5.0);
+	menu->SetDouble("noncontent-right", 5.0);
+	menu->SetDouble("noncontent-bottom", 5.0);
+	menu->SetColor("border-left-color", Colorf::fromRgba8(100, 100, 100));
+	menu->SetColor("border-top-color", Colorf::fromRgba8(100, 100, 100));
+	menu->SetColor("border-right-color", Colorf::fromRgba8(100, 100, 100));
+	menu->SetColor("border-bottom-color", Colorf::fromRgba8(100, 100, 100));
+
+	menuitem->SetColor("hover", "background-color", Colorf::fromRgba8(78, 78, 78));
+	menuitem->SetColor("down", "background-color", Colorf::fromRgba8(88, 88, 88));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -246,6 +266,9 @@ LightWidgetTheme::LightWidgetTheme()
 	auto tabbar_tab = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "tabbar-tab");
 	auto tabwidget_stack = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "tabwidget-stack");
 	auto checkbox_label = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "checkbox-label");
+	auto menubaritem = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "menubaritem");
+	auto menu = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "menu");
+	auto menuitem = RegisterStyle(std::make_unique<BasicWidgetStyle>(widget), "menuitem");
 
 	widget->SetString("font-family", "NotoSans");
 	widget->SetColor("color", Colorf::fromRgba8(0, 0, 0));
@@ -321,4 +344,19 @@ LightWidgetTheme::LightWidgetTheme()
 	checkbox_label->SetColor("checked-color", Colorf::fromRgba8(50, 50, 50));
 	checkbox_label->SetColor("unchecked-outer-border-color", Colorf::fromRgba8(156, 156, 156));
 	checkbox_label->SetColor("unchecked-inner-border-color", Colorf::fromRgba8(200, 200, 200));
+
+	menubaritem->SetColor("hover", "background-color", Colorf::fromRgba8(200, 200, 200));
+	menubaritem->SetColor("down", "background-color", Colorf::fromRgba8(190, 190, 190));
+
+	menu->SetDouble("noncontent-left", 5.0);
+	menu->SetDouble("noncontent-top", 5.0);
+	menu->SetDouble("noncontent-right", 5.0);
+	menu->SetDouble("noncontent-bottom", 5.0);
+	menu->SetColor("border-left-color", Colorf::fromRgba8(155, 155, 155));
+	menu->SetColor("border-top-color", Colorf::fromRgba8(155, 155, 155));
+	menu->SetColor("border-right-color", Colorf::fromRgba8(155, 155, 155));
+	menu->SetColor("border-bottom-color", Colorf::fromRgba8(155, 155, 155));
+
+	menuitem->SetColor("hover", "background-color", Colorf::fromRgba8(200, 200, 200));
+	menuitem->SetColor("down", "background-color", Colorf::fromRgba8(190, 190, 190));
 }

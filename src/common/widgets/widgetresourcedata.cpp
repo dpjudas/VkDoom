@@ -12,6 +12,11 @@
 
 FResourceFile* WidgetResources;
 
+bool IsZWidgetAvailable()
+{
+	return WidgetResources;
+}
+
 void InitWidgetResources(const char* filename)
 {
 	WidgetResources = FResourceFile::OpenResourceFile(filename);
@@ -23,11 +28,15 @@ void InitWidgetResources(const char* filename)
 
 void CloseWidgetResources()
 {
-	if (WidgetResources) delete WidgetResources;
+	delete WidgetResources;
+	WidgetResources = nullptr;
 }
 
 static std::vector<uint8_t> LoadFile(const char* name)
 {
+	if (!WidgetResources)
+		I_FatalError("InitWidgetResources has not been called");
+
 	auto lump = WidgetResources->FindEntry(name);
 	if (lump == -1)
 		I_FatalError("Unable to find %s", name);

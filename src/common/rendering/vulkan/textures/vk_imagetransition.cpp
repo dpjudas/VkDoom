@@ -57,6 +57,10 @@ VkImageTransition& VkImageTransition::AddImage(VkTextureImage *image, VkImageLay
 		srcAccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		srcStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 		break;
+	case VK_IMAGE_LAYOUT_GENERAL:
+		srcAccess = 0;
+		srcStageMask |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		break;
 	default:
 		I_FatalError("Unimplemented src image layout transition\n");
 	}

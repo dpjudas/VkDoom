@@ -194,9 +194,12 @@ void VkLightmapper::Render()
 		bool buffersFull = false;
 
 		// Paint all surfaces visible in the tile
-		for (int surfaceIndex : targetTile->Surfaces)
+
+		visibleSurfaces.Clear();
+		mesh->GetVisibleSurfaces(targetTile, visibleSurfaces);
+		for (int surfaceIndex : visibleSurfaces)
 		{
-			LevelMeshSurface* surface = mesh->GetSurface(surfaceIndex);
+			LevelMeshSurface* surface = &mesh->Mesh.Surfaces[surfaceIndex];
 			pc.SurfaceIndex = surfaceIndex;
 
 			VkDrawIndexedIndirectCommand cmd;
@@ -375,8 +378,8 @@ void VkLightmapper::CopyResult()
 	if (pixels == 0)
 		return;
 
-	VkTextureImage* destTexture = &fb->GetTextureManager()->Lightmap;
-	int destSize = fb->GetTextureManager()->LMTextureSize;
+	VkTextureImage* destTexture = &fb->GetTextureManager()->Lightmap.Image;
+	int destSize = fb->GetTextureManager()->Lightmap.Size;
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 

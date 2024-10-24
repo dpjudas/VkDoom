@@ -236,6 +236,7 @@ void VulkanRenderDevice::InitializeState()
 
 	mPostprocess.reset(new VkPostprocess(this));
 	mDescriptorSetManager.reset(new VkDescriptorSetManager(this));
+	mShaderManager.reset(new VkShaderManager(this));
 	mRenderPassManager.reset(new VkRenderPassManager(this));
 	mLevelMesh.reset(new VkLevelMesh(this));
 	mLightmapper.reset(new VkLightmapper(this));
@@ -245,7 +246,6 @@ void VulkanRenderDevice::InitializeState()
 	mSkyData = new FSkyVertexBuffer(this);
 	mShadowMap = new ShadowMap(this);
 
-	mShaderManager.reset(new VkShaderManager(this));
 	mDescriptorSetManager->Init();
 
 #ifdef __APPLE__
@@ -522,9 +522,9 @@ void VulkanRenderDevice::BeginFrame()
 		levelMeshChanged = false;
 		mLevelMesh->SetLevelMesh(levelMesh);
 
-		if (levelMesh && levelMesh->LMTextureCount > 0)
+		if (levelMesh && levelMesh->Lightmap.TextureCount > 0)
 		{
-			GetTextureManager()->CreateLightmap(levelMesh->LMTextureSize, levelMesh->LMTextureCount, std::move(levelMesh->LMTextureData));
+			GetTextureManager()->CreateLightmap(levelMesh->Lightmap.TextureSize, levelMesh->Lightmap.TextureCount, std::move(levelMesh->Lightmap.TextureData));
 			GetLightmapper()->SetLevelMesh(levelMesh);
 		}
 	}
@@ -634,6 +634,11 @@ FRenderState* VulkanRenderDevice::RenderState()
 	return mRenderState.get();
 }
 
+void VulkanRenderDevice::UpdateLinearDepthTexture()
+{
+	mPostprocess->UpdateLinearDepthTexture();
+}
+
 void VulkanRenderDevice::AmbientOccludeScene(float m5)
 {
 	mPostprocess->AmbientOccludeScene(m5);
@@ -642,6 +647,11 @@ void VulkanRenderDevice::AmbientOccludeScene(float m5)
 void VulkanRenderDevice::SetSceneRenderTarget(bool useSSAO)
 {
 	mRenderState->SetRenderTarget(&GetBuffers()->SceneColor, GetBuffers()->SceneDepthStencil.View.get(), GetBuffers()->GetWidth(), GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, GetBuffers()->GetSceneSamples());
+}
+
+void VulkanRenderDevice::DownloadLightmap(int arrayIndex, uint16_t* buffer)
+{
+	mTextureManager->DownloadLightmap(arrayIndex, buffer);
 }
 
 int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation)
@@ -739,10 +749,6 @@ int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, c
 			pipelineKey.ShaderKey.LightMode = 1; // Software
 	}
 
-	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
-	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
-
-	pipelineKey.ShaderKey.GBufferPass = false;
 	pipelineKey.ShaderKey.UseLevelMesh = true;
 
 	for (unsigned int i = 0, count = levelMeshPipelineKeys.Size(); i < count; i++)

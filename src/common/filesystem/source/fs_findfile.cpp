@@ -35,6 +35,7 @@
 #include "fs_findfile.h"
 #include <string.h>
 #include <vector>
+#include <sys/stat.h>
 
 #ifndef _WIN32
 
@@ -45,9 +46,12 @@
 #endif
 #include <unistd.h>
 #include <fnmatch.h>
-#include <sys/stat.h>
-
 #include <dirent.h>
+
+#else
+
+#include <windows.h>
+#include <direct.h>
 
 #endif
 
@@ -202,9 +206,6 @@ static size_t FS_GetFileSize(findstate_t* handle, const char* pathname)
 
 
 #else
-
-#include <windows.h>
-#include <direct.h>
 
 std::wstring toWide(const char* str)
 {

@@ -64,7 +64,7 @@ public:
 
 	struct
 	{
-		const int MaxQueries = 64000;
+		const int MaxQueries = 32000;
 		std::unique_ptr<VulkanQueryPool> QueryPool;
 		int NextIndex = 0;
 	} OcclusionQuery;

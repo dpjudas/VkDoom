@@ -119,6 +119,8 @@ class ImageBuilder
 public:
 	ImageBuilder();
 
+	ImageBuilder& Type(VkImageType type);
+	ImageBuilder& Flags(VkImageCreateFlags flags);
 	ImageBuilder& Size(int width, int height, int miplevels = 1, int arrayLayers = 1);
 	ImageBuilder& Samples(VkSampleCountFlagBits samples);
 	ImageBuilder& Format(VkFormat format);

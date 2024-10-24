@@ -7,11 +7,12 @@
 layout(push_constant) uniform PushConstants
 {
 #if defined(USE_LEVELMESH)
-	int unused;
+	int unused0;
+	int unused1;
 #else
 	int uDataIndex; // surfaceuniforms index
-#endif
 	int uLightIndex; // dynamic lights
+#endif
 	int uBoneIndexBase; // bone animation
 	int uFogballIndex; // fog balls
 };
@@ -37,6 +38,8 @@ layout(push_constant) uniform PushConstants
 #define glowtexture texture4
 #endif
 
+#define BrdfLUT 0 // the BRDF convoluted texture is always in this texture slot
+
 #define uObjectColor data[uDataIndex].uObjectColor
 #define uObjectColor2 data[uDataIndex].uObjectColor2
 #define uDynLightColor data[uDataIndex].uDynLightColor
@@ -45,11 +48,9 @@ layout(push_constant) uniform PushConstants
 #define uTextureModulateColor data[uDataIndex].uTextureModulateColor
 #define uTextureAddColor data[uDataIndex].uTextureAddColor
 #define uFogColor data[uDataIndex].uFogColor
-#define uDesaturationFactor data[uDataIndex].uDesaturationFactor
 #define uInterpolationFactor data[uDataIndex].uInterpolationFactor
 #define timer data[uDataIndex].timer
 #define useVertexData data[uDataIndex].useVertexData
-#define uVertexColor data[uDataIndex].uVertexColor
 #define uVertexNormal data[uDataIndex].uVertexNormal
 #define uGlowTopPlane data[uDataIndex].uGlowTopPlane
 #define uGlowTopColor data[uDataIndex].uGlowTopColor
@@ -63,12 +64,23 @@ layout(push_constant) uniform PushConstants
 #define uNpotEmulation data[uDataIndex].uNpotEmulation
 #define uClipSplit data[uDataIndex].uClipSplit
 #define uSpecularMaterial data[uDataIndex].uSpecularMaterial
-#define uLightLevel data[uDataIndex].uLightLevel
 #define uFogDensity data[uDataIndex].uFogDensity
 #define uLightFactor data[uDataIndex].uLightFactor
 #define uLightDist data[uDataIndex].uLightDist
 #define uAlphaThreshold data[uDataIndex].uAlphaThreshold
 #define uTextureIndex data[uDataIndex].uTextureIndex
+#define uDepthFadeThreshold data[uDataIndex].uDepthFadeThreshold
+
+#if defined(USE_LEVELMESH)
+#define uVertexColor lightdata[uDataIndex].uVertexColor
+#define uDesaturationFactor lightdata[uDataIndex].uDesaturationFactor
+#define uLightLevel lightdata[uDataIndex].uLightLevel
+int uLightIndex;
+#else
+#define uVertexColor data[uDataIndex].uVertexColor
+#define uDesaturationFactor data[uDataIndex].uDesaturationFactor
+#define uLightLevel data[uDataIndex].uLightLevel
+#endif
 
 #define VULKAN_COORDINATE_SYSTEM
 #define HAS_UNIFORM_VERTEX_DATA

@@ -130,6 +130,7 @@ void HWSkyInfo::init(HWDrawInfo *di, sector_t* sec, int skypos, int sky1, PalEnt
 void HWWall::SkyPlane(HWWallDispatcher *di, FRenderState& state, sector_t *sector, int plane, bool allowreflect)
 {
 	int ptype = -1;
+	if (di->di && di->di->Viewpoint.IsAllowedOoB()) return; // Couldn't prevent sky portal occlusion. Skybox is bad in ortho too.
 
 	FSectorPortal *sportal = sector->ValidatePortal(plane);
 	if (sportal != nullptr && sportal->mFlags & PORTSF_INSKYBOX) sportal = nullptr;	// no recursions, delete it here to simplify the following code
@@ -137,9 +138,9 @@ void HWWall::SkyPlane(HWWallDispatcher *di, FRenderState& state, sector_t *secto
 	// Either a regular sky or a skybox with skyboxes disabled
 	if ((sportal == nullptr && sector->GetTexture(plane) == skyflatnum) || (gl_noskyboxes && sportal != nullptr && sportal->mType == PORTS_SKYVIEWPOINT))
 	{
+		HWSkyInfo skyinfo;
 		if (di->di)
 		{
-			HWSkyInfo skyinfo;
 			skyinfo.init(di->di, sector, plane, sector->skytransfer, Colormap.FadeColor);
 			sky = &skyinfo;
 		}

@@ -57,6 +57,12 @@ static FRandom pr_fireflicker ("FireFlicker");
 
 IMPLEMENT_CLASS(DLighting, false, false)
 
+void DLighting::OnDestroy()
+{
+	LevelMeshUpdater->SectorLightThinkerDestroyed(this->GetSector(), this);
+	Super::OnDestroy();
+}
+
 //-----------------------------------------------------------------------------
 //
 // FIRELIGHT FLICKER
@@ -110,6 +116,7 @@ void DFireFlicker::Construct(sector_t *sector)
 	m_MaxLight = sector->lightlevel;
 	m_MinLight = sector_t::ClampLight(FindMinSurroundingLight(sector, sector->lightlevel) + 16);
 	m_Count = 4;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 void DFireFlicker::Construct(sector_t *sector, int upper, int lower)
@@ -118,6 +125,7 @@ void DFireFlicker::Construct(sector_t *sector, int upper, int lower)
 	m_MaxLight = sector_t::ClampLight(upper);
 	m_MinLight = sector_t::ClampLight(lower);
 	m_Count = 4;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 //-----------------------------------------------------------------------------
@@ -173,6 +181,7 @@ void DFlicker::Construct(sector_t *sector, int upper, int lower)
 	m_MinLight = sector_t::ClampLight(lower);
 	sector->lightlevel = m_MaxLight;
 	m_Count = (pr_flicker()&64)+1;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 //-----------------------------------------------------------------------------
@@ -232,6 +241,7 @@ void DLightFlash::Construct(sector_t *sector)
 	m_MaxTime = 64;
 	m_MinTime = 7;
 	m_Count = (pr_lightflash() & m_MaxTime) + 1;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 	
 void DLightFlash::Construct (sector_t *sector, int min, int max)
@@ -243,6 +253,7 @@ void DLightFlash::Construct (sector_t *sector, int min, int max)
 	m_MaxTime = 64;
 	m_MinTime = 7;
 	m_Count = (pr_lightflash() & m_MaxTime) + 1;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 
@@ -301,6 +312,7 @@ void DStrobe::Construct(sector_t *sector, int upper, int lower, int utics, int l
 	m_MaxLight = sector_t::ClampLight(upper);
 	m_MinLight = sector_t::ClampLight(lower);
 	m_Count = 1;	// Hexen-style is always in sync
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 //-----------------------------------------------------------------------------
@@ -322,6 +334,7 @@ void DStrobe::Construct(sector_t *sector, int utics, int ltics, bool inSync)
 		m_MinLight = 0;
 
 	m_Count = inSync ? 1 : (pr_strobeflash() & 7) + 1;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 
@@ -391,6 +404,7 @@ void DGlow::Construct(sector_t *sector)
 	m_MinLight = FindMinSurroundingLight (sector, sector->lightlevel);
 	m_MaxLight = sector->lightlevel;
 	m_Direction = -1;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 //-----------------------------------------------------------------------------
@@ -453,6 +467,7 @@ void DGlow2::Construct(sector_t *sector, int start, int end, int tics, bool ones
 	m_MaxTics = tics;
 	m_Tics = -1;
 	m_OneShot = oneshot;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 //-----------------------------------------------------------------------------
@@ -550,6 +565,7 @@ void DPhased::Construct (sector_t *sector, int baselevel, int phase)
 	Super::Construct(sector);
 	m_BaseLevel = baselevel;
 	m_Phase = phase;
+	LevelMeshUpdater->SectorLightThinkerCreated(sector, this);
 }
 
 //-----------------------------------------------------------------------------

@@ -9,6 +9,8 @@
 #include "a_dynlight.h"
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
+#include "hw_dynlightdata.h"
+#include "hwrenderer/scene/hw_lighting.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
 #include "hwrenderer/scene/hw_walldispatcher.h"
@@ -76,6 +78,17 @@ ADD_STAT(lightmap)
 	return out;
 }
 
+ADD_STAT(levelmesh)
+{
+	auto& stats = level.levelMesh->LastFrameStats;
+	FString out;
+	if (level.levelMesh)
+		out.Format("Sides=%d, flats=%d, portals=%d, dynlights=%d", stats.SidesUpdated, stats.FlatsUpdated, stats.Portals, stats.DynLights);
+	else
+		out = "No level mesh";
+	return out;
+}
+
 CCMD(dumplevelmesh)
 {
 	if (!RequireLevelMesh()) return;
@@ -88,26 +101,48 @@ CCMD(invalidatelightmap)
 	if (!RequireLightmap()) return;
 
 	int count = InvalidateLightmap();
-
-	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->LightmapTiles.Size());
+	for (auto& tile : level.levelMesh->Lightmap.Tiles)
+	{
+		if (!tile.NeedsUpdate)
+			++count;
+		tile.NeedsUpdate = true;
+	}
+	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->Lightmap.Tiles.Size());
 }
 
-void PrintSurfaceInfo(const DoomLevelMeshSurface* surface)
+CCMD(savelightmap)
+{
+	if (!RequireLightmap()) return;
+
+	level.levelMesh->SaveLightmapLump(level);
+}
+
+CCMD(deletelightmap)
+{
+	if (!RequireLightmap()) return;
+
+	level.levelMesh->DeleteLightmapLump(level);
+}
+
+void DoomLevelMesh::PrintSurfaceInfo(const LevelMeshSurface* surface)
 {
 	if (!RequireLevelMesh()) return;
 
+	int surfaceIndex = (int)(ptrdiff_t)(surface - Mesh.Surfaces.Data());
+	const auto& info = DoomSurfaceInfos[surfaceIndex];
+
 	auto gameTexture = surface->Texture;
 
-	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", level.levelMesh->GetSurfaceIndex(surface), surface, surface->Type, surface->TypeIndex, surface->ControlSector ? surface->ControlSector->Index() : -1);
+	Printf("Surface %d (%p)\n    Type: %d, TypeIndex: %d, ControlSector: %d\n", surfaceIndex, surface, info.Type, info.TypeIndex, info.ControlSector ? info.ControlSector->Index() : -1);
 	if (surface->LightmapTileIndex >= 0)
 	{
-		LightmapTile* tile = &level.levelMesh->LightmapTiles[surface->LightmapTileIndex];
+		LightmapTile* tile = &Lightmap.Tiles[surface->LightmapTileIndex];
 		Printf("    Atlas page: %d, x:%d, y:%d\n", tile->AtlasLocation.ArrayIndex, tile->AtlasLocation.X, tile->AtlasLocation.Y);
 		Printf("    Pixels: %dx%d (area: %d)\n", tile->AtlasLocation.Width, tile->AtlasLocation.Height, tile->AtlasLocation.Area());
 		Printf("    Sample dimension: %d\n", tile->SampleDimension);
 		Printf("    Needs update?: %d\n", tile->NeedsUpdate);
+		Printf("    Always update?: %d\n", tile->AlwaysUpdate);
 	}
-	Printf("    Always update?: %d\n", surface->AlwaysUpdate);
 	Printf("    Sector group: %d\n", surface->SectorGroup);
 	Printf("    Texture: '%s'\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>");
 	Printf("    Alpha: %f\n", surface->Alpha);
@@ -141,10 +176,10 @@ CCMD(surfaceinfo)
 	auto angle = pov->Angles.Yaw;
 	auto pitch = pov->Angles.Pitch;
 
-	const auto surface = (DoomLevelMeshSurface*)level.levelMesh->Trace(posXYZ, FVector3(RayDir(angle, pitch)), 32000.0f);
+	const auto surface = level.levelMesh->Trace(posXYZ, FVector3(RayDir(angle, pitch)), 32000.0f);
 	if (surface)
 	{
-		PrintSurfaceInfo(surface);
+		level.levelMesh->PrintSurfaceInfo(surface);
 	}
 	else
 	{
@@ -158,68 +193,212 @@ EXTERN_CVAR(Float, lm_scale);
 
 DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 {
-	// Remove the empty mesh added in the LevelMesh constructor
-	Mesh.Vertices.clear();
-	Mesh.Indexes.clear();
+	SetLimits(doomMap);
 
 	SunColor = doomMap.SunColor; // TODO keep only one copy?
 	SunDirection = doomMap.SunDirection;
+	Lightmap.SampleDistance = doomMap.LightmapSampleDistance;
+
+	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
+	// but we aren't rendering a specific viewpoint when this function gets called
+	int oldextralight = r_viewpoint.extralight;
+	AActor* oldcamera = r_viewpoint.camera;
+	r_viewpoint.extralight = 0;
+	r_viewpoint.camera = nullptr;
 
 	BuildSectorGroups(doomMap);
 	CreatePortals(doomMap);
-
-	LightmapSampleDistance = doomMap.LightmapSampleDistance;
-
 	CreateSurfaces(doomMap);
-	LinkSurfaces(doomMap);
 
-	SortIndexes();
-	BuildTileSurfaceLists();
+	// This is a bit of a hack. Lights aren't available until BeginFrame is called.
+	// Unfortunately we need a surface list already at this point for our Mesh.MaxNodes calculation
+	for (unsigned int i = 0; i < Sides.Size(); i++)
+		UpdateSide(i, SurfaceUpdateType::Full);
+	for (unsigned int i = 0; i < Flats.Size(); i++)
+		UpdateFlat(i, SurfaceUpdateType::Full);
 
-	Mesh.DynamicIndexStart = Mesh.Indexes.size();
-	UpdateCollision();
+	CreateCollision();
+	UploadPortals();
+	SortDrawLists();
 
-	// Assume double the size of the static mesh will be enough for anything dynamic.
-	Mesh.MaxVertices = std::max(Mesh.Vertices.size() * 2, (size_t)10000);
-	Mesh.MaxIndexes = std::max(Mesh.Indexes.size() * 2, (size_t)10000);
-	Mesh.MaxSurfaces = std::max(Mesh.SurfaceIndexes.size() * 2, (size_t)10000);
-	Mesh.MaxUniforms = std::max(Mesh.Uniforms.size() * 2, (size_t)10000);
-	Mesh.MaxSurfaceIndexes = std::max(Mesh.SurfaceIndexes.size() * 2, (size_t)10000);
-	Mesh.MaxNodes = std::max(Collision->get_nodes().size() * 2, (size_t)10000);
-	Mesh.MaxLights = 100'000;
-	Mesh.MaxLightIndexes = 4 * 1024 * 1024;
+	r_viewpoint.extralight = oldextralight;
+	r_viewpoint.camera = oldcamera;
 }
 
-void DoomLevelMesh::CreateLights(FLevelLocals& doomMap)
+void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
 {
-	if (Mesh.Lights.Size() != 0)
-		return;
+	// Try to estimate what the worst case memory needs are for the level
+	LevelMeshLimits limits;
 
-	for (DoomLevelMeshSurface& surface : Surfaces)
+	for (const sector_t& sector : doomMap.sectors)
 	{
-		surface.LightList.Pos = Mesh.LightIndexes.Size();
-		surface.LightList.Count = 0;
+		unsigned int ffloors = sector.e ? sector.e->XFloor.ffloors.Size() : 0;
 
-		std::pair<FLightNode*, int> nodePortalGroup = GetSurfaceLightNode(&surface);
-		FLightNode* node = nodePortalGroup.first;
-		int portalgroup = nodePortalGroup.second;
-		if (!node)
+		limits.MaxVertices += sector.Lines.Size() * 4 * (3 + ffloors);
+		limits.MaxIndexes += sector.Lines.Size() * 6 * (3 + ffloors);
+		limits.MaxSurfaces += sector.Lines.Size() * (3 + ffloors);
+		limits.MaxUniforms += sector.Lines.Size() * (3 + ffloors);
+
+		limits.MaxSurfaces += sector.subsectorcount * (2 + ffloors * 2);
+		limits.MaxUniforms += 2 + ffloors * 2;
+
+		for (int i = 0, count = sector.subsectorcount; i < count; i++)
+		{
+			limits.MaxVertices += sector.subsectors[i]->numlines;
+			limits.MaxIndexes += sector.subsectors[i]->numlines * 3;
+		}
+	}
+
+	// Double up to leave room for fragmentation
+	limits.MaxVertices *= 2;
+	limits.MaxSurfaces *= 2;
+	limits.MaxUniforms *= 2;
+	limits.MaxIndexes *= 2;
+
+	Reset(limits);
+}
+
+void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
+{
+	LastFrameStats = CurFrameStats;
+	CurFrameStats = Stats();
+
+	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
+	// but we aren't rendering a specific viewpoint when this function gets called
+	int oldextralight = r_viewpoint.extralight;
+	AActor* oldcamera = r_viewpoint.camera;
+	r_viewpoint.extralight = 0;
+	r_viewpoint.camera = nullptr;
+
+	ClearDynamicLightmapAtlas();
+
+	for (side_t* side : PolySides)
+	{
+		UpdateSide(side->Index(), SurfaceUpdateType::Full);
+	}
+
+	for (int sideIndex : SideUpdateList)
+	{
+		if (Sides[sideIndex].UpdateType == SurfaceUpdateType::LightsOnly)
+		{
+			SetSideLights(doomMap, sideIndex);
+		}
+		else // SurfaceUpdateType::Full
+		{
+			CreateSide(doomMap, sideIndex);
+		}
+		Sides[sideIndex].UpdateType = SurfaceUpdateType::None;
+	}
+	SideUpdateList.Clear();
+
+	for (int flatIndex : FlatUpdateList)
+	{
+		if (Flats[flatIndex].UpdateType == SurfaceUpdateType::LightsOnly)
+		{
+			SetFlatLights(doomMap, flatIndex);
+		}
+		else // SurfaceUpdateType::Full
+		{
+			CreateFlat(doomMap, flatIndex);
+		}
+		Flats[flatIndex].UpdateType = SurfaceUpdateType::None;
+	}
+	FlatUpdateList.Clear();
+
+	PackDynamicLightmapAtlas();
+	UpdateWallPortals();
+	UploadDynLights(doomMap);
+
+	Collision->Update();
+
+	r_viewpoint.extralight = oldextralight;
+	r_viewpoint.camera = oldcamera;
+}
+
+void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
+{
+	lightdata.Clear();
+	for (auto light = doomMap.lights; light; light = light->next)
+	{
+		if (light->Trace())
+		{
+			UpdateLight(light);
+		}
+		else
+		{
+			int portalGroup = 0; // What value should this have?
+			AddLightToList(lightdata, portalGroup, light, false);
+			CurFrameStats.DynLights++;
+		}
+	}
+
+	// All meaasurements here are in vec4's.
+	int size0 = lightdata.arrays[0].Size() / 4;
+	int size1 = lightdata.arrays[1].Size() / 4;
+	int size2 = lightdata.arrays[2].Size() / 4;
+	int totalsize = size0 + size1 + size2 + 1;
+	int maxLightData = Mesh.DynLights.Size();
+
+	// Clamp lights so they aren't bigger than what fits into a single dynamic uniform buffer page
+	if (totalsize > maxLightData)
+	{
+		int diff = totalsize - maxLightData;
+
+		size2 -= diff;
+		if (size2 < 0)
+		{
+			size1 += size2;
+			size2 = 0;
+		}
+		if (size1 < 0)
+		{
+			size0 += size1;
+			size1 = 0;
+		}
+		totalsize = size0 + size1 + size2 + 1;
+	}
+	size0 = std::min(size0, maxLightData - 1);
+
+	float parmcnt[] = { 0, float(size0), float(size0 + size1), float(size0 + size1 + size2) };
+
+	float* copyptr = (float*)Mesh.DynLights.Data();
+	memcpy(&copyptr[0], parmcnt, sizeof(FVector4));
+	memcpy(&copyptr[4], &lightdata.arrays[0][0], size0 * sizeof(FVector4));
+	memcpy(&copyptr[4 + 4 * size0], &lightdata.arrays[1][0], size1 * sizeof(FVector4));
+	memcpy(&copyptr[4 + 4 * (size0 + size1)], &lightdata.arrays[2][0], size2 * sizeof(FVector4));
+
+	AddRange(UploadRanges.DynLight, { 0, totalsize });
+}
+
+void DoomLevelMesh::UpdateWallPortals()
+{
+	WallPortals.Clear();
+	for (int sideIndex : SidePortals)
+	{
+		for (HWWall& wall : Sides[sideIndex].WallPortals)
+		{
+			WallPortals.Push(&wall);
+		}
+	}
+}
+
+void DoomLevelMesh::ProcessDecals(HWDrawInfo* di, FRenderState& state)
+{
+	for (int sideIndex : level.levelMesh->SideDecals)
+	{
+		const auto& side = Sides[sideIndex];
+		if (side.Decals.Size() == 0)
 			continue;
 
-		int listpos = 0;
-		while (node)
+		int dynlightindex = -1;
+		if (di->Level->HasDynamicLights && !di->isFullbrightScene() && side.Decals[0].texture != nullptr)
 		{
-			FDynamicLight* light = node->lightsource;
-			if (light && light->Trace())
-			{
-				int lightindex = GetLightIndex(light, portalgroup);
-				if (lightindex >= 0)
-				{
-					Mesh.LightIndexes.Push(lightindex);
-					surface.LightList.Count++;
-				}
-			}
-			node = node->nextLight;
+			dynlightindex = side.Decals[0].SetupLights(di, state, lightdata, level.sides[sideIndex].lighthead);
+		}
+
+		for (const HWDecalCreateInfo& info : side.Decals)
+		{
+			info.ProcessDecal(di, state, dynlightindex);
 		}
 	}
 }
@@ -235,14 +414,35 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 	if (index == FDynamicLight::max_levelmesh_entries)
 		return 0;
 
+
+	LightAllocInfo info = AllocLight();
+	CopyToMeshLight(light, *info.Light, portalgroup);
+
+	light->levelmesh[index].index = info.Index + 1;
+	light->levelmesh[index].portalgroup = portalgroup;
+	return info.Index;
+}
+
+void DoomLevelMesh::UpdateLight(FDynamicLight* light)
+{
+	for (int index = 0; index < FDynamicLight::max_levelmesh_entries && light->levelmesh[index].index != 0; index++)
+	{
+		int lightindex = light->levelmesh[index].index - 1;
+		int portalgroup = light->levelmesh[index].portalgroup;
+		CopyToMeshLight(light, Mesh.Lights[lightindex], portalgroup);
+		AddRange(UploadRanges.Light, { lightindex, lightindex + 1 });
+	}
+}
+
+void DoomLevelMesh::CopyToMeshLight(FDynamicLight* light, LevelMeshLight& meshlight, int portalgroup)
+{
 	DVector3 pos = light->PosRelative(portalgroup);
 
-	LevelMeshLight meshlight;
 	meshlight.Origin = { (float)pos.X, (float)pos.Y, (float)pos.Z };
 	meshlight.RelativeOrigin = meshlight.Origin;
 	meshlight.Radius = (float)light->GetRadius();
-	meshlight.Intensity = (float)light->target->Alpha;
-	if (light->IsSpot())
+	meshlight.Intensity = light->target ? (float)light->target->Alpha : 1.0f;
+	if (light->IsSpot() && light->pSpotInnerAngle && light->pSpotOuterAngle && light->pPitch && light->target)
 	{
 		meshlight.InnerAngleCos = (float)light->pSpotInnerAngle->Cos();
 		meshlight.OuterAngleCos = (float)light->pSpotOuterAngle->Cos();
@@ -266,31 +466,12 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 	meshlight.Color.Y = light->GetGreen() * (1.0f / 255.0f);
 	meshlight.Color.Z = light->GetBlue() * (1.0f / 255.0f);
 
-	meshlight.SourceRadius = light->GetSourceRadius();
+	meshlight.SoftShadowRadius = light->GetSoftShadowRadius();
 
 	if (light->Sector)
 		meshlight.SectorGroup = sectorGroup[light->Sector->Index()];
 	else
 		meshlight.SectorGroup = 0;
-
-	int lightindex = Mesh.Lights.Size();
-	light->levelmesh[index].index = lightindex + 1;
-	light->levelmesh[index].portalgroup = portalgroup;
-	Mesh.Lights.Push(meshlight);
-	return lightindex;
-}
-
-void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
-{
-	CreateLights(doomMap);
-#if 0
-	static_cast<DoomLevelSubmesh*>(DynamicMesh.get())->Update(doomMap);
-	if (doomMap.lightmaps)
-	{
-		DynamicMesh->SetupTileTransforms();
-		DynamicMesh->PackLightmapAtlas(StaticMesh->LMTextureCount);
-	}
-#endif
 }
 
 bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float dist)
@@ -298,33 +479,6 @@ bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float di
 	FVector3 end = start + direction * dist;
 	auto surface = Trace(start, direction, dist);
 	return surface && surface->IsSky;
-}
-
-std::pair<FLightNode*, int> DoomLevelMesh::GetSurfaceLightNode(const DoomLevelMeshSurface* doomsurf)
-{
-	FLightNode* node = nullptr;
-	int portalgroup = 0;
-	if (doomsurf->Type == ST_FLOOR || doomsurf->Type == ST_CEILING)
-	{
-		node = doomsurf->Subsector->section->lighthead;
-		portalgroup = doomsurf->Subsector->sector->PortalGroup;
-	}
-	else if (doomsurf->Type == ST_MIDDLESIDE || doomsurf->Type == ST_UPPERSIDE || doomsurf->Type == ST_LOWERSIDE)
-	{
-		bool isPolyLine = !!(doomsurf->Side->Flags & WALLF_POLYOBJ);
-		if (isPolyLine)
-		{
-			subsector_t* subsector = level.PointInRenderSubsector((doomsurf->Side->V1()->fPos() + doomsurf->Side->V2()->fPos()) * 0.5);
-			node = subsector->section->lighthead;
-			portalgroup = subsector->sector->PortalGroup;
-		}
-		else
-		{
-			node = doomsurf->Side->lighthead;
-			portalgroup = doomsurf->Side->sector->PortalGroup;
-		}
-	}
-	return { node, portalgroup };
 }
 
 void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
@@ -341,32 +495,244 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 		side_t* side = &doomMap.sides[i];
 		bool isPolyLine = !!(side->Flags & WALLF_POLYOBJ);
 		if (isPolyLine)
+		{
+			PolySides.Push(side);
 			continue;
+		}
 
-		UpdateSide(doomMap, i);
+		CreateSide(doomMap, i);
 	}
 
 	// Create surfaces for all flats
 	for (unsigned int i = 0; i < doomMap.sectors.Size(); i++)
 	{
 		sector_t* sector = &doomMap.sectors[i];
-		if (sector->subsectors[0]->flags & SSECF_POLYORG)
+		if (sector->subsectorcount == 0 || sector->subsectors[0]->flags & SSECF_POLYORG)
 			continue;
-		UpdateFlat(doomMap, i);
+		CreateFlat(doomMap, i);
 	}
 }
 
-void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
+void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 {
+	if (sideIndex < 0 || sideIndex >= Sides.Size())
+		return;
+
+	int surf = Sides[sideIndex].FirstSurface;
+	while (surf != -1)
+	{
+		unsigned int next = DoomSurfaceInfos[surf].NextSurface;
+		FreeSurface(surf);
+		surf = next;
+	}
+	Sides[sideIndex].FirstSurface = -1;
+
+	FreeLightList(Sides[sideIndex].Lights.Start, Sides[sideIndex].Lights.Count);
+	Sides[sideIndex].Lights.Count = 0;
+
+	for (auto& geo : Sides[sideIndex].Geometries)
+		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
+	Sides[sideIndex].Geometries.Clear();
+
+	RemoveFromDrawList(Sides[sideIndex].DrawRanges);
+	Sides[sideIndex].DrawRanges.Clear();
+
+	for (auto& uni : Sides[sideIndex].Uniforms)
+		FreeUniforms(uni.Start, uni.Count);
+	Sides[sideIndex].Uniforms.Clear();
+
+	Sides[sideIndex].WallPortals.Clear();
+	Sides[sideIndex].Decals.Clear();
+}
+
+void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
+{
+	if (sectorIndex < 0 || sectorIndex >= Flats.Size())
+		return;
+
+	int surf = Flats[sectorIndex].FirstSurface;
+	while (surf != -1)
+	{
+		unsigned int next = DoomSurfaceInfos[surf].NextSurface;
+		FreeSurface(surf);
+		surf = next;
+	}
+	Flats[sectorIndex].FirstSurface = -1;
+
+	for (auto& list : Flats[sectorIndex].Lights)
+		FreeLightList(list.Start, list.Count);
+	Flats[sectorIndex].Lights.Clear();
+
+	for (auto& geo : Flats[sectorIndex].Geometries)
+		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
+	Flats[sectorIndex].Geometries.Clear();
+
+	RemoveFromDrawList(Flats[sectorIndex].DrawRanges);
+	Flats[sectorIndex].DrawRanges.Clear();
+
+	for (auto& uni : Flats[sectorIndex].Uniforms)
+		FreeUniforms(uni.Start, uni.Count);
+	Flats[sectorIndex].Uniforms.Clear();
+}
+
+void DoomLevelMesh::OnFloorHeightChanged(sector_t* sector)
+{
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+	for (line_t* line : sector->Lines)
+	{
+		if (line->sidedef[0])
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::Full);
+		if (line->sidedef[1])
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::Full);
+	}
+}
+
+void DoomLevelMesh::OnCeilingHeightChanged(sector_t* sector)
+{
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+	for (line_t* line : sector->Lines)
+	{
+		if (line->sidedef[0])
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::Full);
+		if (line->sidedef[1])
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::Full);
+	}
+}
+
+void DoomLevelMesh::OnMidTex3DHeightChanged(sector_t* sector)
+{
+	// UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::OnFloorTextureChanged(sector_t* sector)
+{
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::OnCeilingTextureChanged(sector_t* sector)
+{
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::OnSectorChangedOther(sector_t* sector)
+{
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::OnSideTextureChanged(side_t* side, int section)
+{
+	UpdateSide(side->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::OnSideDecalsChanged(side_t* side)
+{
+	UpdateSide(side->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::OnSectorLightChanged(sector_t* sector)
+{
+	UpdateFlat(sector->Index(), SurfaceUpdateType::LightsOnly);
+	for (line_t* line : sector->Lines)
+	{
+		if (line->sidedef[0] && line->sidedef[0]->sector == sector)
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::LightsOnly);
+		else if (line->sidedef[1] && line->sidedef[1]->sector == sector)
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::LightsOnly);
+	}
+}
+
+void DoomLevelMesh::OnSectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker)
+{
+}
+
+void DoomLevelMesh::OnSectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker)
+{
+}
+
+void DoomLevelMesh::UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType)
+{
+	if (Sides[sideIndex].UpdateType == SurfaceUpdateType::None)
+	{
+		SideUpdateList.Push(sideIndex);
+		Sides[sideIndex].UpdateType = updateType;
+	}
+}
+
+void DoomLevelMesh::UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updateType)
+{
+	if (Flats[sectorIndex].UpdateType == SurfaceUpdateType::None)
+	{
+		FlatUpdateList.Push(sectorIndex);
+		Flats[sectorIndex].UpdateType = updateType;
+	}
+}
+
+LightListAllocInfo DoomLevelMesh::CreateLightList(FLightNode* node, int portalgroup)
+{
+	int lightcount = 0;
+	FLightNode* cur = node;
+	while (cur)
+	{
+		FDynamicLight* light = cur->lightsource;
+		if (light && light->Trace() && GetLightIndex(light, portalgroup) >= 0)
+		{
+			lightcount++;
+		}
+		cur = cur->nextLight;
+	}
+
+	LightListAllocInfo info = AllocLightList(lightcount);
+	int i = 0;
+	cur = node;
+	while (cur)
+	{
+		FDynamicLight* light = cur->lightsource;
+		if (light && light->Trace())
+		{
+			int lightindex = GetLightIndex(light, portalgroup);
+			if (lightindex >= 0)
+			{
+				info.List[i++] = lightindex;
+			}
+		}
+		cur = cur->nextLight;
+	}
+	return info;
+}
+
+void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	CurFrameStats.SidesUpdated++;
+
+	FreeSide(doomMap, sideIndex);
+
 	side_t* side = &doomMap.sides[sideIndex];
+
 	seg_t* seg = side->segs[0];
 	if (!seg)
 		return;
 
-	subsector_t* sub = seg->Subsector;
+	auto& sideBlock = Sides[sideIndex];
 
-	sector_t* front = side->sector;
-	sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+	sector_t* front;
+	sector_t* back;
+	subsector_t* sub;
+	if (side->Flags & WALLF_POLYOBJ)
+	{
+		sub = level.PointInRenderSubsector((side->V1()->fPos() + side->V2()->fPos()) * 0.5);
+		if (!sub)
+			return;
+		front = sub->sector;
+		back = nullptr;
+		sideBlock.Lights = CreateLightList(sub->section->lighthead, sub->sector->PortalGroup);
+	}
+	else
+	{
+		sub = seg->Subsector;
+		front = side->sector;
+		back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+		sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
+	}
 
 	HWMeshHelper result;
 	HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
@@ -374,36 +740,59 @@ void DoomLevelMesh::UpdateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	wall.sub = sub;
 	wall.Process(&disp, state, seg, front, back);
 
+	// Grab the decals generated
+	if (result.decals.Size() != 0 && !sideBlock.InSideDecalsList)
+	{
+		SideDecals.Push(sideIndex);
+		sideBlock.InSideDecalsList = true;
+	}
+
+	sideBlock.Decals = result.decals;
+
 	// Part 1: solid geometry. This is set up so that there are no transparent parts
 	state.SetDepthFunc(DF_LEqual);
 	state.ClearDepthBias();
 	state.EnableTexture(true);
 	state.EnableBrightmap(true);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
-	CreateWallSurface(side, disp, state, result.list, false, true);
+	CreateWallSurface(side, disp, state, result.list, back ? LevelMeshDrawType::Masked : LevelMeshDrawType::Opaque, true, sideIndex, sideBlock.Lights);
+
+	if (result.portals.Size() != 0 && !sideBlock.InSidePortalsList)
+	{
+		// Register side having portals
+		SidePortals.Push(sideIndex);
+		sideBlock.InSidePortalsList = true;
+	}
 
 	for (HWWall& portal : result.portals)
 	{
-		WallPortals.Push(portal);
+		sideBlock.WallPortals.Push(portal);
 	}
 
-	CreateWallSurface(side, disp, state, result.portals, true, false);
+	CreateWallSurface(side, disp, state, result.portals, LevelMeshDrawType::Portal, false, sideIndex, sideBlock.Lights);
 
 	/*
 	// final pass: translucent stuff
 	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 	state.SetRenderStyle(STYLE_Translucent);
-	CreateWallSurface(side, disp, state, result.translucent, false, true);
+	CreateWallSurface(side, disp, state, result.translucent, LevelMeshDrawType::Translucent, true, sideIndex);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	state.SetRenderStyle(STYLE_Normal);
 	*/
 }
 
-void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
+void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
+	CurFrameStats.FlatsUpdated++;
+
+	FreeFlat(doomMap, sectorIndex);
+
 	sector_t* sector = &doomMap.sectors[sectorIndex];
 	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
 	{
+		Flats[sectorIndex].Lights.Push(CreateLightList(section.lighthead, section.sector->PortalGroup));
+		const auto& lightlist = Flats[sectorIndex].Lights.Last();
+
 		HWFlatMeshHelper result;
 		HWFlatDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
 
@@ -416,27 +805,106 @@ void DoomLevelMesh::UpdateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 		state.ClearDepthBias();
 		state.EnableTexture(true);
 		state.EnableBrightmap(true);
-		CreateFlatSurface(disp, state, result.list, false, false);
+		CreateFlatSurface(disp, state, result.list, LevelMeshDrawType::Opaque, false, sectorIndex, lightlist);
 
-		CreateFlatSurface(disp, state, result.portals, true, false);
+		CreateFlatSurface(disp, state, result.portals, LevelMeshDrawType::Portal, false, sectorIndex, lightlist);
 
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 		state.SetRenderStyle(STYLE_Translucent);
-		CreateFlatSurface(disp, state, result.translucentborder, false, true);
+		CreateFlatSurface(disp, state, result.translucentborder, LevelMeshDrawType::Translucent, true, sectorIndex, lightlist);
 		state.SetDepthMask(false);
-		CreateFlatSurface(disp, state, result.translucent, false, true);
+		CreateFlatSurface(disp, state, result.translucent, LevelMeshDrawType::Translucent, true, sectorIndex, lightlist);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetDepthMask(true);
 		state.SetRenderStyle(STYLE_Normal);
 	}
 }
 
-void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, bool isPortal, bool translucent)
+void DoomLevelMesh::SetSideLights(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	ELightMode lightmode = getRealLightmode(&doomMap, true);
+
+	side_t* side = &doomMap.sides[sideIndex];
+
+	// Global modifiers that affects EVERYTHING.
+	// We need to find a way to apply this in the shader.
+	int rel = getExtraLight();
+	bool fullbrightScene = isFullbrightScene();
+
+	// To do: we need to know where each uniform block came from:
+	sector_t* frontsector = side->sector;
+	FColormap Colormap = frontsector->Colormap; // To do: this may come from the lightlist
+	bool foggy = (!Colormap.FadeColor.isBlack() || doomMap.flags & LEVEL_HASFADETABLE);	// fog disables fake contrast
+	float alpha = 1.0f;
+	if (side->linedef->alpha != 0)
+	{
+		switch (side->linedef->flags & ML_ADDTRANS)
+		{
+		case 0:
+		case ML_ADDTRANS:
+			alpha = side->linedef->alpha;
+		}
+	}
+	float absalpha = fabsf(alpha);
+
+	// GetLightLevel changes global extra light. Used for the fake contrast:
+	int orglightlevel = hw_ClampLight(frontsector->lightlevel);
+	int lightlevel = hw_ClampLight(side->GetLightLevel(foggy, orglightlevel, side_t::mid, false, &rel));
+
+	for (UniformsAllocInfo& uinfo : Sides[sideIndex].Uniforms)
+	{
+		for (int i = 0, count = uinfo.Count; i < count; i++)
+		{
+			// To do: calculate this correctly (see HWDrawInfo::SetColor)
+			// uinfo.LightUniforms[i].uVertexColor
+			// uinfo.LightUniforms[i].uDesaturationFactor
+			if (uinfo.LightUniforms[i].uLightLevel >= 0.0f) 
+			{
+				uinfo.LightUniforms[i].uLightLevel = clamp(doomMap.sides[sideIndex].sector->lightlevel * (1.0f / 255.0f), 0.0f, 1.0f);
+			}
+
+			SetColor(uinfo.LightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, absalpha);
+		}
+		AddRange(UploadRanges.LightUniforms, { uinfo.Start, uinfo.Start + uinfo.Count });
+	}
+}
+
+void DoomLevelMesh::SetFlatLights(FLevelLocals& doomMap, unsigned int sectorIndex)
+{
+	ELightMode lightmode = getRealLightmode(&doomMap, true);
+
+	// Global modifiers that affects EVERYTHING.
+	// We need to find a way to apply this in the shader.
+	int rel = 0;// getExtraLight();
+	bool fullbrightScene = false; // isFullbrightScene();
+
+	// To do: we need to know where each uniform block came from:
+	sector_t* frontsector = &doomMap.sectors[sectorIndex];
+	int lightlevel = hw_ClampLight(frontsector->GetFloorLight());
+	FColormap Colormap = frontsector->Colormap;
+	FSectorPortal* portal = frontsector->ValidatePortal(sector_t::floor);
+	double alpha = portal ? frontsector->GetAlpha(sector_t::floor) : 1.0f - frontsector->GetReflect(sector_t::floor);
+
+	for (UniformsAllocInfo& uinfo : Flats[sectorIndex].Uniforms)
+	{
+		for (int i = 0, count = uinfo.Count; i < count; i++)
+		{
+			SetColor(uinfo.LightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, alpha);
+		}
+		AddRange(UploadRanges.LightUniforms, { uinfo.Start, uinfo.Start + uinfo.Count });
+	}
+}
+
+void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sideIndex, const LightListAllocInfo& lightlist)
 {
 	for (HWWall& wallpart : list)
 	{
-		if (isPortal)
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
+		if (drawType == LevelMeshDrawType::Portal)
 		{
 			state.SetEffect(EFF_PORTAL);
 			state.EnableTexture(false);
@@ -466,41 +934,69 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			wallpart.DrawWall(&disp, state, translucent);
 		}
 
+		int numVertices = 0;
+		int numIndexes = 0;
+		int numUniforms = 0;
+		for (auto& it : state.mSortedLists)
+		{
+			numUniforms++;
+			for (MeshDrawCommand& command : it.second.mDraws)
+			{
+				if (command.DrawType == DT_TriangleFan && command.Count >= 3)
+				{
+					numVertices += command.Count;
+					numIndexes += (command.Count - 2) * 3;
+				}
+			}
+		}
+
+		GeometryAllocInfo ginfo = AllocGeometry(numVertices, numIndexes);
+		UniformsAllocInfo uinfo = AllocUniforms(numUniforms);
+		SurfaceAllocInfo sinfo = AllocSurface();
+
+		SurfaceUniforms* curUniforms = uinfo.Uniforms;
+		SurfaceLightUniforms* curLightUniforms = uinfo.LightUniforms;
+		FMaterialState* curMaterial = uinfo.Materials;
+
 		int pipelineID = 0;
-		int startVertIndex = Mesh.Vertices.Size();
-		int startElementIndex = Mesh.Indexes.Size();
+		int uniformsIndex = uinfo.Start;
+		int vertIndex = ginfo.VertexStart;
 		for (auto& it : state.mSortedLists)
 		{
 			const MeshApplyState& applyState = it.first;
 
 			pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
 
-			int uniformsIndex = Mesh.Uniforms.Size();
-			Mesh.Uniforms.Push(applyState.surfaceUniforms);
-			Mesh.Materials.Push(applyState.material);
-
 			for (MeshDrawCommand& command : it.second.mDraws)
 			{
-				for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
-				{
-					Mesh.Vertices.Push(state.mVertices[i]);
-					Mesh.UniformIndexes.Push(uniformsIndex);
-				}
-
-				if (command.DrawType == DT_TriangleFan)
+				if (command.DrawType == DT_TriangleFan && command.Count >= 3)
 				{
 					for (int i = 2, count = command.Count; i < count; i++)
 					{
-						Mesh.Indexes.Push(startVertIndex);
-						Mesh.Indexes.Push(startVertIndex + i - 1);
-						Mesh.Indexes.Push(startVertIndex + i);
+						*(ginfo.Indexes++) = vertIndex;
+						*(ginfo.Indexes++) = vertIndex + i - 1;
+						*(ginfo.Indexes++) = vertIndex + i;
 					}
+
+					for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
+					{
+						*(ginfo.Vertices++) = state.mVertices[i];
+						*(ginfo.UniformIndexes++) = uniformsIndex;
+					}
+					vertIndex += command.Count;
 				}
 			}
+
+			*(curUniforms++) = applyState.surfaceUniforms;
+			*(curMaterial++) = applyState.material;
+
+			curLightUniforms->uVertexColor = applyState.surfaceUniforms.uVertexColor;
+			curLightUniforms->uDesaturationFactor = applyState.surfaceUniforms.uDesaturationFactor;
+			curLightUniforms->uLightLevel = applyState.surfaceUniforms.uLightLevel;
+			curLightUniforms++;
+
+			uniformsIndex++;
 		}
-		state.mSortedLists.clear();
-		state.mVertices.Clear();
-		state.mIndexes.Clear();
 
 		FVector2 v1 = FVector2(side->V1()->fPos());
 		FVector2 v2 = FVector2(side->V2()->fPos());
@@ -520,75 +1016,197 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
 		}
 
-		DoomLevelMeshSurface surf;
-		surf.Type = wallpart.LevelMeshInfo.Type;
-		surf.ControlSector = wallpart.LevelMeshInfo.ControlSector;
-		surf.TypeIndex = side->Index();
-		surf.Side = side;
-		surf.AlwaysUpdate = !!(side->sector->Flags & SECF_LM_DYNAMIC);
-		surf.SectorGroup = sectorGroup[side->sector->Index()];
-		surf.Alpha = float(side->linedef->alpha);
-		surf.MeshLocation.StartVertIndex = startVertIndex;
-		surf.MeshLocation.StartElementIndex = startElementIndex;
-		surf.MeshLocation.NumVerts = Mesh.Vertices.Size() - startVertIndex;
-		surf.MeshLocation.NumElements = Mesh.Indexes.Size() - startElementIndex;
-		surf.Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
-		surf.Texture = wallpart.texture;
-		surf.PipelineID = pipelineID;
-		surf.PortalIndex = isPortal ? linePortals[side->linedef->Index()] : 0;
-		surf.IsSky = isPortal ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
-		surf.Bounds = GetBoundsFromSurface(surf);
-		surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, sampleDimension) : -1;
-		Surfaces.Push(surf);
+		DoomSurfaceInfo& info = DoomSurfaceInfos[sinfo.Index];
+		info.Type = wallpart.LevelMeshInfo.Type;
+		info.ControlSector = wallpart.LevelMeshInfo.ControlSector;
+		info.TypeIndex = side->Index();
+		info.Side = side;
+
+		info.NextSurface = Sides[sideIndex].FirstSurface;
+		Sides[sideIndex].FirstSurface = sinfo.Index;
+
+		sinfo.Surface->PipelineID = pipelineID;
+		sinfo.Surface->SectorGroup = sectorGroup[side->sector->Index()];
+		sinfo.Surface->Alpha = float(side->linedef->alpha);
+		sinfo.Surface->MeshLocation.StartVertIndex = ginfo.VertexStart;
+		sinfo.Surface->MeshLocation.StartElementIndex = ginfo.IndexStart;
+		sinfo.Surface->MeshLocation.NumVerts = ginfo.VertexCount;
+		sinfo.Surface->MeshLocation.NumElements = ginfo.IndexCount;
+		sinfo.Surface->Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
+		sinfo.Surface->Texture = wallpart.texture;
+		sinfo.Surface->PortalIndex = (drawType == LevelMeshDrawType::Portal) ? linePortals[side->linedef->Index()] : 0;
+		sinfo.Surface->IsSky = (drawType == LevelMeshDrawType::Portal) ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
+		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
+		sinfo.Surface->LightList.Pos = lightlist.Start;
+		sinfo.Surface->LightList.Count = lightlist.Count;
+
+		if (side->Flags & WALLF_POLYOBJ) // Polyobjects gets a new tile every frame
+		{
+			LightmapTileBinding binding;
+			binding.Type = info.Type;
+			binding.TypeIndex = info.TypeIndex;
+			binding.ControlSector = info.ControlSector ? info.ControlSector->Index() : (int)0xffffffffUL;
+
+			LightmapTile tile;
+			tile.Binding = binding;
+			tile.Bounds = sinfo.Surface->Bounds;
+			tile.Plane = sinfo.Surface->Plane;
+			tile.SampleDimension = GetSampleDimension(sampleDimension);
+			tile.AlwaysUpdate = true;
+
+			sinfo.Surface->LightmapTileIndex = Lightmap.Tiles.Size();
+			Lightmap.Tiles.Push(tile);
+			Lightmap.DynamicSurfaces.Push(sinfo.Index);
+		}
+		else
+		{
+			sinfo.Surface->LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC)) : -1;
+		}
+		
+		SetSideLightmap(sinfo.Index);
+
+		for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
+			Mesh.SurfaceIndexes[i] = sinfo.Index;
+
+		Sides[sideIndex].Geometries.Push(ginfo);
+		Sides[sideIndex].Uniforms.Push(uinfo);
+
+		AddToDrawList(Sides[sideIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, drawType);
 	}
 }
 
-int DoomLevelMesh::AddSurfaceToTile(const DoomLevelMeshSurface& surf, uint16_t sampleDimension)
+void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType)
+{
+	// Remember the location if we have to remove it again
+	DrawRangeInfo info;
+	info.DrawIndexStart = RemoveRange(FreeLists.DrawIndex, indexCount);
+	info.DrawIndexCount = indexCount;
+	info.DrawType = drawType;
+	info.PipelineID = pipelineID;
+	drawRanges.Push(info);
+
+	// Copy the indexes over from the unsorted index list
+	memcpy(&Mesh.DrawIndexes[info.DrawIndexStart], &Mesh.Indexes[indexStart], indexCount * sizeof(uint32_t));
+	AddRange(UploadRanges.DrawIndex, { info.DrawIndexStart, info.DrawIndexStart + indexCount });
+
+	// Add to the draw lists
+	AddRange(DrawList[(int)drawType][pipelineID], { info.DrawIndexStart, info.DrawIndexStart + indexCount });
+}
+
+void DoomLevelMesh::RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges)
+{
+	for (const DrawRangeInfo& info : drawRanges)
+	{
+		int start = info.DrawIndexStart;
+		int end = info.DrawIndexStart + info.DrawIndexCount;
+
+		RemoveRange(DrawList[(int)info.DrawType][info.PipelineID], { start, end });
+		AddRange(FreeLists.DrawIndex, { start, end });
+	}
+}
+
+void DoomLevelMesh::SortDrawLists()
+{
+	std::unordered_map<int, TArray<DrawRangeInfo*>> sortedDrawList[(int)LevelMeshDrawType::NumDrawTypes];
+
+	for (auto& side : Sides)
+	{
+		for (auto& range : side.DrawRanges)
+		{
+			sortedDrawList[(int)range.DrawType][range.PipelineID].Push(&range);
+		}
+	}
+
+	for (auto& flat : Flats)
+	{
+		for (auto& range : flat.DrawRanges)
+		{
+			sortedDrawList[(int)range.DrawType][range.PipelineID].Push(&range);
+		}
+	}
+
+	TArray<uint32_t> indexes;
+
+	for (int drawType = 0; drawType < (int)LevelMeshDrawType::NumDrawTypes; drawType++)
+	{
+		DrawList[drawType].clear();
+		for (auto& it : sortedDrawList[drawType])
+		{
+			auto& list = DrawList[drawType][it.first];
+			int listStart = indexes.Size();
+			for (DrawRangeInfo* range : it.second)
+			{
+				int sortedStart = indexes.Size();
+				int start = range->DrawIndexStart;
+				int count = range->DrawIndexCount;
+				for (int i = 0; i < count; i++)
+				{
+					indexes.Push(Mesh.DrawIndexes[start + i]);
+				}
+				range->DrawIndexStart = sortedStart;
+			}
+			int listEnd = indexes.Size();
+			list.Push({ listStart, listEnd });
+		}
+	}
+
+	memcpy(Mesh.DrawIndexes.Data(), indexes.Data(), indexes.Size() * sizeof(uint32_t));
+}
+
+int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, bool alwaysUpdate)
 {
 	if (surf.IsSky)
 		return -1;
 
 	LightmapTileBinding binding;
-	binding.Type = surf.Type;
-	binding.TypeIndex = surf.TypeIndex;
-	binding.ControlSector = surf.ControlSector ? surf.ControlSector->Index() : (int)0xffffffffUL;
+	binding.Type = info.Type;
+	binding.TypeIndex = info.TypeIndex;
+	binding.ControlSector = info.ControlSector ? info.ControlSector->Index() : (int)0xffffffffUL;
 
 	auto it = bindings.find(binding);
 	if (it != bindings.end())
 	{
 		int index = it->second;
 
-		LightmapTile& tile = LightmapTiles[index];
-		tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
-		tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
-		tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
-		tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
-		tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
-		tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
+		if (!Lightmap.StaticAtlasPacked)
+		{
+			LightmapTile& tile = Lightmap.Tiles[index];
+			tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
+			tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
+			tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
+			tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
+			tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
+			tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
+			tile.AlwaysUpdate = tile.AlwaysUpdate || alwaysUpdate;
+		}
 
 		return index;
 	}
 	else
 	{
-		int index = LightmapTiles.Size();
+		if (Lightmap.StaticAtlasPacked)
+			return -1;
+
+		int index = Lightmap.Tiles.Size();
 
 		LightmapTile tile;
 		tile.Binding = binding;
 		tile.Bounds = surf.Bounds;
 		tile.Plane = surf.Plane;
-		tile.SampleDimension = GetSampleDimension(surf, sampleDimension);
+		tile.SampleDimension = GetSampleDimension(sampleDimension);
+		tile.AlwaysUpdate = alwaysUpdate;
 
-		LightmapTiles.Push(tile);
+		Lightmap.Tiles.Push(tile);
 		bindings[binding] = index;
 		return index;
 	}
 }
 
-int DoomLevelMesh::GetSampleDimension(const DoomLevelMeshSurface& surf, uint16_t sampleDimension)
+int DoomLevelMesh::GetSampleDimension(uint16_t sampleDimension)
 {
 	if (sampleDimension <= 0)
 	{
-		sampleDimension = LightmapSampleDistance;
+		sampleDimension = Lightmap.SampleDistance;
 	}
 
 	sampleDimension = uint16_t(max(int(roundf(float(sampleDimension) / max(1.0f / 4, float(lm_scale)))), 1));
@@ -605,11 +1223,15 @@ int DoomLevelMesh::GetSampleDimension(const DoomLevelMeshSurface& surf, uint16_t
 	return sampleDimension;
 }
 
-void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, bool isSky, bool translucent)
+void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist)
 {
 	for (HWFlat& flatpart : list)
 	{
-		if (isSky)
+		state.mSortedLists.clear();
+		state.mVertices.Clear();
+		state.mIndexes.Clear();
+
+		if (drawType == LevelMeshDrawType::Portal)
 		{
 			state.SetEffect(EFF_PORTAL);
 			state.EnableTexture(false);
@@ -638,27 +1260,52 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		textureMatrix.loadIdentity();
 
 		int pipelineID = 0;
-		int uniformsIndex = 0;
+		const SurfaceUniforms* uniforms = nullptr;
+		const FMaterialState* material = nullptr;
 		bool foundDraw = false;
 		for (auto& it : state.mSortedLists)
 		{
 			const MeshApplyState& applyState = it.first;
 
 			pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
-			uniformsIndex = Mesh.Uniforms.Size();
 			textureMatrix = applyState.textureMatrix;
-			Mesh.Uniforms.Push(applyState.surfaceUniforms);
-			Mesh.Materials.Push(applyState.material);
-
+			uniforms = &applyState.surfaceUniforms;
+			material = &applyState.material;
 			foundDraw = true;
 			break;
 		}
-		state.mSortedLists.clear();
-		state.mVertices.Clear();
-		state.mIndexes.Clear();
 
 		if (!foundDraw)
 			continue;
+
+		int numVertices = 0;
+		int numIndexes = 0;
+		for (subsector_t* sub : flatpart.section->subsectors)
+		{
+			if (sub->numlines < 3)
+				continue;
+			numVertices += sub->numlines;
+			numIndexes += (sub->numlines - 2) * 3;
+		}
+
+		GeometryAllocInfo ginfo = AllocGeometry(numVertices, numIndexes);
+		UniformsAllocInfo uinfo = AllocUniforms(1);
+
+		Flats[sectorIndex].Geometries.Push(ginfo);
+		Flats[sectorIndex].Uniforms.Push(uinfo);
+
+		int* surfaceIndexes = &Mesh.SurfaceIndexes[ginfo.IndexStart / 3];
+
+		*uinfo.Uniforms = *uniforms;
+		*uinfo.Materials = *material;
+
+		uinfo.LightUniforms->uVertexColor = uniforms->uVertexColor;
+		uinfo.LightUniforms->uDesaturationFactor = uniforms->uDesaturationFactor;
+		uinfo.LightUniforms->uLightLevel = uniforms->uLightLevel;
+
+		int uniformsIndex = uinfo.Start;
+		int vertIndex = ginfo.VertexStart;
+		int elementIndex = ginfo.IndexStart;
 
 		uint16_t sampleDimension = 0;
 		if (flatpart.ceiling)
@@ -670,21 +1317,22 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			sampleDimension = flatpart.sector->planes[sector_t::floor].LightmapSampleDistance;
 		}
 
-		DoomLevelMeshSurface surf;
-		surf.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
-		surf.ControlSector = flatpart.controlsector ? flatpart.controlsector->model : nullptr;
-		surf.AlwaysUpdate = !!(flatpart.sector->Flags & SECF_LM_DYNAMIC);
+		DoomSurfaceInfo info;
+		info.Type = flatpart.ceiling ? ST_CEILING : ST_FLOOR;
+		info.ControlSector = flatpart.controlsector ? flatpart.controlsector->model : nullptr;
+
+		LevelMeshSurface surf;
 		surf.SectorGroup = sectorGroup[flatpart.sector->Index()];
 		surf.Alpha = flatpart.alpha;
 		surf.Texture = flatpart.texture;
 		surf.PipelineID = pipelineID;
 		surf.PortalIndex = sectorPortals[flatpart.ceiling][flatpart.sector->Index()];
-		surf.IsSky = isSky;
+		surf.IsSky = (drawType == LevelMeshDrawType::Portal);
 
-		auto plane = surf.ControlSector ? surf.ControlSector->GetSecPlane(!flatpart.ceiling) : flatpart.sector->GetSecPlane(flatpart.ceiling);
+		auto plane = info.ControlSector ? info.ControlSector->GetSecPlane(!flatpart.ceiling) : flatpart.sector->GetSecPlane(flatpart.ceiling);
 		surf.Plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
 
-		if (surf.ControlSector)
+		if (info.ControlSector)
 			surf.Plane = -surf.Plane;
 
 		float skyZ = flatpart.ceiling ? 32768.0f : -32768.0f;
@@ -694,14 +1342,16 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			if (sub->numlines < 3)
 				continue;
 
-			int startVertIndex = Mesh.Vertices.Size();
-			int startElementIndex = Mesh.Indexes.Size();
+			int startVertIndex = vertIndex;
+			int startElementIndex = elementIndex;
+			vertIndex += sub->numlines;
+			elementIndex += (sub->numlines - 2) * 3;
 
 			for (int i = 0, end = sub->numlines; i < end; i++)
 			{
 				auto& vt = sub->firstline[end - 1 - i].v1;
 
-				FVector3 pt((float)vt->fX(), (float)vt->fY(), isSky ? skyZ : (float)plane.ZatPoint(vt));
+				FVector3 pt((float)vt->fX(), (float)vt->fY(), (drawType == LevelMeshDrawType::Portal) ? skyZ : (float)plane.ZatPoint(vt));
 				FVector4 uv = textureMatrix * FVector4(pt.X * (1.0f / 64.0f), pt.Y * (-1.0f / 64.0f), 0.0f, 1.0f);
 
 				FFlatVertex ffv;
@@ -714,141 +1364,72 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 				ffv.lv = 0.0f;
 				ffv.lindex = -1.0f;
 
-				Mesh.Vertices.Push(ffv);
-				Mesh.UniformIndexes.Push(uniformsIndex);
+				*(ginfo.Vertices++) = ffv;
+				*(ginfo.UniformIndexes++) = uniformsIndex;
 			}
+
+			SurfaceAllocInfo sinfo = AllocSurface();
 
 			if (flatpart.ceiling)
 			{
 				for (int i = 2, count = sub->numlines; i < count; i++)
 				{
-					Mesh.Indexes.Push(startVertIndex);
-					Mesh.Indexes.Push(startVertIndex + i - 1);
-					Mesh.Indexes.Push(startVertIndex + i);
+					*(ginfo.Indexes++) = startVertIndex;
+					*(ginfo.Indexes++) = startVertIndex + i - 1;
+					*(ginfo.Indexes++) = startVertIndex + i;
+					*(surfaceIndexes++) = sinfo.Index;
 				}
 			}
 			else
 			{
 				for (int i = 2, count = sub->numlines; i < count; i++)
 				{
-					Mesh.Indexes.Push(startVertIndex + i);
-					Mesh.Indexes.Push(startVertIndex + i - 1);
-					Mesh.Indexes.Push(startVertIndex);
+					*(ginfo.Indexes++) = startVertIndex + i;
+					*(ginfo.Indexes++) = startVertIndex + i - 1;
+					*(ginfo.Indexes++) = startVertIndex;
+					*(surfaceIndexes++) = sinfo.Index;
 				}
 			}
 
-			surf.TypeIndex = sub->Index();
-			surf.Subsector = sub;
+			info.TypeIndex = sub->Index();
+			info.Subsector = sub;
 			surf.MeshLocation.StartVertIndex = startVertIndex;
 			surf.MeshLocation.StartElementIndex = startElementIndex;
 			surf.MeshLocation.NumVerts = sub->numlines;
 			surf.MeshLocation.NumElements = (sub->numlines - 2) * 3;
 			surf.Bounds = GetBoundsFromSurface(surf);
-			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(surf, sampleDimension) : -1;
-			Surfaces.Push(surf);
+			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, surf, sampleDimension, !!(flatpart.sector->Flags & SECF_LM_DYNAMIC)) : -1;
+			surf.LightList.Pos = lightlist.Start;
+			surf.LightList.Count = lightlist.Count;
+
+			info.NextSurface = Flats[sectorIndex].FirstSurface;
+			Flats[sectorIndex].FirstSurface = sinfo.Index;
+
+			*sinfo.Surface = surf;
+			DoomSurfaceInfos[sinfo.Index] = info;
+
+			for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
+				Mesh.SurfaceIndexes[i] = sinfo.Index;
+
+			SetSubsectorLightmap(sinfo.Index);
 		}
+
+		AddToDrawList(Flats[sectorIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, drawType);
 	}
 }
 
-#if 0
-void DoomLevelMesh::CreateDynamicSurfaces(FLevelLocals& doomMap)
+void DoomLevelMesh::SetSubsectorLightmap(int surfaceIndex)
 {
-	// Look for polyobjects
-	for (unsigned int i = 0; i < doomMap.lines.Size(); i++)
-	{
-		side_t* side = doomMap.lines[i].sidedef[0];
-		bool isPolyLine = !!(side->Flags & WALLF_POLYOBJ);
-		if (!isPolyLine)
-			continue;
+	int lightmapTileIndex = Mesh.Surfaces[surfaceIndex].LightmapTileIndex;
+	auto surface = &DoomSurfaceInfos[surfaceIndex];
 
-		// Make sure we have a surface array on the polyobj sidedef
-		if (!side->surface)
-		{
-			auto array = std::make_unique<DoomLevelMeshSurface * []>(4);
-			memset(array.get(), 0, sizeof(DoomLevelMeshSurface*));
-			side->surface = array.get();
-			PolyLMSurfaces.Push(std::move(array));
-		}
-
-		CreateSideSurfaces(doomMap, side);
-	}
-}
-#endif
-
-void DoomLevelMesh::SortIndexes()
-{
-	// Order surfaces by pipeline
-	std::unordered_map<int64_t, TArray<int>> pipelineSurfaces;
-	for (size_t i = 0; i < Surfaces.Size(); i++)
-	{
-		DoomLevelMeshSurface* s = &Surfaces[i];
-		pipelineSurfaces[(int64_t(s->PipelineID) << 32) | int64_t(s->IsSky)].Push(i);
-	}
-
-	// Create reorder surface indexes by pipeline and create a draw range for each
-	TArray<uint32_t> sortedIndexes;
-	for (const auto& it : pipelineSurfaces)
-	{
-		LevelSubmeshDrawRange range;
-		range.PipelineID = it.first >> 32;
-		range.Start = sortedIndexes.Size();
-
-		// Move indexes to new array
-		for (unsigned int i : it.second)
-		{
-			DoomLevelMeshSurface& s = Surfaces[i];
-
-			unsigned int start = s.MeshLocation.StartElementIndex;
-			unsigned int count = s.MeshLocation.NumElements;
-
-			s.MeshLocation.StartElementIndex = sortedIndexes.Size();
-
-			for (unsigned int j = 0; j < count; j++)
-			{
-				sortedIndexes.Push(Mesh.Indexes[start + j]);
-			}
-
-			for (unsigned int j = 0; j < count; j += 3)
-			{
-				Mesh.SurfaceIndexes.Push((int)i);
-			}
-		}
-
-		range.Count = sortedIndexes.Size() - range.Start;
-
-		if ((it.first & 1) == 0)
-			DrawList.Push(range);
-		else
-			PortalList.Push(range);
-	}
-
-	Mesh.Indexes.Swap(sortedIndexes);
-}
-
-void DoomLevelMesh::LinkSurfaces(FLevelLocals& doomMap)
-{
-	for (auto& surface : Surfaces)
-	{
-		if (surface.Type == ST_FLOOR || surface.Type == ST_CEILING)
-		{
-			SetSubsectorLightmap(&surface);
-		}
-		else
-		{
-			SetSideLightmap(&surface);
-		}
-	}
-}
-
-void DoomLevelMesh::SetSubsectorLightmap(DoomLevelMeshSurface* surface)
-{
 	if (surface->Subsector->firstline && surface->Subsector->firstline->sidedef)
 		surface->Subsector->firstline->sidedef->sector->HasLightmaps = true;
 
 	if (!surface->ControlSector)
 	{
 		int index = surface->Type == ST_CEILING ? 1 : 0;
-		surface->Subsector->surface[index][0] = surface;
+		surface->Subsector->LightmapTiles[index][0] = lightmapTileIndex;
 	}
 	else
 	{
@@ -858,28 +1439,30 @@ void DoomLevelMesh::SetSubsectorLightmap(DoomLevelMeshSurface* surface)
 		{
 			if (ffloors[i]->model == surface->ControlSector)
 			{
-				surface->Subsector->surface[index][i + 1] = surface;
+				surface->Subsector->LightmapTiles[index][i + 1] = lightmapTileIndex;
 			}
 		}
 	}
 }
 
-void DoomLevelMesh::SetSideLightmap(DoomLevelMeshSurface* surface)
+void DoomLevelMesh::SetSideLightmap(int surfaceIndex)
 {
+	int lightmapTileIndex = Mesh.Surfaces[surfaceIndex].LightmapTileIndex;
+	auto surface = &DoomSurfaceInfos[surfaceIndex];
 	if (!surface->ControlSector)
 	{
 		if (surface->Type == ST_UPPERSIDE)
 		{
-			surface->Side->surface[0] = surface;
+			surface->Side->LightmapTiles[0] = lightmapTileIndex;
 		}
 		else if (surface->Type == ST_MIDDLESIDE)
 		{
-			surface->Side->surface[1] = surface;
-			surface->Side->surface[2] = surface;
+			surface->Side->LightmapTiles[1] = lightmapTileIndex;
+			surface->Side->LightmapTiles[2] = lightmapTileIndex;
 		}
 		else if (surface->Type == ST_LOWERSIDE)
 		{
-			surface->Side->surface[3] = surface;
+			surface->Side->LightmapTiles[3] = lightmapTileIndex;
 		}
 	}
 	else
@@ -890,7 +1473,7 @@ void DoomLevelMesh::SetSideLightmap(DoomLevelMeshSurface* surface)
 		{
 			if (ffloors[i]->model == surface->ControlSector)
 			{
-				backside->surface[4 + i] = surface;
+				backside->LightmapTiles[4 + i] = lightmapTileIndex;
 			}
 		}
 	}
@@ -913,12 +1496,53 @@ BBox DoomLevelMesh::GetBoundsFromSurface(const LevelMeshSurface& surface) const
 	return bounds;
 }
 
+void DoomLevelMesh::GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfaces)
+{
+	if (tile->Binding.Type == ST_MIDDLESIDE || tile->Binding.Type == ST_UPPERSIDE || tile->Binding.Type == ST_LOWERSIDE)
+	{
+		int sideIndex = tile->Binding.TypeIndex;
+		int surf = Sides[sideIndex].FirstSurface;
+		while (surf != -1)
+		{
+			const auto& sinfo = DoomSurfaceInfos[surf];
+			if (sinfo.Type == tile->Binding.Type)
+			{
+				outSurfaces.Push(surf);
+			}
+			surf = sinfo.NextSurface;
+		}
+	}
+	else if (tile->Binding.Type == ST_CEILING || tile->Binding.Type == ST_FLOOR)
+	{
+		int subsectorIndex = tile->Binding.TypeIndex;
+		int sectorIndex = level.subsectors[subsectorIndex].sector->Index();
+		int surf = Flats[sectorIndex].FirstSurface;
+		while (surf != -1)
+		{
+			const auto& sinfo = DoomSurfaceInfos[surf];
+			int controlSector = sinfo.ControlSector ? sinfo.ControlSector->Index() : (int)0xffffffffUL;
+			if (sinfo.Type == tile->Binding.Type && controlSector == tile->Binding.ControlSector)
+			{
+				FVector2 minUV = tile->ToUV(Mesh.Surfaces[surf].Bounds.min);
+				FVector2 maxUV = tile->ToUV(Mesh.Surfaces[surf].Bounds.max);
+				if (!(maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
+				{
+					outSurfaces.Push(surf);
+				}
+			}
+			surf = sinfo.NextSurface;
+		}
+	}
+}
+
 void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const
 {
 	auto f = fopen(objFilename.GetChars(), "w");
 
+	// To do: this dumps the entire vertex buffer, including those not in use
+
 	fprintf(f, "# DoomLevelMesh debug export\n");
-	fprintf(f, "# Vertices: %u, Indexes: %u, Surfaces: %u\n", Mesh.Vertices.Size(), Mesh.Indexes.Size(), Surfaces.Size());
+	fprintf(f, "# Vertices: %u, Indexes: %u, Surfaces: %u\n", Mesh.Vertices.Size(), Mesh.IndexCount, Mesh.Surfaces.Size());
 	fprintf(f, "mtllib %s\n", mtlFilename.GetChars());
 
 	double scale = 1 / 10.0;
@@ -961,7 +1585,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 	bool useErrorMaterial = false;
 	int highestUsedAtlasPage = -1;
 
-	for (unsigned i = 0, count = Mesh.Indexes.Size(); i + 2 < count; i += 3)
+	for (unsigned i = 0, count = Mesh.IndexCount; i + 2 < count; i += 3)
 	{
 		auto index = Mesh.SurfaceIndexes[i / 3];
 
@@ -969,7 +1593,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 		{
 			lastSurfaceIndex = index;
 
-			if (unsigned(index) >= Surfaces.Size())
+			if (unsigned(index) >= Mesh.Surfaces.Size())
 			{
 				fprintf(f, "o Surface[%d] (bad index)\n", index);
 				fprintf(f, "usemtl error\n");
@@ -978,12 +1602,13 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 			}
 			else
 			{
-				const auto& surface = Surfaces[index];
-				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(surface.Type), surface.TypeIndex, surface.IsSky ? " sky" : "");
+				const auto& info = DoomSurfaceInfos[index];
+				const auto& surface = Mesh.Surfaces[index];
+				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(info.Type), info.TypeIndex, surface.IsSky ? " sky" : "");
 
 				if (surface.LightmapTileIndex >= 0)
 				{
-					auto& tile = LightmapTiles[surface.LightmapTileIndex];
+					auto& tile = Lightmap.Tiles[surface.LightmapTileIndex];
 					fprintf(f, "usemtl lightmap%d\n", tile.AtlasLocation.ArrayIndex);
 
 					if (tile.AtlasLocation.ArrayIndex > highestUsedAtlasPage)
@@ -1188,6 +1813,408 @@ void DoomLevelMesh::CreatePortals(FLevelLocals& doomMap)
 	}
 }
 
+class LumpWriter
+{
+public:
+	LumpWriter(size_t size) { buffer.Reserve(size); }
+
+	void Write(const void* data, size_t size)
+	{
+		if (pos + size > buffer.size() || size > 0xffffffff)
+			I_FatalError("LumpWriter ran out of space!");
+		memcpy(buffer.data() + pos, data, size);
+		pos += size;
+	}
+
+	void Write8(const uint8_t val) { Write(&val, sizeof(uint8_t)); }
+	void Write16(const short val) { Write(&val, sizeof(uint16_t)); }
+	void Write32(const int val) { Write(&val, sizeof(uint32_t)); }
+	void WriteFloat(const float val) { Write(&val, sizeof(float)); }
+
+	TArray<uint8_t> DeflateCompress()
+	{
+		TArray<uint8_t> output;
+
+		enum { BUFFER_SIZE = 8192 };
+		uint8_t Buffer[BUFFER_SIZE];
+
+		mz_stream Stream = {};
+		int err = deflateInit(&Stream, 9);
+		if (err != Z_OK)
+			I_FatalError("Could not initialize deflate buffer.");
+
+		Stream.next_out = Buffer;
+		Stream.avail_out = BUFFER_SIZE;
+		Stream.next_in = buffer.data();
+		Stream.avail_in = buffer.size();
+		err = mz_deflate(&Stream, 0);
+		while (Stream.avail_out == 0 && err == Z_OK)
+		{
+			AddBytes(output, Buffer, BUFFER_SIZE);
+
+			Stream.next_out = Buffer;
+			Stream.avail_out = BUFFER_SIZE;
+			if (Stream.avail_in != 0)
+			{
+				err = mz_deflate(&Stream, 0);
+			}
+		}
+		if (err != Z_OK)
+			I_FatalError("Error deflating data.");
+
+		while (true)
+		{
+			err = mz_deflate(&Stream, Z_FINISH);
+			if (err != Z_OK)
+			{
+				break;
+			}
+			if (Stream.avail_out == 0)
+			{
+				AddBytes(output, Buffer, BUFFER_SIZE);
+				Stream.next_out = Buffer;
+				Stream.avail_out = BUFFER_SIZE;
+			}
+		}
+		mz_deflateEnd(&Stream);
+		AddBytes(output, Buffer, BUFFER_SIZE - Stream.avail_out);
+
+		return output;
+	}
+
+private:
+	static void AddBytes(TArray<uint8_t>& output, const void* data, size_t size)
+	{
+		int index = output.Reserve(size);
+		memcpy(&output[index], data, size);
+	}
+
+	size_t pos = 0;
+	TArray<uint8_t> buffer;
+};
+
+class MapLump
+{
+public:
+	FString Name;
+	TArray<uint8_t> Data;
+};
+
+TArray<MapLump> LoadMapLumps(FileReader* reader, const char* wadType)
+{
+	char magic[4] = {};
+	uint32_t numlumps = 0;
+	uint32_t infotableofs = 0;
+	if (reader->Read(magic, 4) != 4) return {};
+	if (memcmp(magic, wadType, 4) != 0) return {};
+	if (reader->Read(&numlumps, 4) != 4) return {};
+	if (reader->Read(&infotableofs, 4) != 4) return {};
+	if (reader->Seek(infotableofs, FileReader::SeekSet) == -1) return {};
+
+	TArray<MapLump> lumps;
+	TArray<uint32_t> offsets;
+	lumps.Reserve(numlumps);
+	offsets.Reserve(numlumps);
+
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		uint32_t filepos = 0, lumpsize = 0;
+		char name[9] = {};
+		if (reader->Read(&filepos, 4) != 4) return {};
+		if (reader->Read(&lumpsize, 4) != 4) return {};
+		if (reader->Read(name, 8) != 8) return {};
+
+		offsets[i] = filepos;
+		lumps[i].Name = name;
+		lumps[i].Data.Reserve(lumpsize);
+	}
+
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		if (reader->Seek(offsets[i], FileReader::SeekSet) == -1) return {};
+		if (reader->Read(lumps[i].Data.data(), lumps[i].Data.size()) != lumps[i].Data.size()) return {};
+	}
+
+	return lumps;
+}
+
+void SaveMapLumps(FileWriter* writer, const TArray<MapLump>& lumps, const char* wadType)
+{
+	uint32_t numlumps = (uint32_t)lumps.size();
+	uint32_t infotableofs = 12;
+	for (uint32_t i = 0; i < numlumps; i++)
+		infotableofs += lumps[i].Data.size();
+
+	writer->Write(wadType, 4);
+	writer->Write(&numlumps, 4);
+	writer->Write(&infotableofs, 4);
+
+	TArray<uint32_t> offsets;
+	offsets.Reserve(numlumps);
+
+	uint32_t pos = 12;
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		offsets[i] = pos;
+		writer->Write(lumps[i].Data.data(), lumps[i].Data.size());
+		pos += lumps[i].Data.size();
+	}
+
+	for (uint32_t i = 0; i < numlumps; i++)
+	{
+		uint32_t filepos = offsets[i];
+		uint32_t lumpsize = lumps[i].Data.size();
+		char name[8] = {};
+		memcpy(name, lumps[i].Name.GetChars(), lumps[i].Name.Len());
+		writer->Write(&filepos, 4);
+		writer->Write(&lumpsize, 4);
+		writer->Write(name, 8);
+	}
+}
+
+void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
+{
+	/*
+	// LIGHTMAP V3 pseudo-C specification:
+
+	struct LightmapLump
+	{
+		int version = 2;
+		uint32_t tileCount;
+		uint32_t pixelCount;
+		uint32_t uvCount;
+		SurfaceEntry surfaces[surfaceCount];
+		uint16_t pixels[pixelCount * 3];
+	};
+
+	struct TileEntry
+	{
+		uint32_t type, typeIndex;
+		uint32_t controlSector; // 0xFFFFFFFF is none
+		uint16_t width, height; // in pixels
+		uint32_t pixelsOffset; // offset in pixels array
+		vec3 translateWorldToLocal;
+		vec3 projLocalToU;
+		vec3 projLocalToV;
+	};
+	*/
+
+	Lightmap.TextureData.Resize(Lightmap.TextureSize * Lightmap.TextureSize * Lightmap.TextureCount * 4);
+	for (int arrayIndex = 0; arrayIndex < Lightmap.TextureCount; arrayIndex++)
+	{
+		screen->DownloadLightmap(arrayIndex, Lightmap.TextureData.Data() + arrayIndex * Lightmap.TextureSize * Lightmap.TextureSize * 4);
+	}
+
+	// Calculate size of lump
+	uint32_t tileCount = 0;
+	uint32_t pixelCount = 0;
+
+	for (unsigned int i = 0; i < Lightmap.Tiles.Size(); i++)
+	{
+		LightmapTile* tile = &Lightmap.Tiles[i];
+		if (tile->AtlasLocation.ArrayIndex != -1)
+		{
+			tileCount++;
+			pixelCount += tile->AtlasLocation.Area();
+		}
+	}
+
+	const int version = 3;
+
+	const uint32_t headerSize = sizeof(int) + 2 * sizeof(uint32_t);
+	const uint32_t bytesPerTileEntry = sizeof(uint32_t) * 4 + sizeof(uint16_t) * 2 + sizeof(float) * 9;
+	const uint32_t bytesPerPixel = sizeof(uint16_t) * 3; // F16 RGB
+
+	uint32_t lumpSize = headerSize + tileCount * bytesPerTileEntry + pixelCount * bytesPerPixel;
+
+	LumpWriter lumpFile(lumpSize);
+
+	// Write header
+	lumpFile.Write32(version);
+	lumpFile.Write32(tileCount);
+	lumpFile.Write32(pixelCount);
+
+	// Write tiles
+	uint32_t pixelsOffset = 0;
+
+	for (unsigned int i = 0; i < Lightmap.Tiles.Size(); i++)
+	{
+		LightmapTile* tile = &Lightmap.Tiles[i];
+
+		if (tile->AtlasLocation.ArrayIndex == -1)
+			continue;
+
+		lumpFile.Write32(tile->Binding.Type);
+		lumpFile.Write32(tile->Binding.TypeIndex);
+		lumpFile.Write32(tile->Binding.ControlSector);
+
+		lumpFile.Write16(uint16_t(tile->AtlasLocation.Width));
+		lumpFile.Write16(uint16_t(tile->AtlasLocation.Height));
+
+		lumpFile.Write32(pixelsOffset * 3);
+
+		lumpFile.WriteFloat(tile->Transform.TranslateWorldToLocal.X);
+		lumpFile.WriteFloat(tile->Transform.TranslateWorldToLocal.Y);
+		lumpFile.WriteFloat(tile->Transform.TranslateWorldToLocal.Z);
+
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToU.X);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToU.Y);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToU.Z);
+
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToV.X);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToV.Y);
+		lumpFile.WriteFloat(tile->Transform.ProjLocalToV.Z);
+
+		pixelsOffset += tile->AtlasLocation.Area();
+	}
+
+	// Write surface pixels
+	for (unsigned int i = 0; i < Lightmap.Tiles.Size(); i++)
+	{
+		LightmapTile* tile = &Lightmap.Tiles[i];
+
+		if (tile->AtlasLocation.ArrayIndex == -1)
+			continue;
+
+		const uint16_t* pixels = Lightmap.TextureData.Data() + tile->AtlasLocation.ArrayIndex * Lightmap.TextureSize * Lightmap.TextureSize * 4;
+		int width = tile->AtlasLocation.Width;
+		int height = tile->AtlasLocation.Height;
+		for (int y = 0; y < height; y++)
+		{
+			const uint16_t* srcline = pixels + (tile->AtlasLocation.X + (tile->AtlasLocation.Y + y) * Lightmap.TextureSize) * 4;
+			for (int x = 0; x < width; x++)
+			{
+				lumpFile.Write16(*(srcline++));
+				lumpFile.Write16(*(srcline++));
+				lumpFile.Write16(*(srcline++));
+				srcline++;
+			}
+		}
+	}
+
+	FString fullpath = GetMapFilename(doomMap);
+	if (fullpath.Len() == 0)
+		return;
+
+	Printf("Saving LIGHTMAP lump into %s\n", fullpath.GetChars());
+
+	FileReader reader;
+	if (!reader.OpenFile(fullpath.GetChars()))
+	{
+		I_Error("Could not open map WAD file");
+		return;
+	}
+
+	TArray<MapLump> lumps = LoadMapLumps(&reader, "PWAD");
+	if (lumps.Size() == 0)
+	{
+		I_Error("Could not read map WAD file");
+		return;
+	}
+
+	reader.Close();
+
+	int lightmapIndex = -1;
+	int endmapIndex = lumps.size();
+	FString strLightmap = "LIGHTMAP";
+	FString strEndmap = "ENDMAP";
+	for (int i = 0, count = lumps.size(); i < count; i++)
+	{
+		if (lumps[i].Name == strLightmap)
+			lightmapIndex = i;
+		else if (lumps[i].Name == strEndmap)
+			endmapIndex = i;
+	}
+
+	if (lightmapIndex != -1)
+		lumps[lightmapIndex].Data = lumpFile.DeflateCompress();
+	else
+		lumps.Insert(endmapIndex, { "LIGHTMAP", lumpFile.DeflateCompress()});
+
+	std::unique_ptr<FileWriter> writer(FileWriter::Open(fullpath.GetChars()));
+	if (writer)
+	{
+		SaveMapLumps(writer.get(), lumps, "PWAD");
+	}
+	else
+	{
+		I_Error("Could not write map WAD file");
+	}
+}
+
+void DoomLevelMesh::DeleteLightmapLump(FLevelLocals& doomMap)
+{
+	FString fullpath = GetMapFilename(doomMap);
+	if (fullpath.Len() == 0)
+		return;
+
+	Printf("Deleting LIGHTMAP lump from %s\n", fullpath.GetChars());
+
+	FileReader reader;
+	if (!reader.OpenFile(fullpath.GetChars()))
+	{
+		I_Error("Could not open map WAD file");
+		return;
+	}
+
+	TArray<MapLump> lumps = LoadMapLumps(&reader, "PWAD");
+	if (lumps.Size() == 0)
+	{
+		I_Error("Could not read map WAD file");
+		return;
+	}
+	reader.Close();
+
+	int lightmapIndex = -1;
+	FString strLightmap = "LIGHTMAP";
+	for (int i = 0, count = lumps.size(); i < count; i++)
+	{
+		if (lumps[i].Name == strLightmap)
+			lightmapIndex = i;
+	}
+
+	if (lightmapIndex == -1)
+		return;
+
+	lumps.Delete(lightmapIndex);
+
+	std::unique_ptr<FileWriter> writer(FileWriter::Open(fullpath.GetChars()));
+	if (writer)
+	{
+		SaveMapLumps(writer.get(), lumps, "PWAD");
+	}
+	else
+	{
+		I_Error("Could not write map WAD file");
+	}
+}
+
+FString DoomLevelMesh::GetMapFilename(FLevelLocals& doomMap)
+{
+	const char* mapname = doomMap.MapName.GetChars();
+
+	FString fmt;
+	fmt.Format("maps/%s.wad", mapname);
+	int lump_wad = fileSystem.CheckNumForFullName(fmt.GetChars());
+	if (lump_wad == -1)
+	{
+		I_Error("Could not find map lump");
+		return {};
+	}
+
+	int wadnum = fileSystem.GetFileContainer(lump_wad);
+	if (wadnum == -1)
+	{
+		I_Error("Could not find map folder");
+		return {};
+	}
+
+	FString filename = fileSystem.GetFileFullName(lump_wad);
+	FString folder = fileSystem.GetResourceFileFullName(wadnum);
+	FString fullpath = folder + filename;
+	return fullpath;
+}
+
 // struct lightmap
 
 static void InvalidateActorLightTraceCache()
@@ -1241,3 +2268,4 @@ DEFINE_ACTION_FUNCTION(_Lightmap, SetSunColor)
 	}
 	return 0;
 }
+

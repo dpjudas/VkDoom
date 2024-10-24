@@ -721,6 +721,7 @@ void MapLoader::SpawnSpecials ()
 				auto itr = Level->GetSectorTagIterator(line.args[0]);
 				while ((s = itr.Next()) >= 0)
 				{
+					Level->SecCorrelations[sec->Index()].Push(s);
 					Level->sectors[s].heightsec = sec;
 					sec->e->FakeFloor.Sectors.Push(&Level->sectors[s]);
 					Level->sectors[s].MoreFlags |= (sec->MoreFlags & SECMF_IGNOREHEIGHTSEC);	// copy this to the destination sector for easier checking.
@@ -1008,6 +1009,12 @@ int MapLoader::Set3DFloor(line_t * line, int param, int param2, int alpha)
 			
 		}
 		P_Add3DFloor(ss, sec, line, flags, alpha);
+		Level->SecCorrelations[sec->Index()].Push(s);
+
+		if(!(flags & (FF_UPPERTEXTURE | FF_LOWERTEXTURE)))
+		{
+			sec->Sec3dControlUseMidTex = true;
+		}
 	}
 	// To be 100% safe this should be done even if the alpha by texture value isn't used.
 	if (!line->sidedef[0]->GetTexture(side_t::top).isValid())

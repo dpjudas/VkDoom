@@ -9,14 +9,16 @@ layout(set = 1, binding = 0, std140) uniform ViewpointUBO
 	vec4 uCameraPos;
 	vec4 uClipLine;
 
+	ivec2 uViewOffset;
+
 	float uGlobVis;			// uGlobVis = R_GetGlobVis(r_visibility) / 32.0
 	int uPalLightLevels;	
 	int uViewHeight;		// Software fuzz scaling
 	float uClipHeight;
 	float uClipHeightDirection;
 	int uShadowmapFilter;
-		
-	int uLightBlendMode;
+
+	int uLightTilesWidth;	// Levelmesh light tiles
 };
 
 layout(set = 1, binding = 1, std140) uniform MatricesUBO
@@ -26,7 +28,7 @@ layout(set = 1, binding = 1, std140) uniform MatricesUBO
 	mat4 TextureMatrix;
 };
 
-// This must match the SurfaceUniforms struct
+// This must match the C++ SurfaceUniforms struct
 struct SurfaceUniforms
 {
 	vec4 uObjectColor;
@@ -68,26 +70,17 @@ struct SurfaceUniforms
 
 	float uAlphaThreshold;
 	int uTextureIndex;
-	float padding2;
+	float uDepthFadeThreshold;
 	float padding3;
 };
 
-#ifdef USE_LEVELMESH
-layout(set = 1, binding = 2, std430) buffer SurfaceUniformsSSO
+struct SurfaceLightUniforms
 {
-	SurfaceUniforms data[];
-};
-#else
-layout(set = 1, binding = 2, std140) uniform SurfaceUniformsUBO
-{
-	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
-};
-#endif
-
-// light buffers
-layout(set = 1, binding = 3, std140) uniform LightBufferUBO
-{
-	vec4 lights[MAX_LIGHT_DATA];
+	vec4 uVertexColor;
+	float uDesaturationFactor;
+	float uLightLevel;
+	uint padding0;
+	uint padding1;
 };
 
 struct Fogball
@@ -96,6 +89,47 @@ struct Fogball
 	float radius;
 	vec3 color;
 	float fog;
+};
+
+#ifdef USE_LEVELMESH
+
+layout(set = 1, binding = 2, std430) buffer SurfaceUniformsSSO
+{
+	SurfaceUniforms data[];
+};
+
+layout(set = 1, binding = 3, std430) buffer SurfaceLightUniformsSSO
+{
+	SurfaceLightUniforms lightdata[];
+};
+
+layout(set = 1, binding = 4, std430) buffer LightBufferSSO
+{
+	vec4 lights[];
+};
+
+layout(set = 1, binding = 5, std140) uniform FogballBufferUBO
+{
+	Fogball fogballs[MAX_FOGBALL_DATA];
+};
+
+// bone matrix buffers
+layout(set = 1, binding = 6, std430) buffer BoneBufferSSO
+{
+	mat4 bones[];
+};
+
+#else
+
+layout(set = 1, binding = 2, std140) uniform SurfaceUniformsUBO
+{
+	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
+};
+
+// light buffers
+layout(set = 1, binding = 3, std140) uniform LightBufferUBO
+{
+	vec4 lights[MAX_LIGHT_DATA];
 };
 
 layout(set = 1, binding = 4, std140) uniform FogballBufferUBO
@@ -108,3 +142,5 @@ layout(set = 1, binding = 5, std430) buffer BoneBufferSSO
 {
 	mat4 bones[];
 };
+
+#endif

@@ -1287,6 +1287,7 @@ class GLDefsParser
 		bool disable_fullbright_specified = false;
 		bool thiswad = false;
 		bool iwad = false;
+		bool no_mipmap = false;
 
 		UserShaderDesc usershader;
 		TArray<FString> texNameList;
@@ -1336,6 +1337,10 @@ class GLDefsParser
 				// only affects textures defined in the IWAD.
 				iwad = true;
 			}
+			else if (sc.Compare("nomipmap"))
+			{
+				no_mipmap = true;
+			}
 			else if (sc.Compare("glossiness"))
 			{
 				sc.MustGetFloat();
@@ -1346,6 +1351,11 @@ class GLDefsParser
 				sc.MustGetFloat();
 				mlay.SpecularLevel = (float)sc.Float;
 			}
+			else if (sc.Compare("depthfadethreshold"))
+			{
+				sc.MustGetFloat();
+				tex->DepthFadeThreshold = (float)sc.Float;
+			}
 			else if (sc.Compare("speed"))
 			{
 				sc.MustGetFloat();
@@ -1355,6 +1365,12 @@ class GLDefsParser
 			{
 				sc.MustGetString();
 				usershader.shader = sc.String;
+			}
+			else if (sc.Compare("disablealphatest"))
+			{
+				tex->SetTranslucent(true);
+				if (usershader.shader.IsNotEmpty())
+					usershader.disablealphatest = true;
 			}
 			else if (sc.Compare("texture"))
 			{
@@ -1472,6 +1488,8 @@ class GLDefsParser
 			}
 			if (!useme) return;
 		}
+
+		tex->SetNoMipmap(no_mipmap);
 
 		FGameTexture **bindings[6] =
 		{
@@ -1732,6 +1750,7 @@ class GLDefsParser
 			bool disable_fullbright = false;
 			bool thiswad = false;
 			bool iwad = false;
+			bool no_mipmap = false;
 			int maplump = -1;
 			UserShaderDesc desc;
 			desc.shaderType = SHADER_Default;
@@ -1773,6 +1792,10 @@ class GLDefsParser
 					}
 					if (!found)
 						sc.ScriptError("Unknown material type '%s' specified\n", sc.String);
+				}
+				else if (sc.Compare("nomipmap"))
+				{
+					no_mipmap = true;
 				}
 				else if (sc.Compare("speed"))
 				{
@@ -1837,6 +1860,8 @@ class GLDefsParser
 			{
 				return;
 			}
+
+			tex->SetNoMipmap(no_mipmap);
 
 			int firstUserTexture;
 			switch (desc.shaderType)

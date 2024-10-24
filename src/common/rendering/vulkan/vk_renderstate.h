@@ -57,12 +57,14 @@ public:
 	void ResetVertices() override;
 
 	// Draw level mesh
-	void DrawLevelMeshSurfaces(bool noFragmentShader) override;
-	void DrawLevelMeshPortals(bool noFragmentShader) override;
+	void DispatchLightTiles(const VSMatrix& worldToView, float m5) override;
+	void DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader) override;
 	int GetNextQueryIndex() override;
 	void BeginQuery() override;
 	void EndQuery() override;
 	void GetQueryResults(int start, int count, TArray<bool>& results) override;
+
+	void RaytraceScene(const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect) override;
 
 	// Worker threads
 	void FlushCommands() override { EndRenderPass(); }
@@ -88,8 +90,9 @@ protected:
 	void BeginRenderPass(VulkanCommandBuffer *cmdbuffer);
 	void WaitForStreamBuffers();
 
+	void RunZMinMaxPass();
 	void ApplyLevelMesh();
-	void DrawLevelMeshRange(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, int start, int count, bool noFragmentShader);
+	void ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, LevelMeshDrawType drawType, bool noFragmentShader);
 
 	VulkanRenderDevice* fb = nullptr;
 

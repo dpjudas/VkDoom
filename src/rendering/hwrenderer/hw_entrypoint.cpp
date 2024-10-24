@@ -54,6 +54,8 @@ EXTERN_CVAR(Bool, cl_capfps)
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Bool, gl_bandedswlight)
 
+CVAR(Bool, gl_raytrace, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+
 extern bool NoInterpolateView;
 
 static SWSceneDrawer *swdrawer;
@@ -165,12 +167,30 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		di->Viewpoint.FieldOfView = DAngle::fromDeg(fov);	// Set the real FOV for the current scene (it's not necessarily the same as the global setting in r_viewpoint)
 
 		// Stereo mode specific perspective projection
-		di->VPUniforms.mProjectionMatrix = eye.GetProjection(fov, ratio, fovratio);
+		float inv_iso_dist = 1.0f;
+		bool iso_ortho = (camera->ViewPos != NULL) && (camera->ViewPos->Flags & VPSF_ORTHOGRAPHIC);
+		if (iso_ortho && (camera->ViewPos->Offset.Length() > 0)) inv_iso_dist = 1.0/camera->ViewPos->Offset.Length();
+		di->VPUniforms.mProjectionMatrix = eye.GetProjection(fov, ratio, fovratio * inv_iso_dist, iso_ortho);
+
 		// Stereo mode specific viewpoint adjustment
 		vp.Pos += eye.GetViewShift(vp.HWAngles.Yaw.Degrees());
 		di->SetupView(RenderState, vp.Pos.X, vp.Pos.Y, vp.Pos.Z, false, false);
 
-		di->ProcessScene(toscreen, *screen->RenderState());
+		if (gl_raytrace)
+		{
+			VSMatrix viewToWorld;
+			di->VPUniforms.mViewMatrix.inverseMatrix(viewToWorld);
+
+			auto DEG2RAD = [](float deg) { return deg * float(M_PI / 180.0); };
+			auto RAD2DEG = [](float rad) { return rad * float(180. / M_PI); };
+			float fovy = (float)(2 * RAD2DEG(atan(tan(DEG2RAD(fov) / 2) / fovratio)));
+
+			RenderState.RaytraceScene(FVector3(vp.Pos.X, vp.Pos.Z, vp.Pos.Y), viewToWorld, fovy, ratio);
+		}
+		else
+		{
+			di->ProcessScene(toscreen, RenderState);
+		}
 
 		if (mainview)
 		{
@@ -350,7 +370,7 @@ sector_t* RenderView(player_t* player)
 		// Draw all canvases that changed
 		for (FCanvas* canvas : AllCanvases)
 		{
-			if (canvas->Tex->CheckNeedsUpdate())
+			if (canvas->Tex && canvas->Tex->CheckNeedsUpdate())
 			{
 				screen->RenderTextureView(canvas->Tex, [=](IntRect& bounds)
 					{

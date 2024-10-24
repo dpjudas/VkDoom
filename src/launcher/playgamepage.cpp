@@ -12,13 +12,9 @@ PlayGamePage::PlayGamePage(LauncherWindow* launcher, WadStuff* wads, int numwads
 {
 	WelcomeLabel = new TextLabel(this);
 	SelectLabel = new TextLabel(this);
-#if defined(EXTRAARGS)
 	ParametersLabel = new TextLabel(this);
-#endif
 	GamesList = new ListView(this);
-#if defined(EXTRAARGS)
 	ParametersEdit = new LineEdit(this);
-#endif
 
 	for (int i = 0; i < numwads; i++)
 	{
@@ -44,7 +40,6 @@ PlayGamePage::PlayGamePage(LauncherWindow* launcher, WadStuff* wads, int numwads
 	GamesList->OnActivated = [=]() { OnGamesListActivated(); };
 }
 
-#if defined(EXTRAARGS)
 void PlayGamePage::SetExtraArgs(const std::string& args)
 {
 	ParametersEdit->SetText(args);
@@ -54,7 +49,6 @@ std::string PlayGamePage::GetExtraArgs()
 {
 	return ParametersEdit->GetText();
 }
-#endif
 
 int PlayGamePage::GetSelectedGame()
 {
@@ -64,9 +58,7 @@ int PlayGamePage::GetSelectedGame()
 void PlayGamePage::UpdateLanguage()
 {
 	SelectLabel->SetText(GStrings.GetString("PICKER_SELECT"));
-#if defined(EXTRAARGS)
 	ParametersLabel->SetText(GStrings.GetString("PICKER_ADDPARM"));
-#endif
 	FString welcomeText = GStrings.GetString("PICKER_WELCOME");
 	welcomeText.Substitute("%s", GAMENAME);
 	WelcomeLabel->SetText(welcomeText.GetChars());
@@ -98,7 +90,6 @@ void PlayGamePage::OnGeometryChanged()
 
 	y = GetHeight() - 10.0;
 
-#if defined(EXTRAARGS)
 	double editHeight = 24.0;
 	y -= editHeight;
 	ParametersEdit->SetFrameGeometry(0.0, y, GetWidth(), editHeight);
@@ -108,7 +99,6 @@ void PlayGamePage::OnGeometryChanged()
 	y -= labelHeight;
 	ParametersLabel->SetFrameGeometry(0.0, y, GetWidth(), labelHeight);
 	y -= 10.0;
-#endif
 
 	double listViewBottom = y - 10.0;
 	GamesList->SetFrameGeometry(0.0, listViewTop, GetWidth(), std::max(listViewBottom - listViewTop, 0.0));

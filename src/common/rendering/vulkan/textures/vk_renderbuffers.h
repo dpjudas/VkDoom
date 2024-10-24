@@ -29,11 +29,16 @@ public:
 	VkSampleCountFlagBits GetSceneSamples() const { return mSamples; }
 
 	VulkanFramebuffer* GetFramebuffer(const VkRenderPassKey& key);
+	VulkanFramebuffer* GetZMinMaxFramebuffer(int index);
 
 	VkTextureImage SceneColor;
 	VkTextureImage SceneDepthStencil;
 	VkTextureImage SceneNormal;
 	VkTextureImage SceneFog;
+	VkTextureImage SceneLinearDepth;
+
+	VkTextureImage SceneZMinMax[6];
+	std::unique_ptr<VulkanBuffer> SceneLightTiles;
 
 	VkFormat PipelineDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
 	VkFormat SceneDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
@@ -53,6 +58,9 @@ private:
 	void CreateSceneDepthStencil(int width, int height, VkSampleCountFlagBits samples);
 	void CreateSceneFog(int width, int height, VkSampleCountFlagBits samples);
 	void CreateSceneNormal(int width, int height, VkSampleCountFlagBits samples);
+	void CreateSceneLinearDepth(int width, int height);
+	void CreateSceneZMinMax(int width, int height);
+	void CreateSceneLightTiles(int width, int height);
 	VkSampleCountFlagBits GetBestSampleCount();
 
 	VulkanRenderDevice* fb = nullptr;

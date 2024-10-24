@@ -1,4 +1,3 @@
-
 const float PI = 3.14159265359;
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
@@ -45,29 +44,11 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-float quadraticDistanceAttenuation(vec4 lightpos)
-{
-	float strength = (1.0 + lightpos.w * lightpos.w * 0.25) * 0.5;
-
-	vec3 distVec = lightpos.xyz - pixelpos.xyz;
-	float attenuation = strength / (1.0 + dot(distVec, distVec));
-	if (attenuation <= 1.0 / 256.0) return 0.0;
-
-	return attenuation;
-}
-
-float linearDistanceAttenuation(vec4 lightpos)
-{
-	float lightdistance = distance(lightpos.xyz, pixelpos.xyz);
-	return clamp((lightpos.w - lightdistance) / lightpos.w, 0.0, 1.0);
-}
-
 vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 {
 	vec3 worldpos = pixelpos.xyz;
 
-	vec3 albedo = pow(material.Base.rgb, vec3(2.2)); // sRGB to linear
-	ambientLight = pow(ambientLight, vec3(2.2));
+	vec3 albedo = material.Base.rgb;
 
 	float metallic = material.Metallic;
 	float roughness = material.Roughness;
@@ -98,9 +79,9 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = linearDistanceAttenuation(lightpos);
-				if (lightspot1.w == 1.0)
-					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
+				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), abs(lightpos.w), lightspot2.w, lightspot1.w);
+				if (lightpos.w < 0.0)
+					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y); // Sign bit is the spotlight flag
 				if (lightcolor.a < 0.0)
 					attenuation *= clamp(dot(N, L), 0.0, 1.0); // Sign bit is the attenuated light flag
 
@@ -138,9 +119,9 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				vec3 L = normalize(lightpos.xyz - worldpos);
 				vec3 H = normalize(V + L);
 
-				float attenuation = linearDistanceAttenuation(lightpos);
-				if (lightspot1.w == 1.0)
-					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y);
+				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), abs(lightpos.w), lightspot2.w, lightspot1.w);
+				if (lightpos.w < 0.0)
+					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y); // Sign bit is the spotlight flag
 				if (lightcolor.a < 0.0)
 					attenuation *= clamp(dot(N, L), 0.0, 1.0); // Sign bit is the attenuated light flag
 
@@ -168,28 +149,41 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 		}
 	}
 
-	// Pretend we sampled the sector light level from an irradiance map
+	// Treat the ambient sector light as if it is a light source next to the wall
+	{
+		vec3 VV = V;
+		vec3 LL = N;
+		vec3 HH = normalize(VV + LL);
+
+		vec3 radiance = ambientLight.rgb * 2.25;
+
+		vec3 F = fresnelSchlick(clamp(dot(HH, VV), 0.0, 1.0), F0);
+		vec3 kS = F;
+		vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+		vec3 specular = metallic * albedo * 0.40;
+
+		Lo += (kD * albedo / PI + specular) * radiance;
+	}
+
+	float probeIndex = 0.0; // To do: get this from an uniform
 
 	vec3 F = fresnelSchlickRoughness(clamp(dot(N, V), 0.0, 1.0), F0, roughness);
 
 	vec3 kS = F;
 	vec3 kD = 1.0 - kS;
 
-	vec3 irradiance = ambientLight; // texture(irradianceMap, N).rgb
+	vec3 irradiance = texture(IrradianceMap, vec4(N, probeIndex)).rgb;
 	vec3 diffuse = irradiance * albedo;
 
-	//kD *= 1.0 - metallic;
-	//const float MAX_REFLECTION_LOD = 4.0;
-	//vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
-	//vec2 envBRDF = texture(brdfLUT, vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
-	//vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+	kD *= 1.0 - metallic;
+	const float MAX_REFLECTION_LOD = 4.0;
+	vec3 R = reflect(-V, N); 
+	vec3 prefilteredColor = textureLod(PrefilterMap, vec4(R, probeIndex),  roughness * MAX_REFLECTION_LOD).rgb;
+	vec2 envBRDF = texture(BrdfLUT, vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
+	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
-	//vec3 ambient = (kD * diffuse + specular) * ao;
-	vec3 ambient = (kD * diffuse) * ao;
+	vec3 ambient = (kD * diffuse + specular) * ao;
 
 	vec3 color = max(ambient + Lo, vec3(0.0));
-
-	// Tonemap (reinhard) and apply sRGB gamma
-	//color = color / (color + vec3(1.0));
-	return pow(color, vec3(1.0 / 2.2));
+	return color;
 }

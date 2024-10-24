@@ -89,6 +89,8 @@ extend struct GameInfoStruct
 	native double Armor2Percent;
 	native String ArmorIcon1;
 	native String ArmorIcon2;
+	native Name BasicArmorClass;
+	native Name HexenArmorClass;
 	native bool norandomplayerclass;
 	native Array<Name> infoPages;
 	native GIFont mStatscreenMapNameFont;
@@ -348,6 +350,7 @@ struct LevelInfo native
 	native readonly String LightningSound;
 	native readonly String Music;
 	native readonly String LevelName;
+	native readonly String MapLabel;
 	native readonly String AuthorName;
 	native readonly int musicorder;
 	native readonly float skyspeed1;

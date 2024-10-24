@@ -56,12 +56,12 @@ static std::wstring to_utf16(const std::string& str)
 	return result;
 }
 
-Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost) : WindowHost(windowHost)
+Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, Win32DisplayWindow* owner) : WindowHost(windowHost)
 {
 	Windows.push_front(this);
 	WindowsIterator = Windows.begin();
 
-	WNDCLASSEX classdesc = {};
+	WNDCLASSEXW classdesc = {};
 	classdesc.cbSize = sizeof(WNDCLASSEX);
 	classdesc.hInstance = GetModuleHandle(0);
 	classdesc.style = CS_VREDRAW | CS_HREDRAW | CS_DBLCLKS;
@@ -74,7 +74,18 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost) : WindowHo
 	// WS_CAPTION shows the caption (yay! actually a flag that does what it says it does!)
 	// WS_SYSMENU shows the min/max/close buttons
 	// WS_THICKFRAME makes the window resizable
-	CreateWindowEx(WS_EX_APPWINDOW | WS_EX_DLGMODALFRAME, L"ZWidgetWindow", L"", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, 0, 0, 100, 100, 0, 0, GetModuleHandle(0), this);
+
+	DWORD style = 0, exstyle = 0;
+	if (popupWindow)
+	{
+		style = WS_POPUP;
+	}
+	else
+	{
+		exstyle = WS_EX_APPWINDOW | WS_EX_DLGMODALFRAME;
+		style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+	}
+	CreateWindowEx(exstyle, L"ZWidgetWindow", L"", style, 0, 0, 100, 100, owner ? owner->WindowHandle : 0, 0, GetModuleHandle(0), this);
 
 	/*
 	RAWINPUTDEVICE rid;
@@ -128,8 +139,6 @@ void Win32DisplayWindow::SetWindowFrame(const Rect& box)
 
 void Win32DisplayWindow::SetClientFrame(const Rect& box)
 {
-	// This function is currently unused but needs to be disabled because it contains Windows API calls that were only added in Windows 10.
-#if 0
 	double dpiscale = GetDpiScale();
 
 	RECT rect = {};
@@ -143,7 +152,6 @@ void Win32DisplayWindow::SetClientFrame(const Rect& box)
 	AdjustWindowRectExForDpi(&rect, style, FALSE, exstyle, GetDpiForWindow(WindowHandle));
 
 	SetWindowPos(WindowHandle, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_NOZORDER);
-#endif
 }
 
 void Win32DisplayWindow::Show()
@@ -249,6 +257,26 @@ Rect Win32DisplayWindow::GetWindowFrame() const
 	return Rect(box.left / dpiscale, box.top / dpiscale, box.right / dpiscale, box.bottom / dpiscale);
 }
 
+Point Win32DisplayWindow::MapFromGlobal(const Point& pos) const
+{
+	double dpiscale = GetDpiScale();
+	POINT point = {};
+	point.x = (LONG)std::round(pos.x / dpiscale);
+	point.y = (LONG)std::round(pos.y / dpiscale);
+	ScreenToClient(WindowHandle, &point);
+	return Point(point.x * dpiscale, point.y * dpiscale);
+}
+
+Point Win32DisplayWindow::MapToGlobal(const Point& pos) const
+{
+	double dpiscale = GetDpiScale();
+	POINT point = {};
+	point.x = (LONG)std::round(pos.x * dpiscale);
+	point.y = (LONG)std::round(pos.y * dpiscale);
+	ClientToScreen(WindowHandle, &point);
+	return Point(point.x / dpiscale, point.y / dpiscale);
+}
+
 Size Win32DisplayWindow::GetClientSize() const
 {
 	RECT box = {};
@@ -271,22 +299,9 @@ int Win32DisplayWindow::GetPixelHeight() const
 	return box.bottom;
 }
 
-typedef UINT(WINAPI* GetDpiForWindow_t)(HWND);
 double Win32DisplayWindow::GetDpiScale() const
 {
-	static GetDpiForWindow_t pGetDpiForWindow = nullptr;
-	static bool done = false;
-	if (!done)
-	{
-		HMODULE hMod = GetModuleHandleA("User32.dll");
-		if (hMod != nullptr) pGetDpiForWindow = reinterpret_cast<GetDpiForWindow_t>(GetProcAddress(hMod, "GetDpiForWindow"));
-		done = true;
-	}
-
-	if (pGetDpiForWindow)
-		return pGetDpiForWindow(WindowHandle) / 96.0;
-	else
-		return 1.0;
+	return GetDpiForWindow(WindowHandle) / 96.0;
 }
 
 std::string Win32DisplayWindow::GetClipboardText()
@@ -449,7 +464,22 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 			UpdateCursor();
 		}
 
+		if (!TrackMouseActive)
+		{
+			TRACKMOUSEEVENT eventTrack = {};
+			eventTrack.cbSize = sizeof(TRACKMOUSEEVENT);
+			eventTrack.hwndTrack = WindowHandle;
+			eventTrack.dwFlags = TME_LEAVE;
+			if (TrackMouseEvent(&eventTrack))
+				TrackMouseActive = true;
+		}
+
 		WindowHost->OnWindowMouseMove(GetLParamPos(lparam));
+	}
+	else if (msg == WM_MOUSELEAVE)
+	{
+		TrackMouseActive = false;
+		WindowHost->OnWindowMouseLeave();
 	}
 	else if (msg == WM_LBUTTONDOWN)
 	{

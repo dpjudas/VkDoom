@@ -100,6 +100,7 @@ class DisplayWindowHost
 public:
 	virtual void OnWindowPaint() = 0;
 	virtual void OnWindowMouseMove(const Point& pos) = 0;
+	virtual void OnWindowMouseLeave() = 0;
 	virtual void OnWindowMouseDown(const Point& pos, InputKey key) = 0;
 	virtual void OnWindowMouseDoubleclick(const Point& pos, InputKey key) = 0;
 	virtual void OnWindowMouseUp(const Point& pos, InputKey key) = 0;
@@ -118,7 +119,7 @@ public:
 class DisplayWindow
 {
 public:
-	static std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost);
+	static std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost, bool popupWindow, DisplayWindow* owner);
 
 	static void ProcessEvents();
 	static void RunLoop();
@@ -157,6 +158,9 @@ public:
 	virtual int GetPixelHeight() const = 0;
 	virtual double GetDpiScale() const = 0;
 
+	virtual Point MapFromGlobal(const Point& pos) const = 0;
+	virtual Point MapToGlobal(const Point& pos) const = 0;
+
 	virtual void SetBorderColor(uint32_t bgra8) = 0;
 	virtual void SetCaptionColor(uint32_t bgra8) = 0;
 	virtual void SetCaptionTextColor(uint32_t bgra8) = 0;
@@ -165,4 +169,6 @@ public:
 
 	virtual std::string GetClipboardText() = 0;
 	virtual void SetClipboardText(const std::string& text) = 0;
+
+	virtual void* GetNativeHandle() = 0;
 };

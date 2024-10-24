@@ -12,7 +12,6 @@ struct MeshApplyData
 	FRenderStyle RenderStyle;
 	int SpecialEffect;
 	int TextureEnabled;
-	float AlphaThreshold;
 	int DepthFunc;
 	int FogEnabled;
 	int FogColor;
@@ -105,8 +104,6 @@ public:
 	void SetCulling(int mode) override { }
 	void EnableStencil(bool on) override { }
 	void EnableDepthTest(bool on) override { }
-
-	std::unique_ptr<Mesh> Create();
 
 	struct DrawLists
 	{

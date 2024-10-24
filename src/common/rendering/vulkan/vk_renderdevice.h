@@ -47,7 +47,7 @@ public:
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
 	FRenderState* RenderState() override;
 
-	bool IsRayQueryEnabled() const { return mUseRayQuery; }
+	bool IsRayQueryEnabled() const override { return mUseRayQuery; }
 	bool IsVulkan() override { return true; }
 
 	void Update() override;
@@ -63,6 +63,7 @@ public:
 	void BeginFrame() override;
 	void BlurScene(float amount) override;
 	void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) override;
+	void UpdateLinearDepthTexture() override;
 	void AmbientOccludeScene(float m5) override;
 	void SetSceneRenderTarget(bool useSSAO) override;
 	void SetLevelMesh(LevelMesh* mesh) override;
@@ -93,6 +94,7 @@ public:
 	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
 
 	int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) override;
+	void DownloadLightmap(int arrayIndex, uint16_t* buffer) override;
 
 	const VkPipelineKey& GetLevelMeshPipelineKey(int id) const;
 

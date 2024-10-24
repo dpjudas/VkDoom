@@ -104,7 +104,6 @@ protected:
 class IHardwareTexture;
 class FTexture;
 
-
 class DFrameBuffer
 {
 private:
@@ -137,6 +136,7 @@ public:
 	virtual void InitializeState() = 0;	// For stuff that needs 'screen' set.
 	virtual bool IsVulkan() { return false; }
 	virtual bool IsPoly() { return false; }
+	virtual bool IsRayQueryEnabled() const { return false; }
 	virtual bool CompileNextShader() { return true; }
 	virtual void SetLevelMesh(LevelMesh *mesh) { }
 	virtual void UpdateLightmaps(const TArray<LightmapTile*>& tiles) {}
@@ -204,6 +204,7 @@ public:
 	void SetClearColor(int color);
 	virtual int Backend() { return 0; }
 	virtual const char* DeviceName() const { return "Unknown"; }
+	virtual void UpdateLinearDepthTexture() {}
 	virtual void AmbientOccludeScene(float m5) {}
 	virtual void FirstEye() {}
 	virtual void NextEye(int eyecount) {}
@@ -227,6 +228,7 @@ public:
 	virtual void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) { if (afterBloomDrawEndScene2D) afterBloomDrawEndScene2D(); }
 
 	virtual int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) { return 0; }
+	virtual void DownloadLightmap(int arrayIndex, uint16_t* buffer) { }
 
 	void ScaleCoordsFromWindow(int16_t &x, int16_t &y);
 

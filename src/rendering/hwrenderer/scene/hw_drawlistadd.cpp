@@ -67,7 +67,7 @@ void HWDrawInfo::AddWall(HWWall *wall)
 //
 //==========================================================================
 
-void HWDrawInfo::AddMirrorSurface(HWWall *w, FRenderState& state)
+void HWDrawInfo::AddMirrorSurface(HWWallDispatcher* di, HWWall *w, FRenderState& state)
 {
 	w->type = RENDERWALL_MIRRORSURFACE;
 	auto newwall = drawlists[GLDL_TRANSLUCENTBORDER].NewWall();
@@ -87,7 +87,7 @@ void HWDrawInfo::AddMirrorSurface(HWWall *w, FRenderState& state)
 	{
 		newwall->SetupLights(this, state, lightdata);
 	}
-	newwall->ProcessDecals(this, state);
+	newwall->ProcessDecals(di, state);
 	newwall->dynlightindex = -1; // the environment map should not be affected by lights - only the decals.
 }
 

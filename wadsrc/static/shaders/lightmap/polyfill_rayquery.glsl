@@ -30,7 +30,9 @@ TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 		result.primitiveWeights.xy = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
 		result.primitiveWeights.z = 1.0 - result.primitiveWeights.x - result.primitiveWeights.y;
 
-		result.primitiveIndex = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+		result.primitiveIndex =
+			rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true) +
+			rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
 	}
 	else
 	{

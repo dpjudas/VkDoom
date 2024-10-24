@@ -23,7 +23,10 @@ public:
 
 	void BeginFrame();
 
-	void CreateLightmap(int newLMTextureSize, int newLMTextureCount, TArray<uint16_t>&& newPixelData);
+	void CreateLightmap(int size, int count, TArray<uint16_t>&& data);
+	void CreateIrradiancemap(int size, int count, TArray<uint16_t>&& data);
+	void CreatePrefiltermap(int size, int count, TArray<uint16_t>&& data);
+	void DownloadLightmap(int arrayIndex, uint16_t* buffer);
 
 	VkTextureImage* GetTexture(const PPTextureType& type, PPTexture* tex);
 	VkFormat GetTextureFormat(PPTexture* texture);
@@ -40,14 +43,22 @@ public:
 	int GetHWTextureCount() { return (int)Textures.size(); }
 
 	VkTextureImage Shadowmap;
-	VkTextureImage Lightmap;
-	int LMTextureSize = 0;
-	int LMTextureCount = 0;
+
+	struct
+	{
+		VkTextureImage Image;
+		int Size = 0;
+		int Count = 0;
+	} Lightmap, Irradiancemap, Prefiltermap;
+
+	static const int MAX_REFLECTION_LOD = 4; // Note: must match what lightmodel_pbr.glsl expects
 
 private:
 	void CreateNullTexture();
 	void CreateShadowmap();
 	void CreateLightmap();
+	void CreateIrradiancemap();
+	void CreatePrefiltermap();
 
 	VkPPTexture* GetVkTexture(PPTexture* texture);
 

@@ -118,6 +118,8 @@ FSerializer &Serialize(FSerializer &arc, const char *key, TDeletingArray<FLightD
 //
 //-----------------------------------------------------------------------------
 
+extern float LightCalcStrength(float radius);
+
 void FLightDefaults::ApplyProperties(FDynamicLight * light) const
 {
 	auto oldtype = light->lighttype;
@@ -126,7 +128,11 @@ void FLightDefaults::ApplyProperties(FDynamicLight * light) const
 	light->lighttype = m_type;
 	light->specialf1 = m_Param;
 	light->pArgs = m_Args;
-	light->pSourceRadius = &SourceRadius;
+	light->pSoftShadowRadius = &SoftShadowRadius;
+
+	light->pLinearity = &Linearity;
+	light->lightStrength = LightCalcStrength(light->pArgs[LIGHT_INTENSITY]);
+
 	light->pLightFlags = &m_lightFlags;
 	if (m_lightFlags & LF_SPOT)
 	{

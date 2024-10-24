@@ -146,6 +146,7 @@ void VkPostprocess::ImageTransitionScene(bool undefinedSrcLayout)
 		.AddImage(&buffers->SceneFog, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, undefinedSrcLayout)
 		.AddImage(&buffers->SceneNormal, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, undefinedSrcLayout)
 		.AddImage(&buffers->SceneDepthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, undefinedSrcLayout)
+		.AddImage(&buffers->SceneLinearDepth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, undefinedSrcLayout)
 		.Execute(fb->GetCommands()->GetDrawCommands());
 }
 
@@ -242,6 +243,17 @@ void VkPostprocess::DrawPresentTexture(const IntRect &box, bool applyGamma, bool
 		renderstate.SetOutputSwapChain();
 	renderstate.SetNoBlend();
 	renderstate.Draw();
+}
+
+void VkPostprocess::UpdateLinearDepthTexture()
+{
+	int sceneWidth = fb->GetBuffers()->GetSceneWidth();
+	int sceneHeight = fb->GetBuffers()->GetSceneHeight();
+
+	VkPPRenderState renderstate(fb);
+	hw_postprocess.linearDepth.Render(&renderstate, sceneWidth, sceneHeight);
+
+	ImageTransitionScene(false);
 }
 
 void VkPostprocess::AmbientOccludeScene(float m5)

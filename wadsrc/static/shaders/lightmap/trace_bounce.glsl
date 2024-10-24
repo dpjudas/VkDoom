@@ -5,7 +5,7 @@ vec3 TraceBounceLight(vec3 origin, vec3 normal)
 {
 	const float minDistance = 0.01;
 	const float maxDistance = 1000.0;
-	const int SampleCount = 8;
+	const int SampleCount = 64;
 
 	vec3 N = normal;
 	vec3 up = abs(N.x) < abs(N.y) ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
@@ -13,9 +13,11 @@ vec3 TraceBounceLight(vec3 origin, vec3 normal)
 	vec3 bitangent = cross(N, tangent);
 	vec3 incoming = vec3(0.0);
 
+	int fragoffset = int(gl_FragCoord.x * 13.37 + gl_FragCoord.y * 6.66) % 9;
+
 	for (uint i = 0; i < SampleCount; i++)
 	{
-		vec2 Xi = Hammersley(i, SampleCount);
+		vec2 Xi = Hammersley(i * 9 + fragoffset, SampleCount * 9);
 		vec3 H = normalize(vec3(Xi.x * 2.0f - 1.0f, Xi.y * 2.0f - 1.0f, 1.5 - length(Xi)));
 		vec3 L = H.x * tangent + H.y * bitangent + H.z * N;
 
@@ -38,7 +40,7 @@ vec3 TraceBounceLight(vec3 origin, vec3 normal)
 
 		for (uint j = LightStart; j < LightEnd; j++)
 		{
-			incoming += TraceLight(surfacepos, surface.Normal, lights[lightIndexes[j]], result.t) * angleAttenuation;
+			incoming += TraceLight(surfacepos, surface.Normal, lights[lightIndexes[j]], result.t, true) * angleAttenuation;
 		}
 	}
 	return incoming / float(SampleCount);

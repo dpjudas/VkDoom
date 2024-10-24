@@ -129,6 +129,9 @@ VkSamplerManager::VkSamplerManager(VulkanRenderDevice* fb) : fb(fb)
 	CreateHWSamplers();
 	CreateShadowmapSampler();
 	CreateLightmapSampler();
+	CreateZMinMaxSampler();
+	CreateIrradiancemapSampler();
+	CreatePrefiltermapSampler();
 }
 
 VkSamplerManager::~VkSamplerManager()
@@ -314,5 +317,29 @@ void VkSamplerManager::CreateLightmapSampler()
 		.MagFilter(VK_FILTER_LINEAR)
 		.AddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
 		.DebugName("VkRenderBuffers.LightmapSampler")
+		.Create(fb->GetDevice());
+}
+
+void VkSamplerManager::CreateZMinMaxSampler()
+{
+	ZMinMaxSampler = SamplerBuilder()
+		.AddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+		.DebugName("VkRenderBuffers.ZMinMaxSampler")
+		.Create(fb->GetDevice());
+}
+
+void VkSamplerManager::CreateIrradiancemapSampler()
+{
+	IrradiancemapSampler = SamplerBuilder()
+		.AddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+		.DebugName("VkRenderBuffers.IrradiancemapSampler")
+		.Create(fb->GetDevice());
+}
+
+void VkSamplerManager::CreatePrefiltermapSampler()
+{
+	PrefiltermapSampler = SamplerBuilder()
+		.AddressMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+		.DebugName("VkRenderBuffers.PrefiltermapSampler")
 		.Create(fb->GetDevice());
 }

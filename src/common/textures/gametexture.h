@@ -72,6 +72,7 @@ enum EGameTexFlags
 	GTexf_OffsetsNotForFont = 512,			// The offsets must be ignored when using this texture in a font.
 	GTexf_NoTrim = 1024,					// Don't perform trimming on this texture.
 	GTexf_Seen = 2048,						// Set to true when the texture is being used for rendering. Must be cleared manually if the check is needed.
+	GTexf_NoMipmap = 4096,					// Disable mipmapping for this texture
 };
 
 struct FMaterialLayers
@@ -118,6 +119,7 @@ class FGameTexture
 	FVector2 detailScale = { 1.f, 1.f };
 	float Glossiness = 10.f;
 	float SpecularLevel = 0.1f;
+	float DepthFadeThreshold = 0.0f;
 	float shaderspeed = 1.f;
 	int shaderindex = 0;
 
@@ -258,6 +260,8 @@ public:
 	float GetGlossiness() const { return Glossiness; }
 	float GetSpecularLevel() const { return SpecularLevel; }
 
+	float GetDepthFadeThreshold() const { return DepthFadeThreshold; }
+
 	void CopySize(FGameTexture* BaseTexture, bool forfont = false)
 	{
 		Base->CopySize(BaseTexture->Base.get());
@@ -280,6 +284,9 @@ public:
 	void SetDisableFullbright(bool on) { if (on) flags |= GTexf_DisableFullbrightSprites; else flags &= ~GTexf_DisableFullbrightSprites; }
 	void SetGlowing(PalEntry color) { flags = (flags & ~GTexf_AutoGlowing) | GTexf_Glowing; GlowColor = color; }
 	void SetDisableBrightmap() { flags |= GTexf_BrightmapChecked; Brightmap = nullptr; }
+
+	bool isNoMipmap() const { return !!(flags & GTexf_NoMipmap); }
+	void SetNoMipmap(bool set) { if (set) flags |= GTexf_NoMipmap; else flags &= ~GTexf_NoMipmap; }
 
 	bool isUserContent() const;
 	int CheckRealHeight() { return xs_RoundToInt(Base->CheckRealHeight() / ScaleY); }

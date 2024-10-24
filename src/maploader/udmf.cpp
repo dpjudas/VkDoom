@@ -518,7 +518,7 @@ public:
 		th->Alpha = -1;
 		th->Health = 1;
 		th->FloatbobPhase = -1;
-		th->SourceRadius = -1.0;
+		th->SoftShadowRadius = -1.0;
 		sc.MustGetToken('{');
 		while (!sc.CheckToken('}'))
 		{
@@ -792,8 +792,24 @@ public:
 				th->friendlyseeblocks = CheckInt(key);
 				break;
 
-			case NAME_SourceRadius:
-				th->SourceRadius = (float)CheckFloat(key);
+			case NAME_light_softshadowradius:
+				th->SoftShadowRadius = CheckFloat(key);
+				break;
+
+			case NAME_light_linearity:
+				th->LightLinearity = CheckFloat(key);
+				break;
+
+			case NAME_light_noshadowmap:
+				th->LightNoShadowMap = CheckBool(key);
+				break;
+
+			case NAME_light_dontlightactors:
+				th->LightDontLightActors = CheckBool(key);
+				break;
+
+			case NAME_light_dontlightmap:
+				th->LightDontLightMap = CheckBool(key);
 				break;
 
 			case NAME_lm_suncolor:
@@ -810,14 +826,12 @@ public:
 				break;
 			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
-				if (CheckInt(key) >= 0 && CheckInt(key) <= 0xFFFF)
+				if (CheckInt(key) < LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN || CheckInt(key) > LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX)
 				{
-					Level->LightmapSampleDistance = CheckInt(key);
+					DPrintf(DMSG_WARNING, "Current lm_sampledist value, %x, on the ZDRayInfo thing is out of range (min: %i, max: %i)\n",
+						CheckInt(key), LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX);
 				}
-				else
-				{
-					DPrintf(DMSG_WARNING, "Can't set the global lm_sampledist to %s\n", key.GetChars());
-				}
+				Level->LightmapSampleDistance = CheckInt(key);
 				break;
 
 			default:
@@ -1036,6 +1050,10 @@ public:
 			// This switch contains all keys of the UDMF base spec which only apply to Hexen format specials
 			if (!isTranslated) switch (key.GetIndex())
 			{
+			case NAME_Walking:
+				Flag(ld->activation, SPAC_Walking, key);
+				continue;
+
 			case NAME_Playercross:
 				Flag(ld->activation, SPAC_Cross, key); 
 				continue;

@@ -16,6 +16,7 @@ struct FColormap;
 class IBuffer;
 struct HWViewpointUniforms;
 struct FDynLightData;
+enum class LevelMeshDrawType;
 
 enum EClearTarget
 {
@@ -32,6 +33,7 @@ enum ERenderEffect
 	EFF_BURN,
 	EFF_STENCIL,
 	EFF_PORTAL,
+	EFF_DITHERTRANS,
 
 	MAX_EFFECTS
 };
@@ -191,6 +193,7 @@ public:
 		mSurfaceUniforms.uLightFactor = 0.0f;
 		mSurfaceUniforms.uFogDensity = 0.0f;
 		mSurfaceUniforms.uLightLevel = -1.0f;
+		mSurfaceUniforms.uDepthFadeThreshold = 0.0f;
 		mSpecialEffect = EFF_NONE;
 		mLightIndex = -1;
 		mBoneIndexBase = -1;
@@ -643,7 +646,6 @@ public:
 		matrices.mPalLightLevels = palLightLevels;
 		matrices.mClipLine.X = -10000000.0f;
 		matrices.mShadowFilter = gl_light_shadow_filter;
-		matrices.mLightBlendMode = 0;
 		matrices.mProjectionMatrix.ortho(0, (float)width, (float)height, 0, -1.0f, 1.0f);
 		matrices.CalcDependencies();
 		return SetViewpoint(matrices);
@@ -696,12 +698,14 @@ public:
 	}
 
 	// Draw level mesh
-	virtual void DrawLevelMeshSurfaces(bool noFragmentShader) { }
-	virtual void DrawLevelMeshPortals(bool noFragmentShader) { }
+	virtual void DispatchLightTiles(const VSMatrix& worldToView, float m5) { }
+	virtual void DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader) { }
 	virtual int GetNextQueryIndex() { return 0; }
 	virtual void BeginQuery() { }
 	virtual void EndQuery() { }
 	virtual void GetQueryResults(int start, int count, TArray<bool>& results) { }
+
+	virtual void RaytraceScene(const FVector3& cameraPos, const VSMatrix& viewToWorld, float fovy, float aspect) { }
 
 	friend class Mesh;
 };

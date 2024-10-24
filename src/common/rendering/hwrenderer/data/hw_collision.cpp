@@ -21,6 +21,8 @@
 */
 
 #include "hw_collision.h"
+#include "hw_levelmesh.h"
+#include "v_video.h"
 #include <algorithm>
 #include <functional>
 #include <cfloat>
@@ -28,73 +30,350 @@
 #include <immintrin.h>
 #endif
 
-TriangleMeshShape::TriangleMeshShape(const FFlatVertex *vertices, int num_vertices, const unsigned int *elements, int num_elements)
+CPUAccelStruct::CPUAccelStruct(LevelMesh* mesh) : Mesh(mesh)
+{
+	// Find out how many segments we should split the map into
+	DynamicBLAS.resize(32);
+	IndexesPerBLAS = ((Mesh->Mesh.Indexes.size() + 2) / 3 / DynamicBLAS.size() + 1) * 3;
+	InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
+
+	// Create a BLAS for each segment in use
+	for (int instance = 0; instance < InstanceCount; instance++)
+	{
+		int indexStart = instance * IndexesPerBLAS;
+		int indexEnd = std::min(indexStart + IndexesPerBLAS, Mesh->Mesh.IndexCount);
+		DynamicBLAS[instance] = CreateBLAS(indexStart, indexEnd - indexStart);
+	}
+
+	CreateTLAS();
+	Upload();
+}
+
+CPUAccelStruct::~CPUAccelStruct()
+{
+}
+
+TraceHit CPUAccelStruct::FindFirstHit(const FVector3& rayStart, const FVector3& rayEnd)
+{
+	RayBBox ray(rayStart, rayEnd);
+	TraceHit hit;
+	FindFirstHit(ray, TLAS.Root, &hit);
+	return hit;
+}
+
+void CPUAccelStruct::FindFirstHit(const RayBBox& ray, int a, TraceHit* hit)
+{
+	if (IntersectionTest::ray_aabb(ray, TLAS.Nodes[a].aabb) == IntersectionTest::overlap)
+	{
+		if (TLAS.Nodes[a].IsLeaf())
+		{
+			int blasIndex = TLAS.Nodes[a].blas_index;
+			TraceHit blasHit = DynamicBLAS[blasIndex]->FindFirstHit(ray.start, ray.end);
+			if (blasHit.fraction < hit->fraction)
+			{
+				hit->fraction = blasHit.fraction;
+				hit->triangle = (IndexesPerBLAS * blasIndex) / 3 + blasHit.triangle;
+				hit->b = blasHit.b;
+				hit->c = blasHit.c;
+			}
+		}
+		else
+		{
+			FindFirstHit(ray, TLAS.Nodes[a].left, hit);
+			FindFirstHit(ray, TLAS.Nodes[a].right, hit);
+		}
+	}
+}
+
+void CPUAccelStruct::Update()
+{
+	if (Mesh->UploadRanges.Index.Size() == 0)
+		return;
+
+	InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
+
+	bool needsUpdate[32] = {};
+	for (const MeshBufferRange& range : Mesh->UploadRanges.Index)
+	{
+		int start = range.Start / IndexesPerBLAS;
+		int end = (range.End + IndexesPerBLAS - 1) / IndexesPerBLAS;
+		for (int i = start; i < end; i++)
+		{
+			needsUpdate[i] = true;
+		}
+	}
+
+	for (int instance = 0; instance < InstanceCount; instance++)
+	{
+		if (needsUpdate[instance])
+		{
+			int indexStart = instance * IndexesPerBLAS;
+			int indexEnd = std::min(indexStart + IndexesPerBLAS, Mesh->Mesh.IndexCount);
+			DynamicBLAS[instance] = CreateBLAS(indexStart, indexEnd - indexStart);
+		}
+	}
+
+	CreateTLAS();
+	Upload();
+}
+
+std::unique_ptr<CPUBottomLevelAccelStruct> CPUAccelStruct::CreateBLAS(int indexStart, int indexCount)
+{
+	return std::make_unique<CPUBottomLevelAccelStruct>(Mesh->Mesh.Vertices.Data(), Mesh->Mesh.Vertices.Size(), &Mesh->Mesh.Indexes[indexStart], indexCount, Scratch);
+}
+
+static FVector3 SwapYZ(const FVector3& v)
+{
+	return FVector3(v.X, v.Z, v.Y);
+}
+
+void CPUAccelStruct::Upload()
+{
+	if (screen->IsRayQueryEnabled())
+		return;
+
+	unsigned int count = (unsigned int)TLAS.Nodes.size();
+	for (auto& blas : DynamicBLAS)
+	{
+		if (blas)
+		{
+			count += (unsigned int)blas->GetNodes().size();
+		}
+	}
+
+	if (Mesh->Mesh.Nodes.Size() < count)
+	{
+		Mesh->Mesh.Nodes.Resize(std::max(count * 2, (unsigned int)10000));
+	}
+
+	Mesh->Mesh.RootNode = TLAS.Root;
+
+	auto& destnodes = Mesh->Mesh.Nodes;
+
+	// Copy the BLAS nodes to the mesh node list and remember their locations
+	int offset = TLAS.Nodes.size();
+	int instance = 0;
+	int blasOffsets[32] = {};
+	for (auto& blas : DynamicBLAS)
+	{
+		if (blas)
+		{
+			int blasStart = offset;
+			int indexStart = instance * IndexesPerBLAS;
+			blasOffsets[instance] = blasStart;
+
+			for (const auto& node : blas->GetNodes())
+			{
+				CollisionNode& info = destnodes[offset];
+				info.center = SwapYZ(node.aabb.Center);
+				info.extents = SwapYZ(node.aabb.Extents);
+				info.left = node.left != -1 ? blasStart + node.left : -1;
+				info.right = node.right != -1 ? blasStart + node.right : -1;
+				info.element_index = node.element_index != -1 ? indexStart + node.element_index : -1;
+				offset++;
+			}
+			instance++;
+		}
+	}
+
+	// Copy the TLAS nodes and redirect the leafs to the BLAS roots
+	offset = 0;
+	for (const auto& node : TLAS.Nodes)
+	{
+		CollisionNode& info = destnodes[offset];
+		info.center = SwapYZ(node.aabb.Center);
+		info.extents = SwapYZ(node.aabb.Extents);
+
+		if (node.left != -1 && TLAS.Nodes[node.left].blas_index != -1)
+		{
+			int blas_index = TLAS.Nodes[node.left].blas_index;
+			info.left = blasOffsets[blas_index] + DynamicBLAS[blas_index]->GetRoot();
+		}
+		else
+		{
+			info.left = node.left;
+		}
+
+		if (node.right != -1 && TLAS.Nodes[node.right].blas_index != -1)
+		{
+			int blas_index = TLAS.Nodes[node.right].blas_index;
+			info.right = blasOffsets[blas_index] + DynamicBLAS[blas_index]->GetRoot();
+		}
+		else
+		{
+			info.right = node.right;
+		}
+
+		info.element_index = -1;
+		offset++;
+	}
+
+	Mesh->UploadRanges.Node.Clear();
+	Mesh->UploadRanges.Node.Push({ 0, (int)count });
+}
+
+void CPUAccelStruct::CreateTLAS()
+{
+	Scratch.leafs.clear();
+	Scratch.leafs.reserve(InstanceCount);
+	Scratch.centroids.clear();
+	Scratch.centroids.reserve(DynamicBLAS.size());
+	for (int i = 0; i < InstanceCount; i++)
+	{
+		Scratch.leafs.push_back(i);
+		Scratch.centroids.push_back(DynamicBLAS[i]->GetBBox().Center);
+	}
+
+	size_t neededbuffersize = InstanceCount * 2;
+	if (Scratch.workbuffer.size() < neededbuffersize)
+		Scratch.workbuffer.resize(neededbuffersize);
+
+	TLAS.Nodes.clear();
+	TLAS.Root = Subdivide(Scratch.leafs.data(), (int)Scratch.leafs.size(), Scratch.centroids.data(), Scratch.workbuffer.data());
+}
+
+int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector3* centroids, int* workBuffer)
+{
+	if (numInstances == 0)
+		return -1;
+
+	// Find bounding box and median of the instance centroids
+	FVector3 median;
+	FVector3 min = DynamicBLAS[instances[0]]->GetBBox().min;
+	FVector3 max = DynamicBLAS[instances[0]]->GetBBox().max;
+	for (int i = 0; i < numInstances; i++)
+	{
+		const CollisionBBox& bbox = DynamicBLAS[instances[i]]->GetBBox();
+
+		min.X = std::min(min.X, bbox.min.X);
+		min.Y = std::min(min.Y, bbox.min.Y);
+		min.Z = std::min(min.Z, bbox.min.Z);
+
+		max.X = std::max(max.X, bbox.max.X);
+		max.Y = std::max(max.Y, bbox.max.Y);
+		max.Z = std::max(max.Z, bbox.max.Z);
+
+		median += centroids[instances[i]];
+	}
+	median /= (float)numInstances;
+
+	if (numInstances == 1) // Leaf node
+	{
+		TLAS.Nodes.push_back(Node(min, max, instances[0]));
+		return (int)TLAS.Nodes.size() - 1;
+	}
+
+	// Find the longest axis
+	float axis_lengths[3] =
+	{
+		max.X - min.X,
+		max.Y - min.Y,
+		max.Z - min.Z
+	};
+
+	int axis_order[3] = { 0, 1, 2 };
+	std::sort(axis_order, axis_order + 3, [&](int a, int b) { return axis_lengths[a] > axis_lengths[b]; });
+
+	// Try split at longest axis, then if that fails the next longest, and then the remaining one
+	int left_count, right_count;
+	FVector3 axis;
+	for (int attempt = 0; attempt < 3; attempt++)
+	{
+		// Find the split plane for axis
+		switch (axis_order[attempt])
+		{
+		default:
+		case 0: axis = FVector3(1.0f, 0.0f, 0.0f); break;
+		case 1: axis = FVector3(0.0f, 1.0f, 0.0f); break;
+		case 2: axis = FVector3(0.0f, 0.0f, 1.0f); break;
+		}
+		FVector4 plane(axis, -(median | axis)); // plane(axis, -dot(median, axis));
+
+		// Split instances into two
+		left_count = 0;
+		right_count = 0;
+		for (int i = 0; i < numInstances; i++)
+		{
+			int instance = instances[i];
+
+			float side = (FVector4(centroids[instance], 1.0f) | plane);
+			if (side >= 0.0f)
+			{
+				workBuffer[left_count] = instance;
+				left_count++;
+			}
+			else
+			{
+				workBuffer[numInstances + right_count] = instance;
+				right_count++;
+			}
+		}
+
+		if (left_count != 0 && right_count != 0)
+			break;
+	}
+
+	// Check if something went wrong when splitting and do a random split instead
+	if (left_count == 0 || right_count == 0)
+	{
+		left_count = numInstances / 2;
+		right_count = numInstances - left_count;
+	}
+	else
+	{
+		// Move result back into instances list:
+		for (int i = 0; i < left_count; i++)
+			instances[i] = workBuffer[i];
+		for (int i = 0; i < right_count; i++)
+			instances[i + left_count] = workBuffer[numInstances + i];
+	}
+
+	// Create child nodes:
+	int left_index = -1;
+	int right_index = -1;
+	if (left_count > 0)
+		left_index = Subdivide(instances, left_count, centroids, workBuffer);
+	if (right_count > 0)
+		right_index = Subdivide(instances + left_count, right_count, centroids, workBuffer);
+
+	TLAS.Nodes.push_back(Node(min, max, left_index, right_index));
+	return (int)TLAS.Nodes.size() - 1;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices, int num_vertices, const unsigned int *elements, int num_elements, AccelStructScratchBuffer& scratch)
 	: vertices(vertices), num_vertices(num_vertices), elements(elements), num_elements(num_elements)
 {
 	int num_triangles = num_elements / 3;
 	if (num_triangles <= 0)
 		return;
 
-	std::vector<int> triangles;
-	std::vector<FVector3> centroids;
-	triangles.reserve(num_triangles);
-	centroids.reserve(num_triangles);
+	scratch.leafs.clear();
+	scratch.leafs.reserve(num_triangles);
+	scratch.centroids.clear();
+	scratch.centroids.reserve(num_triangles);
 	for (int i = 0; i < num_triangles; i++)
 	{
-		triangles.push_back(i);
+		scratch.leafs.push_back(i);
 
 		int element_index = i * 3;
 		FVector3 centroid = (vertices[elements[element_index + 0]].fPos() + vertices[elements[element_index + 1]].fPos() + vertices[elements[element_index + 2]].fPos()) * (1.0f / 3.0f);
-		centroids.push_back(centroid);
+		scratch.centroids.push_back(centroid);
 	}
 
-	std::vector<int> work_buffer(num_triangles * 2);
+	size_t neededbuffersize = num_triangles * 2;
+	if (scratch.workbuffer.size() < neededbuffersize)
+		scratch.workbuffer.resize(neededbuffersize);
 
-	root = subdivide(&triangles[0], (int)triangles.size(), &centroids[0], &work_buffer[0]);
+	root = Subdivide(&scratch.leafs[0], (int)scratch.leafs.size(), &scratch.centroids[0], scratch.workbuffer.data());
 }
 
-float TriangleMeshShape::sweep(TriangleMeshShape *shape1, SphereShape *shape2, const FVector3 &target)
-{
-	if (shape1->root == -1)
-		return 1.0f;
-	return sweep(shape1, shape2, shape1->root, target);
-}
-
-bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape1, TriangleMeshShape *shape2)
-{
-	if (shape1->root == -1)
-		return false;
-	return find_any_hit(shape1, shape2, shape1->root, shape2->root);
-}
-
-bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape1, SphereShape *shape2)
-{
-	if (shape1->root == -1)
-		return false;
-	return find_any_hit(shape1, shape2, shape1->root);
-}
-
-std::vector<int> TriangleMeshShape::find_all_hits(TriangleMeshShape* shape1, SphereShape* shape2)
-{
-	std::vector<int> hits;
-	if (shape1->root != -1)
-		find_all_hits(shape1, shape2, shape1->root, hits);
-	return hits;
-}
-
-bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape, const FVector3 &ray_start, const FVector3 &ray_end)
-{
-	if (shape->root == -1)
-		return false;
-
-	return find_any_hit(shape, RayBBox(ray_start, ray_end), shape->root);
-}
-
-TraceHit TriangleMeshShape::find_first_hit(TriangleMeshShape *shape, const FVector3 &ray_start, const FVector3 &ray_end)
+TraceHit CPUBottomLevelAccelStruct::FindFirstHit(const FVector3 &ray_start, const FVector3 &ray_end)
 {
 	TraceHit hit;
 
-	if (shape->root == -1)
+	if (root == -1)
 		return hit;
 
 	// Perform segmented tracing to keep the ray AABB box smaller
@@ -107,7 +386,7 @@ TraceHit TriangleMeshShape::find_first_hit(TriangleMeshShape *shape, const FVect
 		float segstart = t / tracedist;
 		float segend = std::min(t + segmentlen, tracedist) / tracedist;
 
-		find_first_hit(shape, RayBBox(ray_start + ray_dir * segstart, ray_start + ray_dir * segend), shape->root, &hit);
+		FindFirstHit(RayBBox(ray_start + ray_dir * segstart, ray_start + ray_dir * segend), root, &hit);
 		if (hit.fraction < 1.0f)
 		{
 			hit.fraction = segstart * (1.0f - hit.fraction) + segend * hit.fraction;
@@ -118,171 +397,39 @@ TraceHit TriangleMeshShape::find_first_hit(TriangleMeshShape *shape, const FVect
 	return hit;
 }
 
-float TriangleMeshShape::sweep(TriangleMeshShape *shape1, SphereShape *shape2, int a, const FVector3 &target)
+void CPUBottomLevelAccelStruct::FindFirstHit(const RayBBox &ray, int a, TraceHit *hit)
 {
-	if (sweep_overlap_bv_sphere(shape1, shape2, a, target))
+	if (IntersectionTest::ray_aabb(ray, nodes[a].aabb) == IntersectionTest::overlap)
 	{
-		if (shape1->is_leaf(a))
-		{
-			return sweep_intersect_triangle_sphere(shape1, shape2, a, target);
-		}
-		else
-		{
-			return std::min(sweep(shape1, shape2, shape1->nodes[a].left, target), sweep(shape1, shape2, shape1->nodes[a].right, target));
-		}
-	}
-	return 1.0f;
-}
-
-bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape1, SphereShape *shape2, int a)
-{
-	if (overlap_bv_sphere(shape1, shape2, a))
-	{
-		if (shape1->is_leaf(a))
-		{
-			return overlap_triangle_sphere(shape1, shape2, a);
-		}
-		else
-		{
-			if (find_any_hit(shape1, shape2, shape1->nodes[a].left))
-				return true;
-			else
-				return find_any_hit(shape1, shape2, shape1->nodes[a].right);
-		}
-	}
-	return false;
-}
-
-void TriangleMeshShape::find_all_hits(TriangleMeshShape* shape1, SphereShape* shape2, int a, std::vector<int>& hits)
-{
-	if (overlap_bv_sphere(shape1, shape2, a))
-	{
-		if (shape1->is_leaf(a))
-		{
-			if (overlap_triangle_sphere(shape1, shape2, a))
-			{
-				hits.push_back(shape1->nodes[a].element_index / 3);
-			}
-		}
-		else
-		{
-			find_all_hits(shape1, shape2, shape1->nodes[a].left, hits);
-			find_all_hits(shape1, shape2, shape1->nodes[a].right, hits);
-		}
-	}
-}
-
-bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b)
-{
-	bool leaf_a = shape1->is_leaf(a);
-	bool leaf_b = shape2->is_leaf(b);
-	if (leaf_a && leaf_b)
-	{
-		return overlap_triangle_triangle(shape1, shape2, a, b);
-	}
-	else if (!leaf_a && !leaf_b)
-	{
-		if (overlap_bv(shape1, shape2, a, b))
-		{
-			if (shape1->volume(a) > shape2->volume(b))
-			{
-				if (find_any_hit(shape1, shape2, shape1->nodes[a].left, b))
-					return true;
-				else
-					return find_any_hit(shape1, shape2, shape1->nodes[a].right, b);
-			}
-			else
-			{
-				if (find_any_hit(shape1, shape2, a, shape2->nodes[b].left))
-					return true;
-				else
-					return find_any_hit(shape1, shape2, a, shape2->nodes[b].right);
-			}
-		}
-		return false;
-	}
-	else if (leaf_a)
-	{
-		if (overlap_bv_triangle(shape2, shape1, b, a))
-		{
-			if (find_any_hit(shape1, shape2, a, shape2->nodes[b].left))
-				return true;
-			else
-				return find_any_hit(shape1, shape2, a, shape2->nodes[b].right);
-		}
-		return false;
-	}
-	else
-	{
-		if (overlap_bv_triangle(shape1, shape2, a, b))
-		{
-			if (find_any_hit(shape1, shape2, shape1->nodes[a].left, b))
-				return true;
-			else
-				return find_any_hit(shape1, shape2, shape1->nodes[a].right, b);
-		}
-		return false;
-	}
-}
-
-bool TriangleMeshShape::find_any_hit(TriangleMeshShape *shape, const RayBBox &ray, int a)
-{
-	if (overlap_bv_ray(shape, ray, a))
-	{
-		if (shape->is_leaf(a))
+		if (nodes[a].IsLeaf())
 		{
 			float baryB, baryC;
-			return intersect_triangle_ray(shape, ray, a, baryB, baryC) < 1.0f;
-		}
-		else
-		{
-			if (find_any_hit(shape, ray, shape->nodes[a].left))
-				return true;
-			else
-				return find_any_hit(shape, ray, shape->nodes[a].right);
-		}
-	}
-	return false;
-}
-
-void TriangleMeshShape::find_first_hit(TriangleMeshShape *shape, const RayBBox &ray, int a, TraceHit *hit)
-{
-	if (overlap_bv_ray(shape, ray, a))
-	{
-		if (shape->is_leaf(a))
-		{
-			float baryB, baryC;
-			float t = intersect_triangle_ray(shape, ray, a, baryB, baryC);
+			float t = IntersectTriangleRay(ray, a, baryB, baryC);
 			if (t < hit->fraction)
 			{
 				hit->fraction = t;
-				hit->triangle = shape->nodes[a].element_index / 3;
+				hit->triangle = nodes[a].element_index / 3;
 				hit->b = baryB;
 				hit->c = baryC;
 			}
 		}
 		else
 		{
-			find_first_hit(shape, ray, shape->nodes[a].left, hit);
-			find_first_hit(shape, ray, shape->nodes[a].right, hit);
+			FindFirstHit(ray, nodes[a].left, hit);
+			FindFirstHit(ray, nodes[a].right, hit);
 		}
 	}
 }
 
-bool TriangleMeshShape::overlap_bv_ray(TriangleMeshShape *shape, const RayBBox &ray, int a)
+float CPUBottomLevelAccelStruct::IntersectTriangleRay(const RayBBox &ray, int a, float &barycentricB, float &barycentricC)
 {
-	return IntersectionTest::ray_aabb(ray, shape->nodes[a].aabb) == IntersectionTest::overlap;
-}
-
-float TriangleMeshShape::intersect_triangle_ray(TriangleMeshShape *shape, const RayBBox &ray, int a, float &barycentricB, float &barycentricC)
-{
-	const int start_element = shape->nodes[a].element_index;
+	const int start_element = nodes[a].element_index;
 
 	FVector3 p[3] =
 	{
-		shape->vertices[shape->elements[start_element]].fPos(),
-		shape->vertices[shape->elements[start_element + 1]].fPos(),
-		shape->vertices[shape->elements[start_element + 2]].fPos()
+		vertices[elements[start_element]].fPos(),
+		vertices[elements[start_element + 1]].fPos(),
+		vertices[elements[start_element + 2]].fPos()
 	};
 
 	// Moeller-Trumbore ray-triangle intersection algorithm:
@@ -338,255 +485,7 @@ float TriangleMeshShape::intersect_triangle_ray(TriangleMeshShape *shape, const 
 	return t;
 }
 
-bool TriangleMeshShape::sweep_overlap_bv_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int a, const FVector3 &target)
-{
-	// Convert to ray test by expanding the AABB:
-
-	CollisionBBox aabb = shape1->nodes[a].aabb;
-	aabb.Extents.X += shape2->radius;
-	aabb.Extents.Y += shape2->radius;
-	aabb.Extents.Z += shape2->radius;
-
-	return IntersectionTest::ray_aabb(RayBBox(shape2->center, target), aabb) == IntersectionTest::overlap;
-}
-
-float TriangleMeshShape::sweep_intersect_triangle_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int a, const FVector3 &target)
-{
-	const int start_element = shape1->nodes[a].element_index;
-
-	FVector3 p[3] =
-	{
-		shape1->vertices[shape1->elements[start_element]].fPos(),
-		shape1->vertices[shape1->elements[start_element + 1]].fPos(),
-		shape1->vertices[shape1->elements[start_element + 2]].fPos()
-	};
-
-	FVector3 c = shape2->center;
-	FVector3 e = target;
-	float r = shape2->radius;
-
-	// Dynamic intersection test between a ray and the minkowski sum of the sphere and polygon:
-
-	FVector3 n = ((p[1] - p[0]) ^ (p[2] - p[0])).Unit(); // normalize(cross(p[1] - p[0], p[2] - p[0]));
-	FVector4 plane(n, -(n | p[0])); // plane(n, -dot(n, p[0]));
-
-	// Step 1: Plane intersect test
-
-	float sc = (plane | FVector4(c, 1.0f)); // dot(plane, FVector4(c, 1.0f));
-	float se = (plane | FVector4(e, 1.0f)); // dot(plane, FVector4(e, 1.0f));
-	bool same_side = sc * se > 0.0f;
-
-	if (same_side && std::abs(sc) > r && std::abs(se) > r)
-		return 1.0f;
-
-	// Step 1a: Check if point is in polygon (using crossing ray test in 2d)
-	{
-		float t = (sc - r) / (sc - se);
-
-		FVector3 vt = c + (e - c) * t;
-
-		FVector3 u0 = p[1] - p[0];
-		FVector3 u1 = p[2] - p[0];
-
-		FVector2 v_2d[3] =
-		{
-			FVector2(0.0f, 0.0f),
-			FVector2((u0 | u0), 0.0f), // FVector2(dot(u0, u0), 0.0f),
-			FVector2(0.0f, (u1 | u1)) // FVector2(0.0f, dot(u1, u1))
-		};
-
-		FVector2 point((u0 | vt), (u1 | vt)); // point(dot(u0, vt), dot(u1, vt));
-
-		bool inside = false;
-		FVector2 e0 = v_2d[2];
-		bool y0 = e0.Y >= point.Y;
-		for (int i = 0; i < 3; i++)
-		{
-			FVector2 e1 = v_2d[i];
-			bool y1 = e1.Y >= point.Y;
-
-			if (y0 != y1 && ((e1.Y - point.Y) * (e0.X - e1.X) >= (e1.X - point.X) * (e0.Y - e1.Y)) == y1)
-				inside = !inside;
-
-			y0 = y1;
-			e0 = e1;
-		}
-
-		if (inside)
-			return t;
-	}
-
-	// Step 2: Edge intersect test
-
-	FVector3 ke[3] =
-	{
-		p[1] - p[0],
-		p[2] - p[1],
-		p[0] - p[2],
-	};
-
-	FVector3 kg[3] =
-	{
-		p[0] - c,
-		p[1] - c,
-		p[2] - c,
-	};
-
-	FVector3 ks = e - c;
-
-	float kgg[3];
-	float kgs[3];
-	float kss[3];
-
-	for (int i = 0; i < 3; i++)
-	{
-		float kee = (ke[i] | ke[i]); // dot(ke[i], ke[i]);
-		float keg = (ke[i] | kg[i]); // dot(ke[i], kg[i]);
-		float kes = (ke[i] | ks); // dot(ke[i], ks);
-		kgg[i] = (kg[i] | kg[i]); // dot(kg[i], kg[i]);
-		kgs[i] = (kg[i] | ks); // dot(kg[i], ks);
-		kss[i] = (ks | ks); // dot(ks, ks);
-
-		float aa = kee * kss[i] - kes * kes;
-		float bb = 2 * (keg * kes - kee * kgs[i]);
-		float cc = kee * (kgg[i] - r * r) - keg * keg;
-
-		float sign = (bb >= 0.0f) ? 1.0f : -1.0f;
-		float q = -0.5f * (bb + sign * std::sqrt(bb * bb - 4 * aa * cc));
-		float t0 = q / aa;
-		float t1 = cc / q;
-
-		float t;
-		if (t0 < 0.0f || t0 > 1.0f)
-			t = t1;
-		else if (t1 < 0.0f || t1 > 1.0f)
-			t = t0;
-		else
-			t = std::min(t0, t1);
-
-		if (t >= 0.0f && t <= 1.0f)
-		{
-			FVector3 ct = c + ks * t;
-			float d = ((ct - p[i]) | ke[i]); // dot(ct - p[i], ke[i]);
-			if (d >= 0.0f && d <= kee)
-				return t;
-		}
-	}
-
-	// Step 3: Point intersect test
-
-	for (int i = 0; i < 3; i++)
-	{
-		float aa = kss[i];
-		float bb = -2.0f * kgs[i];
-		float cc = kgg[i] - r * r;
-
-		float sign = (bb >= 0.0f) ? 1.0f : -1.0f;
-		float q = -0.5f * (bb + sign * std::sqrt(bb * bb - 4 * aa * cc));
-		float t0 = q / aa;
-		float t1 = cc / q;
-
-		float t;
-		if (t0 < 0.0f || t0 > 1.0f)
-			t = t1;
-		else if (t1 < 0.0f || t1 > 1.0f)
-			t = t0;
-		else
-			t = std::min(t0, t1);
-
-		if (t >= 0.0f && t <= 1.0f)
-			return t;
-	}
-
-	return 1.0f;
-}
-
-bool TriangleMeshShape::overlap_bv(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b)
-{
-	return IntersectionTest::aabb(shape1->nodes[a].aabb, shape2->nodes[b].aabb) == IntersectionTest::overlap;
-}
-
-bool TriangleMeshShape::overlap_bv_triangle(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b)
-{
-	return false;
-}
-
-bool TriangleMeshShape::overlap_bv_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int a)
-{
-	return IntersectionTest::sphere_aabb(shape2->center, shape2->radius, shape1->nodes[a].aabb) == IntersectionTest::overlap;
-}
-
-bool TriangleMeshShape::overlap_triangle_triangle(TriangleMeshShape *shape1, TriangleMeshShape *shape2, int a, int b)
-{
-	return false;
-}
-
-bool TriangleMeshShape::overlap_triangle_sphere(TriangleMeshShape *shape1, SphereShape *shape2, int shape1_node_index)
-{
-	// http://realtimecollisiondetection.net/blog/?p=103
-
-	int element_index = shape1->nodes[shape1_node_index].element_index;
-
-	FVector3 P = shape2->center;
-	FVector3 A = shape1->vertices[shape1->elements[element_index]].fPos() - P;
-	FVector3 B = shape1->vertices[shape1->elements[element_index + 1]].fPos() - P;
-	FVector3 C = shape1->vertices[shape1->elements[element_index + 2]].fPos() - P;
-	float r = shape2->radius;
-	float rr = r * r;
-
-	// Testing if sphere lies outside the triangle plane
-	FVector3 V = ((B - A) ^ (C - A)); // cross(B - A, C - A);
-	float d = A | V; // dot(A, V);
-	float e = V | V; // dot(V, V);
-	bool sep1 = d * d > rr * e;
-
-	// Testing if sphere lies outside a triangle vertex
-	float aa = A | A; // dot(A, A);
-	float ab = A | B; // dot(A, B);
-	float ac = A | C; // dot(A, C);
-	float bb = B | B; // dot(B, B);
-	float bc = B | C; // dot(B, C);
-	float cc = C | C; // dot(C, C);
-	bool sep2 = (aa > rr) && (ab > aa) && (ac > aa);
-	bool sep3 = (bb > rr) && (ab > bb) && (bc > bb);
-	bool sep4 = (cc > rr) && (ac > cc) && (bc > cc);
-
-	// Testing if sphere lies outside a triangle edge
-	FVector3 AB = B - A;
-	FVector3 BC = C - B;
-	FVector3 CA = A - C;
-	float d1 = ab - aa;
-	float d2 = bc - bb;
-	float d3 = ac - cc;
-	float e1 = (AB | AB); // dot(AB, AB)
-	float e2 = (BC | BC); // dot(BC, BC)
-	float e3 = (CA | CA); // dot(CA, CA)
-	FVector3 Q1 = A * e1 - AB * d1;
-	FVector3 Q2 = B * e2 - BC * d2;
-	FVector3 Q3 = C * e3 - CA * d3;
-	FVector3 QC = C * e1 - Q1;
-	FVector3 QA = A * e2 - Q2;
-	FVector3 QB = B * e3 - Q3;
-	bool sep5 = ((Q1 | Q1) > rr * e1 * e1) && ((Q1 | QC) > 0.0f); // (dot(Q1, Q1) > rr * e1 * e1) && (dot(Q1, QC) > 0.0f);
-	bool sep6 = ((Q2 | Q2) > rr * e2 * e2) && ((Q2 | QA) > 0.0f); // (dot(Q2, Q2) > rr * e2 * e2) && (dot(Q2, QA) > 0.0f);
-	bool sep7 = ((Q3 | Q3) > rr * e3 * e3) && ((Q3 | QB) > 0.0f); // (dot(Q3, Q3) > rr * e3 * e3) && (dot(Q3, QB) > 0.0f);
-
-	bool separated = sep1 || sep2 || sep3 || sep4 || sep5 || sep6 || sep7;
-	return (!separated);
-}
-
-bool TriangleMeshShape::is_leaf(int node_index)
-{
-	return nodes[node_index].element_index != -1;
-}
-
-float TriangleMeshShape::volume(int node_index)
-{
-	const FVector3 &extents = nodes[node_index].aabb.Extents;
-	return extents.X * extents.Y * extents.Z;
-}
-
-int TriangleMeshShape::get_min_depth() const
+int CPUBottomLevelAccelStruct::GetMinDepth() const
 {
 	std::function<int(int, int)> visit;
 	visit = [&](int level, int node_index) -> int {
@@ -599,7 +498,7 @@ int TriangleMeshShape::get_min_depth() const
 	return visit(1, root);
 }
 
-int TriangleMeshShape::get_max_depth() const
+int CPUBottomLevelAccelStruct::GetMaxDepth() const
 {
 	std::function<int(int, int)> visit;
 	visit = [&](int level, int node_index) -> int {
@@ -612,7 +511,7 @@ int TriangleMeshShape::get_max_depth() const
 	return visit(1, root);
 }
 
-float TriangleMeshShape::get_average_depth() const
+float CPUBottomLevelAccelStruct::GetAverageDepth() const
 {
 	std::function<float(int, int)> visit;
 	visit = [&](int level, int node_index) -> float {
@@ -627,12 +526,12 @@ float TriangleMeshShape::get_average_depth() const
 	return depth_sum / leaf_count;
 }
 
-float TriangleMeshShape::get_balanced_depth() const
+float CPUBottomLevelAccelStruct::GetBalancedDepth() const
 {
 	return std::log2((float)(num_elements / 3));
 }
 
-int TriangleMeshShape::subdivide(int *triangles, int num_triangles, const FVector3 *centroids, int *work_buffer)
+int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, const FVector3 *centroids, int *work_buffer)
 {
 	if (num_triangles == 0)
 		return -1;
@@ -738,47 +637,15 @@ int TriangleMeshShape::subdivide(int *triangles, int num_triangles, const FVecto
 	int left_index = -1;
 	int right_index = -1;
 	if (left_count > 0)
-		left_index = subdivide(triangles, left_count, centroids, work_buffer);
+		left_index = Subdivide(triangles, left_count, centroids, work_buffer);
 	if (right_count > 0)
-		right_index = subdivide(triangles + left_count, right_count, centroids, work_buffer);
+		right_index = Subdivide(triangles + left_count, right_count, centroids, work_buffer);
 
 	nodes.push_back(Node(min, max, left_index, right_index));
 	return (int)nodes.size() - 1;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-
-IntersectionTest::OverlapResult IntersectionTest::sphere_aabb(const FVector3 &center, float radius, const CollisionBBox &aabb)
-{
-	FVector3 a = aabb.min - center;
-	FVector3 b = center - aabb.max;
-	a.X = std::max(a.X, 0.0f);
-	a.Y = std::max(a.Y, 0.0f);
-	a.Z = std::max(a.Z, 0.0f);
-	b.X = std::max(b.X, 0.0f);
-	b.Y = std::max(b.Y, 0.0f);
-	b.Z = std::max(b.Z, 0.0f);
-	FVector3 e = a + b;
-	float d = (e | e); // dot(e, e);
-	if (d > radius * radius)
-		return disjoint;
-	else
-		return overlap;
-}
-
-IntersectionTest::OverlapResult IntersectionTest::aabb(const CollisionBBox& a, const CollisionBBox& b)
-{
-	if (a.min.X > b.max.X || b.min.X > a.max.X ||
-		a.min.Y > b.max.Y || b.min.Y > a.max.Y ||
-		a.min.Z > b.max.Z || b.min.Z > a.max.Z)
-	{
-		return disjoint;
-	}
-	else
-	{
-		return overlap;
-	}
-}
 
 static const uint32_t clearsignbitmask[] = { 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff };
 

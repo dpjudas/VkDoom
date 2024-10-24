@@ -195,13 +195,13 @@ void HWWall::SplitRightEdge(FFlatVertex *&ptr)
 
 int HWWall::CreateVertices(FFlatVertex *&ptr, bool split)
 {
-	if (surface && surface->LightmapTileIndex >= 0)
+	if (lightmaptile >= 0)
 	{
-		LightmapTile* tile = &level.levelMesh->LightmapTiles[surface->LightmapTileIndex];
-		FVector2 lolft = tile->ToUV(FVector3(glseg.x1, glseg.y1, zbottom[0]), level.levelMesh->LMTextureSize);
-		FVector2 uplft = tile->ToUV(FVector3(glseg.x1, glseg.y1, ztop[0]), level.levelMesh->LMTextureSize);
-		FVector2 uprgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, ztop[1]), level.levelMesh->LMTextureSize);
-		FVector2 lorgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, zbottom[1]), level.levelMesh->LMTextureSize);
+		LightmapTile* tile = &level.levelMesh->Lightmap.Tiles[lightmaptile];
+		FVector2 lolft = tile->ToUV(FVector3(glseg.x1, glseg.y1, zbottom[0]), level.levelMesh->Lightmap.TextureSize);
+		FVector2 uplft = tile->ToUV(FVector3(glseg.x1, glseg.y1, ztop[0]), level.levelMesh->Lightmap.TextureSize);
+		FVector2 uprgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, ztop[1]), level.levelMesh->Lightmap.TextureSize);
+		FVector2 lorgt = tile->ToUV(FVector3(glseg.x2, glseg.y2, zbottom[1]), level.levelMesh->Lightmap.TextureSize);
 		lightuv[LOLFT] = { lolft.X, lolft.Y };
 		lightuv[UPLFT] = { uplft.X, uplft.Y };
 		lightuv[UPRGT] = { uprgt.X, uprgt.Y };

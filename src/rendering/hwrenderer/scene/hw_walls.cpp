@@ -82,10 +82,16 @@ void SetSplitPlanes(FRenderState& state, const secplane_t& top, const secplane_t
 
 void HWWall::RenderWall(FRenderState &state, int textured)
 {
+	if (seg->sidedef->Flags & WALLF_DITHERTRANS) state.SetEffect(EFF_DITHERTRANS);
 	assert(vertcount > 0);
 	state.SetLightIndex(dynlightindex);
 	state.Draw(DT_TriangleFan, vertindex, vertcount);
 	vertexcount += vertcount;
+	if (seg->sidedef->Flags & WALLF_DITHERTRANS)
+	{
+		state.SetEffect(EFF_NONE);
+		seg->sidedef->Flags &= ~WALLF_DITHERTRANS; // reset this every frame
+	}
 }
 
 //==========================================================================
@@ -518,24 +524,23 @@ void HWWall::PutWall(HWWallDispatcher *di, FRenderState& state, bool translucent
 		{
 			flags &= ~HWF_GLOW;
 		}
-
-		bool solid;
-		if (passflag[type] == 1) solid = true;
-		else if (type == RENDERWALL_FFBLOCK) solid = texture && !texture->isMasked();
-		else solid = false;
-
-		bool hasDecals = solid && seg->sidedef && seg->sidedef->AttachedDecals;
-		if (hasDecals)
-		{
-			// If we want to use the light infos for the decal we cannot delay the creation until the render pass.
-			if (ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
-			{
-				SetupLights(ddi, state, lightdata);
-			}
-			ProcessDecals(ddi, state);
-		}
 	}
 
+	bool solid;
+	if (passflag[type] == 1) solid = true;
+	else if (type == RENDERWALL_FFBLOCK) solid = texture && !texture->isMasked();
+	else solid = false;
+
+	bool hasDecals = solid && seg->sidedef && seg->sidedef->AttachedDecals;
+	if (hasDecals)
+	{
+		// If we want to use the light infos for the decal we cannot delay the creation until the render pass.
+		if (ddi && ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
+		{
+			SetupLights(ddi, state, lightdata);
+		}
+		ProcessDecals(di, state);
+	}
 
 	di->AddWall(this);
 
@@ -625,7 +630,7 @@ void HWWall::PutPortal(HWWallDispatcher *di, FRenderState& state, int ptype, int
 			if (gl_mirror_envmap)
 			{
 				// draw a reflective layer over the mirror
-				ddi->AddMirrorSurface(this, state);
+				ddi->AddMirrorSurface(di, this, state);
 			}
 			break;
 
@@ -1125,17 +1130,17 @@ void HWWall::DoTexture(HWWallDispatcher *di, FRenderState& state, int _type,seg_
 
 	if (di->di)
 	{
-		if (seg->sidedef->surface.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
+		if (seg->sidedef->LightmapTiles.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
 		{
-			surface = seg->sidedef->surface[type - RENDERWALL_TOP];
-			if (surface && di->di)
+			lightmaptile = seg->sidedef->LightmapTiles[type - RENDERWALL_TOP];
+			if (lightmaptile && di->di)
 			{
-				di->di->PushVisibleSurface(surface);
+				di->di->PushVisibleTile(lightmaptile);
 			}
 		}
 		else
 		{
-			surface = nullptr;
+			lightmaptile = -1;
 		}
 	}
 	else
@@ -1150,7 +1155,7 @@ void HWWall::DoTexture(HWWallDispatcher *di, FRenderState& state, int _type,seg_
 			LevelMeshInfo.Type = ST_NONE;
 		}
 		LevelMeshInfo.ControlSector = nullptr;
-		surface = nullptr;
+		lightmaptile = -1;
 	}
 
 	float floatceilingref = ceilingrefheight + tci.RowOffset(seg->sidedef->GetTextureYOffset(texpos));
@@ -1209,12 +1214,12 @@ void HWWall::DoMidTexture(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	{
 		if (di->di)
 		{
-			if (seg->sidedef->surface.Size() >= 4)
+			if (seg->sidedef->LightmapTiles.Size() >= 4)
 			{
-				surface = seg->sidedef->surface[side_t::mid];
-				if (surface && di->di)
+				lightmaptile = seg->sidedef->LightmapTiles[side_t::mid];
+				if (lightmaptile >= 0 && di->di)
 				{
-					di->di->PushVisibleSurface(surface);
+					di->di->PushVisibleTile(lightmaptile);
 				}
 			}
 		}
@@ -1222,7 +1227,7 @@ void HWWall::DoMidTexture(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 		{
 			LevelMeshInfo.Type = ST_MIDDLESIDE;
 			LevelMeshInfo.ControlSector = nullptr;
-			surface = nullptr;
+			lightmaptile = -1;
 		}
 
 		// Align the texture to the ORIGINAL sector's height!!
@@ -1557,20 +1562,20 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	if (di->di)
 	{
 		if (seg->sidedef == seg->linedef->sidedef[0])
-			surface = seg->linedef->sidedef[1]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->surface[4 + roverIndex] : nullptr;
+			lightmaptile = seg->linedef->sidedef[1]->LightmapTiles.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->LightmapTiles[4 + roverIndex] : -1;
 		else
-			surface = seg->linedef->sidedef[0]->surface.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->surface[4 + roverIndex] : nullptr;
+			lightmaptile = seg->linedef->sidedef[0]->LightmapTiles.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->LightmapTiles[4 + roverIndex] : -1;
 
-		if (surface)
+		if (lightmaptile > 0)
 		{
-			di->di->PushVisibleSurface(surface);
+			di->di->PushVisibleTile(lightmaptile);
 		}
 	}
 	else
 	{
 		LevelMeshInfo.Type = ST_MIDDLESIDE;
 		LevelMeshInfo.ControlSector = rover->model;
-		surface = nullptr;
+		lightmaptile = -1;
 	}
 
 	if (rover->flags&FF_FOG)
@@ -1936,7 +1941,7 @@ void HWWall::Process(HWWallDispatcher *di, FRenderState& state, seg_t *seg, sect
 	}
 #endif
 
-	surface = nullptr;
+	lightmaptile = -1;
 
 	LevelMeshInfo.Type = ST_NONE;
 	LevelMeshInfo.ControlSector = nullptr;
@@ -2041,6 +2046,8 @@ void HWWall::Process(HWWallDispatcher *di, FRenderState& state, seg_t *seg, sect
 	}
 
 	bool isportal = seg->linedef->isVisualPortal() && seg->sidedef == seg->linedef->sidedef[0];
+	// Don't render portal insides if in orthographic mode
+	if (di->di) isportal &= !(di->di->Viewpoint.IsOrtho());
 
 	//return;
 	// [GZ] 3D middle textures are necessarily two-sided, even if they lack the explicit two-sided flag
