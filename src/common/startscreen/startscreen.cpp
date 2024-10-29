@@ -49,6 +49,7 @@
 #include "v_draw.h"
 #include "g_input.h"
 #include "texturemanager.h"
+#include "image.h"
 
 // Text mode color values
 enum{
@@ -678,7 +679,8 @@ void FStartScreen::Render(bool force)
 		twod->Begin(screen->GetWidth(), screen->GetHeight());
 
 		// At this point the shader for untextured rendering has not been loaded yet, so we got to clear the screen by rendering a texture with black color.
-		DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, StartupTexture->GetDisplayWidth(), DTA_VirtualHeightF, StartupTexture->GetDisplayHeight(), DTA_KeepRatio, true, DTA_Color, PalEntry(255,0,0,0), TAG_END);
+		// Note: StartupTexture is just a dummy here. Its contents doesn't matter. A normal clear could be used for VKD, but kept here to make the commit compatible with GZD.
+		DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, StartupTexture->GetDisplayWidth(), DTA_VirtualHeightF, StartupTexture->GetDisplayHeight(), DTA_KeepRatio, true, DTA_Color, PalEntry(255, 0, 0, 0), TAG_END);
 
 		if (HeaderTexture)
 		{
@@ -686,6 +688,12 @@ void FStartScreen::Render(bool force)
 			displayheight = HeaderTexture->GetDisplayHeight() + StartupTexture->GetDisplayHeight();
 			DrawTexture(twod, HeaderTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
 			DrawTexture(twod, StartupTexture, 0, 32, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+
+			for (auto& image : Images)
+			{
+				image->RenderImage(image->Texture);
+			}
+
 			if (NetMaxPos >= 0) DrawTexture(twod, NetTexture, 0, displayheight - 16, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
 		}
 		else
@@ -693,6 +701,11 @@ void FStartScreen::Render(bool force)
 			displaywidth = StartupTexture->GetDisplayWidth();
 			displayheight = StartupTexture->GetDisplayHeight();
 			DrawTexture(twod, StartupTexture, 0, 0, DTA_VirtualWidthF, displaywidth, DTA_VirtualHeightF, displayheight, TAG_END);
+
+			for (auto& image : Images)
+			{
+				image->RenderImage(image->Texture);
+			}
 		}
 
 		twod->End();
@@ -702,6 +715,23 @@ void FStartScreen::Render(bool force)
 	auto newtime = I_msTime();
 	if ((newtime - nowtime) * 2 > minwaittime) // slow down drawing the start screen if we're on a slow GPU!
 		minwaittime = (newtime - nowtime) * 2;
+}
+
+void FStartScreen::AddImage(const char* name, std::function<void(FGameTexture* texture)> renderImage)
+{
+	// at this point we do not have a working texture manager yet, so we have to do the lookup via the file system
+	int lump = fileSystem.CheckNumForName(name, FileSys::ns_graphics);
+	if (lump != -1)
+	{
+		auto iBackground = FImageSource::GetImage(lump, false);
+		if (iBackground)
+		{
+			auto image = std::make_unique<StartScreenImage>();
+			image->Bitmap = iBackground->GetCachedBitmap(nullptr, FImageSource::normal);
+			image->RenderImage = std::move(renderImage);
+			Images.Push(std::move(image));
+		}
+	}
 }
 
 FImageSource* CreateStartScreenTexture(FBitmap& srcdata);
@@ -723,6 +753,15 @@ void FStartScreen::ValidateTexture()
 	{
 		auto imgsource = CreateStartScreenTexture(NetBitmap);
 		NetTexture = MakeGameTexture(new FImageTexture(imgsource), nullptr, ETextureType::Override);
+	}
+
+	for (auto& image : Images)
+	{
+		if (image->Texture == nullptr && image->Bitmap.GetWidth() > 0)
+		{
+			auto imgsource = CreateStartScreenTexture(image->Bitmap);
+			image->Texture = MakeGameTexture(new FImageTexture(imgsource), nullptr, ETextureType::Override);
+		}
 	}
 }
 

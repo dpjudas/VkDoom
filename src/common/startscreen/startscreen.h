@@ -50,6 +50,12 @@ struct RgbQuad
 	uint8_t    rgbReserved;
 };
 
+struct StartScreenImage
+{
+	FBitmap Bitmap;
+	FGameTexture* Texture;
+	std::function<void(FGameTexture* texture)> RenderImage;
+};
 
 extern const RgbQuad TextModePalette[16];
 
@@ -68,6 +74,7 @@ protected:
 	FGameTexture* StartupTexture = nullptr;
 	FGameTexture* HeaderTexture = nullptr;
 	FGameTexture* NetTexture = nullptr;
+	TArray<std::unique_ptr<StartScreenImage>> Images;
 public:
 	FStartScreen(int maxp) { MaxPos = maxp; }
 	virtual ~FStartScreen();
@@ -79,13 +86,12 @@ public:
 	virtual bool NetInit(const char* message, int numplayers);
 	virtual void NetDone() {}
 	virtual void NetTick() {}
-	FBitmap& GetBitmap() { return StartupBitmap; }
 	int GetScale() const { return Scale; }
 
+	void AddImage(const char* name, std::function<void(FGameTexture* texture)> renderImage);
 	
 protected:
 	void ClearBlock(FBitmap& bitmap_info, RgbQuad fill, int x, int y, int bytewidth, int height);
-	FBitmap AllocTextBitmap();
 	void DrawTextScreen(FBitmap& bitmap_info, const uint8_t* text_screen);
 	int DrawChar(FBitmap& screen, double x, double y, unsigned charnum, uint8_t attrib);
 	int DrawChar(FBitmap& screen, double x, double y, unsigned charnum, RgbQuad fg, RgbQuad bg);

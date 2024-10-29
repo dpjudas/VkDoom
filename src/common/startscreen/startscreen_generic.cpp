@@ -38,6 +38,8 @@
 #include "startupinfo.h"
 #include "image.h"
 #include "texturemanager.h"
+#include "v_video.h"
+#include "v_draw.h"
 
 // Hexen startup screen
 #define ST_PROGRESS_X			64			// Start of notches x screen pos.
@@ -71,25 +73,20 @@ public:
 FGenericStartScreen::FGenericStartScreen(int max_progress)
 	: FStartScreen(max_progress)
 {
-	// at this point we do not have a working texture manager yet, so we have to do the lookup via the file system
-	int startup_lump = fileSystem.CheckNumForName("BOOTLOGO", FileSys::ns_graphics);
-
 	StartupBitmap.Create(640 * 2, 480 * 2);
 	ClearBlock(StartupBitmap, { 0, 0, 0, 255 }, 0, 0, 640 * 2, 480 * 2);
-	// This also needs to work if the lump turns out to be unusable.
-	if (startup_lump != -1)
-	{
-		auto iBackground = FImageSource::GetImage(startup_lump, false);
-		if (iBackground)
-		{
-			Background = iBackground->GetCachedBitmap(nullptr, FImageSource::normal);
-			if (Background.GetWidth() < 640 * 2 || Background.GetHeight() < 480 * 2)
-				StartupBitmap.Blit(320 * 2 - Background.GetWidth()/2, 220 * 2 - Background.GetHeight() / 2, Background);
-			else
-				StartupBitmap.Blit(0, 0, Background, 640 * 2, 480 * 2);
-		
-		}
-	}
+
+	AddImage("BOOTLOGO", [](FGameTexture* tex) {
+		double scrwidth = screen->GetWidth();
+		double scrheight = screen->GetHeight();
+		double scale = scrheight / 2160.0;
+		double imgwidth = tex->GetDisplayWidth() * scale;
+		double imgheight = tex->GetDisplayHeight() * scale;
+		double imgx = (scrwidth - imgwidth) * 0.5;
+		double imgy = (scrheight - imgheight) * 0.5;
+
+		DrawTexture(twod, tex, imgx, imgy, DTA_DestWidthF, imgwidth, DTA_DestHeightF, imgheight, DTA_VirtualWidthF, scrwidth, DTA_VirtualHeightF, scrheight, DTA_KeepRatio, true, TAG_END);
+		});
 }
 
 //==========================================================================
