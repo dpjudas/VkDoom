@@ -40,6 +40,7 @@
 #include "texturemanager.h"
 #include "v_video.h"
 #include "v_draw.h"
+#include "s_music.h"
 
 // Hexen startup screen
 #define ST_PROGRESS_X			64			// Start of notches x screen pos.
@@ -87,6 +88,14 @@ FGenericStartScreen::FGenericStartScreen(int max_progress)
 
 		DrawTexture(twod, tex, imgx, imgy, DTA_DestWidthF, imgwidth, DTA_DestHeightF, imgheight, DTA_VirtualWidthF, scrwidth, DTA_VirtualHeightF, scrheight, DTA_KeepRatio, true, TAG_END);
 		});
+
+	if (!batchrun)
+	{
+		if (GameStartupInfo.Song.IsNotEmpty())
+		{
+			S_ChangeMusic(GameStartupInfo.Song.GetChars(), true, true);
+		}
+	}
 }
 
 //==========================================================================
