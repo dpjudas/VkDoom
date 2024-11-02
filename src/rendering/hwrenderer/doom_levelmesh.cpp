@@ -1052,7 +1052,7 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			tile.Bounds = sinfo.Surface->Bounds;
 			tile.Plane = sinfo.Surface->Plane;
 			tile.SampleDimension = GetSampleDimension(sampleDimension);
-			tile.AlwaysUpdate = true;
+			tile.AlwaysUpdate = 2; // Ignore lm_dynamic
 
 			sinfo.Surface->LightmapTileIndex = Lightmap.Tiles.Size();
 			Lightmap.Tiles.Push(tile);
@@ -1153,7 +1153,7 @@ void DoomLevelMesh::SortDrawLists()
 	memcpy(Mesh.DrawIndexes.Data(), indexes.Data(), indexes.Size() * sizeof(uint32_t));
 }
 
-int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, bool alwaysUpdate)
+int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, uint8_t alwaysUpdate)
 {
 	if (surf.IsSky)
 		return -1;
@@ -1177,7 +1177,7 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 			tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
 			tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
 			tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
-			tile.AlwaysUpdate = tile.AlwaysUpdate || alwaysUpdate;
+			tile.AlwaysUpdate = max<uint8_t>(tile.AlwaysUpdate, alwaysUpdate);
 		}
 
 		return index;

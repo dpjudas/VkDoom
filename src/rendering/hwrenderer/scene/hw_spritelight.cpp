@@ -52,7 +52,7 @@ class ActorTraceStaticLight
 public:
 	ActorTraceStaticLight(AActor* actor) : Actor(actor)
 	{
-		if (Actor && (Actor->Pos() != Actor->StaticLightsTraceCache.Pos || (Actor->Sector && (Actor->Sector->Flags & SECF_LM_DYNAMIC))))
+		if (Actor && (Actor->Pos() != Actor->StaticLightsTraceCache.Pos || (Actor->Sector && (Actor->Sector->Flags & SECF_LM_DYNAMIC) && lm_dynamic)))
 		{
 			Actor->StaticLightsTraceCache.Pos = Actor->Pos();
 			Actor->StaticLightsTraceCache.Bits = 0;

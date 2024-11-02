@@ -169,7 +169,7 @@ private:
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 
-	int AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, bool alwaysUpdate);
+	int AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, uint8_t alwaysUpdate);
 	int GetSampleDimension(uint16_t sampleDimension);
 
 	void CreatePortals(FLevelLocals& doomMap);
