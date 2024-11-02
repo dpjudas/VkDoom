@@ -14,6 +14,7 @@
 
 EXTERN_CVAR(Bool, lm_always_update);
 EXTERN_CVAR(Int, lm_max_updates);
+EXTERN_CVAR(Bool, lm_dynamic);
 
 enum EDrawMode
 {
@@ -239,7 +240,7 @@ public:
 		}
 
 		LightmapTile* tile = &Level->levelMesh->Lightmap.Tiles[tileIndex];
-		if (lm_always_update || tile->AlwaysUpdate)
+		if (lm_always_update || tile->AlwaysUpdate == 2 || (tile->AlwaysUpdate == 1 && lm_dynamic))
 		{
 			tile->NeedsUpdate = true;
 		}
