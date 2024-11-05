@@ -212,3 +212,35 @@ class SpectatorCamera : Actor
 		}
 	}
 }
+
+Class OrthographicCamera : Actor
+{
+	Default
+	{
+		+NOBLOCKMAP
+		+NOINTERACTION
+		CameraHeight 0;
+		RenderStyle "None";
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		UpdateViewPos();
+	}
+	
+	override void Tick()
+	{
+		if (current != args[0])
+			UpdateViewPos();
+		
+		Super.Tick();
+	}
+
+	protected int current;
+	protected void UpdateViewPos()
+	{
+		current = args[0];
+		SetViewPos((-abs(max(1.0, double(current))), 0, 0), VPSF_ORTHOGRAPHIC|VPSF_ALLOWOUTOFBOUNDS);
+	}
+}
