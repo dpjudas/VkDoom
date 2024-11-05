@@ -4435,6 +4435,14 @@ void AActor::Tick ()
 		// must have been removed
 		if (ObjectFlags & OF_EuthanizeMe) return;
 	}
+	//[inkoalawetrust] Genericized level damage handling that makes sector, 3D floor, and TERRAIN flat damage affect monsters and other NPCs too.
+	P_ActorOnSpecial3DFloor(this); //3D floors must be checked separately to see if their control sector allows non-player damage
+	if (checkForSpecialSector(this,Sector))
+	{
+		P_ActorInSpecialSector(this,Sector);
+		if (!isAbove(Sector->floorplane.ZatPoint(this)) || waterlevel) // Actor must be touching the floor for TERRAIN flats.
+			P_ActorOnSpecialFlat(this, P_GetThingFloorType(this));
+	}
 
 	if (tics != -1)
 	{
@@ -6623,7 +6631,13 @@ int P_GetThingFloorType (AActor *thing)
 // Returns true if hit liquid and splashed, false if not.
 //---------------------------------------------------------------------------
 
-bool P_HitWater (AActor * thing, sector_t * sec, const DVector3 &pos, bool checkabove, bool alert, bool force)
+enum HitWaterFlags
+{
+	THW_SMALL	= 1 << 0,
+	THW_NOVEL	= 1 << 1,
+};
+
+bool P_HitWater (AActor * thing, sector_t * sec, const DVector3 &pos, bool checkabove, bool alert, bool force, int flags)
 {
 	if (thing->player && (thing->player->cheats & CF_PREDICTING))
 		return false;
@@ -6711,13 +6725,13 @@ foundone:
 
 	// Don't splash for living things with small vertical velocities.
 	// There are levels where the constant splashing from the monsters gets extremely annoying
-	if (((thing->flags3&MF3_ISMONSTER || thing->player) && thing->Vel.Z >= -6) && !force)
+	if (!(flags & THW_NOVEL) && ((thing->flags3 & MF3_ISMONSTER || thing->player) && thing->Vel.Z >= -6) && !force)
 		return Terrains[terrainnum].IsLiquid;
 
 	splash = &Splashes[splashnum];
 
 	// Small splash for small masses
-	if (thing->Mass < 10)
+	if (flags & THW_SMALL || thing->Mass < 10)
 		smallsplash = true;
 
 	if (!(thing->flags3 & MF3_DONTSPLASH))
@@ -6782,7 +6796,8 @@ DEFINE_ACTION_FUNCTION(AActor, HitWater)
 	PARAM_BOOL(checkabove);
 	PARAM_BOOL(alert);
 	PARAM_BOOL(force);
-	ACTION_RETURN_BOOL(P_HitWater(self, sec, DVector3(x, y, z), checkabove, alert, force));
+	PARAM_INT(flags);
+	ACTION_RETURN_BOOL(P_HitWater(self, sec, DVector3(x, y, z), checkabove, alert, force, flags));
 }
 
 
