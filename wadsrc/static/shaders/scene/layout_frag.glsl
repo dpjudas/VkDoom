@@ -31,6 +31,11 @@ vec4 texture(int index, vec2 p)
 	return texture(textures[uTextureIndex + index], p);
 }
 
+vec4 texture(int index, vec2 p, float bias)
+{
+    return texture(textures[uTextureIndex + index], p, bias);
+}
+
 ivec2 textureSize(int index, int lod)
 {
 	return textureSize(textures[uTextureIndex + index], lod);
