@@ -21,3 +21,6 @@ const int texture17 = 16;
 const int texture18 = 17;
 const int texture19 = 18;
 const int texture20 = 19;
+
+/* For user shaders so they can check if the engine uses bindless textures */
+#define USES_BINDLESS
