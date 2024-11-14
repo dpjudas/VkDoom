@@ -475,6 +475,9 @@ void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FStr
 	if (SUCCEEDED(result) && descriptionSize > 0)
 	{
 		std::string description(descriptionText, descriptionSize - 1);
+		size_t uselessInfoPos = description.find(" (first/second chance not available)");
+		if (uselessInfoPos != std::string::npos)
+			description.resize(uselessInfoPos);
 		text = description;
 		logText.AppendFormat("\n%s\n", description.c_str());
 	}
