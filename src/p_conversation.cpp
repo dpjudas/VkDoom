@@ -62,7 +62,7 @@
 #include "doommenu.h"
 #include "g_game.h"
 
-static FRandom pr_randomspeech("RandomSpeech");
+static FCRandom pr_randomspeech("RandomSpeech");
 
 static int ConversationMenuY;
 

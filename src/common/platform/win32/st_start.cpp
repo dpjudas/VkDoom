@@ -201,3 +201,8 @@ bool FBasicStartupScreen::NetLoop(bool (*timer_callback)(void *), void *userdata
 {
 	return NetStartWindow::RunMessageLoop(timer_callback, userdata);
 }
+
+void FBasicStartupScreen::NetClose()
+{
+	NetStartWindow::CloseNetStartPane();
+}

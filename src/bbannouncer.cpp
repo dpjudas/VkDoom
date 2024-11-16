@@ -169,7 +169,7 @@ static const char *TelefragSounds[] =
 #endif
 
 static int LastAnnounceTime;
-static FRandom pr_bbannounce ("BBAnnounce");
+static FCRandom pr_bbannounce ("BBAnnounce");
 
 // CODE --------------------------------------------------------------------
 
