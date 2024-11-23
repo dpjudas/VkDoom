@@ -81,6 +81,7 @@
 #include "r_utility.h"
 #include "p_blockmap.h"
 #include "p_3dmidtex.h"
+#include "events.h"
 #include "vm.h"
 #include "d_main.h"
 
@@ -2107,10 +2108,13 @@ int P_TestMobjZ(AActor *actor, bool quick, AActor **pOnmobj)
 	while (it.Next(&cres))
 	{
 		AActor *thing = cres.thing;
+		if (!quick && onmobj != NULL && thing->Top() < onmobj->Top())
+		{ // something higher is in the way
+			continue;
+		}
 
-		double blockdist = thing->radius + actor->radius;
-		if (fabs(thing->X() - cres.Position.X) >= blockdist || fabs(thing->Y() - cres.Position.Y) >= blockdist)
-		{
+		if (thing == actor)
+		{ // Don't clip against self.
 			continue;
 		}
 		if (thing->flags2 & MF2_THRUACTORS)
@@ -2121,19 +2125,24 @@ int P_TestMobjZ(AActor *actor, bool quick, AActor **pOnmobj)
 		{
 			continue;
 		}
-		if ((actor->flags6 & MF6_THRUSPECIES) && (thing->GetSpecies() == actor->GetSpecies()))
-		{
-			continue;
-		}
 		if (!(thing->flags & MF_SOLID))
 		{ // Can't hit thing
 			continue;
 		}
-		if (thing->flags & (MF_SPECIAL | MF_NOCLIP))
+		if ((thing->flags & (MF_SPECIAL | MF_NOCLIP)) || (thing->flags6 & MF6_TOUCHY))
 		{ // [RH] Specials and noclippers don't block moves
 			continue;
 		}
-		if (thing->flags & (MF_CORPSE))
+		const double blockdist = thing->radius + actor->radius;
+		if (fabs(thing->X() - cres.Position.X) >= blockdist || fabs(thing->Y() - cres.Position.Y) >= blockdist)
+		{
+			continue;
+		}
+		if ((actor->flags6 & MF6_THRUSPECIES) && thing->GetSpecies() == actor->GetSpecies())
+		{
+			continue;
+		}
+		if (thing->flags & MF_CORPSE)
 		{ // Corpses need a few more checks
 			if (!(actor->flags & MF_ICECORPSE))
 				continue;
@@ -2142,33 +2151,78 @@ int P_TestMobjZ(AActor *actor, bool quick, AActor **pOnmobj)
 		{ // [RH] Only bridges block pickup items
 			continue;
 		}
-		if (thing == actor)
-		{ // Don't clip against self
-			continue;
-		}
-		if ((actor->flags & MF_MISSILE) && (thing == actor->target))
-		{ // Don't clip against whoever shot the missile.
+		if (actor->player != nullptr && P_ShouldPassThroughPlayer(actor, thing))
+		{
 			continue;
 		}
 		if (actor->Z() > thing->Top())
 		{ // over thing
 			continue;
 		}
-		else if (actor->Top() <= thing->Z())
+		if (actor->Top() <= thing->Z())
 		{ // under thing
 			continue;
 		}
-		else if (!quick && onmobj != NULL && thing->Top() < onmobj->Top())
-		{ // something higher is in the way
-			continue;
-		}
-		else if (!P_CanCollideWith(actor, thing))
+		if (!P_CanCollideWith(actor, thing))
 		{ // If they cannot collide, they cannot block each other.
 			continue;
 		}
-		if (actor->player && P_ShouldPassThroughPlayer(actor, thing))
+		if ((actor->flags & MF_MISSILE) || ((actor->BounceFlags & BOUNCE_MBF) && !(actor->flags & MF_SOLID)))
 		{
-			continue;
+			if (thing->flags2 & MF2_NONSHOOTABLE)
+			{
+				continue;
+			}
+			if ((thing->flags3 & MF3_GHOST) && (actor->flags2 & MF2_THRUGHOST))
+			{
+				continue;
+			}
+			if ((thing->flags4 & MF4_SPECTRAL) && !(actor->flags4 & MF4_SPECTRAL))
+			{
+				continue;
+			}
+			if (actor->target != nullptr)
+			{
+				if ((actor->flags6 & MF6_MTHRUSPECIES) && actor->target->GetSpecies() == thing->GetSpecies())
+				{
+					continue;
+				}
+				if (actor->target == thing)
+				{
+					if (!(actor->flags8 & MF8_HITOWNER))
+					{
+						continue;
+					}
+				}
+				else if (actor->target->player != nullptr && P_ShouldPassThroughPlayer(actor->target, thing))
+				{
+					continue;
+				}
+			}
+			if ((thing->flags7 & MF7_THRUREFLECT) && (thing->flags2 & MF2_REFLECTIVE) && (actor->flags & MF_MISSILE))
+			{
+				continue;
+			}
+
+			double clipheight = thing->Height;
+			if (thing->projectilepassheight > 0)
+			{
+				clipheight = thing->projectilepassheight;
+			}
+			else if (thing->projectilepassheight < 0 && (thing->Level->i_compatflags & COMPATF_MISSILECLIP))
+			{
+				clipheight = -thing->projectilepassheight;
+			}
+			if (actor->Z() > thing->Z() + clipheight)
+			{ // Over thing
+				continue;
+			}
+			if ((actor->flags2 & MF2_RIP) && !(thing->flags5 & MF5_DONTRIP)
+				&& (!(actor->flags6 & MF6_NOBOSSRIP) || !(thing->flags2 & MF2_BOSS))
+				&& CheckRipLevel(thing, actor))
+			{
+				continue;
+			}
 		}
 
 		onmobj = thing;
@@ -4627,6 +4681,12 @@ AActor *P_LineAttack(AActor *t1, DAngle angle, double distance,
 	DAngle pitch, int damage, FName damageType, PClassActor *pufftype, int flags, FTranslatedLineTarget*victim, int *actualdamage, 
 	double sz, double offsetforward, double offsetside)
 {
+	if (t1->Level->localEventManager->WorldHitscanPreFired(t1, angle, distance, pitch, damage, damageType, pufftype, flags, sz, offsetforward, offsetside))
+	{
+		return nullptr;
+	}
+
+
 	bool nointeract = !!(flags & LAF_NOINTERACT);
 	DVector3 direction;
 	double shootz;
@@ -4640,6 +4700,7 @@ AActor *P_LineAttack(AActor *t1, DAngle angle, double distance,
 	bool spawnSky = false;
 	if (flags & LAF_NORANDOMPUFFZ)
 		puffFlags |= PF_NORANDOMZ;
+
 
 	if (victim != NULL)
 	{
@@ -4731,6 +4792,7 @@ AActor *P_LineAttack(AActor *t1, DAngle angle, double distance,
 	// LAF_ABSOFFSET: Ignore the angle.
 
 	DVector3 tempos;
+	DVector3 puffpos;
 
 	if (flags & LAF_ABSPOSITION)
 	{
@@ -4766,7 +4828,8 @@ AActor *P_LineAttack(AActor *t1, DAngle angle, double distance,
 
 		if (nointeract || (puffDefaults && puffDefaults->flags3 & MF3_ALWAYSPUFF))
 		{ // Spawn the puff anyway
-			puff = P_SpawnPuff(t1, pufftype, trace.HitPos, trace.SrcAngleFromTarget, trace.SrcAngleFromTarget, 2, puffFlags);
+			puffpos = trace.HitPos;
+			puff = P_SpawnPuff(t1, pufftype, puffpos, trace.SrcAngleFromTarget, trace.SrcAngleFromTarget, 2, puffFlags);
 
 			if (nointeract)
 			{
@@ -4796,7 +4859,8 @@ AActor *P_LineAttack(AActor *t1, DAngle angle, double distance,
 			if (nointeract || trace.HitType != TRACE_HitWall || ((trace.Line->special != Line_Horizon) || spawnSky))
 			{
 				DVector2 pos = t1->Level->GetPortalOffsetPosition(trace.HitPos.X, trace.HitPos.Y, -trace.HitVector.X * 4, -trace.HitVector.Y * 4);
-				puff = P_SpawnPuff(t1, pufftype, DVector3(pos, trace.HitPos.Z - trace.HitVector.Z * 4), trace.SrcAngleFromTarget,
+				puffpos = DVector3(pos, trace.HitPos.Z - trace.HitVector.Z * 4);
+				puff = P_SpawnPuff(t1, pufftype, puffpos, trace.SrcAngleFromTarget,
 					trace.SrcAngleFromTarget - DAngle::fromDeg(90), 0, puffFlags);
 				puff->radius = 1/65536.;
 
@@ -4843,6 +4907,7 @@ AActor *P_LineAttack(AActor *t1, DAngle angle, double distance,
 		{
 			// Hit a thing, so it could be either a puff or blood
 			DVector3 bleedpos = trace.HitPos;
+			puffpos = bleedpos;
 			// position a bit closer for puffs/blood if using compatibility mode.
 			if (trace.Actor->Level->i_compatflags & COMPATF_HITSCAN)
 			{
@@ -4935,6 +5000,9 @@ AActor *P_LineAttack(AActor *t1, DAngle angle, double distance,
 			SpawnDeepSplash(t1, trace, puff);
 		}
 	}
+
+	t1->Level->localEventManager->WorldHitscanFired(t1, tempos, puffpos, puff, flags);
+
 	if (killPuff && puff != NULL)
 	{
 		puff->Destroy();
@@ -5385,16 +5453,30 @@ static ETraceStatus ProcessRailHit(FTraceResults &res, void *userdata)
 //==========================================================================
 void P_RailAttack(FRailParams *p)
 {
-	DVector3 start;
-	FTraceResults trace;
+	AActor *source = p->source;
 
 	PClassActor *puffclass = p->puff;
 	if (puffclass == NULL)
 	{
 		puffclass = PClass::FindActor(NAME_BulletPuff);
 	}
+	assert(puffclass != NULL);		// Because we set it to a default above
+	AActor *puffDefaults = GetDefaultByType(puffclass->GetReplacement(source->Level)); //Contains all the flags such as FOILINVUL, etc.
+	FName damagetype = (puffDefaults == NULL || puffDefaults->DamageType == NAME_None) ? FName(NAME_Railgun) : puffDefaults->DamageType;
 
-	AActor *source = p->source;
+	int flags;
+
+	// disabled because not complete yet.
+	flags = (puffDefaults->flags6 & MF6_NOTRIGGER) ? TRACE_ReportPortals : TRACE_PCross | TRACE_Impact | TRACE_ReportPortals;
+
+	if (source->Level->localEventManager->WorldHitscanPreFired(source, source->Angles.Yaw + p->angleoffset, p->distance, source->Angles.Pitch + p->pitchoffset, p->damage, damagetype, puffclass, flags, p->offset_z, 0, p->offset_xy))
+	{
+		return;
+	}
+
+	DVector3 start;
+	FTraceResults trace;
+
 	DAngle pitch = source->Angles.Pitch + p->pitchoffset;
 	DAngle angle = source->Angles.Yaw + p->angleoffset;
 
@@ -5423,13 +5505,6 @@ void P_RailAttack(FRailParams *p)
 	start.Y = xy.Y;
 	start.Z = shootz;
 
-	int flags;
-
-	assert(puffclass != NULL);		// Because we set it to a default above
-	AActor *puffDefaults = GetDefaultByType(puffclass->GetReplacement(source->Level)); //Contains all the flags such as FOILINVUL, etc.
-
-	// disabled because not complete yet.
-	flags = (puffDefaults->flags6 & MF6_NOTRIGGER) ? TRACE_ReportPortals : TRACE_PCross | TRACE_Impact | TRACE_ReportPortals;
 	rail_data.StopAtInvul = (puffDefaults->flags3 & MF3_FOILINVUL) ? false : true;
 	rail_data.MThruSpecies = ((puffDefaults->flags6 & MF6_MTHRUSPECIES)) ? true : false;
 	
@@ -5466,8 +5541,7 @@ void P_RailAttack(FRailParams *p)
 
 	// Hurt anything the trace hit
 	unsigned int i;
-	FName damagetype = (puffDefaults == NULL || puffDefaults->DamageType == NAME_None) ? FName(NAME_Railgun) : puffDefaults->DamageType;
-
+	
 	for (i = 0; i < rail_data.RailHits.Size(); i++)
 	{
 		bool spawnpuff;
@@ -5555,6 +5629,9 @@ void P_RailAttack(FRailParams *p)
 			}
 		}
 	}
+
+	source->Level->localEventManager->WorldHitscanFired(source, start, trace.HitPos, thepuff, flags);
+
 	if (thepuff != NULL)
 	{
 		if (trace.Crossed3DWater || trace.CrossedWater)
