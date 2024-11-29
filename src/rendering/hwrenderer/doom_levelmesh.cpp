@@ -2195,7 +2195,7 @@ FString DoomLevelMesh::GetMapFilename(FLevelLocals& doomMap)
 
 	FString fmt;
 	fmt.Format("maps/%s.wad", mapname);
-	int lump_wad = fileSystem.CheckNumForFullName(fmt.GetChars());
+	int lump_wad = fileSystem.FindFile(fmt.GetChars());
 	if (lump_wad == -1)
 	{
 		I_Error("Could not find map lump");
@@ -2209,8 +2209,8 @@ FString DoomLevelMesh::GetMapFilename(FLevelLocals& doomMap)
 		return {};
 	}
 
-	FString filename = fileSystem.GetFileFullName(lump_wad);
-	FString folder = fileSystem.GetResourceFileFullName(wadnum);
+	FString filename = fileSystem.GetFileName(lump_wad);
+	FString folder = fileSystem.GetContainerFullName(wadnum);
 	FString fullpath = folder + filename;
 	return fullpath;
 }

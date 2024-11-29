@@ -720,7 +720,7 @@ void FStartScreen::Render(bool force)
 void FStartScreen::AddImage(const char* name, std::function<void(FGameTexture* texture)> renderImage)
 {
 	// at this point we do not have a working texture manager yet, so we have to do the lookup via the file system
-	int lump = fileSystem.CheckNumForName(name, FileSys::ns_graphics);
+	int lump = fileSystem.CheckNumForName(name, ns_graphics);
 	if (lump != -1)
 	{
 		auto iBackground = FImageSource::GetImage(lump, false);
