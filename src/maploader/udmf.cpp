@@ -2561,7 +2561,7 @@ public:
 		isExtended = false;
 		floordrop = false;
 
-		sc.OpenMem(fileSystem.GetFileFullName(map->lumpnum), map->Read(ML_TEXTMAP));
+		sc.OpenMem(fileSystem.GetFileName(map->lumpnum), map->Read(ML_TEXTMAP));
 		sc.SetCMode(true);
 		if (sc.CheckString("namespace"))
 		{

@@ -134,7 +134,7 @@ static void ParseVavoomSkybox()
 				sc.MustGetStringName("map");
 				sc.MustGetString();
 
-				maplump = fileSystem.CheckNumForFullName(sc.String, true);
+				maplump = fileSystem.CheckNumForAnyName(sc.String);
 
 				auto tex = TexMan.FindGameTexture(sc.String, ETextureType::Wall, FTextureManager::TEXMAN_TryAny);
 				if (tex == NULL)
@@ -1251,7 +1251,7 @@ class GLDefsParser
 
 			if (lumpnum != -1)
 			{
-				if (iwad && fileSystem.GetFileContainer(lumpnum) <= fileSystem.GetMaxIwadNum()) useme = true;
+				if (iwad && fileSystem.GetFileContainer(lumpnum) <= fileSystem.GetMaxBaseNum()) useme = true;
 				if (thiswad && fileSystem.GetFileContainer(lumpnum) == fileSystem.GetFileContainer(workingLump)) useme = true;
 			}
 			if (!useme) return;
@@ -1483,7 +1483,7 @@ class GLDefsParser
 
 			if (lumpnum != -1)
 			{
-				if (iwad && fileSystem.GetFileContainer(lumpnum) <= fileSystem.GetMaxIwadNum()) useme = true;
+				if (iwad && fileSystem.GetFileContainer(lumpnum) <= fileSystem.GetMaxBaseNum()) useme = true;
 				if (thiswad && fileSystem.GetFileContainer(lumpnum) == fileSystem.GetFileContainer(workingLump)) useme = true;
 			}
 			if (!useme) return;
@@ -1993,7 +1993,7 @@ public:
 				{
 					sc.MustGetString();
 					// This is not using sc.Open because it can print a more useful error message when done here
-					lump = fileSystem.CheckNumForFullName(sc.String, true);
+					lump = fileSystem.CheckNumForAnyName(sc.String);
 					if (lump==-1)
 						sc.ScriptError("Lump '%s' not found", sc.String);
 
