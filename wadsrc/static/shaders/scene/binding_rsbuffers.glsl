@@ -1,6 +1,6 @@
 
 // This must match the HWViewpointUniforms struct
-layout(set = 1, binding = 0, std140) uniform ViewpointUBO
+layout(set = 1, binding = 0, std140) uniform readonly ViewpointUBO
 {
 	mat4 ProjectionMatrix;
 	mat4 ViewMatrix;
@@ -21,7 +21,7 @@ layout(set = 1, binding = 0, std140) uniform ViewpointUBO
 	int uLightTilesWidth;	// Levelmesh light tiles
 };
 
-layout(set = 1, binding = 1, std140) uniform MatricesUBO
+layout(set = 1, binding = 1, std140) uniform readonly MatricesUBO
 {
 	mat4 ModelMatrix;
 	mat4 NormalModelMatrix;
@@ -93,52 +93,52 @@ struct Fogball
 
 #ifdef USE_LEVELMESH
 
-layout(set = 1, binding = 2, std430) buffer SurfaceUniformsSSO
+layout(set = 1, binding = 2, std430) buffer readonly SurfaceUniformsSSO
 {
 	SurfaceUniforms data[];
 };
 
-layout(set = 1, binding = 3, std430) buffer SurfaceLightUniformsSSO
+layout(set = 1, binding = 3, std430) buffer readonly SurfaceLightUniformsSSO
 {
 	SurfaceLightUniforms lightdata[];
 };
 
-layout(set = 1, binding = 4, std430) buffer LightBufferSSO
+layout(set = 1, binding = 4, std430) buffer readonly LightBufferSSO
 {
 	vec4 lights[];
 };
 
-layout(set = 1, binding = 5, std140) uniform FogballBufferUBO
+layout(set = 1, binding = 5, std140) uniform readonly FogballBufferUBO
 {
 	Fogball fogballs[MAX_FOGBALL_DATA];
 };
 
 // bone matrix buffers
-layout(set = 1, binding = 6, std430) buffer BoneBufferSSO
+layout(set = 1, binding = 6, std430) buffer readonly BoneBufferSSO
 {
 	mat4 bones[];
 };
 
 #else
 
-layout(set = 1, binding = 2, std140) uniform SurfaceUniformsUBO
+layout(set = 1, binding = 2, std140) uniform readonly SurfaceUniformsUBO
 {
 	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
 };
 
 // light buffers
-layout(set = 1, binding = 3, std140) uniform LightBufferUBO
+layout(set = 1, binding = 3, std140) uniform readonly LightBufferUBO
 {
 	vec4 lights[MAX_LIGHT_DATA];
 };
 
-layout(set = 1, binding = 4, std140) uniform FogballBufferUBO
+layout(set = 1, binding = 4, std140) uniform readonly FogballBufferUBO
 {
 	Fogball fogballs[MAX_FOGBALL_DATA];
 };
 
 // bone matrix buffers
-layout(set = 1, binding = 5, std430) buffer BoneBufferSSO
+layout(set = 1, binding = 5, std430) buffer readonly BoneBufferSSO
 {
 	mat4 bones[];
 };

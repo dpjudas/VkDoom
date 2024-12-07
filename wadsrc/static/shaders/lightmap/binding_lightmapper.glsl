@@ -1,5 +1,5 @@
 
-layout(set = 0, binding = 0) uniform Uniforms
+layout(set = 0, binding = 0) uniform readonly Uniforms
 {
 	vec3 SunDir;
 	float Padding1;
@@ -42,11 +42,11 @@ struct LightInfo
 	float Padding3;
 };
 
-layout(set = 0, binding = 1) buffer SurfaceIndexBuffer { uint surfaceIndices[]; };
-layout(set = 0, binding = 2) buffer SurfaceBuffer { SurfaceInfo surfaces[]; };
-layout(set = 0, binding = 3) buffer LightBuffer { LightInfo lights[]; };
-layout(set = 0, binding = 4) buffer LightIndexBuffer { int lightIndexes[]; };
-layout(set = 0, binding = 5) buffer PortalBuffer { PortalInfo portals[]; };
+layout(set = 0, binding = 1) buffer readonly SurfaceIndexBuffer { uint surfaceIndices[]; };
+layout(set = 0, binding = 2) buffer readonly SurfaceBuffer { SurfaceInfo surfaces[]; };
+layout(set = 0, binding = 3) buffer readonly LightBuffer { LightInfo lights[]; };
+layout(set = 0, binding = 4) buffer readonly LightIndexBuffer { int lightIndexes[]; };
+layout(set = 0, binding = 5) buffer readonly PortalBuffer { PortalInfo portals[]; };
 
 struct LightmapRaytracePC
 {
@@ -66,4 +66,4 @@ struct LightmapRaytracePC
 	float TileHeight;
 };
 
-layout(std430, set = 0, binding = 6) buffer ConstantsBuffer { LightmapRaytracePC constants[]; };
+layout(std430, set = 0, binding = 6) buffer readonly ConstantsBuffer { LightmapRaytracePC constants[]; };

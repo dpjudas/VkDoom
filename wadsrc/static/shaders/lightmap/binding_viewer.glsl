@@ -34,11 +34,11 @@ struct LightInfo
 	float Padding3;
 };
 
-layout(set = 0, binding = 0, std430) buffer SurfaceIndexBuffer { uint surfaceIndices[]; };
-layout(set = 0, binding = 1, std430) buffer SurfaceBuffer { SurfaceInfo surfaces[]; };
-layout(set = 0, binding = 2, std430) buffer LightBuffer { LightInfo lights[]; };
-layout(set = 0, binding = 3, std430) buffer LightIndexBuffer { int lightIndexes[]; };
-layout(set = 0, binding = 4, std430) buffer PortalBuffer { PortalInfo portals[]; };
+layout(set = 0, binding = 0, std430) buffer readonly SurfaceIndexBuffer { uint surfaceIndices[]; };
+layout(set = 0, binding = 1, std430) buffer readonly SurfaceBuffer { SurfaceInfo surfaces[]; };
+layout(set = 0, binding = 2, std430) buffer readonly LightBuffer { LightInfo lights[]; };
+layout(set = 0, binding = 3, std430) buffer readonly LightIndexBuffer { int lightIndexes[]; };
+layout(set = 0, binding = 4, std430) buffer readonly PortalBuffer { PortalInfo portals[]; };
 
 #if defined(USE_RAYQUERY)
 
@@ -58,7 +58,7 @@ struct CollisionNode
 	int padding3;
 };
 
-layout(set = 0, binding = 5, std430) buffer NodeBuffer
+layout(set = 0, binding = 5, std430) buffer readonly NodeBuffer
 {
 	int nodesRoot;
 	int nodebufferPadding1;
@@ -77,8 +77,8 @@ struct SurfaceVertex // Note: this must always match the FFlatVertex struct
 	vec2 luv;
 };
 
-layout(set = 0, binding = 6, std430) buffer VertexBuffer { SurfaceVertex vertices[]; };
-layout(set = 0, binding = 7, std430) buffer ElementBuffer { int elements[]; };
+layout(set = 0, binding = 6, std430) buffer readonly VertexBuffer { SurfaceVertex vertices[]; };
+layout(set = 0, binding = 7, std430) buffer readonly ElementBuffer { int elements[]; };
 
 layout(set = 1, binding = 0) uniform sampler2D textures[];
 
