@@ -17,7 +17,7 @@ struct CollisionNode
 	int padding3;
 };
 
-layout(std430, set = 1, binding = 0) buffer NodeBuffer
+layout(std430, set = 1, binding = 0) buffer readonly NodeBuffer
 {
 	int nodesRoot;
 	int nodebufferPadding1;
@@ -36,5 +36,5 @@ struct SurfaceVertex // Note: this must always match the FFlatVertex struct
 	vec2 luv;
 };
 
-layout(std430, set = 1, binding = 1) buffer VertexBuffer { SurfaceVertex vertices[]; };
-layout(std430, set = 1, binding = 2) buffer ElementBuffer { int elements[]; };
+layout(std430, set = 1, binding = 1) buffer readonly VertexBuffer { SurfaceVertex vertices[]; };
+layout(std430, set = 1, binding = 2) buffer readonly ElementBuffer { int elements[]; };
