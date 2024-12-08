@@ -268,7 +268,7 @@ void VkLevelMesh::CreateBuffers()
 		.Create(fb->GetDevice());
 
 	NodeBuffer = BufferBuilder()
-		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 		.Size(sizeof(CollisionNodeBufferHeader) + Mesh->Mesh.Nodes.Size() * sizeof(CollisionNode))
 		.DebugName("NodeBuffer")
 		.Create(fb->GetDevice());
@@ -708,6 +708,32 @@ void VkLevelMeshUploader::Upload()
 	{
 		ClearRanges();
 		return;
+	}
+
+	// Resize node buffer if too small
+	size_t neededNodeBufferSize = sizeof(CollisionNodeBufferHeader) + Mesh->Mesh->Mesh.Nodes.Size() * sizeof(CollisionNode);
+	if (!Mesh->NodeBuffer || Mesh->NodeBuffer->size < neededNodeBufferSize)
+	{
+		auto oldBuffer = std::move(Mesh->NodeBuffer);
+
+		Mesh->NodeBuffer = BufferBuilder()
+			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+			.Size(neededNodeBufferSize * 2)
+			.DebugName("NodeBuffer")
+			.Create(Mesh->fb->GetDevice());
+
+		if (oldBuffer)
+		{
+			VulkanCommandBuffer* cmdbuffer = Mesh->fb->GetCommands()->GetTransferCommands();
+			cmdbuffer->copyBuffer(oldBuffer.get(), Mesh->NodeBuffer.get(), 0, 0, oldBuffer->size);
+
+			// Make sure the buffer copy completes before updating the range changes
+			PipelineBarrier()
+				.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT)
+				.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+			Mesh->fb->GetCommands()->TransferDeleteList->Add(std::move(oldBuffer));
+		}
 	}
 
 	BeginTransfer(transferBufferSize);
