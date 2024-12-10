@@ -257,6 +257,14 @@ int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector3* 
 	}
 	median /= (float)numInstances;
 
+	// For numerical stability
+	min.X -= 0.1f;
+	min.Y -= 0.1f;
+	min.Z -= 0.1f;
+	max.X += 0.1f;
+	max.Y += 0.1f;
+	max.Z += 0.1f;
+
 	if (numInstances == 1) // Leaf node
 	{
 		TLAS.Nodes.push_back(Node(min, max, instances[0]));
