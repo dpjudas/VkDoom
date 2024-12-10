@@ -561,6 +561,14 @@ int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, cons
 	}
 	median /= (float)num_triangles;
 
+	// For numerical stability
+	min.X -= 0.1f;
+	min.Y -= 0.1f;
+	min.Z -= 0.1f;
+	max.X += 0.1f;
+	max.Y += 0.1f;
+	max.Z += 0.1f;
+
 	if (num_triangles == 1) // Leaf node
 	{
 		nodes.push_back(Node(min, max, triangles[0] * 3));
