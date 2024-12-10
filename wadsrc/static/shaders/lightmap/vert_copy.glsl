@@ -15,7 +15,7 @@ struct TileCopy
 	int Padding1, Padding2;
 };
 
-layout(std430, set = 0, binding = 1) buffer CopyBuffer
+layout(std430, set = 0, binding = 1) buffer readonly CopyBuffer
 {
 	TileCopy tiles[];
 };
