@@ -974,12 +974,12 @@ public:
 		return planes[pos].Texture;
 	}
 
-	void SetTexture(int pos, FTextureID tex, bool floorclip = true)
+	void SetTexture(int pos, FTextureID tex, bool floorclip = true, bool realSector = true)
 	{
 		FTextureID old = planes[pos].Texture;
 		planes[pos].Texture = tex;
 		if (floorclip && pos == floor && tex != old) AdjustFloorClip();
-		if (tex != old)
+		if (tex != old && realSector)
 		{
 			if(pos)
 			{
