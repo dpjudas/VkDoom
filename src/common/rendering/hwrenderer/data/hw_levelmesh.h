@@ -238,6 +238,8 @@ inline GeometryAllocInfo LevelMesh::AllocGeometry(int vertexCount, int indexCoun
 	AddRange(UploadRanges.SurfaceIndex, { info.IndexStart / 3, (info.IndexStart + info.IndexCount) / 3 });
 
 	Mesh.IndexCount = std::max(Mesh.IndexCount, info.IndexStart + info.IndexCount);
+	if (Mesh.IndexCount > 400000)
+		Mesh.IndexCount++;
 
 	return info;
 }
@@ -407,19 +409,20 @@ inline void LevelMesh::RemoveRange(TArray<MeshBufferRange>& ranges, MeshBufferRa
 
 inline int LevelMesh::RemoveRange(TArray<MeshBufferRange>& ranges, int count)
 {
-	for (unsigned int i = ranges.Size(); i > 0; i--)
+	for (unsigned int i = 0, size = ranges.Size(); i < size; i++)
 	{
-		auto& item = ranges[i - 1];
+		auto& item = ranges[i];
 		if (item.End - item.Start >= count)
 		{
 			int pos = item.Start;
 			item.Start += count;
 			if (item.Start == item.End)
 			{
-				ranges.Delete(i - 1);
+				ranges.Delete(i);
 			}
 			return pos;
 		}
 	}
+
 	I_FatalError("Could not find space in level mesh buffer");
 }
