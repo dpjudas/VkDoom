@@ -221,7 +221,7 @@ void CPUAccelStruct::CreateTLAS()
 	for (int i = 0; i < InstanceCount; i++)
 	{
 		Scratch.leafs.push_back(i);
-		Scratch.centroids.push_back(DynamicBLAS[i]->GetBBox().Center);
+		Scratch.centroids.push_back(FVector4(DynamicBLAS[i]->GetBBox().Center, 1.0f));
 	}
 
 	size_t neededbuffersize = InstanceCount * 2;
@@ -232,13 +232,13 @@ void CPUAccelStruct::CreateTLAS()
 	TLAS.Root = Subdivide(Scratch.leafs.data(), (int)Scratch.leafs.size(), Scratch.centroids.data(), Scratch.workbuffer.data());
 }
 
-int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector3* centroids, int* workBuffer)
+int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector4* centroids, int* workBuffer)
 {
 	if (numInstances == 0)
 		return -1;
 
 	// Find bounding box and median of the instance centroids
-	FVector3 median;
+	FVector3 median(0.0f, 0.0f, 0.0f);
 	FVector3 min = DynamicBLAS[instances[0]]->GetBBox().min;
 	FVector3 max = DynamicBLAS[instances[0]]->GetBBox().max;
 	for (int i = 0; i < numInstances; i++)
@@ -253,9 +253,17 @@ int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector3* 
 		max.Y = std::max(max.Y, bbox.max.Y);
 		max.Z = std::max(max.Z, bbox.max.Z);
 
-		median += centroids[instances[i]];
+		median += centroids[instances[i]].XYZ();
 	}
 	median /= (float)numInstances;
+
+	// For numerical stability
+	min.X -= 0.1f;
+	min.Y -= 0.1f;
+	min.Z -= 0.1f;
+	max.X += 0.1f;
+	max.Y += 0.1f;
+	max.Z += 0.1f;
 
 	if (numInstances == 1) // Leaf node
 	{
@@ -296,7 +304,7 @@ int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector3* 
 		{
 			int instance = instances[i];
 
-			float side = (FVector4(centroids[instance], 1.0f) | plane);
+			float side = centroids[instance] | plane;
 			if (side >= 0.0f)
 			{
 				workBuffer[left_count] = instance;
@@ -359,14 +367,14 @@ CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices
 
 		int element_index = i * 3;
 		FVector3 centroid = (vertices[elements[element_index + 0]].fPos() + vertices[elements[element_index + 1]].fPos() + vertices[elements[element_index + 2]].fPos()) * (1.0f / 3.0f);
-		scratch.centroids.push_back(centroid);
+		scratch.centroids.push_back(FVector4(centroid, 1.0f));
 	}
 
 	size_t neededbuffersize = num_triangles * 2;
 	if (scratch.workbuffer.size() < neededbuffersize)
 		scratch.workbuffer.resize(neededbuffersize);
 
-	root = Subdivide(&scratch.leafs[0], (int)scratch.leafs.size(), &scratch.centroids[0], scratch.workbuffer.data());
+	root = Subdivide(&scratch.leafs[0], (int)scratch.leafs.size(), scratch.centroids.data(), scratch.workbuffer.data());
 }
 
 TraceHit CPUBottomLevelAccelStruct::FindFirstHit(const FVector3 &ray_start, const FVector3 &ray_end)
@@ -531,13 +539,204 @@ float CPUBottomLevelAccelStruct::GetBalancedDepth() const
 	return std::log2((float)(num_elements / 3));
 }
 
-int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, const FVector3 *centroids, int *work_buffer)
+int CPUBottomLevelAccelStruct::SubdivideLeaf(int* triangles, int num_triangles)
 {
 	if (num_triangles == 0)
 		return -1;
 
+	int element_index = triangles[0] * 3;
+
+	FVector3 min = vertices[elements[element_index]].fPos();
+	FVector3 max = min;
+
+	for (int j = 1; j < 3; j++)
+	{
+		const FVector3& vertex = vertices[elements[element_index + j]].fPos();
+
+		min.X = std::min(min.X, vertex.X);
+		min.Y = std::min(min.Y, vertex.Y);
+		min.Z = std::min(min.Z, vertex.Z);
+
+		max.X = std::max(max.X, vertex.X);
+		max.Y = std::max(max.Y, vertex.Y);
+		max.Z = std::max(max.Z, vertex.Z);
+	}
+
+	FVector3 margin(0.1f, 0.1f, 0.1f);
+	nodes.push_back(Node(min - margin, max + margin, element_index));
+	return (int)nodes.size() - 1;
+}
+
+// Sadly, this seems to be slower than what the compiler generated :(
+#if 0 // #ifndef NO_SSE
+
+static const FVector3 axes[3] = { FVector3(-1.0f, 0.0f, 0.0f), FVector3(0.0f, -1.0f, 0.0f), FVector3(0.0f, 0.0f, -1.0f) };
+
+int CPUBottomLevelAccelStruct::Subdivide(int* triangles, int num_triangles, const FVector4* centroids, int* work_buffer)
+{
+	if (num_triangles <= 1)
+		return SubdivideLeaf(triangles, num_triangles);
+
+	// Let the compiler optimize these into registers
+	const FFlatVertex* vertices = this->vertices;
+	const unsigned int* elements = this->elements;
+
 	// Find bounding box and median of the triangle centroids
-	FVector3 median;
+	__m128 mmedian = _mm_setzero_ps();
+	__m128 mmin = _mm_loadu_ps(reinterpret_cast<const float*>(&vertices[elements[triangles[0] * 3]]));
+	__m128 mmax = mmin;
+	for (int i = 0; i < num_triangles; i++)
+	{
+		int v = triangles[i];
+		int element_index = v + v + v; // triangles[i] * 3
+		for (int j = 0; j < 3; j++)
+		{
+			__m128 vertex = _mm_loadu_ps(reinterpret_cast<const float*>(&vertices[elements[element_index + j]]));
+			mmin = _mm_min_ps(mmin, vertex);
+			mmax = _mm_max_ps(mmax, vertex);
+		}
+
+		mmedian = _mm_add_ps(mmedian, _mm_loadu_ps(reinterpret_cast<const float*>(&centroids[triangles[i]])));
+	}
+	mmedian = _mm_div_ps(mmedian, _mm_set1_ps((float)num_triangles));
+
+	// For numerical stability
+	mmin = _mm_sub_ps(mmin, _mm_set1_ps(0.1f));
+	mmax = _mm_add_ps(mmax, _mm_set1_ps(0.1f));
+
+	// FFlatVertex got Y and Z swapped
+	mmin = _mm_shuffle_ps(mmin, mmin, _MM_SHUFFLE(3, 1, 2, 0));
+	mmax = _mm_shuffle_ps(mmax, mmax, _MM_SHUFFLE(3, 1, 2, 0));
+
+	float min[4], max[4], median[4], axis_lengths[4];
+	_mm_store_ps(min, mmin);
+	_mm_store_ps(max, mmax);
+	_mm_store_ps(median, mmedian);
+	_mm_store_ps(axis_lengths, _mm_sub_ps(mmax, mmin));
+
+	// Find the longest axis
+#if 0
+	int axis_order[3] = { 0, 1, 2 };
+	std::sort(axis_order, axis_order + 3, [&](int a, int b) { return axis_lengths[a] > axis_lengths[b]; });
+#else
+	int axis_order[3];
+	if (axis_lengths[0] >= axis_lengths[1] && axis_lengths[0] >= axis_lengths[2])
+	{
+		axis_order[0] = 0;
+		if (axis_lengths[1] >= axis_lengths[2])
+		{
+			axis_order[1] = 1;
+			axis_order[2] = 2;
+		}
+		else
+		{
+			axis_order[1] = 2;
+			axis_order[2] = 1;
+		}
+	}
+	else if (axis_lengths[1] >= axis_lengths[0] && axis_lengths[1] >= axis_lengths[2])
+	{
+		axis_order[0] = 1;
+		if (axis_lengths[0] >= axis_lengths[2])
+		{
+			axis_order[1] = 0;
+			axis_order[2] = 2;
+		}
+		else
+		{
+			axis_order[1] = 2;
+			axis_order[2] = 0;
+		}
+	}
+	else
+	{
+		axis_order[0] = 2;
+		if (axis_lengths[0] >= axis_lengths[1])
+		{
+			axis_order[1] = 0;
+			axis_order[2] = 1;
+		}
+		else
+		{
+			axis_order[1] = 1;
+			axis_order[2] = 0;
+		}
+	}
+#endif
+
+	// Try split at longest axis, then if that fails the next longest, and then the remaining one
+	int left_count, right_count;
+	for (int attempt = 0; attempt < 3; attempt++)
+	{
+		// Find the split plane for axis
+		const FVector3& axis = axes[axis_order[attempt]];
+		FVector4 plane(axis, median[0] * axis.X + median[1] * axis.Y + median[2] * axis.Z); // plane(axis, -dot(median, axis));
+
+		// Split triangles into two
+		left_count = 0;
+		right_count = 0;
+		for (int i = 0; i < num_triangles; i++)
+		{
+			int triangle = triangles[i];
+			int element_index = triangle * 3;
+
+			float side = centroids[triangles[i]] | plane; // dot(FVector4(centroids[triangles[i]], 1.0f), plane);
+			if (side >= 0.0f)
+			{
+				work_buffer[left_count] = triangle;
+				left_count++;
+			}
+			else
+			{
+				work_buffer[num_triangles + right_count] = triangle;
+				right_count++;
+			}
+		}
+
+		if (left_count != 0 && right_count != 0)
+			break;
+	}
+
+	// Check if something went wrong when splitting and do a random split instead
+	if (left_count == 0 || right_count == 0)
+	{
+		left_count = num_triangles / 2;
+		right_count = num_triangles - left_count;
+	}
+	else
+	{
+		// Move result back into triangles list:
+		for (int i = 0; i < left_count; i++)
+			triangles[i] = work_buffer[i];
+		for (int i = 0; i < right_count; i++)
+			triangles[i + left_count] = work_buffer[num_triangles + i];
+	}
+
+	// Create child nodes:
+	int left_index = -1;
+	int right_index = -1;
+	if (left_count > 0)
+		left_index = Subdivide(triangles, left_count, centroids, work_buffer);
+	if (right_count > 0)
+		right_index = Subdivide(triangles + left_count, right_count, centroids, work_buffer);
+
+	nodes.push_back(Node(FVector3(min[0], min[1], min[2]), FVector3(max[0], max[1], max[2]), left_index, right_index));
+	return (int)nodes.size() - 1;
+}
+
+#else
+
+int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, const FVector4 *centroids, int *work_buffer)
+{
+	if (num_triangles <= 1)
+		return SubdivideLeaf(triangles, num_triangles);
+
+	// Let the compiler optimize these into registers
+	const FFlatVertex* vertices = this->vertices;
+	const unsigned int* elements = this->elements;
+
+	// Find bounding box and median of the triangle centroids
+	FVector3 median(0.0f, 0.0f, 0.0f);
 	FVector3 min, max;
 	min = vertices[elements[triangles[0] * 3]].fPos();
 	max = min;
@@ -557,15 +756,17 @@ int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, cons
 			max.Z = std::max(max.Z, vertex.Z);
 		}
 
-		median += centroids[triangles[i]];
+		median += centroids[triangles[i]].XYZ();
 	}
 	median /= (float)num_triangles;
 
-	if (num_triangles == 1) // Leaf node
-	{
-		nodes.push_back(Node(min, max, triangles[0] * 3));
-		return (int)nodes.size() - 1;
-	}
+	// For numerical stability
+	min.X -= 0.1f;
+	min.Y -= 0.1f;
+	min.Z -= 0.1f;
+	max.X += 0.1f;
+	max.Y += 0.1f;
+	max.Z += 0.1f;
 
 	// Find the longest axis
 	float axis_lengths[3] =
@@ -575,8 +776,54 @@ int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, cons
 		max.Z - min.Z
 	};
 
+#if 0
 	int axis_order[3] = { 0, 1, 2 };
 	std::sort(axis_order, axis_order + 3, [&](int a, int b) { return axis_lengths[a] > axis_lengths[b]; });
+#else
+	int axis_order[3];
+	if (axis_lengths[0] >= axis_lengths[1] && axis_lengths[0] >= axis_lengths[2])
+	{
+		axis_order[0] = 0;
+		if (axis_lengths[1] >= axis_lengths[2])
+		{
+			axis_order[1] = 1;
+			axis_order[2] = 2;
+		}
+		else
+		{
+			axis_order[1] = 2;
+			axis_order[2] = 1;
+		}
+	}
+	else if (axis_lengths[1] >= axis_lengths[0] && axis_lengths[1] >= axis_lengths[2])
+	{
+		axis_order[0] = 1;
+		if (axis_lengths[0] >= axis_lengths[2])
+		{
+			axis_order[1] = 0;
+			axis_order[2] = 2;
+		}
+		else
+		{
+			axis_order[1] = 2;
+			axis_order[2] = 0;
+		}
+	}
+	else
+	{
+		axis_order[0] = 2;
+		if (axis_lengths[0] >= axis_lengths[1])
+		{
+			axis_order[1] = 0;
+			axis_order[2] = 1;
+		}
+		else
+		{
+			axis_order[1] = 1;
+			axis_order[2] = 0;
+		}
+	}
+#endif
 
 	// Try split at longest axis, then if that fails the next longest, and then the remaining one
 	int left_count, right_count;
@@ -601,7 +848,7 @@ int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, cons
 			int triangle = triangles[i];
 			int element_index = triangle * 3;
 
-			float side = (FVector4(centroids[triangles[i]], 1.0f) | plane); // dot(FVector4(centroids[triangles[i]], 1.0f), plane);
+			float side = centroids[triangles[i]] | plane; // dot(FVector4(centroids[triangles[i]], 1.0f), plane);
 			if (side >= 0.0f)
 			{
 				work_buffer[left_count] = triangle;
@@ -644,6 +891,8 @@ int CPUBottomLevelAccelStruct::Subdivide(int *triangles, int num_triangles, cons
 	nodes.push_back(Node(min, max, left_index, right_index));
 	return (int)nodes.size() - 1;
 }
+
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 

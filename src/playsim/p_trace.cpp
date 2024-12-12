@@ -334,7 +334,7 @@ void FTraceInfo::Setup3DFloors()
 					if (bf < ff_top)
 					{
 						CurSector->floorplane = *rover->top.plane;
-						CurSector->SetTexture(sector_t::floor, *rover->top.texture, false);
+						CurSector->SetTexture(sector_t::floor, *rover->top.texture, false, false);
 						CurSector->ClearPortal(sector_t::floor);
 						bf = ff_top;
 					}
@@ -345,7 +345,7 @@ void FTraceInfo::Setup3DFloors()
 					if (bc > ff_bottom)
 					{
 						CurSector->ceilingplane = *rover->bottom.plane;
-						CurSector->SetTexture(sector_t::ceiling, *rover->bottom.texture, false);
+						CurSector->SetTexture(sector_t::ceiling, *rover->bottom.texture, false, false);
 						bc = ff_bottom;
 						CurSector->ClearPortal(sector_t::ceiling);
 					}
@@ -528,7 +528,7 @@ bool FTraceInfo::LineCheck(intercept_t *in, double dist, DVector3 hit, bool spec
 						{
 							setFloor = true;
 							entersector->floorplane = *rover->top.plane;
-							entersector->SetTexture(sector_t::floor, *rover->top.texture, false);
+							entersector->SetTexture(sector_t::floor, *rover->top.texture, false, false);
 							entersector->ClearPortal(sector_t::floor);
 							bf = ff_top;
 						}
@@ -551,7 +551,7 @@ bool FTraceInfo::LineCheck(intercept_t *in, double dist, DVector3 hit, bool spec
 						{
 							setCeiling = true;
 							entersector->ceilingplane = *rover->bottom.plane;
-							entersector->SetTexture(sector_t::ceiling, *rover->bottom.texture, false);
+							entersector->SetTexture(sector_t::ceiling, *rover->bottom.texture, false, false);
 							entersector->ClearPortal(sector_t::ceiling);
 							bc = ff_bottom;
 						}
