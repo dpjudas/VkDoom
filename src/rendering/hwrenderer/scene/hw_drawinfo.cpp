@@ -687,15 +687,30 @@ void HWDrawInfo::UpdateLightmaps()
 {
 	if (!outer && VisibleTiles.Size() < unsigned(lm_background_updates))
 	{
+		int unbaked = 0;
+		int dynamic = 0;
+
 		for (auto& e : level.levelMesh->Lightmap.Tiles)
 		{
 			if (e.NeedsUpdate)
 			{
+				if(e.AlwaysUpdate == 0) unbaked++;
+				if(e.AlwaysUpdate != 0) dynamic++;
+
 				VisibleTiles.Push(&e);
 
-				if (VisibleTiles.Size() >= unsigned(lm_background_updates))
-					break;
+				if((!dynamic && (VisibleTiles.Size() >= unsigned(lm_background_updates))) || unbaked >= unsigned(lm_background_updates)) break;
 			}
+		}
+
+		if(unbaked && dynamic)
+		{
+			std::sort(VisibleTiles.begin(), VisibleTiles.end(), [](LightmapTile *a, LightmapTile *b){return (!!a->AlwaysUpdate) < (!!b->AlwaysUpdate);});
+		}
+
+		if(VisibleTiles.Size() > unsigned(lm_background_updates))
+		{
+			VisibleTiles.Resize(lm_background_updates);
 		}
 	}
 	screen->UpdateLightmaps(VisibleTiles);
