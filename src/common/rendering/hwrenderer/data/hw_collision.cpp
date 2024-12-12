@@ -568,7 +568,8 @@ int CPUBottomLevelAccelStruct::SubdivideLeaf(int* triangles, int num_triangles)
 }
 
 // Sadly, this seems to be slower than what the compiler generated :(
-#if 0 // #ifndef NO_SSE
+// Use it in debug mode anyway as its time critical and faster there
+#if !defined(NO_SSE) && defined(_DEBUG)
 
 static const FVector3 axes[3] = { FVector3(-1.0f, 0.0f, 0.0f), FVector3(0.0f, -1.0f, 0.0f), FVector3(0.0f, 0.0f, -1.0f) };
 
