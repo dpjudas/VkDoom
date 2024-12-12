@@ -2065,7 +2065,7 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 	{
 		LightmapTile* tile = &Lightmap.Tiles[i];
 
-		if (tile->AtlasLocation.ArrayIndex == -1)
+		if (tile->AtlasLocation.ArrayIndex == -1 || tile->AtlasLocation.ArrayIndex >= Lightmap.TextureCount)
 			continue;
 
 		lumpFile.Write32(tile->Binding.Type);
@@ -2097,7 +2097,7 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 	{
 		LightmapTile* tile = &Lightmap.Tiles[i];
 
-		if (tile->AtlasLocation.ArrayIndex == -1)
+		if (tile->AtlasLocation.ArrayIndex == -1 || tile->AtlasLocation.ArrayIndex >= Lightmap.TextureCount)
 			continue;
 
 		const uint16_t* pixels = Lightmap.TextureData.Data() + tile->AtlasLocation.ArrayIndex * Lightmap.TextureSize * Lightmap.TextureSize * 4;
