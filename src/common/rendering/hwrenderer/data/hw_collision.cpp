@@ -361,16 +361,23 @@ CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices
 	scratch.leafs.reserve(num_triangles);
 	scratch.centroids.clear();
 	scratch.centroids.reserve(num_triangles);
+	int active_triangles = 0;
 	for (int i = 0; i < num_triangles; i++)
 	{
-		scratch.leafs.push_back(i);
-
 		int element_index = i * 3;
-		FVector3 centroid = (vertices[elements[element_index + 0]].fPos() + vertices[elements[element_index + 1]].fPos() + vertices[elements[element_index + 2]].fPos()) * (1.0f / 3.0f);
+		int a = elements[element_index + 0];
+		int b = elements[element_index + 1];
+		int c = elements[element_index + 2];
+		if (a == b)
+			continue;
+
+		FVector3 centroid = (vertices[a].fPos() + vertices[b].fPos() + vertices[c].fPos()) * (1.0f / 3.0f);
+		scratch.leafs.push_back(i);
 		scratch.centroids.push_back(FVector4(centroid, 1.0f));
+		active_triangles++;
 	}
 
-	size_t neededbuffersize = num_triangles * 2;
+	size_t neededbuffersize = active_triangles * 2;
 	if (scratch.workbuffer.size() < neededbuffersize)
 		scratch.workbuffer.resize(neededbuffersize);
 
