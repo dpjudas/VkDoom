@@ -70,18 +70,30 @@ ADD_STAT(lightmap)
 	uint32_t atlasPixelCount = levelMesh->AtlasPixelCount();
 	auto stats = levelMesh->GatherTilePixelStats();
 
+	int indexBufferTotal = levelMesh->FreeLists.Index.back().End;
+	int indexBufferUsed = 0;
+	int pos = 0;
+	for (const auto& range : levelMesh->FreeLists.Index)
+	{
+		indexBufferUsed += range.Start - pos;
+		pos = range.End;
+	}
+
 	out.Format(
 		"Surfaces: %u (awaiting updates: %u)\n"
 		"Surface pixel area to update: %u\n"
 		"Surface pixel area: %u\nAtlas pixel area:   %u\n"
 		"Atlas efficiency: %.4f%%\n"
-		"Level mesh process time: %2.3f ms",
+		"Level mesh process time: %2.3f ms\n"
+		"Level mesh index buffer: %d K used (%d%%)",
 		stats.tiles.total, stats.tiles.dirty,
 		stats.pixels.dirty,
 		stats.pixels.total,
 		atlasPixelCount,
 		float(stats.pixels.total) / float(atlasPixelCount) * 100.0f,
-		ProcessLevelMesh.TimeMS());
+		ProcessLevelMesh.TimeMS(),
+		indexBufferUsed / 1000,
+		indexBufferUsed * 100 / indexBufferTotal);
 
 	return out;
 }
