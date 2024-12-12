@@ -2036,7 +2036,7 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 	for (unsigned int i = 0; i < Lightmap.Tiles.Size(); i++)
 	{
 		LightmapTile* tile = &Lightmap.Tiles[i];
-		if (tile->AtlasLocation.ArrayIndex != -1)
+		if (tile->AtlasLocation.ArrayIndex != -1 || tile->AtlasLocation.ArrayIndex < Lightmap.TextureCount)
 		{
 			tileCount++;
 			pixelCount += tile->AtlasLocation.Area();
