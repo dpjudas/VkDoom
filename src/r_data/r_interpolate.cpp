@@ -510,10 +510,13 @@ void DSectorPlaneInterpolation::Interpolate(double smoothratio)
 		P_RecalculateAttached3DFloors(sector);
 		sector->CheckPortalPlane(pos);
 
-		if (ceiling)
-			LevelMeshUpdater->CeilingHeightChanged(sector);
-		else
-			LevelMeshUpdater->FloorHeightChanged(sector);
+		if (pplane->fD() != bakheight)
+		{
+			if (ceiling)
+				LevelMeshUpdater->CeilingHeightChanged(sector);
+			else
+				LevelMeshUpdater->FloorHeightChanged(sector);
+		}
 	}
 }
 
