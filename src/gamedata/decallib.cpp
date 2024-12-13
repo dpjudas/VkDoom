@@ -986,6 +986,19 @@ void FDecalTemplate::ApplyToDecal (DBaseDecal *decal, side_t *wall) const
 	{
 		Animator->CreateThinker (decal, wall);
 	}
+
+	decal->Side = wall;
+	decal->WallPrev = wall->AttachedDecals;
+
+	while (decal->WallPrev != nullptr && decal->WallPrev->WallNext != nullptr)
+	{
+		decal->WallPrev = decal->WallPrev->WallNext;
+	}
+	if (decal->WallPrev != nullptr) decal->WallPrev->WallNext = decal;
+	else wall->AttachedDecals = decal;
+	decal->WallNext = nullptr;
+
+	LevelMeshUpdater->SideDecalsChanged(wall);
 }
 
 const FDecalTemplate *FDecalTemplate::GetDecal () const

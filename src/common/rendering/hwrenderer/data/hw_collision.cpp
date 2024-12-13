@@ -85,11 +85,14 @@ void CPUAccelStruct::FindFirstHit(const RayBBox& ray, int a, TraceHit* hit)
 	}
 }
 
+extern glcycle_t DynamicBLASTime;
+
 void CPUAccelStruct::Update()
 {
 	if (Mesh->UploadRanges.Index.Size() == 0)
 		return;
 
+	DynamicBLASTime.ResetAndClock();
 	InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
 
 	bool needsUpdate[32] = {};
@@ -112,6 +115,7 @@ void CPUAccelStruct::Update()
 			DynamicBLAS[instance] = CreateBLAS(indexStart, indexEnd - indexStart);
 		}
 	}
+	DynamicBLASTime.Unclock();
 
 	CreateTLAS();
 	Upload();
