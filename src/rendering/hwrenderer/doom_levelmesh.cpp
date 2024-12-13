@@ -55,6 +55,7 @@ static int InvalidateLightmap()
 }
 
 glcycle_t ProcessLevelMesh;
+glcycle_t DynamicBLASTime;
 
 ADD_STAT(lightmap)
 {
@@ -84,6 +85,7 @@ ADD_STAT(lightmap)
 		"Surface pixel area to update: %u\n"
 		"Surface pixel area: %u\nAtlas pixel area:   %u\n"
 		"Atlas efficiency: %.4f%%\n"
+		"Dynamic BLAS time: %2.3f ms\n"
 		"Level mesh process time: %2.3f ms\n"
 		"Level mesh index buffer: %d K used (%d%%)",
 		stats.tiles.total, stats.tiles.dirty,
@@ -91,6 +93,7 @@ ADD_STAT(lightmap)
 		stats.pixels.total,
 		atlasPixelCount,
 		float(stats.pixels.total) / float(atlasPixelCount) * 100.0f,
+		DynamicBLASTime.TimeMS(),
 		ProcessLevelMesh.TimeMS(),
 		indexBufferUsed / 1000,
 		indexBufferUsed * 100 / indexBufferTotal);
