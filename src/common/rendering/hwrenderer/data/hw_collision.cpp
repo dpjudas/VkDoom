@@ -359,7 +359,7 @@ void CPUAccelStruct::PrintStats()
 	{
 		if (DynamicBLAS[i])
 		{
-			Printf("#%d avg=%2.3f balaced=%2.3f\n", (int)i, (double)DynamicBLAS[i]->GetAverageDepth(), (double)DynamicBLAS[i]->GetBalancedDepth());
+			Printf("#%d avg=%2.3f balanced=%2.3f\n", (int)i, (double)DynamicBLAS[i]->GetAverageDepth(), (double)DynamicBLAS[i]->GetBalancedDepth());
 		}
 		else
 		{
