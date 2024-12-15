@@ -23,6 +23,7 @@
 #include "hw_collision.h"
 #include "hw_levelmesh.h"
 #include "v_video.h"
+#include "printf.h"
 #include <algorithm>
 #include <functional>
 #include <cfloat>
@@ -350,6 +351,21 @@ int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector4* 
 
 	TLAS.Nodes.push_back(Node(min, max, left_index, right_index));
 	return (int)TLAS.Nodes.size() - 1;
+}
+
+void CPUAccelStruct::PrintStats()
+{
+	for (size_t i = 0; i < DynamicBLAS.size(); i++)
+	{
+		if (DynamicBLAS[i])
+		{
+			Printf("#%d avg=%2.3f balaced=%2.3f\n", (int)i, (double)DynamicBLAS[i]->GetAverageDepth(), (double)DynamicBLAS[i]->GetBalancedDepth());
+		}
+		else
+		{
+			Printf("#%d unused\n", (int)i);
+		}
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////

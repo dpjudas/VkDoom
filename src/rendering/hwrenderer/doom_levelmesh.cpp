@@ -147,6 +147,15 @@ CCMD(deletelightmap)
 	level.levelMesh->DeleteLightmapLump(level);
 }
 
+CCMD(cpublasinfo)
+{
+	if (!level.levelMesh || !level.levelMesh->Collision)
+		return;
+
+	CPUAccelStruct* tlas = level.levelMesh->Collision.get();
+	tlas->PrintStats();
+}
+
 void DoomLevelMesh::PrintSurfaceInfo(const LevelMeshSurface* surface)
 {
 	if (!RequireLevelMesh()) return;

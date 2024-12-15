@@ -107,6 +107,8 @@ public:
 	void Update();
 	TraceHit FindFirstHit(const FVector3& rayStart, const FVector3& rayEnd);
 
+	void PrintStats();
+
 private:
 	void FindFirstHit(const RayBBox& ray, int a, TraceHit* hit);
 	void CreateTLAS();
