@@ -359,7 +359,7 @@ void CPUAccelStruct::PrintStats()
 	{
 		if (DynamicBLAS[i])
 		{
-			Printf("#%d avg=%2.3f balanced=%2.3f\n", (int)i, (double)DynamicBLAS[i]->GetAverageDepth(), (double)DynamicBLAS[i]->GetBalancedDepth());
+			Printf("#%d avg=%2.3f balanced=%2.3f nodes=%d buildtime=%2.3f ms\n", (int)i, (double)DynamicBLAS[i]->GetAverageDepth(), (double)DynamicBLAS[i]->GetBalancedDepth(), (int)DynamicBLAS[i]->GetNodes().size(), DynamicBLAS[i]->GetBuildTimeMS());
 		}
 		else
 		{
@@ -376,6 +376,9 @@ CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices
 	int num_triangles = num_elements / 3;
 	if (num_triangles <= 0)
 		return;
+
+	cycle_t timer;
+	timer.ResetAndClock();
 
 	scratch.leafs.clear();
 	scratch.leafs.reserve(num_triangles);
@@ -401,7 +404,10 @@ CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices
 	if (scratch.workbuffer.size() < neededbuffersize)
 		scratch.workbuffer.resize(neededbuffersize);
 
-	root = Subdivide(&scratch.leafs[0], (int)scratch.leafs.size(), scratch.centroids.data(), scratch.workbuffer.data());
+	root = Subdivide(scratch.leafs.data(), (int)scratch.leafs.size(), scratch.centroids.data(), scratch.workbuffer.data());
+
+	timer.Unclock();
+	buildtime = timer.TimeMS();
 }
 
 TraceHit CPUBottomLevelAccelStruct::FindFirstHit(const FVector3 &ray_start, const FVector3 &ray_end)
