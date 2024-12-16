@@ -23,6 +23,7 @@
 #include "hw_collision.h"
 #include "hw_levelmesh.h"
 #include "v_video.h"
+#include "printf.h"
 #include <algorithm>
 #include <functional>
 #include <cfloat>
@@ -352,6 +353,21 @@ int CPUAccelStruct::Subdivide(int* instances, int numInstances, const FVector4* 
 	return (int)TLAS.Nodes.size() - 1;
 }
 
+void CPUAccelStruct::PrintStats()
+{
+	for (size_t i = 0; i < DynamicBLAS.size(); i++)
+	{
+		if (DynamicBLAS[i])
+		{
+			Printf("#%d avg=%2.3f balanced=%2.3f nodes=%d buildtime=%2.3f ms\n", (int)i, (double)DynamicBLAS[i]->GetAverageDepth(), (double)DynamicBLAS[i]->GetBalancedDepth(), (int)DynamicBLAS[i]->GetNodes().size(), DynamicBLAS[i]->GetBuildTimeMS());
+		}
+		else
+		{
+			Printf("#%d unused\n", (int)i);
+		}
+	}
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
 CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices, int num_vertices, const unsigned int *elements, int num_elements, AccelStructScratchBuffer& scratch)
@@ -360,6 +376,9 @@ CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices
 	int num_triangles = num_elements / 3;
 	if (num_triangles <= 0)
 		return;
+
+	cycle_t timer;
+	timer.ResetAndClock();
 
 	scratch.leafs.clear();
 	scratch.leafs.reserve(num_triangles);
@@ -385,7 +404,10 @@ CPUBottomLevelAccelStruct::CPUBottomLevelAccelStruct(const FFlatVertex *vertices
 	if (scratch.workbuffer.size() < neededbuffersize)
 		scratch.workbuffer.resize(neededbuffersize);
 
-	root = Subdivide(&scratch.leafs[0], (int)scratch.leafs.size(), scratch.centroids.data(), scratch.workbuffer.data());
+	root = Subdivide(scratch.leafs.data(), (int)scratch.leafs.size(), scratch.centroids.data(), scratch.workbuffer.data());
+
+	timer.Unclock();
+	buildtime = timer.TimeMS();
 }
 
 TraceHit CPUBottomLevelAccelStruct::FindFirstHit(const FVector3 &ray_start, const FVector3 &ray_end)

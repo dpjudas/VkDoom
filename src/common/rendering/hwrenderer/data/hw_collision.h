@@ -107,6 +107,8 @@ public:
 	void Update();
 	TraceHit FindFirstHit(const FVector3& rayStart, const FVector3& rayEnd);
 
+	void PrintStats();
+
 private:
 	void FindFirstHit(const RayBBox& ray, int a, TraceHit* hit);
 	void CreateTLAS();
@@ -152,6 +154,7 @@ public:
 	int GetMaxDepth() const;
 	float GetAverageDepth() const;
 	float GetBalancedDepth() const;
+	double GetBuildTimeMS() const { return buildtime; }
 
 	const CollisionBBox &GetBBox() const { return nodes[root].aabb; }
 
@@ -182,6 +185,8 @@ private:
 
 	std::vector<Node> nodes;
 	int root = -1;
+
+	double buildtime = 0.0;
 
 	void FindFirstHit(const RayBBox& ray, int a, TraceHit* hit);
 	float IntersectTriangleRay(const RayBBox &ray, int a, float &barycentricB, float &barycentricC);
