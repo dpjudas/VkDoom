@@ -96,11 +96,11 @@ void CPUAccelStruct::Update()
 	DynamicBLASTime.ResetAndClock();
 	InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
 
-	bool needsUpdate[32] = {};
+	std::vector<bool> needsUpdate(InstanceCount);
 	for (const MeshBufferRange& range : Mesh->UploadRanges.Index)
 	{
 		int start = range.Start / IndexesPerBLAS;
-		int end = (range.End + IndexesPerBLAS - 1) / IndexesPerBLAS;
+		int end = range.End / IndexesPerBLAS;
 		for (int i = start; i < end; i++)
 		{
 			needsUpdate[i] = true;
@@ -158,7 +158,7 @@ void CPUAccelStruct::Upload()
 	// Copy the BLAS nodes to the mesh node list and remember their locations
 	int offset = TLAS.Nodes.size();
 	int instance = 0;
-	int blasOffsets[32] = {};
+	std::vector<int> blasOffsets(DynamicBLAS.size());
 	for (auto& blas : DynamicBLAS)
 	{
 		if (blas)
@@ -225,8 +225,16 @@ void CPUAccelStruct::CreateTLAS()
 	Scratch.centroids.reserve(DynamicBLAS.size());
 	for (int i = 0; i < InstanceCount; i++)
 	{
-		Scratch.leafs.push_back(i);
-		Scratch.centroids.push_back(FVector4(DynamicBLAS[i]->GetBBox().Center, 1.0f));
+		if (DynamicBLAS[i])
+		{
+			Scratch.leafs.push_back(i);
+			Scratch.centroids.push_back(FVector4(DynamicBLAS[i]->GetBBox().Center, 1.0f));
+		}
+		else
+		{
+			Scratch.leafs.push_back(0);
+			Scratch.centroids.push_back(FVector4(-1000000.0f, -1000000.0f, -1000000.0f, 1.0f));
+		}
 	}
 
 	size_t neededbuffersize = InstanceCount * 2;
