@@ -90,14 +90,14 @@ extern glcycle_t DynamicBLASTime;
 
 void CPUAccelStruct::Update()
 {
-	if (Mesh->UploadRanges.Index.Size() == 0)
+	if (Mesh->UploadRanges.Index.GetRanges().Size() == 0)
 		return;
 
 	DynamicBLASTime.ResetAndClock();
 	InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
 
 	std::vector<bool> needsUpdate(InstanceCount);
-	for (const MeshBufferRange& range : Mesh->UploadRanges.Index)
+	for (const MeshBufferRange& range : Mesh->UploadRanges.Index.GetRanges())
 	{
 		int start = range.Start / IndexesPerBLAS;
 		int end = range.End / IndexesPerBLAS;
@@ -214,7 +214,7 @@ void CPUAccelStruct::Upload()
 	}
 
 	Mesh->UploadRanges.Node.Clear();
-	Mesh->UploadRanges.Node.Push({ 0, (int)count });
+	Mesh->UploadRanges.Node.Add(0, (int)count);
 }
 
 void CPUAccelStruct::CreateTLAS()
