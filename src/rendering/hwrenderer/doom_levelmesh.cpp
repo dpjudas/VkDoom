@@ -54,8 +54,8 @@ static int InvalidateLightmap()
 	return count;
 }
 
-glcycle_t ProcessLevelMesh;
-glcycle_t DynamicBLASTime;
+cycle_t ProcessLevelMesh;
+cycle_t DynamicBLASTime;
 
 ADD_STAT(lightmap)
 {

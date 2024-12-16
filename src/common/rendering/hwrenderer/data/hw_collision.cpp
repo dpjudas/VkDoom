@@ -86,7 +86,7 @@ void CPUAccelStruct::FindFirstHit(const RayBBox& ray, int a, TraceHit* hit)
 	}
 }
 
-extern glcycle_t DynamicBLASTime;
+extern cycle_t DynamicBLASTime;
 
 void CPUAccelStruct::Update()
 {
