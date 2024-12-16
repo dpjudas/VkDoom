@@ -1013,7 +1013,7 @@ void VkRenderState::DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentSha
 
 		ApplyLevelMeshPipeline(mCommandBuffer, key, drawType, noFragmentShader);
 
-		for (MeshBufferRange& range : it.second)
+		for (const MeshBufferRange& range : it.second.GetRanges())
 		{
 			mCommandBuffer->drawIndexed(range.End - range.Start, 1, range.Start, 0, 0);
 		}

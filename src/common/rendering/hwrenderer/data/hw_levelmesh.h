@@ -67,6 +67,44 @@ struct MeshBufferRange
 	int Count() const { return End - Start; }
 };
 
+class MeshBufferAllocator
+{
+public:
+	void Reset(int size);
+
+	int GetTotalSize() const;
+	int GetUsedSize() const;
+
+	int Alloc(int count);
+	void Free(int position, int count);
+
+private:
+	int TotalSize = 0;
+	TArray<MeshBufferRange> Unused;
+};
+
+class MeshBufferUploads
+{
+public:
+	void Clear();
+	void Add(int position, int count);
+	const TArray<MeshBufferRange>& GetRanges() const { return Ranges; }
+
+private:
+	TArray<MeshBufferRange> Ranges;
+};
+
+class LevelMeshDrawList
+{
+public:
+	void Add(int position, int count);
+	void Remove(int position, int count);
+	const TArray<MeshBufferRange>& GetRanges() const { return Ranges; }
+
+private:
+	TArray<MeshBufferRange> Ranges;
+};
+
 struct LevelMeshLimits
 {
 	int MaxVertices = 0;
@@ -150,38 +188,38 @@ public:
 	// Ranges in mesh that have changed since last upload
 	struct
 	{
-		TArray<MeshBufferRange> Vertex;
-		TArray<MeshBufferRange> Index;
-		TArray<MeshBufferRange> Node;
-		TArray<MeshBufferRange> SurfaceIndex;
-		TArray<MeshBufferRange> Surface;
-		TArray<MeshBufferRange> UniformIndexes;
-		TArray<MeshBufferRange> Uniforms;
-		TArray<MeshBufferRange> LightUniforms;
-		TArray<MeshBufferRange> Portals;
-		TArray<MeshBufferRange> Light;
-		TArray<MeshBufferRange> LightIndex;
-		TArray<MeshBufferRange> DynLight;
-		TArray<MeshBufferRange> DrawIndex;
+		MeshBufferUploads Vertex;
+		MeshBufferUploads Index;
+		MeshBufferUploads Node;
+		MeshBufferUploads SurfaceIndex;
+		MeshBufferUploads Surface;
+		MeshBufferUploads UniformIndexes;
+		MeshBufferUploads Uniforms;
+		MeshBufferUploads LightUniforms;
+		MeshBufferUploads Portals;
+		MeshBufferUploads Light;
+		MeshBufferUploads LightIndex;
+		MeshBufferUploads DynLight;
+		MeshBufferUploads DrawIndex;
 	} UploadRanges;
 
 	// Ranges in mesh currently not in use
 	struct
 	{
-		TArray<MeshBufferRange> Vertex;
-		TArray<MeshBufferRange> Index;
-		TArray<MeshBufferRange> Uniforms;
-		TArray<MeshBufferRange> Surface;
-		TArray<MeshBufferRange> Light;
-		TArray<MeshBufferRange> LightIndex;
-		TArray<MeshBufferRange> DrawIndex;
+		MeshBufferAllocator Vertex;
+		MeshBufferAllocator Index;
+		MeshBufferAllocator Uniforms;
+		MeshBufferAllocator Surface;
+		MeshBufferAllocator Light;
+		MeshBufferAllocator LightIndex;
+		MeshBufferAllocator DrawIndex;
 	} FreeLists;
 
 	// Data structure for doing mesh traces on the CPU
 	std::unique_ptr<CPUAccelStruct> Collision;
 
 	// Draw index ranges for rendering the level mesh, grouped by pipeline
-	std::unordered_map<int, TArray<MeshBufferRange>> DrawList[(int)LevelMeshDrawType::NumDrawTypes];
+	std::unordered_map<int, LevelMeshDrawList> DrawList[(int)LevelMeshDrawType::NumDrawTypes];
 
 	// Lightmap tiles and their locations in the texture atlas
 	struct
@@ -205,10 +243,6 @@ public:
 	
 	void UploadPortals();
 	void CreateCollision();
-
-	void AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range);
-	void RemoveRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range);
-	int RemoveRange(TArray<MeshBufferRange>& ranges, int count);
 };
 
 struct LevelMeshTileStats
@@ -224,22 +258,20 @@ struct LevelMeshTileStats
 inline GeometryAllocInfo LevelMesh::AllocGeometry(int vertexCount, int indexCount)
 {
 	GeometryAllocInfo info;
-	info.VertexStart = RemoveRange(FreeLists.Vertex, vertexCount);
+	info.VertexStart = FreeLists.Vertex.Alloc(vertexCount);
 	info.VertexCount = vertexCount;
-	info.IndexStart = RemoveRange(FreeLists.Index, indexCount);
+	info.IndexStart = FreeLists.Index.Alloc(indexCount);
 	info.IndexCount = indexCount;
 	info.Vertices = &Mesh.Vertices[info.VertexStart];
 	info.UniformIndexes = &Mesh.UniformIndexes[info.VertexStart];
 	info.Indexes = &Mesh.Indexes[info.IndexStart];
 
-	AddRange(UploadRanges.Vertex, { info.VertexStart, info.VertexStart + info.VertexCount });
-	AddRange(UploadRanges.UniformIndexes, { info.VertexStart, info.VertexStart + info.VertexCount });
-	AddRange(UploadRanges.Index, { info.IndexStart, info.IndexStart + info.IndexCount });
-	AddRange(UploadRanges.SurfaceIndex, { info.IndexStart / 3, (info.IndexStart + info.IndexCount) / 3 });
+	UploadRanges.Vertex.Add(info.VertexStart, info.VertexCount);
+	UploadRanges.UniformIndexes.Add(info.VertexStart, info.VertexCount);
+	UploadRanges.Index.Add(info.IndexStart, info.IndexCount);
+	UploadRanges.SurfaceIndex.Add(info.IndexStart / 3, info.IndexCount);
 
 	Mesh.IndexCount = std::max(Mesh.IndexCount, info.IndexStart + info.IndexCount);
-	if (Mesh.IndexCount > 400000)
-		Mesh.IndexCount++;
 
 	return info;
 }
@@ -247,14 +279,14 @@ inline GeometryAllocInfo LevelMesh::AllocGeometry(int vertexCount, int indexCoun
 inline UniformsAllocInfo LevelMesh::AllocUniforms(int count)
 {
 	UniformsAllocInfo info;
-	info.Start = RemoveRange(FreeLists.Uniforms, count);
+	info.Start = FreeLists.Uniforms.Alloc(count);
 	info.Count = count;
 	info.Uniforms = &Mesh.Uniforms[info.Start];
 	info.LightUniforms = &Mesh.LightUniforms[info.Start];
 	info.Materials = &Mesh.Materials[info.Start];
 
-	AddRange(UploadRanges.Uniforms, { info.Start, info.Start + info.Count });
-	AddRange(UploadRanges.LightUniforms, { info.Start, info.Start + info.Count });
+	UploadRanges.Uniforms.Add(info.Start, info.Count);
+	UploadRanges.LightUniforms.Add(info.Start, info.Count);
 
 	return info;
 }
@@ -262,30 +294,28 @@ inline UniformsAllocInfo LevelMesh::AllocUniforms(int count)
 inline LightListAllocInfo LevelMesh::AllocLightList(int count)
 {
 	LightListAllocInfo info;
-	info.Start = RemoveRange(FreeLists.LightIndex, count);
+	info.Start = FreeLists.LightIndex.Alloc(count);
 	info.Count = count;
 	info.List = &Mesh.LightIndexes[info.Start];
-	AddRange(UploadRanges.LightIndex, { info.Start, info.Start + info.Count });
+	UploadRanges.LightIndex.Add(info.Start, info.Count);
 	return info;
 }
 
 inline LightAllocInfo LevelMesh::AllocLight()
 {
 	LightAllocInfo info;
-	info.Index = RemoveRange(FreeLists.Light, 1);
+	info.Index = FreeLists.Light.Alloc(1);
 	info.Light = &Mesh.Lights[info.Index];
-	AddRange(UploadRanges.Light, { info.Index, info.Index + 1 });
+	UploadRanges.Light.Add(info.Index, 1);
 	return info;
 }
 
 inline SurfaceAllocInfo LevelMesh::AllocSurface()
 {
 	SurfaceAllocInfo info;
-	info.Index = RemoveRange(FreeLists.Surface, 1);
+	info.Index = FreeLists.Surface.Alloc(1);
 	info.Surface = &Mesh.Surfaces[info.Index];
-
-	AddRange(UploadRanges.Surface, { info.Index, info.Index + 1 });
-
+	UploadRanges.Surface.Add(info.Index, 1);
 	return info;
 }
 
@@ -294,135 +324,29 @@ inline void LevelMesh::FreeGeometry(int vertexStart, int vertexCount, int indexS
 	// Convert triangles to degenerates
 	for (int i = 0; i < indexCount; i++)
 		Mesh.Indexes[indexStart + i] = 0;
-	AddRange(UploadRanges.Index, { indexStart, indexStart + indexCount });
+	UploadRanges.Index.Add(indexStart, indexCount);
 
-	AddRange(FreeLists.Vertex, { vertexStart, vertexStart + vertexCount });
-	AddRange(FreeLists.Index, { indexStart, indexStart + indexCount });
+	FreeLists.Vertex.Free(vertexStart, vertexCount);
+	FreeLists.Index.Free(indexStart, indexCount);
 }
 
 inline void LevelMesh::FreeUniforms(int start, int count)
 {
-	AddRange(FreeLists.Uniforms, { start, start + count });
+	FreeLists.Uniforms.Free(start, count);
 }
 
 inline void LevelMesh::FreeLightList(int start, int count)
 {
-	AddRange(FreeLists.LightIndex, { start, start + count });
+	FreeLists.LightIndex.Free(start, count);
 }
 
 inline void LevelMesh::FreeSurface(unsigned int surfaceIndex)
 {
-	AddRange(FreeLists.Surface, { (int)surfaceIndex, (int)surfaceIndex + 1 });
+	FreeLists.Surface.Free(surfaceIndex, 1);
 }
 
 inline void LevelMesh::UploadPortals()
 {
 	UploadRanges.Portals.Clear();
-	AddRange(UploadRanges.Portals, { 0, (int)Portals.Size() });
-}
-
-inline void LevelMesh::AddRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)
-{
-	// Empty range?
-	if (range.Start == range.End)
-		return;
-
-	// First element?
-	if (ranges.Size() == 0)
-	{
-		ranges.push_back(range);
-		return;
-	}
-
-	// Find start position in ranges
-	auto right = std::lower_bound(ranges.begin(), ranges.end(), range, [](const auto& a, const auto& b) { return a.Start < b.Start; });
-	bool leftExists = right != ranges.begin();
-	bool rightExists = right != ranges.end();
-	auto left = right;
-	if (leftExists)
-		--left;
-
-	// Is this a gap between two ranges?
-	if ((!leftExists || left->End < range.Start) && (!rightExists || right->Start > range.End))
-	{
-		ranges.Insert(right - ranges.begin(), range);
-		return;
-	}
-
-	// Are we extending the left or the right range?
-	if (leftExists && range.Start <= left->End)
-	{
-		left->End = std::max(left->End, range.End);
-		right = left;
-	}
-	else // if (rightExists && right->Start <= range.End)
-	{
-		right->Start = range.Start;
-		right->End = std::max(right->End, range.End);
-		left = right;
-	}
-
-	// Merge overlaps to the right
-	while (true)
-	{
-		++right;
-		if (right == ranges.end() || right->Start > range.End)
-			break;
-		left->End = std::max(right->End, range.End);
-	}
-
-	// Remove ranges now covered by the extended range
-	//ranges.erase(++left, right);
-	++left;
-	auto leftPos = left - ranges.begin();
-	auto rightPos = right - ranges.begin();
-	ranges.Delete(leftPos, rightPos - leftPos);
-}
-
-inline void LevelMesh::RemoveRange(TArray<MeshBufferRange>& ranges, MeshBufferRange range)
-{
-	if (range.Start == range.End)
-		return;
-
-	auto entry = std::lower_bound(ranges.begin(), ranges.end(), range, [](const auto& a, const auto& b) { return a.End < b.End; });
-	if (entry->Start == range.Start && entry->End == range.End)
-	{
-		ranges.Delete(entry - ranges.begin());
-	}
-	else if (entry->Start == range.Start)
-	{
-		entry->Start = range.End;
-	}
-	else if (entry->End == range.End)
-	{
-		entry->End = range.Start;
-	}
-	else
-	{
-		MeshBufferRange split;
-		split.Start = entry->Start;
-		split.End = range.Start;
-		entry->Start = range.End;
-		ranges.Insert(entry - ranges.begin(), split);
-	}
-}
-
-inline int LevelMesh::RemoveRange(TArray<MeshBufferRange>& ranges, int count)
-{
-	for (unsigned int i = 0, size = ranges.Size(); i < size; i++)
-	{
-		auto& item = ranges[i];
-		if (item.End - item.Start >= count)
-		{
-			int pos = item.Start;
-			item.Start += count;
-			if (item.Start == item.End)
-			{
-				ranges.Delete(i);
-			}
-			return pos;
-		}
-	}
-
-	I_FatalError("Could not find space in level mesh buffer");
+	UploadRanges.Portals.Add(0, (int)Portals.Size());
 }

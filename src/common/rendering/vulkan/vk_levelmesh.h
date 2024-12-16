@@ -192,7 +192,7 @@ private:
 	void UploadLights();
 
 	template<typename T>
-	void UploadRanges(const TArray<MeshBufferRange>& ranges, const T* srcbuffer, VulkanBuffer* destbuffer);
+	void UploadRanges(const MeshBufferUploads& ranges, const T* srcbuffer, VulkanBuffer* destbuffer);
 
 	VkLevelMesh* Mesh = nullptr;
 	uint8_t* data = nullptr;
