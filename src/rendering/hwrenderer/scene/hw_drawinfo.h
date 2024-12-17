@@ -306,7 +306,7 @@ public:
 	void AddOtherFloorPlane(int sector, gl_subsectorrendernode * node, FRenderState& state);
 	void AddOtherCeilingPlane(int sector, gl_subsectorrendernode * node, FRenderState& state);
 
-	void GetDynSpriteLight(AActor *self, float x, float y, float z, FLightNode *node, int portalgroup, float *out);
+	void GetDynSpriteLight(AActor *self, float x, float y, float z, FLightNode *node, int portalgroup, float *out, bool fullbright);
 	void GetDynSpriteLight(AActor *thing, particle_t *particle, float *out);
 
 	void PreparePlayerSprites(sector_t * viewsector, area_t in_area, FRenderState& state);

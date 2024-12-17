@@ -32,6 +32,7 @@ class Corona : Actor abstract
 	{
 		RenderStyle "Add";
 		RenderRadius 1024.0;
+		+BRIGHT
 		+NOINTERACTION
 		+NOGRAVITY
 		+FORCEXYBILLBOARD
