@@ -94,8 +94,8 @@ struct InterpolationViewer
 
 // PRIVATE DATA DECLARATIONS -----------------------------------------------
 static TArray<InterpolationViewer> PastViewers;
-static FRandom pr_torchflicker ("TorchFlicker");
-static FRandom pr_hom;
+static FCRandom pr_torchflicker ("TorchFlicker");
+static FCRandom pr_hom;
 bool NoInterpolateView;	// GL needs access to this.
 static TArray<DVector3a> InterpolationPath;
 
@@ -464,7 +464,8 @@ bool P_NoInterpolation(player_t const *player, AActor const *actor)
 		&& player->mo->reactiontime == 0
 		&& !NoInterpolateView
 		&& !paused
-		&& !LocalKeyboardTurner;
+		&& !LocalKeyboardTurner
+		&& !player->mo->isFrozen();
 }
 
 //==========================================================================

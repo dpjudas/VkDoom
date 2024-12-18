@@ -55,7 +55,7 @@ const char *GetVersionString();
 
 // These are for zscript versioning.
 #define ZSCRIPT_VER_MAJOR 4
-#define ZSCRIPT_VER_MINOR 13
+#define ZSCRIPT_VER_MINOR 14
 #define ZSCRIPT_VER_REVISION 0
 
 // This should always refer to the VkDoom version a derived port is based on and not reflect the derived port's version number!
@@ -99,6 +99,7 @@ const char *GetVersionString();
 // This is so that derivates can use the same savegame versions without worrying about engine compatibility
 #define GAMESIG "VKDOOM"
 #define BASEWAD "vkdoom.pk3"
+// Set OPTIONALWAD to "" (null) to disable searching for it
 #define OPTIONALWAD "game_support.pk3"
 #define GZDOOM 1
 #define VR3D_ENABLED

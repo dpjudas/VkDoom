@@ -443,7 +443,9 @@ enum ActorFlag9
 	MF9_SHADOWBLOCK				= 0x00000004,	// [inkoalawetrust] Actors in the line of fire with this flag trigger the MF_SHADOW aiming penalty.
 	MF9_SHADOWAIMVERT			= 0x00000008,	// [inkoalawetrust] Monster aim is also offset vertically when aiming at shadow actors.
 	MF9_DECOUPLEDANIMATIONS		= 0x00000010,	// [RL0] Decouple model animations from states
+	MF9_NOSECTORDAMAGE			= 0x00000020,	// [inkoalawetrust] Actor ignores any sector-based damage (i.e damaging floors, NOT crushers)
 	MF9_ISPUFF					= 0x00000040,	// [AA] Set on actors by P_SpawnPuff
+	MF9_FORCESECTORDAMAGE		= 0x00000080,	// [inkoalawetrust] Actor ALWAYS takes hurt floor damage if there's any. Even if the floor doesn't have SECMF_HURTMONSTERS.
 };
 
 // --- mobj.renderflags ---
@@ -754,12 +756,6 @@ public:
 	int			Flags;
 
 	// Functions
-	DViewPosition()
-	{
-		Offset = { 0,0,0 };
-		Flags = 0;
-	}
-
 	void Set(DVector3 &off, int f = -1)
 	{
 		ZeroSubnormalsF(off.X);
@@ -775,6 +771,8 @@ public:
 	{
 		return Offset.isZero();
 	}
+
+	void Serialize(FSerializer& arc) override;
 };
 
 const double MinVel = EQUAL_EPSILON;
@@ -871,7 +869,7 @@ public:
 	void PlayPushSound();
 
 	// Called when an actor with MF_MISSILE and MF2_FLOORBOUNCE hits the floor
-	bool FloorBounceMissile (secplane_t &plane);
+	bool FloorBounceMissile (secplane_t &plane, bool is3DFloor);
 
 	// Called by RoughBlockCheck
 	bool IsOkayToAttack (AActor *target);

@@ -96,6 +96,8 @@
 static FRandom pr_dmspawn ("DMSpawn");
 static FRandom pr_pspawn ("PlayerSpawn");
 
+extern int startpos, laststartpos;
+
 bool WriteZip(const char* filename, const FileSys::FCompressedBuffer* content, size_t contentcount);
 bool	G_CheckDemoStatus (void);
 void	G_ReadDemoTiccmd (ticcmd_t *cmd, int player);
@@ -1436,6 +1438,7 @@ void FLevelLocals::PlayerReborn (int player)
 	p->cheats |= chasecam;
 	p->Bot = Bot;			//Added by MC:
 	p->settings_controller = settings_controller;
+	p->LastSafePos = p->mo->Pos();
 
 	p->oldbuttons = ~0, p->attackdown = true; p->usedown = true;	// don't do anything immediately
 	p->original_oldbuttons = ~0;
@@ -2146,7 +2149,9 @@ void G_DoLoadGame ()
 
 	arc("ticrate", time[0])
 		("leveltime", time[1])
-		("globalfreeze", globalfreeze);
+		("globalfreeze", globalfreeze)
+		("startpos", startpos)
+		("laststartpos", laststartpos);
 	// dearchive all the modifications
 	level.time = Scale(time[1], TICRATE, time[0]);
 
@@ -2436,6 +2441,10 @@ void G_DoSaveGame (bool okForQuicksave, bool forceQuicksave, FString filename, c
 		savegameglobals("ticrate", tic);
 		savegameglobals("leveltime", level.time);
 	}
+
+	savegameglobals("globalfreeze", globalfreeze)
+					("startpos", startpos)
+					("laststartpos", laststartpos);
 
 	STAT_Serialize(savegameglobals);
 	FRandom::StaticWriteRNGState(savegameglobals);

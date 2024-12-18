@@ -1545,6 +1545,13 @@ void DActorModelData::OnDestroy()
 	animationIDs.Reset();
 }
 
+void DViewPosition::Serialize(FSerializer& arc)
+{
+	Super::Serialize(arc);
+	arc("offset", Offset)
+		("flags", Flags);
+}
+
 //----------------------------------------------------------------------------
 //
 // PROC P_ExplodeMissile
@@ -1732,7 +1739,7 @@ void AActor::PlayBounceSound(bool onfloor)
 // Returns true if the missile was destroyed
 //----------------------------------------------------------------------------
 
-bool AActor::FloorBounceMissile (secplane_t &plane)
+bool AActor::FloorBounceMissile (secplane_t &plane, bool is3DFloor)
 {
 	if (flags & MF_MISSILE)
 	{
@@ -1775,9 +1782,13 @@ bool AActor::FloorBounceMissile (secplane_t &plane)
 		}
 	}
 
+	DVector3 norm = plane.Normal();
+	if (is3DFloor)
+		norm = -norm;
+
 	bool onsky;
 
-	if (plane.fC() < 0)
+	if (norm.Z < 0)
 	{ // on ceiling
 		if (!(BounceFlags & BOUNCE_Ceilings))
 			return true;
@@ -1808,11 +1819,11 @@ bool AActor::FloorBounceMissile (secplane_t &plane)
 		return true;
 	}
 
-	double dot = (Vel | plane.Normal()) * 2;
+	double dot = (Vel | norm) * 2;
 
 	if (BounceFlags & (BOUNCE_HereticType | BOUNCE_MBF))
 	{
-		Vel -= plane.Normal() * dot;
+		Vel -= norm * dot;
 		AngleFromVel();
 		if (!(BounceFlags & BOUNCE_MBF)) // Heretic projectiles die, MBF projectiles don't.
 		{
@@ -1826,7 +1837,7 @@ bool AActor::FloorBounceMissile (secplane_t &plane)
 	else // Don't run through this for MBF-style bounces
 	{
 		// The reflected velocity keeps only about 70% of its original speed
-		Vel = (Vel - plane.Normal() * dot) * bouncefactor;
+		Vel = (Vel - norm * dot) * bouncefactor;
 		AngleFromVel();
 	}
 
@@ -1835,7 +1846,7 @@ bool AActor::FloorBounceMissile (secplane_t &plane)
 	// Set bounce state
 	if (BounceFlags & BOUNCE_UseBounceState)
 	{
-		FName names[2] = { NAME_Bounce, plane.fC() < 0 ? NAME_Ceiling : NAME_Floor };
+		FName names[2] = { NAME_Bounce, norm.Z < 0 ? NAME_Ceiling : NAME_Floor };
 		FState *bouncestate = FindState(2, names);
 		if (bouncestate != nullptr)
 		{
@@ -1850,10 +1861,10 @@ bool AActor::FloorBounceMissile (secplane_t &plane)
 	}
 	else if (BounceFlags & (BOUNCE_AutoOff|BOUNCE_AutoOffFloorOnly))
 	{
-		if (plane.fC() > 0 || (BounceFlags & BOUNCE_AutoOff))
+		if (norm.Z > 0 || (BounceFlags & BOUNCE_AutoOff))
 		{
 			// AutoOff only works when bouncing off a floor, not a ceiling (or in compatibility mode.)
-			if (!(flags & MF_NOGRAVITY) && (Vel.Z < 3))
+			if (!(flags & MF_NOGRAVITY) && (norm.Z < 0 || ((Vel | norm) < 3)))
 				BounceFlags &= ~BOUNCE_TypeMask;
 		}
 	}
@@ -2646,7 +2657,9 @@ static void P_ZMovement (AActor *mo, double oldfloorz)
 				mo->SetZ(mo->floorz);
 				if (mo->BounceFlags & BOUNCE_Floors)
 				{
-					mo->FloorBounceMissile (mo->floorsector->floorplane);
+					F3DFloor* ff = nullptr;
+					NextLowestFloorAt(mo->Sector, mo->X(), mo->Y(), mo->Z(), 0, mo->MaxStepHeight, nullptr, &ff);
+					mo->FloorBounceMissile (ff != nullptr ? *ff->top.plane : mo->floorsector->floorplane, ff != nullptr);
 					/* if (!CanJump(mo)) */ return;
 				}
 				else if (mo->flags3 & MF3_NOEXPLODEFLOOR)
@@ -2682,7 +2695,9 @@ static void P_ZMovement (AActor *mo, double oldfloorz)
 			}
 			else if (mo->BounceFlags & BOUNCE_MBF && mo->Vel.Z) // check for MBF-like bounce on non-missiles
 			{
-				mo->FloorBounceMissile(mo->floorsector->floorplane);
+				F3DFloor* ff = nullptr;
+				NextLowestFloorAt(mo->Sector, mo->X(), mo->Y(), mo->Z(), 0, mo->MaxStepHeight, nullptr, &ff);
+				mo->FloorBounceMissile(ff != nullptr ? *ff->top.plane : mo->floorsector->floorplane, ff != nullptr);
 			}
 			if (mo->flags3 & MF3_ISMONSTER)		// Blasted mobj falling
 			{
@@ -2753,7 +2768,9 @@ static void P_ZMovement (AActor *mo, double oldfloorz)
 			mo->SetZ(mo->ceilingz - mo->Height);
 			if (mo->BounceFlags & BOUNCE_Ceilings)
 			{	// ceiling bounce
-				mo->FloorBounceMissile (mo->ceilingsector->ceilingplane);
+				F3DFloor* ff = nullptr;
+				NextHighestCeilingAt(mo->Sector, mo->X(), mo->Y(), mo->Z(), mo->Top(), 0, nullptr, &ff);
+				mo->FloorBounceMissile(ff != nullptr ? *ff->bottom.plane : mo->ceilingsector->ceilingplane, ff != nullptr);
 				/* if (!CanJump(mo)) */ return;
 			}
 			if (mo->flags & MF_SKULLFLY)
@@ -4362,14 +4379,13 @@ void AActor::Tick ()
 					}
 					if (Vel.Z != 0 && (BounceFlags & BOUNCE_Actors))
 					{
-						bool res = P_BounceActor(this, onmo, true);
+						if (flags & MF_MISSILE)
+							P_DoMissileDamage(this, onmo);
+
 						// If the bouncer is a missile and has hit the other actor it needs to be exploded here
 						// to be in line with the case when an actor's side is hit.
-						if (!res && (flags & MF_MISSILE))
-						{
-							P_DoMissileDamage(this, onmo);
+						if (!P_BounceActor(this, onmo, true) && (flags & MF_MISSILE))
 							P_ExplodeMissile(this, nullptr, onmo);
-						}
 					}
 					else
 					{
@@ -4434,6 +4450,14 @@ void AActor::Tick ()
 		P_DamageMobj(this, nullptr, nullptr, TELEFRAG_DAMAGE, NAME_InstantDeath);
 		// must have been removed
 		if (ObjectFlags & OF_EuthanizeMe) return;
+	}
+	//[inkoalawetrust] Genericized level damage handling that makes sector, 3D floor, and TERRAIN flat damage affect monsters and other NPCs too.
+	P_ActorOnSpecial3DFloor(this); //3D floors must be checked separately to see if their control sector allows non-player damage
+	if (checkForSpecialSector(this,Sector))
+	{
+		P_ActorInSpecialSector(this,Sector);
+		if (!isAbove(Sector->floorplane.ZatPoint(this)) || waterlevel) // Actor must be touching the floor for TERRAIN flats.
+			P_ActorOnSpecialFlat(this, P_GetThingFloorType(this));
 	}
 
 	if (tics != -1)
@@ -5586,16 +5610,13 @@ AActor *FLevelLocals::SpawnPlayer (FPlayerStart *mthing, int playernum, int flag
 
 	PlayerSpawnPickClass(playernum);
 
-	if (( dmflags2 & DF2_SAME_SPAWN_SPOT ) &&
-		( p->playerstate == PST_REBORN ) &&
-		( deathmatch == false ) &&
-		( gameaction != ga_worlddone ) &&
-		( p->mo != NULL ) && 
-		( !(p->mo->Sector->Flags & SECF_NORESPAWN) ) &&
-		( NULL != p->attacker ) &&							// don't respawn on damaging floors
-		( p->mo->Sector->damageamount < TELEFRAG_DAMAGE ))	// this really should be a bit smarter...
+	if ((dmflags2 & DF2_SAME_SPAWN_SPOT) && !deathmatch
+		&& p->mo != nullptr && p->playerstate == PST_REBORN
+		&& gameaction != ga_worlddone
+		&& !(p->mo->Sector->Flags & SECF_NORESPAWN)
+		&& p->LastDamageType != NAME_Suicide)
 	{
-		spawn = p->mo->Pos();
+		spawn = p->LastSafePos;
 		SpawnAngle = p->mo->Angles.Yaw;
 	}
 	else
@@ -6652,7 +6673,13 @@ int P_GetThingFloorType (AActor *thing)
 // Returns true if hit liquid and splashed, false if not.
 //---------------------------------------------------------------------------
 
-bool P_HitWater (AActor * thing, sector_t * sec, const DVector3 &pos, bool checkabove, bool alert, bool force)
+enum HitWaterFlags
+{
+	THW_SMALL	= 1 << 0,
+	THW_NOVEL	= 1 << 1,
+};
+
+bool P_HitWater (AActor * thing, sector_t * sec, const DVector3 &pos, bool checkabove, bool alert, bool force, int flags)
 {
 	if (thing->player && (thing->player->cheats & CF_PREDICTING))
 		return false;
@@ -6740,13 +6767,13 @@ foundone:
 
 	// Don't splash for living things with small vertical velocities.
 	// There are levels where the constant splashing from the monsters gets extremely annoying
-	if (((thing->flags3&MF3_ISMONSTER || thing->player) && thing->Vel.Z >= -6) && !force)
+	if (!(flags & THW_NOVEL) && ((thing->flags3 & MF3_ISMONSTER || thing->player) && thing->Vel.Z >= -6) && !force)
 		return Terrains[terrainnum].IsLiquid;
 
 	splash = &Splashes[splashnum];
 
 	// Small splash for small masses
-	if (thing->Mass < 10)
+	if (flags & THW_SMALL || thing->Mass < 10)
 		smallsplash = true;
 
 	if (!(thing->flags3 & MF3_DONTSPLASH))
@@ -6811,7 +6838,8 @@ DEFINE_ACTION_FUNCTION(AActor, HitWater)
 	PARAM_BOOL(checkabove);
 	PARAM_BOOL(alert);
 	PARAM_BOOL(force);
-	ACTION_RETURN_BOOL(P_HitWater(self, sec, DVector3(x, y, z), checkabove, alert, force));
+	PARAM_INT(flags);
+	ACTION_RETURN_BOOL(P_HitWater(self, sec, DVector3(x, y, z), checkabove, alert, force, flags));
 }
 
 
@@ -7819,6 +7847,19 @@ void AActor::Revive()
 	health = SpawnHealth();
 	target = nullptr;
 	lastenemy = nullptr;
+
+	// Make sure to clear poison damage.
+	PoisonDamageReceived = 0;
+	PoisonDamageTypeReceived = NAME_None;
+	PoisonDurationReceived = 0;
+	PoisonPeriodReceived = 0;
+	Poisoner = nullptr;
+	if (player != nullptr)
+	{
+		player->poisoncount = 0;
+		player->poisoner = nullptr;
+		player->poisontype = player->poisonpaintype = NAME_None;
+	}
 
 	// [RH] If it's a monster, it gets to count as another kill
 	if (CountsAsKill())

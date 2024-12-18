@@ -31,6 +31,11 @@ void NetStartWindow::HideNetStartPane()
 	Instance = nullptr;
 }
 
+void NetStartWindow::CloseNetStartPane()
+{
+	NetStartWindow::NetClose();
+}
+
 void NetStartWindow::SetNetStartProgress(int pos)
 {
 	if (Instance)
@@ -62,6 +67,12 @@ bool NetStartWindow::RunMessageLoop(bool (*newtimer_callback)(void*), void* newu
 	}
 
 	return Instance->exitreason;
+}
+
+void NetStartWindow::NetClose()
+{
+	if (Instance != nullptr)
+		Instance->OnClose();
 }
 
 NetStartWindow::NetStartWindow() : Widget(nullptr, WidgetType::Window)
