@@ -144,6 +144,8 @@ static DVector3 LastPredictedPosition;
 static int LastPredictedPortalGroup;
 static int LastPredictedTic;
 
+static TArray<FRandom> PredictionRNG;
+
 static player_t PredictionPlayerBackup;
 static AActor *PredictionActor;
 static TArray<uint8_t> PredictionActorBackupArray;
@@ -1204,15 +1206,6 @@ DEFINE_ACTION_FUNCTION(APlayerPawn, CheckMusicChange)
 
 void P_CheckEnvironment(player_t *player)
 {
-	P_PlayerOnSpecial3DFloor(player);
-	P_PlayerInSpecialSector(player);
-
-	if (!player->mo->isAbove(player->mo->Sector->floorplane.ZatPoint(player->mo)) ||
-		player->mo->waterlevel)
-	{
-		// Player must be touching the floor
-		P_PlayerOnSpecialFlat(player, P_GetThingFloorType(player->mo));
-	}
 	if (player->mo->Vel.Z <= -player->mo->FloatVar(NAME_FallingScreamMinSpeed) &&
 		player->mo->Vel.Z >= -player->mo->FloatVar(NAME_FallingScreamMaxSpeed) && player->mo->alternative == nullptr &&
 		player->mo->waterlevel == 0)
@@ -1470,6 +1463,8 @@ void P_PredictPlayer (player_t *player)
 		return;
 	}
 
+	FRandom::SaveRNGState(PredictionRNG);
+
 	// Save original values for restoration later
 	PredictionPlayerBackup.CopyFrom(*player, false);
 
@@ -1608,6 +1603,8 @@ void P_UnPredictPlayer ()
 		{
 			// Q: Can this happen? If yes, can we continue?
 		}
+
+		FRandom::RestoreRNGState(PredictionRNG);
 
 		AActor *savedcamera = player->camera;
 

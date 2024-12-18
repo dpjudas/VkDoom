@@ -87,6 +87,8 @@ class PlayerPawn : Actor
 	flagdef CanSuperMorph: PlayerFlags, 1;
 	flagdef CrouchableMorph: PlayerFlags, 2;
 	flagdef WeaponLevel2Ended: PlayerFlags, 3;
+	//PF_VOODOO_ZOMBIE
+	flagdef MakeFootsteps: PlayerFlags, 5; //[inkoalawetrust] Use footstep system virtual.
 
 	enum EPrivatePlayerFlags
 	{
@@ -1690,6 +1692,7 @@ class PlayerPawn : Actor
 		CheckPitch();
 		HandleMovement();
 		CalcHeight ();
+		if (bMakeFootsteps) MakeFootsteps();
 
 		if (!(player.cheats & CF_PREDICTING))
 		{
@@ -1716,6 +1719,106 @@ class PlayerPawn : Actor
 			player.mo.CheckDegeneration();
 			player.mo.CheckAirSupply();
 		}
+	}
+
+	//---------------------------------------------------------------------------
+	//
+	// Handle player footstep sounds.
+	// Default footstep handling.
+	//
+	//---------------------------------------------------------------------------
+
+	int footstepCounter;
+	double footstepLength;
+	bool footstepFoot;
+
+	void DoFootstep(TerrainDef Ground)
+	{
+		Sound Step = Ground.StepSound;
+
+		//Generic foot-agnostic sound takes precedence.
+		if(!Step)
+		{
+			//Apparently most people walk with their right foot first, so assume that here.
+			if (!footstepFoot)
+			{
+				Step = Ground.LeftStepSound;
+			}
+			else
+			{
+				Step = Ground.RightStepSound;
+			}
+
+			footstepFoot = !footstepFoot;
+		}
+
+		if(Step)
+		{
+			A_StartSound(Step, flags: CHANF_OVERLAP, volume: Ground.StepVolume * snd_footstepvolume);
+		}
+
+		//Steps make splashes regardless.
+		bool Heavy = (Mass >= 200) ? 0 : THW_SMALL; //Big player makes big splash.
+		HitWater(CurSector, (Pos.XY, CurSector.FloorPlane.ZatPoint(Pos.XY)), true, false, flags: Heavy | THW_NOVEL);
+	}
+
+	virtual void MakeFootsteps()
+	{
+		if(pos.z > floorz) return;
+
+		let Ground = GetFloorTerrain();
+
+		if(Ground && (player.cmd.forwardMove != 0 || player.cmd.sideMove != 0))
+		{
+			int Delay = (player.cmd.buttons & BT_RUN) ? Ground.RunStepTics : Ground.WalkStepTics;
+
+			if((player.cmd.buttons ^ player.oldbuttons) & BT_RUN)
+			{ // zero out counters when starting/stopping a run
+				footstepCounter = 0;
+				footstepLength = Ground.StepDistance;
+			}
+
+			if(Ground.StepDistance > 0)
+			{ // distance-based terrain
+				footstepCounter = 0;
+
+				double moveVel = vel.xy.length();
+
+				if(moveVel > Ground.StepDistanceMinVel)
+				{
+					footstepLength += moveVel;
+
+					while(footstepLength > Ground.StepDistance)
+					{
+						footstepLength -= Ground.StepDistance;
+						DoFootstep(Ground);
+					}
+				}
+				else
+				{
+					footstepLength = Ground.StepDistance;
+				}
+
+			}
+			else if(Delay > 0)
+			{ // delay-based terrain
+				footstepLength = 0;
+				
+				if(footstepCounter % Delay == 0)
+				{
+					DoFootstep(Ground);
+				}
+
+				footstepCounter = (footstepCounter + 1) % Delay;
+			}
+		}
+		else
+		{
+			footstepCounter = 0;
+			footstepLength = Ground.StepDistance;
+			footstepFoot = false;
+		}
+
 	}
 
 	//---------------------------------------------------------------------------

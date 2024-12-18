@@ -12,8 +12,10 @@ class NetStartWindow : public Widget
 public:
 	static void ShowNetStartPane(const char* message, int maxpos);
 	static void HideNetStartPane();
+	static void CloseNetStartPane();
 	static void SetNetStartProgress(int pos);
 	static bool RunMessageLoop(bool (*timer_callback)(void*), void* userdata);
+	static void NetClose();
 
 private:
 	NetStartWindow();
