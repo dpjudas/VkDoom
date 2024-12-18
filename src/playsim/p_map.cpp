@@ -1343,46 +1343,44 @@ static bool CanAttackHurt(AActor *victim, AActor *shooter)
 //
 //==========================================================================
 
-void P_DoMissileDamage(AActor* inflictor, AActor* target)
+void P_DoMissileDamage(AActor* self, AActor* victim)
 {
+	const bool ripper = (self->flags2 & MF2_RIP);
+
 	// Do poisoning (if using new style poison)
-	if (inflictor->PoisonDamage > 0 && inflictor->PoisonDuration != INT_MIN)
-	{
-		P_PoisonMobj(target, inflictor, inflictor->target, inflictor->PoisonDamage, inflictor->PoisonDuration, inflictor->PoisonPeriod, inflictor->PoisonDamageType);
-	}
+	if (self->PoisonDamage > 0 && self->PoisonDuration != INT_MIN)
+		P_PoisonMobj(victim, self, self->target, self->PoisonDamage, self->PoisonDuration, self->PoisonPeriod, self->PoisonDamageType);
 
 	// Do damage
-	int damage = inflictor->GetMissileDamage((inflictor->flags4 & MF4_STRIFEDAMAGE) ? 3 : 7, 1);
-	if ((damage > 0) || (inflictor->flags6 & MF6_FORCEPAIN) || (inflictor->flags7 & MF7_CAUSEPAIN))
+	int damage = ripper ? self->GetMissileDamage(3, 2) : self->GetMissileDamage((self->flags4 & MF4_STRIFEDAMAGE) ? 3 : 7, 1);
+	if (damage > 0 || (self->flags6 & MF6_FORCEPAIN) || (self->flags7 & MF7_CAUSEPAIN))
 	{
-		int newdam = P_DamageMobj(target, inflictor, inflictor->target, damage, inflictor->DamageType);
-		if (damage > 0)
+		if (ripper)
+			S_Sound(self, CHAN_BODY, 0, self->SoundVar(NAME_RipSound), 1.0f, ATTN_IDLE);
+
+		int dealt = P_DamageMobj(victim, self, self->target, damage, self->DamageType);
+		if (damage > 0 && !(self->flags3 & MF3_BLOODLESSIMPACT)
+			&& !(victim->flags & MF_NOBLOOD)
+			&& !(victim->flags2 & (MF2_INVULNERABLE | MF2_DORMANT | MF2_REFLECTIVE)))
 		{
-			if ((inflictor->flags5 & MF5_BLOODSPLATTER) &&
-				!(target->flags & MF_NOBLOOD) &&
-				!(target->flags2 & MF2_REFLECTIVE) &&
-				!(target->flags2 & (MF2_INVULNERABLE | MF2_DORMANT)) &&
-				!(inflictor->flags3 & MF3_BLOODLESSIMPACT) &&
-				(pr_checkthing() < 192))
-			{
-				P_BloodSplatter(inflictor->Pos(), target, inflictor->AngleTo(target));
-			}
-			if (!(inflictor->flags3 & MF3_BLOODLESSIMPACT))
-			{
-				P_TraceBleed(newdam > 0 ? newdam : damage, target, inflictor);
-			}
+			if (ripper)
+				P_RipperBlood(self, victim);
+			else if ((self->flags5 & MF5_BLOODSPLATTER) && pr_checkthing() < 192)
+				P_BloodSplatter(self->Pos(), victim, self->AngleTo(victim));
+
+			P_TraceBleed(dealt > 0 ? dealt : damage, victim, self);
 		}
 	}
 	else
 	{
-		P_GiveBody(target, -damage);
+		P_GiveBody(victim, -damage);
 	}
 }
-DEFINE_ACTION_FUNCTION(AActor, DoMissileDamage)
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, DoMissileDamage, P_DoMissileDamage)
 {
 	PARAM_SELF_PROLOGUE(AActor);
-	PARAM_OBJECT_NOT_NULL(target, AActor);
-	P_DoMissileDamage(self, target);
+	PARAM_OBJECT_NOT_NULL(victim, AActor);
+	P_DoMissileDamage(self, victim);
 	return 0;
 }
 //==========================================================================
@@ -1687,27 +1685,7 @@ bool PIT_CheckThing(FMultiBlockThingsIterator &it, FMultiBlockThingsIterator::Ch
 				if (check == NULL || !*check)
 				{
 					tm.LastRipped[thing] = true;
-					if (!(thing->flags & MF_NOBLOOD) &&
-						!(thing->flags2 & MF2_REFLECTIVE) &&
-						!(tm.thing->flags3 & MF3_BLOODLESSIMPACT) &&
-						!(thing->flags2 & (MF2_INVULNERABLE | MF2_DORMANT)))
-					{ // Ok to spawn blood
-						P_RipperBlood(tm.thing, thing);
-					}
-					S_Sound(tm.thing, CHAN_BODY, 0, tm.thing->SoundVar(NAME_RipSound), 1, ATTN_IDLE);
-
-					// Do poisoning (if using new style poison)
-					if (tm.thing->PoisonDamage > 0 && tm.thing->PoisonDuration != INT_MIN)
-					{
-						P_PoisonMobj(thing, tm.thing, tm.thing->target, tm.thing->PoisonDamage, tm.thing->PoisonDuration, tm.thing->PoisonPeriod, tm.thing->PoisonDamageType);
-					}
-
-					damage = tm.thing->GetMissileDamage(3, 2);
-					int newdam = P_DamageMobj(thing, tm.thing, tm.thing->target, damage, tm.thing->DamageType);
-					if (!(tm.thing->flags3 & MF3_BLOODLESSIMPACT))
-					{
-						P_TraceBleed(newdam > 0 ? newdam : damage, thing, tm.thing);
-					}
+					P_DoMissileDamage(tm.thing, thing);
 					if (thing->flags2 & MF2_PUSHABLE
 						&& !(tm.thing->flags2 & MF2_CANNOTPUSH))
 					{ // Push thing
@@ -2486,7 +2464,9 @@ bool P_TryMove(AActor *thing, const DVector2 &pos,
 						// If it's a bouncer, let it bounce off its new floor, too.
 						if (thing->BounceFlags & BOUNCE_Floors)
 						{
-							thing->FloorBounceMissile(tm.floorsector->floorplane);
+							F3DFloor* ff = nullptr;
+							NextLowestFloorAt(tm.sector, tm.pos.X, tm.pos.Y, tm.pos.Z, 0, thing->MaxStepHeight, nullptr, &ff);
+							thing->FloorBounceMissile(ff != nullptr ? *ff->top.plane : tm.floorsector->floorplane, ff != nullptr);
 						}
 						else
 						{
@@ -3572,7 +3552,9 @@ bool FSlide::BounceWall(AActor *mo)
 	double         movelen;
 	line_t			*line;
 
-	if (!(mo->BounceFlags & BOUNCE_Walls))
+	// The plane bounce flags need to be checked here in case it hit a ramp while
+	// moving along the xy axes.
+	if (!(mo->BounceFlags & (BOUNCE_Walls | BOUNCE_Ceilings | BOUNCE_Floors)))
 	{
 		return false;
 	}
@@ -3603,17 +3585,22 @@ bool FSlide::BounceWall(AActor *mo)
 	{ // Could not find a wall, so bounce off the floor/ceiling instead.
 		double floordist = mo->Z() - mo->floorz;
 		double ceildist = mo->ceilingz - mo->Z();
+		F3DFloor* ff = nullptr;
 		if (floordist <= ceildist)
 		{
-			mo->FloorBounceMissile(mo->Sector->floorplane);
-			return true;
+			NextLowestFloorAt(mo->Sector, mo->X(), mo->Y(), mo->Z(), 0, mo->MaxStepHeight, nullptr, &ff);
+			return !mo->FloorBounceMissile(ff != nullptr ? *ff->top.plane : mo->floorsector->floorplane, ff != nullptr);
 		}
 		else
 		{
-			mo->FloorBounceMissile(mo->Sector->ceilingplane);
-			return true;
+			NextHighestCeilingAt(mo->Sector, mo->X(), mo->Y(), mo->Z(), mo->Top(), 0, nullptr, &ff);
+			return !mo->FloorBounceMissile(ff != nullptr ? *ff->bottom.plane : mo->ceilingsector->ceilingplane, ff != nullptr);
 		}
 	}
+
+	if (!(mo->BounceFlags & BOUNCE_Walls))
+		return false;
+
 	line = bestslideline;
 
 	if (mo->flags & MF_MISSILE)
@@ -3787,7 +3774,8 @@ bool P_BounceActor(AActor *mo, AActor *BlockingMobj, bool ontop)
 			else // Don't run through this for MBF-style bounces
 			{
 				// The reflected velocity keeps only about 70% of its original speed
-				mo->Vel.Z = (mo->Vel.Z - 2. * dot) * mo->bouncefactor;
+				mo->Vel.Z -= 2. * dot;
+				mo->Vel *= mo->bouncefactor;
 			}
 
 			mo->PlayBounceSound(true);
@@ -3798,8 +3786,11 @@ bool P_BounceActor(AActor *mo, AActor *BlockingMobj, bool ontop)
 			}
 			else if (mo->BounceFlags & (BOUNCE_AutoOff | BOUNCE_AutoOffFloorOnly))
 			{
-				if (!(mo->flags & MF_NOGRAVITY) && (mo->Vel.Z < 3.))
-					mo->BounceFlags &= ~BOUNCE_TypeMask;
+				if (mo->Vel.Z >= 0 || (mo->BounceFlags & BOUNCE_AutoOff))
+				{
+					if (!(mo->flags & MF_NOGRAVITY) && (mo->Vel.Z < 3.))
+						mo->BounceFlags &= ~BOUNCE_TypeMask;
+				}
 			}
 		}
 		if (mo->BounceFlags & BOUNCE_UseBounceState)
@@ -5469,7 +5460,7 @@ void P_RailAttack(FRailParams *p)
 	// disabled because not complete yet.
 	flags = (puffDefaults->flags6 & MF6_NOTRIGGER) ? TRACE_ReportPortals : TRACE_PCross | TRACE_Impact | TRACE_ReportPortals;
 
-	if (source->Level->localEventManager->WorldHitscanPreFired(source, source->Angles.Yaw + p->angleoffset, p->distance, source->Angles.Pitch + p->pitchoffset, p->damage, damagetype, puffclass, flags, p->offset_z, 0, p->offset_xy))
+	if (source->Level->localEventManager->WorldRailgunPreFired(damagetype, puffclass, p))
 	{
 		return;
 	}
@@ -5630,7 +5621,7 @@ void P_RailAttack(FRailParams *p)
 		}
 	}
 
-	source->Level->localEventManager->WorldHitscanFired(source, start, trace.HitPos, thepuff, flags);
+	source->Level->localEventManager->WorldRailgunFired(source, start, trace.HitPos, thepuff, flags);
 
 	if (thepuff != NULL)
 	{

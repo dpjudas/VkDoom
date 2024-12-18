@@ -99,6 +99,7 @@ static FRandom pr_skullpop ("SkullPop");
 
 // [SP] Allows respawn in single player
 CVAR(Bool, sv_singleplayerrespawn, false, CVAR_SERVERINFO | CVAR_CHEAT)
+CVAR(Float, snd_footstepvolume, 1.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 // Variables for prediction
 CVAR(Bool, cl_predict_specials, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
@@ -360,6 +361,7 @@ void player_t::CopyFrom(player_t &p, bool copyPSP)
 	MUSINFOactor = p.MUSINFOactor;
 	MUSINFOtics = p.MUSINFOtics;
 	SoundClass = p.SoundClass;
+	LastSafePos = p.LastSafePos;
 	angleOffsetTargets = p.angleOffsetTargets;
 	if (copyPSP)
 	{
@@ -1290,6 +1292,13 @@ void P_PlayerThink (player_t *player)
 		player->SubtitleCounter--;
 	}
 
+	if (player->playerstate == PST_LIVE
+		&& player->mo->Z() <= player->mo->floorz
+		&& !player->mo->Sector->IsDangerous(player->mo->Pos(), player->mo->Height))
+	{
+		player->LastSafePos = player->mo->Pos();
+	}
+
 	// Bots do not think in freeze mode.
 	if (player->mo->Level->isFrozen() && player->Bot != nullptr)
 	{
@@ -1778,7 +1787,9 @@ void player_t::Serialize(FSerializer &arc)
 		("onground", onground)
 		("musinfoactor", MUSINFOactor)
 		("musinfotics", MUSINFOtics)
-		("soundclass", SoundClass);
+		("soundclass", SoundClass)
+		("angleoffsettargets", angleOffsetTargets)
+		("lastsafepos", LastSafePos);
 
 	if (arc.isWriting ())
 	{
