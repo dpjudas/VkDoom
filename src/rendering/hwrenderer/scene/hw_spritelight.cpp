@@ -63,7 +63,7 @@ public:
 	bool TraceLightVisbility(FLightNode* node, const FVector3& L, float dist)
 	{
 		FDynamicLight* light = node->lightsource;
-		if (!light->Trace() || !level.levelMesh || !Actor)
+		if (!light->TraceActors() || !level.levelMesh || !Actor)
 			return true;
 
 		if (!ActorMoved && CurrentBit < 64)

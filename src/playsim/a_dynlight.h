@@ -1,4 +1,5 @@
 #pragma once
+#include "hw_cvars.h"
 #include "c_cvars.h"
 #include "actor.h"
 #include "cycler.h"
@@ -238,6 +239,7 @@ struct FDynamicLight
 	bool IsSpot() const { return !!((*pLightFlags) & LF_SPOT); }
 	bool IsAttenuated() const { return !!((*pLightFlags) & LF_ATTENUATE); }
 	bool Trace() const { return !!((*pLightFlags) & (LF_TRACE)); }
+	bool TraceActors() const { return Trace() || gl_light_shadows == 2; }
 	bool DontShadowmap() const { return !!((*pLightFlags) & LF_NOSHADOWMAP); }
 	bool DontLightSelf() const { return !!((*pLightFlags) & (LF_DONTLIGHTSELF|LF_DONTLIGHTACTORS)); }	// dontlightactors implies dontlightself.
 	bool DontLightActors() const { return !!((*pLightFlags) & LF_DONTLIGHTACTORS); }
