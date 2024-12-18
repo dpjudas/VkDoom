@@ -72,6 +72,41 @@ static FRandom randLight;
 extern TArray<FLightDefaults *> StateLights;
 
 
+static void MarkTilesForUpdate(FLevelLocals * Level, const TArrayView<int> &tiles)
+{
+	for(int i : tiles)
+	{
+		if(i >= 0)
+		{
+			Level->levelMesh->Lightmap.Tiles[i].NeedsUpdate = true;
+		}
+	}
+}
+
+static void MarkTilesForUpdate(FLevelLocals * Level, FLightNode * touching_sides, FLightNode * touching_sector)
+{
+	if(Level->levelMesh)
+	{
+		while(touching_sides)
+		{
+			MarkTilesForUpdate(Level, touching_sides->targLine->LightmapTiles);
+
+			touching_sides = touching_sides->nextTarget;
+		}
+	
+		while(touching_sector)
+		{
+			for(subsector_t * ss : static_cast<FSection *>(touching_sector->targ)->subsectors)
+			{
+				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
+				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
+			}
+
+			touching_sector = touching_sector->nextTarget;
+		}
+	}
+}
+
 //==========================================================================
 //
 //
@@ -132,6 +167,7 @@ void AttachLight(AActor *self)
 	light->target = self;
 	light->mShadowmapIndex = 1024;
 	light->m_active = false;
+	light->wasactive = false;
 	light->visibletoplayer = true;
 	light->lighttype = (uint8_t)self->IntVar(NAME_lighttype);
 	self->AttachedLights.Push(light);
@@ -252,6 +288,7 @@ void FDynamicLight::Activate()
 }
 
 
+
 //==========================================================================
 //
 // [TS]
@@ -270,22 +307,29 @@ void FDynamicLight::Tick()
 
 	if (owned)
 	{
-		if (!target->state || !target->ShouldRenderLocally())
-		{
-			Deactivate();
-			return;
-		}
-		if (target->flags & MF_UNMORPHED)
+		if (!target->state || !target->ShouldRenderLocally() || (target->flags & MF_UNMORPHED))
 		{
 			m_active = false;
-			return;
 		}
-		visibletoplayer = target->IsVisibleToPlayer();	// cache this value for the renderer to speed up calculations.
+		else
+		{
+			visibletoplayer = target->IsVisibleToPlayer();	// cache this value for the renderer to speed up calculations.
+		}
 	}
 
-	// Don't bother if the light won't be shown
-	if (!IsActive()) return;
+	bool markTiles = (Trace() && Level->levelMesh);
 
+	// Don't bother if the light won't be shown
+	if (!IsActive())
+	{
+		if(markTiles && m_active != wasactive)
+		{
+			MarkTilesForUpdate(Level, touching_sides, touching_sector);
+		}
+		wasactive = m_active;
+		return;
+	}
+	
 	// I am doing this with a type field so that I can dynamically alter the type of light
 	// without having to create or maintain multiple objects.
 	switch(lighttype)
@@ -376,7 +420,15 @@ void FDynamicLight::Tick()
 	{
 		lightStrength = LightCalcStrength(m_currentRadius);
 	}
-	UpdateLocation();
+
+	bool updated = UpdateLocation();
+
+	if(!updated && markTiles && m_active != wasactive)
+	{
+		MarkTilesForUpdate(Level, touching_sides, touching_sector);
+	}
+
+	wasactive = m_active;
 }
 
 
@@ -387,7 +439,7 @@ void FDynamicLight::Tick()
 //
 //
 //==========================================================================
-void FDynamicLight::UpdateLocation()
+bool FDynamicLight::UpdateLocation()
 {
 	double oldx= X();
 	double oldy= Y();
@@ -430,8 +482,11 @@ void FDynamicLight::UpdateLocation()
 		{
 			//Update the light lists
 			LinkLight();
+			return true;
 		}
 	}
+
+	return false;
 }
 
 //=============================================================================
@@ -562,6 +617,8 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 	collected_ss.Push({ section, opos });
 	section->validcount = dl_validcount;
 
+	bool markTiles = (Trace() && Level->levelMesh);
+
 	bool hitonesidedback = false;
 	for (unsigned i = 0; i < collected_ss.Size(); i++)
 	{
@@ -570,6 +627,14 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 
 		touching_sector = AddLightNode(&section->lighthead, section, this, touching_sector);
 
+		if(markTiles)
+		{
+			for(subsector_t * ss : section->subsectors)
+			{
+				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
+				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
+			}
+		}
 
 		auto processSide = [&](side_t *sidedef, const vertex_t *v1, const vertex_t *v2)
 		{
@@ -581,6 +646,10 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 				{
 					linedef->validcount = ::validcount;
 					touching_sides = AddLightNode(&sidedef->lighthead, sidedef, this, touching_sides);
+					if(markTiles)
+					{
+						MarkTilesForUpdate(Level, sidedef->LightmapTiles);
+					}
 				}
 				else if (linedef->sidedef[0] == sidedef && linedef->sidedef[1] == nullptr)
 				{
@@ -743,8 +812,28 @@ void FDynamicLight::LinkLight()
 //==========================================================================
 void FDynamicLight::UnlinkLight ()
 {
-	while (touching_sides) touching_sides = DeleteLightNode(touching_sides);
-	while (touching_sector) touching_sector = DeleteLightNode(touching_sector);
+	bool markTiles = (Trace() && Level->levelMesh);
+
+	while (touching_sides)
+	{
+		if(markTiles)
+		{
+			MarkTilesForUpdate(Level, touching_sides->targLine->LightmapTiles);
+		}
+		touching_sides = DeleteLightNode(touching_sides);
+	}
+	while (touching_sector)
+	{
+		if(markTiles)
+		{
+			for(subsector_t * ss : static_cast<FSection *>(touching_sector->targ)->subsectors)
+			{
+				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
+				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
+			}
+		}
+		touching_sector = DeleteLightNode(touching_sector);
+	}
 	shadowmapped = false;
 }
 

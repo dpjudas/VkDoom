@@ -252,7 +252,7 @@ struct FDynamicLight
 	double Z() const { return Pos.Z; }
 
 	void Tick();
-	void UpdateLocation();
+	bool UpdateLocation();
 	void LinkLight();
 	void UnlinkLight();
 	void ReleaseLight();
@@ -290,6 +290,7 @@ public:
 	int m_lastUpdate;
 	int mShadowmapIndex;
 	bool m_active;
+	bool wasactive;
 	bool visibletoplayer;
 	bool shadowmapped;
 	uint8_t lighttype;
