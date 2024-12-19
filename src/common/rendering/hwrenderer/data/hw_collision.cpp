@@ -124,7 +124,10 @@ void CPUAccelStruct::Update()
 
 std::unique_ptr<CPUBottomLevelAccelStruct> CPUAccelStruct::CreateBLAS(int indexStart, int indexCount)
 {
-	return std::make_unique<CPUBottomLevelAccelStruct>(Mesh->Mesh.Vertices.Data(), Mesh->Mesh.Vertices.Size(), &Mesh->Mesh.Indexes[indexStart], indexCount, Scratch);
+	auto accelstruct = std::make_unique<CPUBottomLevelAccelStruct>(Mesh->Mesh.Vertices.Data(), Mesh->Mesh.Vertices.Size(), &Mesh->Mesh.Indexes[indexStart], indexCount, Scratch);
+	if (accelstruct->GetRoot() == -1)
+		return {};
+	return accelstruct;
 }
 
 static FVector3 SwapYZ(const FVector3& v)
