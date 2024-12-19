@@ -814,25 +814,28 @@ void FDynamicLight::UnlinkLight ()
 {
 	bool markTiles = (Trace() && Level->levelMesh);
 
-	while (touching_sides)
+	if(markTiles)
 	{
-		if(markTiles)
+		while (touching_sides)
 		{
 			MarkTilesForUpdate(Level, touching_sides->targLine->LightmapTiles);
+			touching_sides = DeleteLightNode(touching_sides);
 		}
-		touching_sides = DeleteLightNode(touching_sides);
-	}
-	while (touching_sector)
-	{
-		if(markTiles)
+
+		while (touching_sector)
 		{
 			for(subsector_t * ss : static_cast<FSection *>(touching_sector->targ)->subsectors)
 			{
 				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
 				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
 			}
+			touching_sector = DeleteLightNode(touching_sector);
 		}
-		touching_sector = DeleteLightNode(touching_sector);
+	}
+	else
+	{
+		while (touching_sides) touching_sides = DeleteLightNode(touching_sides);
+		while (touching_sector) touching_sector = DeleteLightNode(touching_sector);
 	}
 	shadowmapped = false;
 }
