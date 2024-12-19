@@ -300,6 +300,8 @@ public:
 	bool swapped;
 	bool explicitpitch;
 
+	int oldred, oldgreen, oldblue;
+
 	float lightStrength;
 
 	// Locations in the level mesh light list. Ends with index = 0 or all entries used
