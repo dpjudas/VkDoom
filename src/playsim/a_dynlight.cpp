@@ -423,7 +423,7 @@ void FDynamicLight::Tick()
 
 	bool updated = UpdateLocation();
 
-	if(!updated && markTiles && (m_active != wasactive || oldred != GetRed() || oldblue != GetBlue() || oldgreen != GetGreen()))
+	if(!updated && markTiles && (m_active != wasactive || oldred != GetRed() || oldblue != GetBlue() || oldgreen != GetGreen() || oldradius != m_currentRadius))
 	{
 		MarkTilesForUpdate(Level, touching_sides, touching_sector);
 
