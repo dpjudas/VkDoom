@@ -300,6 +300,8 @@ public:
 	bool swapped;
 	bool explicitpitch;
 
+	bool updated;
+
 	int oldred, oldgreen, oldblue;
 
 	float lightStrength;

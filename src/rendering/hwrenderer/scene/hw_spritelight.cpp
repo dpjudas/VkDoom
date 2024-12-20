@@ -60,13 +60,13 @@ public:
 		}
 	}
 
-	bool TraceLightVisbility(FLightNode* node, const FVector3& L, float dist)
+	bool TraceLightVisbility(FLightNode* node, const FVector3& L, float dist, bool ignoreCache)
 	{
 		FDynamicLight* light = node->lightsource;
 		if (!light->TraceActors() || !level.levelMesh || !Actor)
 			return true;
 
-		if (!ActorMoved && CurrentBit < 64)
+		if (!ignoreCache && !ActorMoved && CurrentBit < 64)
 		{
 			bool traceResult = (Actor->StaticLightsTraceCache.Bits >> CurrentBit) & 1;
 			CurrentBit++;
@@ -176,7 +176,7 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, float x, float y, float z, FLig
 				if (light->IsSpot() || light->Trace())
 					L *= -1.0f / dist;
 
-				if (staticLight.TraceLightVisbility(node, L, dist))
+				if (staticLight.TraceLightVisbility(node, L, dist, light->updated))
 				{
 					if(level.info->lightattenuationmode == ELightAttenuationMode::INVERSE_SQUARE)
 					{
@@ -299,7 +299,7 @@ void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &mo
 							if (light->Trace())
 								L *= 1.0f / dist;
 
-							if (staticLight.TraceLightVisbility(node, L, dist))
+							if (staticLight.TraceLightVisbility(node, L, dist, light->updated))
 							{
 								AddLightToList(modellightdata, group, light, true);
 							}
