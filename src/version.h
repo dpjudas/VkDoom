@@ -127,5 +127,7 @@ const int SAVEPICHEIGHT = 162;
 const int VID_MIN_WIDTH = 320;
 const int VID_MIN_HEIGHT = 200;
 
+// Lightmap lump version
+#define LIGHTMAPVER 4
 
 #endif //__VERSION_H__

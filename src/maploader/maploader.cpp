@@ -3033,12 +3033,12 @@ bool MapLoader::LoadLightmap(MapData* map)
 		return false;
 
 	int version = fr.ReadInt32();
-	if (version < 3)
+	if (version < LIGHTMAPVER)
 	{
-		Printf(PRINT_HIGH, "LoadLightmap: This is an old unsupported version of the lightmap lump. Please rebuild the map with a newer version of zdray.\n");
+		Printf(PRINT_HIGH, "LoadLightmap: This is an old unsupported version of the lightmap lump. Please rebuild the map with the console commands 'deletelightmap', and then 'savelightmap'.\n");
 		return false;
 	}
-	else if (version != 3)
+	else if (version != LIGHTMAPVER)
 	{
 		Printf(PRINT_HIGH, "LoadLightmap: unsupported lightmap lump version\n");
 		return false;
