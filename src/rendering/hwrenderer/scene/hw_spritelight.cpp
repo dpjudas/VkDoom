@@ -135,9 +135,9 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, float x, float y, float z, FLig
 
 	if (staticLight.TraceSunVisibility(x, y, z))
 	{
-		out[0] = Level->SunColor.X;
-		out[1] = Level->SunColor.Y;
-		out[2] = Level->SunColor.Z;
+		out[0] = Level->SunColor.X * Level->SunIntensity;
+		out[1] = Level->SunColor.Y * Level->SunIntensity;
+		out[2] = Level->SunColor.Z * Level->SunIntensity;
 	}
 
 	// Go through both light lists
@@ -270,7 +270,7 @@ void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &mo
 
 		if (staticLight.TraceSunVisibility(x, y, z))
 		{
-			AddSunLightToList(modellightdata, x, y, z, self->Level->SunDirection, self->Level->SunColor);
+			AddSunLightToList(modellightdata, x, y, z, self->Level->SunDirection, self->Level->SunColor * self->Level->SunIntensity);
 		}
 
 		BSPWalkCircle(self->Level, x, y, radiusSquared, [&](subsector_t *subsector) // Iterate through all subsectors potentially touched by actor
