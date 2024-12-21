@@ -112,6 +112,7 @@ extend struct GameInfoStruct
 	native bool forceEnableLightmaps;
 	native FVector3 defaultSunColor;
 	native FVector3 defaultSunDirection;
+	native float defaultSunIntensity;
 	native int defaultLightmapSampleDistance;
 }
 
@@ -827,4 +828,8 @@ struct Lightmap
 	// Can go above 1.0 (call Invalidate())
 	// Calling this does NOT recalculate the lightmap.
 	native static void SetSunColor(Vector3 color);
+
+    // Multiplier for the sun's intensity (or brightness)
+    // Calling this does NOT recalculate the lightmap.
+    native static void SetSunIntensity(double intensity);
 };

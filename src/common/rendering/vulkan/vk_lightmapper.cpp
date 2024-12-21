@@ -246,7 +246,7 @@ void VkLightmapper::UploadUniforms()
 	Uniforms values = {};
 	values.SunDir = SwapYZ(mesh->SunDirection);
 	values.SunColor = mesh->SunColor;
-	values.SunIntensity = 1.0f;
+	values.SunIntensity = mesh->SunIntensity;
 
 	uniforms.Uniforms = (uint8_t*)uniforms.TransferBuffer->Map(0, uniforms.NumStructs * uniforms.StructStride);
 	*reinterpret_cast<Uniforms*>(uniforms.Uniforms + uniforms.StructStride * uniforms.Index) = values;

@@ -824,6 +824,10 @@ public:
 					Level->SunColor = FVector3(float((n >> 16) & 0xFF) / 0xFF, float((n >> 8) & 0xFF) / 0xFF, float(n & 0xFF) / 0xFF);
 				}
 				break;
+			case NAME_lm_sunintensity:
+				CHECK_N(Zd | Zdt)
+				Level->SunIntensity = CheckFloat(key);
+				break;
 			case NAME_lm_sampledist:
 				CHECK_N(Zd | Zdt)
 				if (CheckInt(key) < LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN || CheckInt(key) > LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX)

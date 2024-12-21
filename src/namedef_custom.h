@@ -868,6 +868,7 @@ xx(lm_sampledist_floor)
 xx(lm_sampledist_ceiling)
 xx(lm_dynamic)
 xx(lm_suncolor)
+xx(lm_sunintensity)
 
 // Light keywords
 xx(light_softshadowradius)

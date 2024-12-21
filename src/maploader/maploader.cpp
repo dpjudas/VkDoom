@@ -3202,6 +3202,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	// Reset defaults for lightmapping
 	Level->SunColor = gameinfo.defaultSunColor;
 	Level->SunDirection = gameinfo.defaultSunDirection;
+	Level->SunIntensity = gameinfo.defaultSunIntensity;
 	Level->LightmapSampleDistance = gameinfo.defaultLightmapSampleDistance;
 	Level->lightmaps = gameinfo.forceEnableLightmaps;
 
