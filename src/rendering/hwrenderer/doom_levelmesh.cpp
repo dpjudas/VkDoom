@@ -75,15 +75,15 @@ ADD_STAT(lightmap)
 	int indexBufferUsed = levelMesh->FreeLists.Index.GetUsedSize();
 
 	out.Format(
-		"Surfaces: %u (awaiting updates: %u)\n"
-		"Surface pixel area to update: %u\n"
+		"Surfaces: %u (awaiting updates: %u static, %u dynamic)\n"
+		"Surface pixel area to update: %u static, %u dynamic\n"
 		"Surface pixel area: %u\nAtlas pixel area:   %u\n"
 		"Atlas efficiency: %.4f%%\n"
 		"Dynamic BLAS time: %2.3f ms\n"
 		"Level mesh process time: %2.3f ms\n"
 		"Level mesh index buffer: %d K used (%d%%)",
-		stats.tiles.total, stats.tiles.dirty,
-		stats.pixels.dirty,
+		stats.tiles.total, stats.tiles.dirty, stats.tiles.dirtyDynamic,
+		stats.pixels.dirty, stats.pixels.dirtyDynamic,
 		stats.pixels.total,
 		atlasPixelCount,
 		float(stats.pixels.total) / float(atlasPixelCount) * 100.0f,

@@ -249,7 +249,7 @@ struct LevelMeshTileStats
 {
 	struct Stats
 	{
-		uint32_t total = 0, dirty = 0;
+		uint32_t total = 0, dirty = 0, dirtyDynamic = 0;
 	};
 
 	Stats tiles, pixels;
