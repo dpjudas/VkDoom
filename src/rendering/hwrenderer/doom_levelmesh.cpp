@@ -223,6 +223,7 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 
 	SunColor = doomMap.SunColor; // TODO keep only one copy?
 	SunDirection = doomMap.SunDirection;
+	SunIntensity = doomMap.SunIntensity;
 	Lightmap.SampleDistance = doomMap.LightmapSampleDistance;
 
 	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
@@ -2296,6 +2297,19 @@ DEFINE_ACTION_FUNCTION(_Lightmap, SetSunColor)
 		auto vec = FVector3(float(x), float(y), float(z));
 		level.SunColor = vec;
 		level.levelMesh->SunColor = vec;
+	}
+	return 0;
+}
+
+DEFINE_ACTION_FUNCTION(_Lightmap, SetSunIntensity)
+{
+	PARAM_PROLOGUE;
+	PARAM_FLOAT(i);
+
+	if (level.levelMesh)
+	{
+		level.SunIntensity = i;
+		level.levelMesh->SunIntensity = i;
 	}
 	return 0;
 }

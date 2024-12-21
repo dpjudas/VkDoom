@@ -475,6 +475,7 @@ public:
 	TArray<int> LightmapTiles;
 	FVector3 SunDirection;
 	FVector3 SunColor;
+	float SunIntensity;
 	uint16_t LightmapSampleDistance;
 
 	// Portal information.

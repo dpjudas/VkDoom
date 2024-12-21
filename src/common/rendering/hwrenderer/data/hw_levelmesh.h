@@ -135,6 +135,7 @@ public:
 	// Map defaults
 	FVector3 SunDirection = FVector3(0.0f, 0.0f, -1.0f);
 	FVector3 SunColor = FVector3(0.0f, 0.0f, 0.0f);
+	float SunIntensity = 1.0f;
 
 	TArray<LevelMeshPortal> Portals;
 

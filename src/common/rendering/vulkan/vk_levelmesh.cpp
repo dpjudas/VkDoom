@@ -547,7 +547,7 @@ void VkLevelMesh::RaytraceScene(const VkRenderPassKey& renderPassKey, VulkanComm
 	pushconstants.ProjY = f;
 	pushconstants.SunDir = FVector3(Mesh->SunDirection.X, Mesh->SunDirection.Z, Mesh->SunDirection.Y);
 	pushconstants.SunColor = Mesh->SunColor;
-	pushconstants.SunIntensity = 1.0f;
+	pushconstants.SunIntensity = Mesh->SunIntensity;
 
 	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 0, Viewer.DescriptorSet.get());
 	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 1, fb->GetDescriptorSetManager()->GetBindlessSet());
