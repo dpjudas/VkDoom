@@ -78,7 +78,11 @@ static void MarkTilesForUpdate(FLevelLocals * Level, const TArrayView<int> &tile
 	{
 		if(i >= 0)
 		{
-			Level->levelMesh->Lightmap.Tiles[i].NeedsUpdate = true;
+			auto &tile = Level->levelMesh->Lightmap.Tiles[i];
+			if(tile.AlwaysUpdate == 0 && !tile.NeedsUpdate)
+			{
+				tile.AlwaysUpdate = 3;
+			}
 		}
 	}
 }

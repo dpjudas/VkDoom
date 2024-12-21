@@ -158,6 +158,7 @@ struct HWDrawInfo
 	TArray<AActor*> Coronas;
 	TArray<Fogball> Fogballs;
 	TArray<LightmapTile*> VisibleTiles;
+	unsigned visibleDyn;
 	uint64_t LastFrameTime = 0;
 
 	TArray<MissingTextureInfo> MissingUpperTextures;
@@ -243,8 +244,15 @@ public:
 		if (lm_always_update || tile->AlwaysUpdate == 2 || (tile->AlwaysUpdate == 1 && lm_dynamic))
 		{
 			tile->NeedsUpdate = true;
+			visibleDyn++;
 		}
-		else if (VisibleTiles.Size() >= unsigned(lm_max_updates))
+		else if(tile->AlwaysUpdate == 3 && lm_dynamic)
+		{
+			tile->AlwaysUpdate = 0;
+			tile->NeedsUpdate = true;
+			visibleDyn++;
+		}
+		else if ((VisibleTiles.Size() - visibleDyn) >= unsigned(lm_max_updates))
 		{
 			return;
 		}

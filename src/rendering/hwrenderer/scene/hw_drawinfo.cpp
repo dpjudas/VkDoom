@@ -139,6 +139,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 	Coronas.Clear();
 	Fogballs.Clear();
 	VisibleTiles.Clear();
+	visibleDyn = 0;
 	vpIndex = 0;
 
 	// Fullbright information needs to be propagated from the main view.
