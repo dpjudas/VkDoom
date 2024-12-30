@@ -1646,7 +1646,7 @@ public:
 	struct
 	{
 		DVector3 Pos = DVector3(-12345678.0, -12345678.0, -12345678.0);
-		uint64_t Bits = 0;
+		bool SunResult = false;
 	} StaticLightsTraceCache;
 
 	void InvalidateLightTraceCache()
