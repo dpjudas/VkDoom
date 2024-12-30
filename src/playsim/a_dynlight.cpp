@@ -134,6 +134,7 @@ static FDynamicLight *GetLight(FLevelLocals *Level)
 	ret->mShadowmapIndex = 1024;
 	ret->Level = Level;
 	ret->Pos.X = -10000000;	// not a valid coordinate.
+
 	return ret;
 }
 
@@ -435,6 +436,27 @@ void FDynamicLight::Tick()
 		}
 
 		updated = true;
+	}
+
+	if(TraceActors())
+	{
+		if(updated)
+		{
+			ActorList.Clear();
+		}
+		else if(ActorList.Size() > 0)
+		{
+			unsigned i = ActorList.Size() - 1;
+			while(i > 0)
+			{
+				if(ActorList[i]->ObjectFlags & OF_EuthanizeMe)
+				{
+					ActorList.Delete(i);
+					ActorResult.Delete(i);
+				}
+				i--;
+			}
+		}
 	}
 
 	wasactive = m_active;

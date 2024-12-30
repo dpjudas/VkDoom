@@ -55,7 +55,7 @@ public:
 		if (Actor && (Actor->Pos() != Actor->StaticLightsTraceCache.Pos || (Actor->Sector && (Actor->Sector->Flags & SECF_LM_DYNAMIC) && lm_dynamic)))
 		{
 			Actor->StaticLightsTraceCache.Pos = Actor->Pos();
-			Actor->StaticLightsTraceCache.Bits = 0;
+			Actor->StaticLightsTraceCache.SunResult = false;
 			ActorMoved = true;
 		}
 	}
@@ -66,17 +66,26 @@ public:
 		if (!light->TraceActors() || !level.levelMesh || !Actor)
 			return true;
 
-		if (!ignoreCache && !ActorMoved && CurrentBit < 64)
+		unsigned index = light->ActorList.SortedFind(Actor, false);
+
+		if (!ignoreCache && !ActorMoved && index < light->ActorList.Size() && light->ActorList[index] == Actor)
 		{
-			bool traceResult = (Actor->StaticLightsTraceCache.Bits >> CurrentBit) & 1;
-			CurrentBit++;
+			bool traceResult = light->ActorResult[index];
 			return traceResult;
 		}
 		else
 		{
+
 			bool traceResult = !level.levelMesh->Trace(FVector3((float)light->Pos.X, (float)light->Pos.Y, (float)light->Pos.Z), FVector3(-L.X, -L.Y, -L.Z), dist);
-			Actor->StaticLightsTraceCache.Bits |= ((uint64_t)traceResult) << CurrentBit;
-			CurrentBit++;
+			if(index == light->ActorList.Size() || light->ActorList[index] != Actor)
+			{
+				light->ActorList.Insert(index, Actor);
+				light->ActorResult.Insert(index, traceResult);
+			}
+			else
+			{
+				light->ActorResult[index] = traceResult;
+			}
 			return traceResult;
 		}
 	}
@@ -86,24 +95,21 @@ public:
 		if (!level.lightmaps || !Actor)
 			return false;
 
-		if (!ActorMoved && CurrentBit < 64)
+		if (!ActorMoved)
 		{
-			bool traceResult = (Actor->StaticLightsTraceCache.Bits >> CurrentBit) & 1;
-			CurrentBit++;
+			bool traceResult = Actor->StaticLightsTraceCache.SunResult;
 			return traceResult;
 		}
 		else
 		{
 			bool traceResult = level.levelMesh->TraceSky(FVector3(x, y, z), level.SunDirection, 65536.0f);
-			Actor->StaticLightsTraceCache.Bits |= ((uint64_t)traceResult) << CurrentBit;
-			CurrentBit++;
+			Actor->StaticLightsTraceCache.SunResult = traceResult;
 			return traceResult;
 		}
 	}
 
 	AActor* Actor;
 	bool ActorMoved = false;
-	int CurrentBit = 0;
 };
 
 //==========================================================================
