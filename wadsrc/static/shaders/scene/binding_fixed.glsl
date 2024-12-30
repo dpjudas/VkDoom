@@ -7,7 +7,7 @@ layout(set = 0, binding = 4) uniform samplerCubeArray PrefilterMap;
 
 #if defined(USE_RAYTRACE)
 #if defined(SUPPORTS_RAYQUERY)
-layout(set = 0, binding = 5) uniform accelerationStructureEXT TopLevelAS;
+layout(set = 0, binding = 5) uniform accelerationStructureEXT acc;
 #else
 struct CollisionNode
 {
