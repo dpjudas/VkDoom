@@ -6,7 +6,7 @@ struct TraceResult
 	int primitiveIndex;
 };
 
-#if defined(USE_RAYQUERY)
+#if defined(USE_RAYQUERY) || defined(SUPPORTS_RAYQUERY)
 
 TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 {
@@ -43,7 +43,6 @@ TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 	return result;
 }
 
-/*
 bool TraceAnyHit(vec3 origin, float tmin, vec3 dir, float tmax)
 {
 	rayQueryEXT rayQuery;
@@ -51,7 +50,6 @@ bool TraceAnyHit(vec3 origin, float tmin, vec3 dir, float tmax)
 	while(rayQueryProceedEXT(rayQuery)) { }
 	return rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
 }
-*/
 
 #else
 
@@ -164,7 +162,6 @@ bool is_leaf(int node_index)
 	return nodes[node_index].element_index != -1;
 }
 
-/*
 bool TraceAnyHit(vec3 origin, float tmin, vec3 dir, float tmax)
 {
 	if (tmax <= 0.0f)
@@ -199,7 +196,6 @@ bool TraceAnyHit(vec3 origin, float tmin, vec3 dir, float tmax)
 	} while (stackIndex > 0);
 	return false;
 }
-*/
 
 struct TraceHit
 {
@@ -281,3 +277,8 @@ TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 }
 
 #endif
+
+bool traceHit(vec3 origin, vec3 direction, float dist)
+{
+	return TraceAnyHit(origin, 0.01f, direction, dist);
+}
