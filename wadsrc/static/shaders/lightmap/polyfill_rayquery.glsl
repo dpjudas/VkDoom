@@ -277,8 +277,3 @@ TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 }
 
 #endif
-
-bool traceHit(vec3 origin, vec3 direction, float dist)
-{
-	return TraceAnyHit(origin, 0.01f, direction, dist);
-}

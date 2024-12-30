@@ -130,7 +130,7 @@ CVAR(Bool, gl_precache, true, CVAR_ARCHIVE)
 
 CUSTOM_CVAR(Int, gl_light_shadows, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 {
-	if (self < 0 || self > 3)
+	if (self < 0 || self > 4)
 		self = 1;
 }
 

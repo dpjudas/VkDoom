@@ -255,6 +255,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (key.Glowmap) definesBlock << "#define TEXF_Glowmap\n";
 
 	if (key.UseRaytrace) definesBlock << "#define USE_RAYTRACE\n";
+	if (key.UseRaytracePrecise) definesBlock << "#define USE_RAYTRACE_PRECISE\n";
 	if (key.UseShadowmap) definesBlock << "#define USE_SHADOWMAP\n";
 	if (key.UseLevelMesh) definesBlock << "#define USE_LEVELMESH\n";
 
