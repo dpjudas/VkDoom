@@ -303,7 +303,8 @@ void VkRenderState::ApplyRenderPass(int dt)
 	}
 
 	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
-	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
+	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows >= 2;
+	pipelineKey.ShaderKey.UseRaytracePrecise = gl_light_shadows >= 3;
 
 	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
 
@@ -1066,7 +1067,8 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	// Global state that don't require rebuilding the mesh
 	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;
 	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
-	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows == 2;
+	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows >= 2;
+	pipelineKey.ShaderKey.UseRaytracePrecise = gl_light_shadows >= 3;
 	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
 
 	// State overridden by the renderstate drawing the mesh

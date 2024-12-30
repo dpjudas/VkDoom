@@ -37,6 +37,21 @@ vec3 PassRayThroughSurface(SurfaceInfo surface, vec2 uv, vec3 rayColor)
 	}
 }
 
+float PassRayThroughSurfaceDynLight(SurfaceInfo surface, vec2 uv, float rayAlpha)
+{
+	if (surface.TextureIndex == 0)
+	{
+		return rayAlpha;
+	}
+	else
+	{
+		vec4 color = texture(textures[surface.TextureIndex], uv);
+
+		// Assume the renderstyle is basic alpha blend for now.
+		return rayAlpha * (1.0 - color.a * surface.Alpha);
+	}
+}
+
 void TransformRay(uint portalIndex, inout vec3 origin, inout vec3 dir)
 {
 	mat4 transformationMatrix = portals[portalIndex].Transformation;

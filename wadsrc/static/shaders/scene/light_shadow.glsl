@@ -4,20 +4,48 @@
 #if defined(USE_RAYTRACE)
 
 #include <shaders/lightmap/polyfill_rayquery.glsl>
+#include <shaders/lightmap/trace_levelmesh.glsl>
+#include <shaders/lightmap/montecarlo.glsl>
 
-vec2 getVogelDiskSample(int sampleIndex, int sampleCount, float phi) 
+float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 {
-    const float goldenAngle = radians(180.0) * (3.0 - sqrt(5.0));
-    float sampleIndexF = float(sampleIndex);
-    float sampleCountF = float(sampleCount);
-    
-    float r = sqrt((sampleIndexF + 0.5) / sampleCountF);  // Assuming index and count are positive
-    float theta = sampleIndexF * goldenAngle + phi;
-    
-    float sine = sin(theta);
-    float cosine = cos(theta);
-    
-    return vec2(cosine, sine) * r;
+	float alpha = 1.0;
+
+	for (int i = 0; i < 3; i++)
+	{
+		TraceResult result = TraceFirstHit(origin, tmin, direction, dist);
+
+		// Stop if we hit nothing - the point light is visible.
+		if (result.primitiveIndex == -1)
+			return alpha;
+
+		SurfaceInfo surface = GetSurface(result.primitiveIndex);
+		
+		// Pass through surface texture
+		alpha = PassRayThroughSurfaceDynLight(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), alpha);
+
+		// Stop if there is no light left
+		if (alpha <= 0.0)
+			return 0.0;
+
+		// Move to surface hit point
+		origin += direction * result.t;
+		dist -= result.t;
+
+		// Move through the portal, if any
+		TransformRay(surface.PortalIndex, origin, direction);
+	}
+
+	return 0.0;
+}
+
+float traceHit(vec3 origin, vec3 direction, float dist)
+{
+	#if defined(USE_RAYTRACE_PRECISE)
+		return TraceDynLightRay(origin, 0.01f, direction, dist);
+	#else
+		return TraceAnyHit(origin, 0.01f, direction, dist) ? 0.0 : 1.0;
+	#endif
 }
 
 float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
@@ -30,7 +58,7 @@ float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
 
 	if (quality == 0 || softShadowRadius == 0)
 	{
-		return traceHit(origin, direction, dist) ? 0.0 : 1.0;
+		return traceHit(origin, direction, dist);
 	}
 	else
 	{
@@ -44,9 +72,9 @@ float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
 		{
 			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * softShadowRadius;
 			vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
-			sum += traceHit(origin, normalize(pos - origin), dist) ? 0.0 : 1.0;
+			sum += traceHit(origin, normalize(pos - origin), dist);
 		}
-		return sum / step_count;
+		return (sum / step_count);
 	}
 }
 

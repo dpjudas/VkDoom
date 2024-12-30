@@ -154,9 +154,14 @@ void VkDescriptorSetManager::UpdateFixedSet()
 	else
 	{
 		update.AddBuffer(Fixed.Set.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetNodeBuffer());
-		update.AddBuffer(Fixed.Set.get(), 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetVertexBuffer());
-		update.AddBuffer(Fixed.Set.get(), 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetIndexBuffer());
 	}
+
+	update.AddBuffer(Fixed.Set.get(), 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetVertexBuffer());
+	update.AddBuffer(Fixed.Set.get(), 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetIndexBuffer());
+	update.AddBuffer(Fixed.Set.get(), 8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceIndexBuffer());
+	update.AddBuffer(Fixed.Set.get(), 9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceBuffer());
+	update.AddBuffer(Fixed.Set.get(), 10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetPortalBuffer());
+
 	update.Execute(fb->GetDevice());
 }
 
@@ -280,9 +285,12 @@ void VkDescriptorSetManager::CreateFixedLayout()
 	else
 	{
 		builder.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-		builder.AddBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-		builder.AddBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	}
+	builder.AddBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
 	builder.DebugName("VkDescriptorSetManager.Fixed.SetLayout");
 	Fixed.Layout = builder.Create(fb->GetDevice());
 }

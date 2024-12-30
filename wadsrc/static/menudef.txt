@@ -2715,6 +2715,7 @@ OptionValue ShadowMode
 	0, "$OPTVAL_NONE"
 	1, "$OPTVAL_SHADOWMAP"
 	2, "$OPTVAL_RAYTRACE"
+	3, "$OPTVAL_RAYTRACE_PRECISE"
 }
 
 OptionValue ShadowFilter
