@@ -173,7 +173,7 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, float x, float y, float z, FLig
 			{
 				dist = sqrtf(dist);	// only calculate the square root if we really need it.
 
-				if (light->IsSpot() || light->Trace())
+				if (light->IsSpot() || light->TraceActors())
 					L *= -1.0f / dist;
 
 				if (staticLight.TraceLightVisbility(node, L, dist, light->updated))
@@ -296,7 +296,7 @@ void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &mo
 						{
 							FVector3 L(dx, dy, dz);
 							float dist = sqrtf(distSquared);
-							if (light->Trace())
+							if (light->TraceActors())
 								L *= 1.0f / dist;
 
 							if (staticLight.TraceLightVisbility(node, L, dist, light->updated))
