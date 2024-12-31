@@ -1045,8 +1045,7 @@ void HWDrawInfo::DrawCoronas(FRenderState& state)
 	for (AActor* corona : Coronas)
 	{
 		auto& coronaFade = corona->specialf1;
-		auto cPos = corona->Vec3Offset(0., 0., corona->Height * 0.5);
-		DVector3 direction = Viewpoint.Pos - cPos;
+		DVector3 direction = Viewpoint.Pos - corona->PosRelative(Viewpoint.sector);
 		double dist = direction.Length();
 
 		// skip coronas that are too far
@@ -1057,7 +1056,7 @@ void HWDrawInfo::DrawCoronas(FRenderState& state)
 
 		direction.MakeUnit();
 		FTraceResults results;
-		if (!Trace(cPos, corona->Sector, direction, dist, MF_SOLID, ML_BLOCKEVERYTHING, corona, results, 0, CheckForViewpointActor, &Viewpoint))
+		if (!Trace(corona->Pos(), corona->Sector, direction, dist, MF_SOLID, ML_BLOCKEVERYTHING, corona, results, 0, CheckForViewpointActor, &Viewpoint))
 		{
 			coronaFade = std::min(coronaFade + timeElapsed * fadeSpeed, 1.0);
 		}
