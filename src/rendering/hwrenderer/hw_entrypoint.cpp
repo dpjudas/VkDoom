@@ -59,6 +59,7 @@ CVAR(Bool, gl_raytrace, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 extern bool NoInterpolateView;
 
 static SWSceneDrawer *swdrawer;
+TArray<AActor*> Coronas;
 
 void CleanSWDrawer()
 {
@@ -333,6 +334,7 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 
 sector_t* RenderView(player_t* player)
 {
+	Coronas.Clear();
 	auto RenderState = screen->RenderState();
 	RenderState->SetFlatVertexBuffer();
 	RenderState->ResetVertices();

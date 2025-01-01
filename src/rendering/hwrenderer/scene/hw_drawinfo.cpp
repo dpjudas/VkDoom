@@ -69,6 +69,8 @@ CVAR(Bool, gl_coronas, true, CVAR_ARCHIVE);
 
 CVAR(Bool, gl_levelmesh, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
+extern TArray<AActor*> Coronas;
+
 sector_t * hw_FakeFlat(sector_t * sec, sector_t * dest, area_t in_area, bool back);
 
 
@@ -136,7 +138,6 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 
 	for (int i = 0; i < GLDL_TYPES; i++) drawlists[i].Reset();
 	hudsprites.Clear();
-	Coronas.Clear();
 	Fogballs.Clear();
 	VisibleTiles.Clear();
 	visibleDyn = 0;
