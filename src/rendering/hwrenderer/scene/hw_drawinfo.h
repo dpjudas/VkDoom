@@ -328,7 +328,7 @@ public:
 	void DrawDecals(FRenderState &state, TArray<HWDecal *> &decals);
 	void DrawPlayerSprites(bool hudModelStep, FRenderState &state);
 	void DrawCoronas(FRenderState& state);
-	void DrawCorona(FRenderState& state, AActor* corona, float coronaFade, double dist);
+	void DrawCorona(FRenderState& state, AActor* corona, float coronaFade, const DVector3& pos, double dist);
 
 	void SetDitherTransFlags(AActor* actor);
 
