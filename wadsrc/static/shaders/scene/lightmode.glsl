@@ -107,7 +107,13 @@ vec3 AmbientOcclusionColor()
 	#endif
 	float fogfactor = exp2 (uFogDensity * fogdist);
 
-	return mix(uFogColor.rgb, vec3(0.0), fogfactor);
+	vec4 color = vec4(mix(uFogColor.rgb, vec3(0.0), fogfactor), 0.0);
+
+	#if defined(FOGBALLS)
+	color = ProcessFogBalls(color);
+	#endif
+
+	return color.rgb;
 }
 
 vec4 ProcessLightMode(Material material)
