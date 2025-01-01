@@ -833,7 +833,7 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 	if (isFogball)
 	{
 		Fogball fogball;
-		fogball.Position = FVector3(thing->Pos());
+		fogball.Position = FVector3(thing->PosRelative(r_viewpoint.sector));
 		fogball.Radius = (float)thing->args[3];
 		fogball.Color = FVector3(powf(thing->args[0] * (1.0f / 255.0f), 2.2), powf(thing->args[1] * (1.0f / 255.0f), 2.2), powf(thing->args[2] * (1.0f / 255.0f), 2.2));
 		fogball.Fog = (float)thing->Alpha;
