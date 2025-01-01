@@ -64,6 +64,7 @@
 extern TArray<spritedef_t> sprites;
 extern TArray<spriteframe_t> SpriteFrames;
 extern uint32_t r_renderercaps;
+extern TArray<AActor*> Coronas;
 
 const float LARGE_VALUE = 1e19f;
 const float MY_SQRT2    = 1.41421356237309504880; // sqrt(2)
@@ -843,7 +844,7 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 
 	if (thing->IsKindOf(NAME_Corona))
 	{
-		di->Coronas.Push(thing);
+		Coronas.Push(thing);
 		return;
 	}
 
