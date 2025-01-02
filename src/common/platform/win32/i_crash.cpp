@@ -445,12 +445,27 @@ public:
 	T* Ptr;
 };
 
+static std::wstring GetExeFilename()
+{
+	wchar_t buffer[1024] = {};
+	if (GetModuleFileName(0, buffer, 1024) == FALSE)
+		return {};
+	return buffer;
+}
+
+static std::wstring GetExePath()
+{
+	std::wstring exePath = GetExeFilename();
+	size_t pos = exePath.find_last_of(L"/\\");
+	if (pos == std::wstring::npos)
+		return {};
+	exePath.resize(pos);
+	return exePath;
+}
+
 static std::wstring GetPdbFilename()
 {
-	wchar_t exeFilename[1024] = {};
-	if (GetModuleFileName(0, exeFilename, 1024) == FALSE)
-		return {};
-	std::wstring pdbFilename = exeFilename;
+	std::wstring pdbFilename = GetExeFilename();
 	pdbFilename.resize(pdbFilename.size() - 3);
 	pdbFilename += L"pdb";
 	return pdbFilename;
@@ -485,6 +500,8 @@ void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FStr
 	result = client->QueryInterface(symbols.GetIID(), symbols.InitPtr());
 	if (FAILED(result))
 		return;
+
+	symbols->AppendSymbolPathWide(GetExePath().c_str());
 
 	result = client->OpenDumpFileWide(minidumpFilename.WideString().c_str(), 0);
 	if (FAILED(result))
