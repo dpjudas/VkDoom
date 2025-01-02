@@ -501,8 +501,16 @@ void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FStr
 	if (FAILED(result))
 		return;
 
-	symbols->AppendImagePathWide(GetExePath().c_str());
-	symbols->AppendSymbolPathWide(GetExePath().c_str());
+	symbols->SetSymbolOptions(
+		SYMOPT_CASE_INSENSITIVE |
+		SYMOPT_UNDNAME |
+		SYMOPT_DEFERRED_LOADS |
+		SYMOPT_LOAD_LINES |
+		SYMOPT_OMAP_FIND_NEAREST |
+		SYMOPT_FAIL_CRITICAL_ERRORS |
+		SYMOPT_NO_PROMPTS);
+	symbols->SetImagePathWide(GetExePath().c_str());
+	symbols->SetSymbolPathWide(GetExePath().c_str());
 
 	result = client->OpenDumpFileWide(minidumpFilename.WideString().c_str(), 0);
 	if (FAILED(result))
