@@ -501,6 +501,7 @@ void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FStr
 	if (FAILED(result))
 		return;
 
+	symbols->AppendImagePathWide(GetExePath().c_str());
 	symbols->AppendSymbolPathWide(GetExePath().c_str());
 
 	result = client->OpenDumpFileWide(minidumpFilename.WideString().c_str(), 0);
