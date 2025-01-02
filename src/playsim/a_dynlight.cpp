@@ -160,6 +160,7 @@ void AttachLight(AActor *self)
 	light->pSpotOuterAngle = &self->AngleVar(NAME_SpotOuterAngle);
 	light->pPitch = &self->Angles.Pitch;
 	light->pLightFlags = (LightFlags*)&self->IntVar(NAME_lightflags);
+	light->shadowMinQuality = std::clamp(self->IntVar(NAME_shadowMinQuality), 0, 4);
 	light->pArgs = self->args;
 	light->pSoftShadowRadius = &self->FloatVar(NAME_SoftShadowRadius);
 	light->pLinearity = &self->FloatVar(NAME_LightLinearity);
@@ -778,7 +779,7 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 			}
 		}
 	}
-	shadowmapped = hitonesidedback && !DontShadowmap();
+	shadowmapped = hitonesidedback && !DontShadowmap() && shadowMinQuality <= gl_light_shadow_max_quality;
 }
 
 //==========================================================================

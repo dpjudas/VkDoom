@@ -139,6 +139,11 @@ CUSTOM_CVAR(Int, gl_light_shadow_filter, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 	if (self < 0 || self > 8) self = 1;
 }
 
+CUSTOM_CVAR(Int, gl_light_shadow_max_quality, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+{
+	if (self < 0 || self > 4) self = 1; // default medium, 0 = low, 1 = medium, 2 = high, 3 = ultra
+}
+
 CUSTOM_CVAR(Int, gl_shadowmap_quality, 512, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 {
 	switch (self)
