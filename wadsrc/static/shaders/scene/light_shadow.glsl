@@ -48,7 +48,7 @@ float traceHit(vec3 origin, vec3 direction, float dist)
 	#endif
 }
 
-float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
+float traceShadow(vec4 lightpos, float softShadowRadius)
 {
 	vec3 origin = pixelpos.xyz + vWorldNormal.xyz;
 	vec3 target = lightpos.xyz + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
@@ -56,7 +56,10 @@ float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
 	vec3 direction = normalize(target - origin);
 	float dist = distance(origin, target);
 
-	if (quality == 0 || softShadowRadius == 0)
+#if SHADOWMAP_FILTER == 0
+	return traceHit(origin, direction, dist);
+#else
+	if (softShadowRadius == 0)
 	{
 		return traceHit(origin, direction, dist);
 	}
@@ -67,7 +70,7 @@ float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
 		vec3 ydir = cross(direction, xdir);
 
 		float sum = 0.0;
-		int step_count = quality * 4;
+		const int step_count = SHADOWMAP_FILTER * 4;
 		for (int i = 0; i < step_count; i++)
 		{
 			vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * softShadowRadius;
@@ -76,13 +79,14 @@ float traceShadow(vec4 lightpos, int quality, float softShadowRadius)
 		}
 		return (sum / step_count);
 	}
+#endif
 }
 
 float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)
 {
 	if (lightpos.w > 1000000.0)
 		return 1.0; // Sunlight
-	return traceShadow(lightpos, uShadowmapFilter, softShadowRadius);
+	return traceShadow(lightpos, softShadowRadius);
 }
 
 #elif defined(USE_SHADOWMAP)
@@ -172,7 +176,7 @@ float sampleShadowmapPCF(vec3 planePoint, float v)
 	float texelPos = floor(shadowDirToU(ray.xz) * scale);
 
 	float sum = 0.0;
-	float step_count = uShadowmapFilter;
+	float step_count = SHADOWMAP_FILTER;
 
 	texelPos -= step_count + 0.5;
 	for (float x = -step_count; x <= step_count; x++)
@@ -189,7 +193,7 @@ float sampleShadowmapPCF(vec3 planePoint, float v)
 		sum += step(dist2, texture(ShadowMap, vec2(u, v)).x);
 		texelPos++;
 	}
-	return sum / (uShadowmapFilter * 2.0 + 1.0);
+	return sum / (SHADOWMAP_FILTER * 2.0 + 1.0);
 }
 
 float shadowmapAttenuation(vec4 lightpos, float shadowIndex)
@@ -201,15 +205,12 @@ float shadowmapAttenuation(vec4 lightpos, float shadowIndex)
 		return 1.0; // Light is too close
 
 	float v = (shadowIndex + 0.5) / 1024.0;
-
-	if (uShadowmapFilter == 0)
-	{
+	
+	#if SHADOWMAP_FILTER == 0
 		return sampleShadowmap(planePoint, v);
-	}
-	else
-	{
+	#else
 		return sampleShadowmapPCF(planePoint, v);
-	}
+	#endif
 }
 
 float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)

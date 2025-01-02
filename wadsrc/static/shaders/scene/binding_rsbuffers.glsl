@@ -16,7 +16,6 @@ layout(set = 1, binding = 0, std140) uniform readonly ViewpointUBO
 	int uViewHeight;		// Software fuzz scaling
 	float uClipHeight;
 	float uClipHeightDirection;
-	int uShadowmapFilter;
 
 	int uLightTilesWidth;	// Levelmesh light tiles
 };

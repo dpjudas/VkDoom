@@ -128,7 +128,6 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 			VPUniforms.mPalLightLevels = static_cast<int>(gl_bandedswlight) | (static_cast<int>(gl_fogmode) << 8) | ((int)lightmode << 16);
 		}
 		VPUniforms.mClipLine.X = -10000000.0f;
-		VPUniforms.mShadowFilter = static_cast<int>(gl_light_shadow_filter);
 	}
 	mClipper->SetViewpoint(Viewpoint);
 	vClipper->SetViewpoint(Viewpoint);
