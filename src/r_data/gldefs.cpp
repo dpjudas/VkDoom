@@ -192,6 +192,7 @@ static const char *LightTags[]=
    "dontlightothers",
    "dontlightmap",
    "trace",
+   "shadowminquality",
    nullptr
 };
 
@@ -219,6 +220,7 @@ enum {
    LIGHTTAG_DONTLIGHTOTHERS,
    LIGHTTAG_DONTLIGHTMAP,
    LIGHTTAG_TRACE,
+   LIGHTTAG_SHADOW_MINQUALITY,
 };
 
 //==========================================================================
@@ -528,6 +530,9 @@ class GLDefsParser
 				case LIGHTTAG_TRACE:
 					defaults->SetTrace(ParseInt(sc) != 0);
 					break;
+				case LIGHTTAG_SHADOW_MINQUALITY:
+					defaults->SetShadowMinQuality(ParseInt(sc));
+					break;
 				case LIGHTTAG_SPOT:
 					{
 						float innerAngle = ParseFloat(sc);
@@ -632,6 +637,9 @@ class GLDefsParser
 					break;
 				case LIGHTTAG_TRACE:
 					defaults->SetTrace(ParseInt(sc) != 0);
+					break;
+				case LIGHTTAG_SHADOW_MINQUALITY:
+					defaults->SetShadowMinQuality(ParseInt(sc));
 					break;
 				case LIGHTTAG_SPOT:
 					{
@@ -741,6 +749,9 @@ class GLDefsParser
 				case LIGHTTAG_TRACE:
 					defaults->SetTrace(ParseInt(sc) != 0);
 					break;
+				case LIGHTTAG_SHADOW_MINQUALITY:
+					defaults->SetShadowMinQuality(ParseInt(sc));
+					break;
 				case LIGHTTAG_SPOT:
 					{
 						float innerAngle = ParseFloat(sc);
@@ -848,6 +859,9 @@ class GLDefsParser
 				case LIGHTTAG_TRACE:
 					defaults->SetTrace(ParseInt(sc) != 0);
 					break;
+				case LIGHTTAG_SHADOW_MINQUALITY:
+					defaults->SetShadowMinQuality(ParseInt(sc));
+					break;
 				case LIGHTTAG_SPOT:
 					{
 						float innerAngle = ParseFloat(sc);
@@ -951,6 +965,9 @@ class GLDefsParser
 					break;
 				case LIGHTTAG_TRACE:
 					defaults->SetTrace(ParseInt(sc) != 0);
+					break;
+				case LIGHTTAG_SHADOW_MINQUALITY:
+					defaults->SetShadowMinQuality(ParseInt(sc));
 					break;
 				case LIGHTTAG_SPOT:
 					{

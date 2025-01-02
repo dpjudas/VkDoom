@@ -90,7 +90,7 @@ void CollectLights(FLevelLocals* Level)
 		}
 		else
 		{
-			light->mShadowmapIndex = 1024;
+			light->mShadowmapIndex = 16000000;
 		}
 
 	}

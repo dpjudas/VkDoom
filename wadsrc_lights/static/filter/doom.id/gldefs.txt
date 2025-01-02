@@ -81,6 +81,7 @@ pointlight PLASMABALL
     color 0.5 0.5 1.0
     size 84
 	attenuate 1
+    shadowminquality 4
 }
 
 flickerlight PLASMA_X1
@@ -90,6 +91,7 @@ flickerlight PLASMA_X1
     secondarySize 108
     chance 0.4
 	attenuate 1
+    shadowminquality 4
 }
 
 flickerlight PLASMA_X2
@@ -99,6 +101,7 @@ flickerlight PLASMA_X2
     secondarySize 132
     chance 0.4
 	attenuate 1
+    shadowminquality 4
 }
 
 flickerlight PLASMA_X3
@@ -108,6 +111,7 @@ flickerlight PLASMA_X3
     secondarySize 108
     chance 0.4
 	attenuate 1
+    shadowminquality 4
 }
 
 flickerlight PLASMA_X4
@@ -117,6 +121,7 @@ flickerlight PLASMA_X4
     secondarySize 24
     chance 0.4
 	attenuate 1
+    shadowminquality 4
 }
 
 object PlasmaBall

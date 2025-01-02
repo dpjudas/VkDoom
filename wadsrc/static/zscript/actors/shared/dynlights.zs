@@ -6,9 +6,11 @@ class DynamicLight : Actor
 	double LightLinearity; // used for Inverse-square falloff lights
 	private int lighttype;
 	private int lightflags;
+	int ShadowMinQuality;
 
 	property SpotInnerAngle: SpotInnerAngle;
 	property SpotOuterAngle: SpotOuterAngle;
+	property ShadowMinQuality: ShadowMinQuality;
 	
 	flagdef subtractive: lightflags, 0;
 	flagdef additive: lightflags, 1;
@@ -72,6 +74,7 @@ class DynamicLight : Actor
 		RenderRadius -1;
 		DynamicLight.SpotInnerAngle 10;
 		DynamicLight.SpotOuterAngle 25;
+		DynamicLight.ShadowMinQuality 1; // default medium, 0 = low, 1 = medium, 2 = high, 3 = ultra
 		+NOBLOCKMAP
 		+NOGRAVITY
 		+FIXMAPTHINGPOS

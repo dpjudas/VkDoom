@@ -388,6 +388,8 @@ struct FMapThing
 	bool		LightNoShadowMap;
 	bool		LightDontLightActors;
 	bool		LightDontLightMap;
+	bool		LightHasShadowMinQuality;
+	int			LightShadowMinQuality;
 };
 
 

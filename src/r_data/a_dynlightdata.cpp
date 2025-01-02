@@ -156,6 +156,7 @@ void FLightDefaults::ApplyProperties(FDynamicLight * light) const
 		light->swapped = m_swapped;
 	}
 	light->SetOffset(m_Pos);	// this must be the last thing to do.
+	light->shadowMinQuality = shadowMinQuality;
 }
 
 void FLightDefaults::SetAttenuationForLevel(bool yes)
