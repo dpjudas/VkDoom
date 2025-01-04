@@ -146,7 +146,7 @@ void I_DetectOS()
 
 void I_StartupJoysticks();
 
-int main (int argc, char **argv)
+int I_GameMain(int argc, char** argv)
 {
 #if !defined (__APPLE__)
 	{
@@ -201,4 +201,9 @@ int main (int argc, char **argv)
 	SDL_Quit();
 
 	return result;
+}
+
+int I_ToolMain(int argc, char** argv)
+{
+	return I_GameMain(argc, argv);
 }

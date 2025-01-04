@@ -333,16 +333,15 @@ void I_ShowFatalError(const char *msg)
 	}
 }
 
-//==========================================================================
-
-int wmain()
+void I_SetWindowTitle(const char* caption)
 {
-    return wWinMain(GetModuleHandle(0), 0, GetCommandLineW(), SW_SHOW);
+	mainwindow.SetWindowTitle(caption);
 }
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow)
-{
+//==========================================================================
 
+int I_GameMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow)
+{
 	g_hInst = hInstance;
 
 	InitCommonControls();
@@ -381,7 +380,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int 
 	return DoMain(hInstance);
 }
 
-void I_SetWindowTitle(const char* caption)
+int I_ToolMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow)
 {
-	mainwindow.SetWindowTitle(caption);
+	g_hInst = hInstance;
+
+	InitCommonControls();
+	if (SUCCEEDED(CoInitialize(nullptr)))
+		atexit([]() { CoUninitialize(); }); // beware of calling convention.
+
+	FString reportsDirectory = GetKnownFolder(CSIDL_LOCAL_APPDATA, FOLDERID_LocalAppData, true);
+	reportsDirectory += "/" GAMENAMELOWERCASE;
+	reportsDirectory += "/crashreports";
+	CreatePath(reportsDirectory.GetChars());
+
+	InitCrashReporter(reportsDirectory.WideString(), {});
+
+	return DoMain(hInstance);
 }
