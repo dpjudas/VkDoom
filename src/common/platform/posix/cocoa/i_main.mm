@@ -530,8 +530,7 @@ void ReleaseApplicationController()
 
 } // unnamed namespace
 
-
-int main(int argc, char** argv)
+int I_GameMain(int argc, char** argv)
 {
 	for (int i = 0; i < argc; ++i)
 	{
@@ -573,4 +572,9 @@ int main(int argc, char** argv)
 	[pool release];
 
 	return EXIT_SUCCESS;
+}
+
+int I_ToolMain(int argc, char** argv)
+{
+	return I_GameMain(argc, argv);
 }
