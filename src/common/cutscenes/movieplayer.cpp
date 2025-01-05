@@ -52,6 +52,8 @@
 #include <zmusic.h>
 #include "filereadermusicinterface.h"
 
+void LinkMoviePlayer() { }
+
 class MoviePlayer
 {
 protected:

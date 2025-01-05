@@ -40,6 +40,7 @@
 
 time_t 			epochoffset = 0;		// epoch start in seconds (0 = January 1st, 1970)
 
+void LinkDate() { }
 
 //==========================================================================
 //

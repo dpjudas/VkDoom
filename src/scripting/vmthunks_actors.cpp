@@ -57,6 +57,8 @@
 #include "gi.h"
 #include "shadowinlines.h"
 
+void LinkVMThunksActors() { }
+
 DVector2 AM_GetPosition();
 int Net_GetLatency(int *ld, int *ad);
 void PrintPickupMessage(bool localview, const FString &str);

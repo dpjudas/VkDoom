@@ -30,6 +30,8 @@
 #include "g_levellocals.h"
 #include "vm.h"
 
+void LinkVMIterators() { }
+
 //==========================================================================
 //
 // scriptable thinker iterator

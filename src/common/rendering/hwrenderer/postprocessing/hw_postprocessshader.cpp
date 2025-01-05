@@ -23,6 +23,8 @@
 #include "hwrenderer/postprocessing/hw_postprocessshader.h"
 #include "hwrenderer/postprocessing/hw_postprocess.h"
 
+void LinkPPShader() { }
+
 static void ShaderSetEnabled(const FString &shaderName, bool value)
 {
 	for (unsigned int i = 0; i < PostProcessShaders.Size(); i++)
