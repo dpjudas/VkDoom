@@ -28,7 +28,7 @@ class VkRenderPassSetup;
 class VulkanRenderDevice : public SystemBaseFrameBuffer
 {
 public:
-	VulkanRenderDevice(void* hMonitor, bool fullscreen, std::shared_ptr<VulkanSurface> surface);
+	VulkanRenderDevice(void* hMonitor, bool fullscreen, std::shared_ptr<VulkanInstance> instance, std::shared_ptr<VulkanSurface> surface);
 	~VulkanRenderDevice();
 
 	VulkanDevice* GetDevice() { return mDevice.get(); }
@@ -98,10 +98,14 @@ public:
 
 	const VkPipelineKey& GetLevelMeshPipelineKey(int id) const;
 
+	bool IsSurfaceAvailable() { return HasSurface; }
+
 private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
 	void PrintStartupLog();
 	void CopyScreenToBuffer(int w, int h, uint8_t *data) override;
+
+	bool HasSurface = false;
 
 	std::shared_ptr<VulkanDevice> mDevice;
 	std::unique_ptr<VkCommandBufferManager> mCommands;

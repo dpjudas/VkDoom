@@ -33,16 +33,19 @@ CVAR(Bool, vk_exclusivefullscreen, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 
 VkFramebufferManager::VkFramebufferManager(VulkanRenderDevice* fb) : fb(fb)
 {
-	SwapChain = VulkanSwapChainBuilder()
-		.Create(fb->GetDevice());
+	if (fb->IsSurfaceAvailable())
+	{
+		SwapChain = VulkanSwapChainBuilder()
+			.Create(fb->GetDevice());
 
-	SwapChainImageAvailableSemaphore = SemaphoreBuilder()
-		.DebugName("SwapChainImageAvailableSemaphore")
-		.Create(fb->GetDevice());
+		SwapChainImageAvailableSemaphore = SemaphoreBuilder()
+			.DebugName("SwapChainImageAvailableSemaphore")
+			.Create(fb->GetDevice());
 
-	RenderFinishedSemaphore = SemaphoreBuilder()
-		.DebugName("RenderFinishedSemaphore")
-		.Create(fb->GetDevice());
+		RenderFinishedSemaphore = SemaphoreBuilder()
+			.DebugName("RenderFinishedSemaphore")
+			.Create(fb->GetDevice());
+	}
 }
 
 VkFramebufferManager::~VkFramebufferManager()
@@ -51,6 +54,9 @@ VkFramebufferManager::~VkFramebufferManager()
 
 void VkFramebufferManager::AcquireImage()
 {
+	if (!SwapChain)
+		return;
+
 	bool exclusiveFullscreen = fb->IsFullscreen() && vk_exclusivefullscreen;
 	if (SwapChain->Lost() || fb->GetClientWidth() != CurrentWidth || fb->GetClientHeight() != CurrentHeight || fb->GetVSync() != CurrentVSync || CurrentHdr != vk_hdr || CurrentExclusiveFullscreen != exclusiveFullscreen)
 	{

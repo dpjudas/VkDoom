@@ -37,6 +37,7 @@
 #endif
 
 #include "i_common.h"
+#include "i_interface.h"
 
 #include "v_video.h"
 #include "bitmap.h"
@@ -357,17 +358,23 @@ public:
 		VulkanInstanceBuilder builder;
 		builder.DebugLayer(vk_debug);
 		builder.RequireExtension(VK_KHR_SURFACE_EXTENSION_NAME); // KHR_surface, required
-		builder.OptionalExtension(VK_EXT_METAL_SURFACE_EXTENSION_NAME); // EXT_metal_surface, optional, preferred
-		builder.OptionalExtension(VK_MVK_MACOS_SURFACE_EXTENSION_NAME); // MVK_macos_surface, optional, deprecated
+		if (!RunningAsTool)
+		{
+			builder.OptionalExtension(VK_EXT_METAL_SURFACE_EXTENSION_NAME); // EXT_metal_surface, optional, preferred
+			builder.OptionalExtension(VK_MVK_MACOS_SURFACE_EXTENSION_NAME); // MVK_macos_surface, optional, deprecated
+		}
 		auto vulkanInstance = builder.Create();
 
-		VkSurfaceKHR surfacehandle = nullptr;
-		if (!I_CreateVulkanSurface(vulkanInstance->Instance, &surfacehandle))
-			VulkanError("I_CreateVulkanSurface failed");
+		if (!RunningAsTool)
+		{
+			VkSurfaceKHR surfacehandle = nullptr;
+			if (!I_CreateVulkanSurface(vulkanInstance->Instance, &surfacehandle))
+				VulkanError("I_CreateVulkanSurface failed");
 
-		m_vulkanSurface = std::make_shared<VulkanSurface>(vulkanInstance, surfacehandle);
+			m_vulkanSurface = std::make_shared<VulkanSurface>(vulkanInstance, surfacehandle);
+		}
 
-		fb = new VulkanRenderDevice(nullptr, vid_fullscreen, m_vulkanSurface);
+		fb = new VulkanRenderDevice(nullptr, vid_fullscreen, vulkanInstance, m_vulkanSurface);
 #else
 #error "Vulkan support must be enabled!"
 #endif

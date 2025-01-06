@@ -3,6 +3,7 @@
 #include "win32basevideo.h"
 #include "c_cvars.h"
 #include "vulkan/vk_renderdevice.h"
+#include "i_interface.h"
 #include <zvulkan/vulkansurface.h>
 #include <zvulkan/vulkanbuilders.h>
 
@@ -22,26 +23,34 @@ EXTERN_CVAR(Int, vk_device)
 
 class Win32VulkanVideo : public Win32BaseVideo
 {
-	std::shared_ptr<VulkanSurface> surface;
 public:
 	Win32VulkanVideo() 
 	{
 		unsigned int count = 64;
 		const char* names[64];
-		if (!I_GetVulkanPlatformExtensions(&count, names))
-			VulkanError("I_GetVulkanPlatformExtensions failed");
+		if (!RunningAsTool)
+		{
+			if (!I_GetVulkanPlatformExtensions(&count, names))
+				VulkanError("I_GetVulkanPlatformExtensions failed");
+		}
 
 		VulkanInstanceBuilder builder;
 		builder.DebugLayer(vk_debug);
-		for (unsigned int i = 0; i < count; i++)
-			builder.RequireExtension(names[i]);
-		auto instance = builder.Create();
+		if (!RunningAsTool)
+		{
+			for (unsigned int i = 0; i < count; i++)
+				builder.RequireExtension(names[i]);
+		}
+		instance = builder.Create();
 
-		VkSurfaceKHR surfacehandle = nullptr;
-		if (!I_CreateVulkanSurface(instance->Instance, &surfacehandle))
-			VulkanError("I_CreateVulkanSurface failed");
+		if (!RunningAsTool)
+		{
+			VkSurfaceKHR surfacehandle = nullptr;
+			if (!I_CreateVulkanSurface(instance->Instance, &surfacehandle))
+				VulkanError("I_CreateVulkanSurface failed");
 
-		surface = std::make_shared<VulkanSurface>(instance, surfacehandle);
+			surface = std::make_shared<VulkanSurface>(instance, surfacehandle);
+		}
 	}
 
 	~Win32VulkanVideo()
@@ -55,9 +64,11 @@ public:
 
 	DFrameBuffer *CreateFrameBuffer() override
 	{
-		auto fb = new VulkanRenderDevice(m_hMonitor, vid_fullscreen, surface);
+		auto fb = new VulkanRenderDevice(m_hMonitor, vid_fullscreen, instance, surface);
 		return fb;
 	}
 
-protected:
+private:
+	std::shared_ptr<VulkanInstance> instance;
+	std::shared_ptr<VulkanSurface> surface;
 };

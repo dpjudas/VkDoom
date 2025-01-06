@@ -160,15 +160,19 @@ void VulkanPrintLog(const char* typestr, const std::string& msg)
 	}
 }
 
-VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::shared_ptr<VulkanSurface> surface) : SystemBaseFrameBuffer(hMonitor, fullscreen)
+VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::shared_ptr<VulkanInstance> instance, std::shared_ptr<VulkanSurface> surface) : SystemBaseFrameBuffer(hMonitor, fullscreen)
 {
 	VulkanDeviceBuilder builder;
 	builder.OptionalRayQuery();
 	builder.RequireExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-	builder.Surface(surface);
+	if (surface)
+	{
+		HasSurface = true;
+		builder.Surface(surface);
+	}
 	builder.SelectDevice(vk_device);
-	SupportedDevices = builder.FindDevices(surface->Instance);
-	mDevice = builder.Create(surface->Instance);
+	SupportedDevices = builder.FindDevices(instance);
+	mDevice = builder.Create(instance);
 
 	bool supportsBindless =
 		mDevice->EnabledFeatures.DescriptorIndexing.descriptorBindingPartiallyBound &&

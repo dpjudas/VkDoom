@@ -37,6 +37,7 @@
 #include "i_soundinternal.h"
 #include "i_system.h"
 #include "i_video.h"
+#include "i_interface.h"
 #include "m_argv.h"
 #include "v_video.h"
 #include "version.h"
@@ -334,22 +335,31 @@ DFrameBuffer *SDLVideo::CreateFrameBuffer ()
 
 	unsigned int count = 64;
 	const char* names[64];
-	if (!I_GetVulkanPlatformExtensions(&count, names))
-		VulkanError("I_GetVulkanPlatformExtensions failed");
+	if (!RunningAsTool)
+	{
+		if (!I_GetVulkanPlatformExtensions(&count, names))
+			VulkanError("I_GetVulkanPlatformExtensions failed");
+	}
 
 	VulkanInstanceBuilder builder;
 	builder.DebugLayer(vk_debug);
-	for (unsigned int i = 0; i < count; i++)
-		builder.RequireExtension(names[i]);
+	if (!RunningAsTool)
+	{
+		for (unsigned int i = 0; i < count; i++)
+			builder.RequireExtension(names[i]);
+	}
 	auto instance = builder.Create();
 
-	VkSurfaceKHR surfacehandle = nullptr;
-	if (!I_CreateVulkanSurface(instance->Instance, &surfacehandle))
-		VulkanError("I_CreateVulkanSurface failed");
+	if (!RunningAsTool)
+	{
+		VkSurfaceKHR surfacehandle = nullptr;
+		if (!I_CreateVulkanSurface(instance->Instance, &surfacehandle))
+			VulkanError("I_CreateVulkanSurface failed");
 
-	surface = std::make_shared<VulkanSurface>(instance, surfacehandle);
+		surface = std::make_shared<VulkanSurface>(instance, surfacehandle);
+	}
 
-	fb = new VulkanRenderDevice(nullptr, vid_fullscreen, surface);
+	fb = new VulkanRenderDevice(nullptr, vid_fullscreen, instance, surface);
 #endif
 
 	return fb;

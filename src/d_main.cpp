@@ -3538,10 +3538,7 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		}
 
 		if (RunningAsTool)
-		{
-			// To do: is enough of the engine initialized now for running tool commandlets?
 			return 0;
-		}
 
 		if (StartScreen)
 		{
@@ -3851,6 +3848,15 @@ static int D_DoomMain_Internal (void)
 		delete iwad_man;	// now we won't need this anymore
 		iwad_man = NULL;
 		if (ret != 0) return ret;
+
+		if (RunningAsTool)
+		{
+			// To do: We got a game loaded and can now process commandlets
+
+			Printf("\n");
+			Printf("Specify " TEXTCOLOR_ORANGE "--help" TEXTCOLOR_NORMAL " for a list of commands\n");
+			return 0;
+		}
 
 		D_DoAnonStats();
 		I_UpdateWindowTitle();
