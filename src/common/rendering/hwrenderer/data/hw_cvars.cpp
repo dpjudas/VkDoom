@@ -158,3 +158,5 @@ CUSTOM_CVAR(Int, gl_shadowmap_quality, 512, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 		break;
 	}
 }
+
+CVAR(Bool, gl_strict_gldefs, true, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)
