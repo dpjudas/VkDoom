@@ -126,7 +126,7 @@ void I_DetectOS()
 
 void I_StartupJoysticks();
 
-void InitCrashReporter()
+void InitCrashReporter(int argc, char** argv)
 {
 #if !defined (__APPLE__)
 	{
@@ -155,7 +155,7 @@ void InitArgs(int argc, char** argv)
 	Args = new FArgs(argc, argv);
 }
 
-void InitExePath()
+void InitExePath(int argc, char** argv)
 {
 #ifdef PROGDIR
 	progdir = PROGDIR;
@@ -178,7 +178,7 @@ void InitExePath()
 
 int I_GameMain(int argc, char** argv)
 {
-	InitCrashReporter();
+	InitCrashReporter(argc, argv);
 	SetEffectiveUser();
 	InitLocale();
 
@@ -193,7 +193,7 @@ int I_GameMain(int argc, char** argv)
 	printf("\n");
 
 	InitArgs(argc, argv);
-	InitExePath();
+	InitExePath(argc, argv);
 
 	I_StartupJoysticks();
 
@@ -208,11 +208,11 @@ int I_ToolMain(int argc, char** argv)
 {
 	RunningAsTool = true;
 
-	InitCrashReporter();
+	InitCrashReporter(argc, argv);
 	SetEffectiveUser();
 	InitLocale();
 	InitArgs(argc, argv);
-	InitExePath();
+	InitExePath(argc, argv);
 
 	return GameMain();
 }
