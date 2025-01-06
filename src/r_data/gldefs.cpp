@@ -1520,6 +1520,12 @@ class GLDefsParser
 					sc.MustGetString();
 					usershader.shader = sc.String;
 				}
+				if (sc.Compare("vertshader"))
+				{
+					isProperty = true;
+					sc.MustGetString();
+					usershader.vertshader = sc.String;
+				}
 				else if (sc.Compare("texture"))
 				{
 					isProperty = true;
@@ -1685,11 +1691,21 @@ class GLDefsParser
 
 			if (usershader.shader.IsNotEmpty())
 			{
-				int lump = fileSystem.CheckNumForFullName(usershader.shader.GetChars(), 0);
+				int lump = fileSystem.CheckNumForFullName(usershader.shader.GetChars());
 				if (lump == -1)
 				{
 					sc.ScriptError("inexistent shader lump '%s' in globalshader '%s'", usershader.shader.GetChars(), str_globaltargets.GetChars());
 					return;
+				}
+
+				if (usershader.vertshader.IsNotEmpty())
+				{
+					int lump = fileSystem.CheckNumForFullName(usershader.vertshader.GetChars());
+					if (lump == -1)
+					{
+						sc.ScriptError("inexistent vertex shader lump '%s' in globalshader '%s'", usershader.vertshader.GetChars(), str_globaltargets.GetChars());
+						return;
+					}
 				}
 
 				for(int target : globaltargets)
@@ -1778,10 +1794,20 @@ class GLDefsParser
 			{
 				if(do_strict)
 				{
-					int lump = fileSystem.CheckNumForFullName(usershader.shader.GetChars(), 0);
+					int lump = fileSystem.CheckNumForFullName(usershader.shader.GetChars());
 					if (lump == -1)
 					{
 						sc.ScriptError("inexistent shader lump '%s' in globalshader '%s'", usershader.shader.GetChars(), str_globaltargets.GetChars());
+						return;
+					}
+				}
+
+				if (usershader.vertshader.IsNotEmpty())
+				{
+					int lump = fileSystem.CheckNumForFullName(usershader.vertshader.GetChars());
+					if (lump == -1)
+					{
+						sc.ScriptError("inexistent vertex shader lump '%s' in globalshader '%s'", usershader.vertshader.GetChars(), str_globaltargets.GetChars());
 						return;
 					}
 				}

@@ -1,6 +1,8 @@
 
 #include "shaders/scene/bones.glsl"
 
+void ModifyVertex();
+
 void main()
 {
 	float ClipDistance0, ClipDistance1, ClipDistance2, ClipDistance3, ClipDistance4;
@@ -120,4 +122,6 @@ void main()
 #endif
 
 	gl_PointSize = 1.0;
+    
+    ModifyVertex();
 }

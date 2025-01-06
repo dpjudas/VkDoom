@@ -86,6 +86,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		return &program;
 
 	const char* mainvp = "shaders/scene/vert_main.glsl";
+	const char* vert_nocustom = "shaders/scene/vert_nocustom.glsl";
 	const char* mainfp = "shaders/scene/frag_main.glsl";
 
 	if (key.SpecialEffect != EFF_NONE)
@@ -112,7 +113,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		};
 
 		const auto& desc = effectshaders[key.SpecialEffect];
-		program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.defines, key.UseLevelMesh);
+		program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.defines, key);
 		if (!key.NoFragmentShader)
 			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key);
 	}
@@ -152,7 +153,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		if (key.EffectState < FIRST_USER_SHADER)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
-			program.vert = LoadVertShader(desc.ShaderName, mainvp, desc.Defines, key.UseLevelMesh);
+			program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.Defines, key);
 			if (!key.NoFragmentShader)
 				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key);
 		}
@@ -162,7 +163,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, defines.GetChars(), key.UseLevelMesh);
+			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? vert_nocustom : desc.vertshader.GetChars(), defines.GetChars(), key);
 			if (!key.NoFragmentShader)
 				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key);
 		}
@@ -170,7 +171,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 	return &program;
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *defines, bool levelmesh)
+std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key)
 {
 	FString definesBlock;
 	definesBlock << defines;
@@ -185,7 +186,9 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 		definesBlock << "#define NO_CLIPDISTANCE_SUPPORT\n";
 	}
 
-	if (levelmesh)
+	if (key.Simple2D) definesBlock << "#define SIMPLE2D\n";
+
+	if (key.UseLevelMesh)
 		definesBlock << "#define USE_LEVELMESH\n";
 
 	FString layoutBlock;
@@ -194,6 +197,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 
 	FString codeBlock;
 	codeBlock << LoadPrivateShaderLump(vert_lump).GetChars() << "\n";
+	codeBlock << LoadPublicShaderLump(vert_lump_custom).GetChars() << "\n";
 
 	return ShaderBuilder()
 		.Type(ShaderType::Vertex)

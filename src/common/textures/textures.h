@@ -105,6 +105,7 @@ enum
 struct UserShaderDesc
 {
 	FString shader;
+	FString vertshader;
 	MaterialShaderIndex shaderType;
 	FString defines;
 	bool disablealphatest = false;
