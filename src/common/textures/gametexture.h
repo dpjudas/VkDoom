@@ -89,6 +89,15 @@ struct FMaterialLayers
 	MaterialLayerSampling CustomShaderTextureSampling[MAX_CUSTOM_HW_SHADER_TEXTURES];
 };
 
+struct GlobalShaderDesc
+{
+	int shaderindex = -1;
+	RefCountedPtr<FTexture> CustomShaderTextures[MAX_CUSTOM_HW_SHADER_TEXTURES];
+	MaterialLayerSampling CustomShaderTextureSampling[MAX_CUSTOM_HW_SHADER_TEXTURES];
+};
+
+extern GlobalShaderDesc globalshaders[NUM_BUILTIN_SHADERS];
+
 // Refactoring helper to allow piece by piece adjustment of the API
 class FGameTexture
 {

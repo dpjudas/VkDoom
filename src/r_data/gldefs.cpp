@@ -59,6 +59,8 @@ void ParseColorization(FScanner& sc);
 extern TDeletingArray<FLightDefaults *> LightDefaults;
 extern int AttenuationIsSet;
 
+GlobalShaderDesc globalshaders[NUM_BUILTIN_SHADERS];
+
 struct ExtraUniformCVARData
 {
 	FString Shader;
@@ -1315,6 +1317,10 @@ class GLDefsParser
 		bool iwad = false;
 		bool no_mipmap = false;
 
+		bool is_globalshader = false;
+		TArray<int> globaltargets;
+		FString str_globaltargets;
+
 		UserShaderDesc usershader;
 		TArray<FString> texNameList;
 		TArray<int> texNameIndex;
@@ -1324,263 +1330,508 @@ class GLDefsParser
 		FGameTexture* textures[6] = {};
 		const char *keywords[7] = { "brightmap", "normal", "specular", "metallic", "roughness", "ao", nullptr };
 		const char *notFound[6] = { "Brightmap", "Normalmap", "Specular texture", "Metallic texture", "Roughness texture", "Ambient occlusion texture" };
+		
+		FGameTexture* tex = nullptr;
 
 		sc.MustGetString();
-		if (sc.Compare("texture")) type = ETextureType::Wall;
-		else if (sc.Compare("flat")) type = ETextureType::Flat;
-		else if (sc.Compare("sprite")) type = ETextureType::Sprite;
-		else sc.UnGet();
-
-		sc.MustGetString();
-		FTextureID no = TexMan.CheckForTexture(sc.String, type, FTextureManager::TEXMAN_TryAny | FTextureManager::TEXMAN_Overridable);
-		auto tex = TexMan.GetGameTexture(no);
-
-		if (tex == nullptr)
+		if(sc.Compare("globalshader"))
 		{
-			sc.ScriptMessage("Material definition refers nonexistent texture '%s'\n", sc.String);
+			is_globalshader = true;
+			usershader.shaderFlags |= SFlag_Global; // make sure global usershader objects aren't reused for material shaders
+
+			sc.MustGetString();
+
+			if (sc.Compare("all"))
+			{
+				str_globaltargets = "all";
+				globaltargets.Push(SHADER_Default);
+				globaltargets.Push(SHADER_Warp1);
+				globaltargets.Push(SHADER_Warp2);
+				globaltargets.Push(SHADER_Specular);
+				globaltargets.Push(SHADER_PBR);
+				globaltargets.Push(SHADER_Paletted);
+				globaltargets.Push(SHADER_NoTexture);
+				globaltargets.Push(SHADER_BasicFuzz);
+				globaltargets.Push(SHADER_SmoothFuzz);
+				globaltargets.Push(SHADER_SwirlyFuzz);
+				globaltargets.Push(SHADER_TranslucentFuzz);
+				globaltargets.Push(SHADER_JaggedFuzz);
+				globaltargets.Push(SHADER_NoiseFuzz);
+				globaltargets.Push(SHADER_SmoothNoiseFuzz);
+				globaltargets.Push(SHADER_SoftwareFuzz);
+			}
+			else if(sc.Compare("default"))
+			{
+				str_globaltargets = "default";
+				globaltargets.Push(SHADER_Default);
+			}
+			else if(sc.Compare("defaultwarp"))
+			{
+				str_globaltargets = "defaultwarp";
+				globaltargets.Push(SHADER_Default);
+				globaltargets.Push(SHADER_Warp1);
+				globaltargets.Push(SHADER_Warp2);
+			}
+			else if(sc.Compare("warp"))
+			{
+				str_globaltargets = "warp";
+				globaltargets.Push(SHADER_Warp1);
+				globaltargets.Push(SHADER_Warp2);
+			}
+			else if(sc.Compare("specular"))
+			{
+				str_globaltargets = "specular";
+				globaltargets.Push(SHADER_Specular);
+			}
+			else if(sc.Compare("pbr"))
+			{
+				str_globaltargets = "pbr";
+				globaltargets.Push(SHADER_PBR);
+			}
+			else if(sc.Compare("paletted"))
+			{
+				str_globaltargets = "paletted";
+				globaltargets.Push(SHADER_Paletted);
+			}
+			else if(sc.Compare("notexture"))
+			{
+				str_globaltargets = "notexture";
+				globaltargets.Push(SHADER_NoTexture);
+			}
+			else if(sc.Compare("nonfuzz"))
+			{
+				str_globaltargets = "nonfuzz";
+				globaltargets.Push(SHADER_Default);
+				globaltargets.Push(SHADER_Warp1);
+				globaltargets.Push(SHADER_Warp2);
+				globaltargets.Push(SHADER_Specular);
+				globaltargets.Push(SHADER_PBR);
+				globaltargets.Push(SHADER_Paletted);
+			}
+			else if(sc.Compare("fuzz"))
+			{
+				str_globaltargets = "fuzz";
+				globaltargets.Push(SHADER_BasicFuzz);
+				globaltargets.Push(SHADER_SmoothFuzz);
+				globaltargets.Push(SHADER_SwirlyFuzz);
+				globaltargets.Push(SHADER_TranslucentFuzz);
+				globaltargets.Push(SHADER_JaggedFuzz);
+				globaltargets.Push(SHADER_NoiseFuzz);
+				globaltargets.Push(SHADER_SmoothNoiseFuzz);
+				globaltargets.Push(SHADER_SoftwareFuzz);
+			}
+			else
+			{
+				sc.ScriptMessage("Invalid globalshader target\n", sc.String);
+			}
 		}
-		else tex->AddAutoMaterials();	// We need these before setting up the texture.
+		else
+		{
+			if (sc.Compare("texture")) type = ETextureType::Wall;
+			else if (sc.Compare("flat")) type = ETextureType::Flat;
+			else if (sc.Compare("sprite")) type = ETextureType::Sprite;
+			else sc.UnGet();
+
+			sc.MustGetString();
+			FTextureID no = TexMan.CheckForTexture(sc.String, type, FTextureManager::TEXMAN_TryAny | FTextureManager::TEXMAN_Overridable);
+			tex = TexMan.GetGameTexture(no);
+
+			if (tex == nullptr)
+			{
+				sc.ScriptMessage("Material definition refers nonexistent texture '%s'\n", sc.String);
+			}
+			else tex->AddAutoMaterials();	// We need these before setting up the texture.
+		}
+
+		bool do_strict = gl_strict_gldefs || is_globalshader;
 
 		sc.MustGetToken('{');
 		while (!sc.CheckToken('}'))
 		{
+			bool isProperty = false;
+
 			sc.MustGetString();
-			if (sc.Compare("disablefullbright"))
+
+			if(!is_globalshader)
 			{
-				// This can also be used without a brightness map to disable
-				// fullbright in rotations that only use brightness maps on
-				// other angles.
-				disable_fullbright = true;
-				disable_fullbright_specified = true;
-			}
-			else if (sc.Compare("thiswad"))
-			{
-				// only affects textures defined in the WAD containing the definition file.
-				thiswad = true;
-			}
-			else if (sc.Compare ("iwad"))
-			{
-				// only affects textures defined in the IWAD.
-				iwad = true;
-			}
-			else if (sc.Compare("nomipmap"))
-			{
-				no_mipmap = true;
-			}
-			else if (sc.Compare("glossiness"))
-			{
-				sc.MustGetFloat();
-				mlay.Glossiness = (float)sc.Float;
-			}
-			else if (sc.Compare("specularlevel"))
-			{
-				sc.MustGetFloat();
-				mlay.SpecularLevel = (float)sc.Float;
-			}
-			else if (sc.Compare("depthfadethreshold"))
-			{
-				sc.MustGetFloat();
-				tex->DepthFadeThreshold = (float)sc.Float;
-			}
-			else if (sc.Compare("speed"))
-			{
-				sc.MustGetFloat();
-				speed = float(sc.Float);
-			}
-			else if (sc.Compare("shader"))
-			{
-				sc.MustGetString();
-				usershader.shader = sc.String;
-			}
-			else if (sc.Compare("disablealphatest"))
-			{
-				tex->SetTranslucent(true);
-				if (usershader.shader.IsNotEmpty())
-					usershader.disablealphatest = true;
-			}
-			else if (sc.Compare("texture"))
-			{
-				sc.MustGetString();
-				FString textureName = sc.String;
-				for (FString &texName : texNameList)
+				if (sc.Compare("disablefullbright"))
 				{
-					if (!texName.Compare(textureName))
-					{
-						sc.ScriptError("Trying to redefine custom hardware shader texture '%s' in texture '%s'\n", textureName.GetChars(), tex ? tex->GetName().GetChars() : "(null)");
-					}
+					isProperty = true;
+					// This can also be used without a brightness map to disable
+					// fullbright in rotations that only use brightness maps on
+					// other angles.
+					disable_fullbright = true;
+					disable_fullbright_specified = true;
 				}
-				sc.MustGetString();
-				if (tex)
+				else if (sc.Compare("thiswad"))
 				{
-					bool okay = false;
-					size_t texIndex = 0;
-					for (size_t i = 0; i < countof(mlay.CustomShaderTextures); i++)
+					isProperty = true;
+					// only affects textures defined in the WAD containing the definition file.
+					thiswad = true;
+				}
+				else if (sc.Compare ("iwad"))
+				{
+					// only affects textures defined in the IWAD.
+					iwad = true;
+					isProperty = true;
+				}
+				else if (sc.Compare("nomipmap"))
+				{
+					isProperty = true;
+					no_mipmap = true;
+				}
+				else if (sc.Compare("glossiness"))
+				{
+					isProperty = true;
+					sc.MustGetFloat();
+					mlay.Glossiness = (float)sc.Float;
+				}
+				else if (sc.Compare("specularlevel"))
+				{
+					isProperty = true;
+					sc.MustGetFloat();
+					mlay.SpecularLevel = (float)sc.Float;
+				}
+				else if (sc.Compare("depthfadethreshold"))
+				{
+					isProperty = true;
+					sc.MustGetFloat();
+					tex->DepthFadeThreshold = (float)sc.Float;
+				}
+				else if (sc.Compare("speed"))
+				{
+					isProperty = true;
+					sc.MustGetFloat();
+					speed = float(sc.Float);
+				}
+				else if (sc.Compare("disablealphatest"))
+				{
+					isProperty = true;
+					tex->SetTranslucent(true);
+					if (usershader.shader.IsNotEmpty())
+						usershader.disablealphatest = true;
+				}
+			}
+			if(!isProperty)
+			{
+				if (sc.Compare("shader"))
+				{
+					isProperty = true;
+					sc.MustGetString();
+					usershader.shader = sc.String;
+				}
+				else if (sc.Compare("texture"))
+				{
+					isProperty = true;
+					sc.MustGetString();
+					FString textureName = sc.String;
+					for (FString &texName : texNameList)
 					{
-						if (!mlay.CustomShaderTextures[i])
+						if (!texName.Compare(textureName))
 						{
-							mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::Default;
-							mlay.CustomShaderTextures[i] = TexMan.FindGameTexture(sc.String, ETextureType::Any, FTextureManager::TEXMAN_TryAny);
+							if(is_globalshader)
+							{
+								sc.ScriptError("Trying to redefine custom hardware shader texture '%s' in global shader '%s'\n", textureName.GetChars(), str_globaltargets.GetChars());
+							}
+							else
+							{
+								sc.ScriptError("Trying to redefine custom hardware shader texture '%s' in texture '%s'\n", textureName.GetChars(), tex ? tex->GetName().GetChars() : "(null)");
+							}
+						}
+					}
+					sc.MustGetString();
+					if (tex || is_globalshader)
+					{
+						bool okay = false;
+						size_t texIndex = 0;
+						for (size_t i = 0; i < countof(mlay.CustomShaderTextures); i++)
+						{
 							if (!mlay.CustomShaderTextures[i])
 							{
-								sc.ScriptError("Custom hardware shader texture '%s' not found in texture '%s'\n", sc.String, tex->GetName().GetChars());
-							}
+								mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::Default;
+								mlay.CustomShaderTextures[i] = TexMan.FindGameTexture(sc.String, ETextureType::Any, FTextureManager::TEXMAN_TryAny);
+								if (!mlay.CustomShaderTextures[i])
+								{
+									if(is_globalshader)
+									{
+										sc.ScriptError("Custom hardware shader texture '%s' not found in global shader '%s'\n", sc.String, str_globaltargets.GetChars());
+									}
+									else
+									{
+										sc.ScriptError("Custom hardware shader texture '%s' not found in texture '%s'\n", sc.String, tex->GetName().GetChars());
+									}
+								}
 
-							texNameList.Push(textureName);
-							texNameIndex.Push((int)i);
-							texIndex = i;
-							okay = true;
+								texNameList.Push(textureName);
+								texNameIndex.Push((int)i);
+								texIndex = i;
+								okay = true;
+								break;
+							}
+						}
+						if (!okay)
+						{
+							if(is_globalshader)
+							{
+								sc.ScriptError("Error: out of texture units in global shader '%s'\n", str_globaltargets.GetChars());
+							}
+							else
+							{
+								sc.ScriptError("Error: out of texture units in texture '%s'", tex->GetName().GetChars());
+							}
+						}
+
+						if (sc.CheckToken('{'))
+						{
+							while (!sc.CheckToken('}'))
+							{
+								sc.MustGetString();
+								if (sc.Compare("filter"))
+								{
+									sc.MustGetString();
+									if (sc.Compare("nearest"))
+									{
+										if(okay)
+											mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::NearestMipLinear;
+									}
+									else if (sc.Compare("linear"))
+									{
+										if (okay)
+											mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::LinearMipLinear;
+									}
+									else if (sc.Compare("default"))
+									{
+										if (okay)
+											mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::Default;
+									}
+									else
+									{
+										if(is_globalshader)
+										{
+											sc.ScriptError("Error: unexpected '%s' when reading filter property in global shader '%s'\n", sc.String, str_globaltargets.GetChars());
+										}
+										else
+										{
+											sc.ScriptError("Error: unexpected '%s' when reading filter property in texture '%s'\n", sc.String, tex ? tex->GetName().GetChars() : "(null)");
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				else if (sc.Compare("define"))
+				{
+					isProperty = true;
+					sc.MustGetString();
+					FString defineName = sc.String;
+					FString defineValue = "";
+					if (sc.CheckToken('='))
+					{
+						sc.MustGetString();
+						defineValue = sc.String;
+					}
+					usershader.defines.AppendFormat("#define %s %s\n", defineName.GetChars(), defineValue.GetChars());
+				}
+				else if(!is_globalshader)
+				{
+					for (int i = 0; keywords[i] != nullptr; i++)
+					{
+						if (sc.Compare (keywords[i]))
+						{
+							isProperty = true;
+							sc.MustGetString();
+							if (textures[i])
+								Printf("Multiple %s definitions in texture %s\n", keywords[i], tex? tex->GetName().GetChars() : "(null)");
+							textures[i] = TexMan.FindGameTexture(sc.String, ETextureType::Any, FTextureManager::TEXMAN_TryAny);
+							if (!textures[i])
+								Printf("%s '%s' not found in texture '%s'\n", notFound[i], sc.String, tex? tex->GetName().GetChars() : "(null)");
 							break;
 						}
 					}
-					if (!okay)
-					{
-						sc.ScriptError("Error: out of texture units in texture '%s'", tex->GetName().GetChars());
-					}
-
-					if (sc.CheckToken('{'))
-					{
-						while (!sc.CheckToken('}'))
-						{
-							sc.MustGetString();
-							if (sc.Compare("filter"))
-							{
-								sc.MustGetString();
-								if (sc.Compare("nearest"))
-								{
-									if(okay)
-										mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::NearestMipLinear;
-								}
-								else if (sc.Compare("linear"))
-								{
-									if (okay)
-										mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::LinearMipLinear;
-								}
-								else if (sc.Compare("default"))
-								{
-									if (okay)
-										mlay.CustomShaderTextureSampling[texIndex] = MaterialLayerSampling::Default;
-								}
-								else
-								{
-									sc.ScriptError("Error: unexpected '%s' when reading filter property in texture '%s'\n", sc.String, tex ? tex->GetName().GetChars() : "(null)");
-								}
-							}
-						}
-					}
 				}
 			}
-			else if (sc.Compare("define"))
+			if(!isProperty && do_strict)
 			{
-				sc.MustGetString();
-				FString defineName = sc.String;
-				FString defineValue = "";
-				if (sc.CheckToken('='))
+				if(is_globalshader)
 				{
-					sc.MustGetString();
-					defineValue = sc.String;
+					sc.ScriptError("Unknown keyword '%s' in global shader '%s'", sc.String, str_globaltargets.GetChars());
 				}
-				usershader.defines.AppendFormat("#define %s %s\n", defineName.GetChars(), defineValue.GetChars());
-			}
-			else
-			{
-				for (int i = 0; keywords[i] != nullptr; i++)
+				else
 				{
-					if (sc.Compare (keywords[i]))
-					{
-						sc.MustGetString();
-						if (textures[i])
-							Printf("Multiple %s definitions in texture %s\n", keywords[i], tex? tex->GetName().GetChars() : "(null)");
-						textures[i] = TexMan.FindGameTexture(sc.String, ETextureType::Any, FTextureManager::TEXMAN_TryAny);
-						if (!textures[i])
-							Printf("%s '%s' not found in texture '%s'\n", notFound[i], sc.String, tex? tex->GetName().GetChars() : "(null)");
-						break;
-					}
+					sc.ScriptError("Unknown keyword '%s' in texture '%s'", sc.String, tex? tex->GetName().GetChars() : "(null)");
 				}
 			}
 		}
-		if (!tex)
+		if (!tex && !is_globalshader)
 		{
 			return;
 		}
-		if (thiswad || iwad)
+		if(is_globalshader)
 		{
-			bool useme = false;
-			int lumpnum = tex->GetSourceLump();
-
-			if (lumpnum != -1)
+			if(fileSystem.GetFileContainer(workingLump) > fileSystem.GetMaxIwadNum())
 			{
-				if (iwad && fileSystem.GetFileContainer(lumpnum) <= fileSystem.GetMaxIwadNum()) useme = true;
-				if (thiswad && fileSystem.GetFileContainer(lumpnum) == fileSystem.GetFileContainer(workingLump)) useme = true;
-			}
-			if (!useme) return;
-		}
-
-		tex->SetNoMipmap(no_mipmap);
-
-		FGameTexture **bindings[6] =
-		{
-			&mlay.Brightmap,
-			&mlay.Normal,
-			&mlay.Specular,
-			&mlay.Metallic,
-			&mlay.Roughness,
-			&mlay.AmbientOcclusion
-		};
-		for (int i = 0; keywords[i] != nullptr; i++)
-		{
-			if (textures[i])
-			{
-				*bindings[i] = textures[i];
-			}
-		}
-
-		if (disable_fullbright_specified)
-			tex->SetDisableFullbright(disable_fullbright);
-
-		if (usershader.shader.IsNotEmpty())
-		{
-			int firstUserTexture;
-			if ((mlay.Normal || tex->GetNormalmap()) && (mlay.Specular || tex->GetSpecularmap()))
-			{
-				usershader.shaderType = SHADER_Specular;
-				firstUserTexture = 7;
-			}
-			else if ((mlay.Normal || tex->GetNormalmap()) && (mlay.Metallic || tex->GetMetallic()) && (mlay.Roughness || tex->GetRoughness()) && (mlay.AmbientOcclusion || tex->GetAmbientOcclusion()))
-			{
-				usershader.shaderType = SHADER_PBR;
-				firstUserTexture = 9;
-			}
-			else
-			{
-				usershader.shaderType = SHADER_Default;
-				firstUserTexture = 5;
-			}
-
-			for (unsigned int i = 0; i < texNameList.Size(); i++)
-			{
-				usershader.defines.AppendFormat("#define %s texture%d\n", texNameList[i].GetChars(), texNameIndex[i] + firstUserTexture);
-			}
-
-			if (tex->isWarped() != 0)
-			{
-				Printf("Cannot combine warping with hardware shader on texture '%s'\n", tex->GetName().GetChars());
+				sc.ScriptError("globalshader only supported on iwad");
 				return;
 			}
-			tex->SetShaderSpeed(speed);
-			for (unsigned i = 0; i < usershaders.Size(); i++)
+			else for(int target : globaltargets)
 			{
-				if (!usershaders[i].shader.CompareNoCase(usershader.shader) &&
-					usershaders[i].shaderType == usershader.shaderType &&
-					!usershaders[i].defines.Compare(usershader.defines))
+				if(globalshaders[target].shaderindex >= 0)
 				{
-					SetShaderIndex(tex, i + FIRST_USER_SHADER);
-					tex->SetShaderLayers(mlay);
+					sc.ScriptError("globalshader already exists for '%s'", str_globaltargets.GetChars());
 					return;
 				}
 			}
-			SetShaderIndex(tex, usershaders.Push(usershader) + FIRST_USER_SHADER);
+
+			if (usershader.shader.IsNotEmpty())
+			{
+				int lump = fileSystem.CheckNumForFullName(usershader.shader.GetChars(), 0);
+				if (lump == -1)
+				{
+					sc.ScriptError("inexistent shader lump '%s' in globalshader '%s'", usershader.shader.GetChars(), str_globaltargets.GetChars());
+					return;
+				}
+
+				for(int target : globaltargets)
+				{
+					FString baseDefines = usershader.defines;
+
+					int firstUserTexture;
+
+					if (target == SHADER_Specular)
+					{
+						firstUserTexture = 7;
+					}
+					else if (target == SHADER_PBR)
+					{
+						firstUserTexture = 9;
+					}
+					else
+					{
+						firstUserTexture = 5;
+					}
+
+					for (unsigned int i = 0; i < texNameList.Size(); i++)
+					{
+						usershader.defines.AppendFormat("#define %s texture%d\n", texNameList[i].GetChars(), texNameIndex[i] + firstUserTexture);
+					}
+
+					usershader.shaderType = MaterialShaderIndex(target);
+
+					globalshaders[target].shaderindex = usershaders.Push(usershader) + FIRST_USER_SHADER;
+
+					for (int i = 0; i < MAX_CUSTOM_HW_SHADER_TEXTURES; i++)
+					{
+						if (mlay.CustomShaderTextures[i])
+						{
+							globalshaders[target].CustomShaderTextureSampling[i] = mlay.CustomShaderTextureSampling[i];
+							globalshaders[target].CustomShaderTextures[i] = mlay.CustomShaderTextures[i]->GetTexture();
+						}
+					}
+
+					usershader.defines = baseDefines;
+				}
+			}
+			else
+			{
+				sc.ScriptError("shader lump not specified for global shader '%s'", usershader.shader.GetChars(), str_globaltargets.GetChars());
+			}
 		}
-		tex->SetShaderLayers(mlay);
+		else 
+		{
+			if (thiswad || iwad)
+			{
+				bool useme = false;
+				int lumpnum = tex->GetSourceLump();
+
+				if (lumpnum != -1)
+				{
+					if (iwad && fileSystem.GetFileContainer(lumpnum) <= fileSystem.GetMaxIwadNum()) useme = true;
+					if (thiswad && fileSystem.GetFileContainer(lumpnum) == fileSystem.GetFileContainer(workingLump)) useme = true;
+				}
+				if (!useme) return;
+			}
+
+			tex->SetNoMipmap(no_mipmap);
+
+			FGameTexture **bindings[6] =
+			{
+				&mlay.Brightmap,
+				&mlay.Normal,
+				&mlay.Specular,
+				&mlay.Metallic,
+				&mlay.Roughness,
+				&mlay.AmbientOcclusion
+			};
+			for (int i = 0; keywords[i] != nullptr; i++)
+			{
+				if (textures[i])
+				{
+					*bindings[i] = textures[i];
+				}
+			}
+
+			if (disable_fullbright_specified)
+				tex->SetDisableFullbright(disable_fullbright);
+
+			if (usershader.shader.IsNotEmpty())
+			{
+				if(do_strict)
+				{
+					int lump = fileSystem.CheckNumForFullName(usershader.shader.GetChars(), 0);
+					if (lump == -1)
+					{
+						sc.ScriptError("inexistent shader lump '%s' in globalshader '%s'", usershader.shader.GetChars(), str_globaltargets.GetChars());
+						return;
+					}
+				}
+
+				int firstUserTexture;
+				if ((mlay.Normal || tex->GetNormalmap()) && (mlay.Specular || tex->GetSpecularmap()))
+				{
+					usershader.shaderType = SHADER_Specular;
+					firstUserTexture = 7;
+				}
+				else if ((mlay.Normal || tex->GetNormalmap()) && (mlay.Metallic || tex->GetMetallic()) && (mlay.Roughness || tex->GetRoughness()) && (mlay.AmbientOcclusion || tex->GetAmbientOcclusion()))
+				{
+					usershader.shaderType = SHADER_PBR;
+					firstUserTexture = 9;
+				}
+				else
+				{
+					usershader.shaderType = SHADER_Default;
+					firstUserTexture = 5;
+				}
+
+				for (unsigned int i = 0; i < texNameList.Size(); i++)
+				{
+					usershader.defines.AppendFormat("#define %s texture%d\n", texNameList[i].GetChars(), texNameIndex[i] + firstUserTexture);
+				}
+
+				if (tex->isWarped() != 0)
+				{
+					Printf("Cannot combine warping with hardware shader on texture '%s'\n", tex->GetName().GetChars());
+					return;
+				}
+				tex->SetShaderSpeed(speed);
+
+				for (unsigned i = 0; i < usershaders.Size(); i++)
+				{
+					if (!usershaders[i].shader.CompareNoCase(usershader.shader) &&
+						usershaders[i].shaderType == usershader.shaderType &&
+						usershaders[i].shaderFlags == usershader.shaderFlags &&
+						!usershaders[i].defines.Compare(usershader.defines))
+					{
+						SetShaderIndex(tex, i + FIRST_USER_SHADER);
+						tex->SetShaderLayers(mlay);
+						return;
+					}
+				}
+
+				SetShaderIndex(tex, usershaders.Push(usershader) + FIRST_USER_SHADER);
+			}
+			tex->SetShaderLayers(mlay);
+		}
 	}
 
 
@@ -1888,7 +2139,6 @@ class GLDefsParser
 						if (sc.Compare(typeName[i]))
 						{
 							desc.shaderType = typeIndex[i];
-							if (usesBrightmap[i]) desc.shaderFlags |= SFlag_Brightmap;
 							found = true;
 							break;
 						}
@@ -1992,6 +2242,7 @@ class GLDefsParser
 				{
 					if (!usershaders[i].shader.CompareNoCase(desc.shader) &&
 						usershaders[i].shaderType == desc.shaderType &&
+						usershaders[i].shaderFlags == desc.shaderFlags &&
 						!usershaders[i].defines.Compare(desc.defines))
 					{
 						SetShaderIndex(tex, i + FIRST_USER_SHADER);

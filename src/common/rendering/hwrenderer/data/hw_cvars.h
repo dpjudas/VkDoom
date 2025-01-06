@@ -58,3 +58,5 @@ EXTERN_CVAR(Bool, gl_notexturefill)
 
 EXTERN_CVAR(Bool, r_radarclipper)
 EXTERN_CVAR(Bool, r_dithertransparency)
+
+EXTERN_CVAR(Bool, gl_strict_gldefs)

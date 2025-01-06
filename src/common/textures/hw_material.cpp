@@ -128,25 +128,39 @@ FMaterial::FMaterial(FGameTexture * tx, int scaleflags)
 		}
 
 		auto index = tx->GetShaderIndex();
+
 		if (gl_customshader)
 		{
-			if (index >= FIRST_USER_SHADER)
+			if (index >= FIRST_USER_SHADER || (mShaderIndex < FIRST_USER_SHADER && globalshaders[mShaderIndex].shaderindex >= FIRST_USER_SHADER))
 			{
-				const UserShaderDesc& usershader = usershaders[index - FIRST_USER_SHADER];
-				if (usershader.shaderType == mShaderIndex) // Only apply user shader if it matches the expected material
+
+				if (index >= FIRST_USER_SHADER && usershaders[index - FIRST_USER_SHADER].shaderType == mShaderIndex) // Only apply user shader if it matches the expected material
 				{
 					if (tx->Layers)
 					{
-						size_t index = 0;
+						size_t i = 0;
 						for (auto& texture : tx->Layers->CustomShaderTextures)
 						{
 							if (texture != nullptr)
 							{
-								mTextureLayers.Push({ texture.get(), 0, -1, tx->Layers->CustomShaderTextureSampling[index++]});	// scalability should be user-definable.
+								mTextureLayers.Push({ texture.get(), 0, -1, tx->Layers->CustomShaderTextureSampling[i++]});	// scalability should be user-definable.
 							}
 						}
 					}
 					mShaderIndex = index;
+				}
+				else if(mShaderIndex < FIRST_USER_SHADER && globalshaders[mShaderIndex].shaderindex >= FIRST_USER_SHADER)
+				{
+					size_t i = 0;
+					for (auto& texture : globalshaders[mShaderIndex].CustomShaderTextures)
+					{
+						if (texture != nullptr)
+						{
+							mTextureLayers.Push({ texture.get(), 0, -1, globalshaders[mShaderIndex].CustomShaderTextureSampling[i++]});	// scalability should be user-definable.
+						}
+					}
+
+					mShaderIndex = globalshaders[mShaderIndex].shaderindex;
 				}
 			}
 		}
