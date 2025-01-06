@@ -62,7 +62,7 @@ EXTERN_CVAR(Bool, vid_vsync    )
 
 int GameMain();
 
-extern bool RunningAsTool = false;
+extern bool RunningAsTool;
 
 // ---------------------------------------------------------------------------
 
