@@ -757,6 +757,12 @@ int FIWadManager::IdentifyVersion (std::vector<std::string>&wadfiles, const char
 
 	if (alwaysshow || picks.Size() > 1)
 	{
+		if (RunningAsTool)
+		{
+			Printf("Please specify which iwad to use with -iwad\n");
+			return -1;
+		}
+
 		// Locate the user's prefered IWAD, if it was found.
 		if (defaultiwad[0] != '\0')
 		{

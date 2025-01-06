@@ -61,6 +61,7 @@ struct WadStuff
 
 extern FString endoomName;
 extern bool batchrun;
+extern bool RunningAsTool;
 extern float menuBlurAmount;
 extern bool generic_ui;
 extern bool special_i;

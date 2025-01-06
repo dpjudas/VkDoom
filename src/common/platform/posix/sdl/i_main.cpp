@@ -53,13 +53,8 @@
 #include "i_interface.h"
 #include "printf.h"
 
-// MACROS ------------------------------------------------------------------
-
-// TYPES -------------------------------------------------------------------
-
-// EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
-
 extern "C" int cc_install_handlers(int, char**, int, int*, const char*, int(*)(char*, char*));
+extern bool RunningAsTool;
 
 #ifdef __APPLE__
 void Mac_I_FatalError(const char* errortext);
@@ -69,25 +64,10 @@ void Mac_I_FatalError(const char* errortext);
 void Linux_I_FatalError(const char* errortext);
 #endif
 
-// PUBLIC FUNCTION PROTOTYPES ----------------------------------------------
 int GameMain();
 
-// PRIVATE FUNCTION PROTOTYPES ---------------------------------------------
-
-// EXTERNAL DATA DECLARATIONS ----------------------------------------------
-
-// PUBLIC DATA DEFINITIONS -------------------------------------------------
 FString sys_ostype;
-
-// The command line arguments.
 FArgs *Args;
-
-// PRIVATE DATA DEFINITIONS ------------------------------------------------
-
-
-// CODE --------------------------------------------------------------------
-
-
 
 static int GetCrashInfo (char *buffer, char *end)
 {
@@ -146,7 +126,7 @@ void I_DetectOS()
 
 void I_StartupJoysticks();
 
-int I_GameMain(int argc, char** argv)
+void InitCrashReporter()
 {
 #if !defined (__APPLE__)
 	{
@@ -154,35 +134,36 @@ int I_GameMain(int argc, char** argv)
 		cc_install_handlers(argc, argv, 4, s, GAMENAMELOWERCASE "-crash.log", GetCrashInfo);
 	}
 #endif // !__APPLE__
+}
 
-	printf(GAMENAME" %s - %s - SDL version\nCompiled on %s\n",
-		GetVersionString(), GetGitTime(), __DATE__);
+void SetEffectiveUser()
+{
+	seteuid(getuid());
+}
 
-	seteuid (getuid ());
+void InitLocale()
+{
 	// Set LC_NUMERIC environment variable in case some library decides to
 	// clear the setlocale call at least this will be correct.
 	// Note that the LANG environment variable is overridden by LC_*
-	setenv ("LC_NUMERIC", "C", 1);
+	setenv("LC_NUMERIC", "C", 1);
+	setlocale(LC_ALL, "C");
+}
 
-	setlocale (LC_ALL, "C");
-
-	if (SDL_Init (0) < 0)
-	{
-		fprintf (stderr, "Could not initialize SDL:\n%s\n", SDL_GetError());
-		return -1;
-	}
-
-	printf("\n");
-
+void InitArgs(int argc, char** argv)
+{
 	Args = new FArgs(argc, argv);
+}
 
+void InitExePath()
+{
 #ifdef PROGDIR
 	progdir = PROGDIR;
 #else
 	char program[PATH_MAX];
-	if (realpath (argv[0], program) == NULL)
-		strcpy (program, argv[0]);
-	char *slash = strrchr (program, '/');
+	if (realpath(argv[0], program) == NULL)
+		strcpy(program, argv[0]);
+	char* slash = strrchr(program, '/');
 	if (slash != NULL)
 	{
 		*(slash + 1) = '\0';
@@ -193,6 +174,26 @@ int I_GameMain(int argc, char** argv)
 		progdir = "./";
 	}
 #endif
+}
+
+int I_GameMain(int argc, char** argv)
+{
+	InitCrashReporter();
+	SetEffectiveUser();
+	InitLocale();
+
+	printf(GAMENAME" %s - %s - SDL version\nCompiled on %s\n", GetVersionString(), GetGitTime(), __DATE__);
+
+	if (SDL_Init (0) < 0)
+	{
+		fprintf (stderr, "Could not initialize SDL:\n%s\n", SDL_GetError());
+		return -1;
+	}
+
+	printf("\n");
+
+	InitArgs(argc, argv);
+	InitExePath();
 
 	I_StartupJoysticks();
 
@@ -205,5 +206,13 @@ int I_GameMain(int argc, char** argv)
 
 int I_ToolMain(int argc, char** argv)
 {
-	return I_GameMain(argc, argv);
+	RunningAsTool = true;
+
+	InitCrashReporter();
+	SetEffectiveUser();
+	InitLocale();
+	InitArgs(argc, argv);
+	InitExePath();
+
+	return GameMain();
 }

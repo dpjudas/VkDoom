@@ -55,6 +55,7 @@
 #include "thingdef.h"
 #include "zcc_parser.h"
 #include "zcc_compile_doom.h"
+#include "i_interface.h"
 
 // EXTERNAL FUNCTION PROTOTYPES --------------------------------------------
 void InitThingdef();
@@ -545,7 +546,7 @@ void LoadActors()
 	}
 
 	timer.Unclock();
-	if (!batchrun) Printf("script parsing took %.2f ms\n", timer.TimeMS());
+	if (!batchrun && !RunningAsTool) Printf("script parsing took %.2f ms\n", timer.TimeMS());
 
 	// Now we may call the scripted OnDestroy method.
 	PClass::bVMOperational = true;

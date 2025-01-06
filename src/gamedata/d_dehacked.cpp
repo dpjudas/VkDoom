@@ -3225,7 +3225,7 @@ bool D_LoadDehFile(const char *patchfile, int flags)
 
 static bool DoDehPatch(int flags)
 {
-	if (!batchrun) Printf("Adding dehacked patch %s\n", PatchName.GetChars());
+	if (!batchrun && !RunningAsTool) Printf("Adding dehacked patch %s\n", PatchName.GetChars());
 
 	int cont;
 
@@ -3320,7 +3320,7 @@ static bool DoDehPatch(int flags)
 
 	PatchName = "";
 	delete[] PatchFile;
-	if (!batchrun) Printf ("Patch installed\n");
+	if (!batchrun && !RunningAsTool) Printf ("Patch installed\n");
 	return true;
 }
 

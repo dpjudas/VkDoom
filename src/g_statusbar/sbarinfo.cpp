@@ -448,7 +448,7 @@ void SBarInfo::Load()
 		int lump = fileSystem.CheckNumForFullName(gameinfo.statusbar.GetChars(), true);
 		if(lump != -1)
 		{
-			if (!batchrun) Printf ("ParseSBarInfo: Loading default status bar definition.\n");
+			if (!batchrun && !RunningAsTool) Printf ("ParseSBarInfo: Loading default status bar definition.\n");
 			if(SBarInfoScript[SCRIPT_DEFAULT] == NULL)
 				SBarInfoScript[SCRIPT_DEFAULT] = new SBarInfo(lump);
 			else
@@ -458,7 +458,7 @@ void SBarInfo::Load()
 
 	if(fileSystem.CheckNumForName("SBARINFO") != -1)
 	{
-		if (!batchrun) Printf ("ParseSBarInfo: Loading custom status bar definition.\n");
+		if (!batchrun && !RunningAsTool) Printf ("ParseSBarInfo: Loading custom status bar definition.\n");
 		int lastlump, lump;
 		lastlump = 0;
 		while((lump = fileSystem.FindLump("SBARINFO", &lastlump)) != -1)

@@ -61,6 +61,9 @@ EXTERN_CVAR(Int,  vid_defheight)
 EXTERN_CVAR(Bool, vid_vsync    )
 
 int GameMain();
+
+extern bool RunningAsTool = false;
+
 // ---------------------------------------------------------------------------
 
 
@@ -528,9 +531,7 @@ void ReleaseApplicationController()
 	}
 }
 
-} // unnamed namespace
-
-int I_GameMain(int argc, char** argv)
+void InitArgs(int argc, char** argv)
 {
 	for (int i = 0; i < argc; ++i)
 	{
@@ -549,6 +550,13 @@ int I_GameMain(int argc, char** argv)
 
 		s_argv.Push(argument);
 	}
+}
+
+} // unnamed namespace
+
+int I_GameMain(int argc, char** argv)
+{
+	InitArgs(argc, argv);
 
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
@@ -574,7 +582,28 @@ int I_GameMain(int argc, char** argv)
 	return EXIT_SUCCESS;
 }
 
+// Note: no idea if this actually works as I don't have a macOS machine nowadays.
+// It is possible this function should do exactly the same as the linux/posix version.
+// Not really sure how Cocoa initialization and macOS bundles affects console applications on macOS, if at all.
 int I_ToolMain(int argc, char** argv)
 {
-	return I_GameMain(argc, argv);
+	RunningAsTool = true;
+
+	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+
+	seteuid(getuid());
+
+	// Set LC_NUMERIC environment variable in case some library decides to
+	// clear the setlocale call at least this will be correct.
+	// Note that the LANG environment variable is overridden by LC_*
+	setenv("LC_NUMERIC", "C", 1);
+	setlocale(LC_ALL, "C");
+
+	Args = new FArgs(argc, argv);
+
+	NSString* exePath = [[NSBundle mainBundle] executablePath];
+	progdir = [[exePath stringByDeletingLastPathComponent] UTF8String];
+	progdir += "/";
+
+	return GameMain();
 }

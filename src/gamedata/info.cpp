@@ -393,7 +393,7 @@ void PClassActor::StaticInit()
 		sprites.Push (temp);
 	}
 
-	if (!batchrun) Printf ("LoadActors: Load actor definitions.\n");
+	if (!batchrun && !RunningAsTool) Printf ("LoadActors: Load actor definitions.\n");
 	ClearStrifeTypes();
 	LoadActors ();
 	InitServices();

@@ -203,7 +203,7 @@ void I_DetectOS(void)
 		break;
 	}
 
-	if (!batchrun) Printf ("OS: Windows %s (NT %lu.%lu) Build %lu\n    %s\n",
+	if (!batchrun && !RunningAsTool) Printf ("OS: Windows %s (NT %lu.%lu) Build %lu\n    %s\n",
 			osname,
 			info.dwMajorVersion, info.dwMinorVersion,
 			info.dwBuildNumber, info.szCSDVersion);
@@ -264,7 +264,7 @@ void CalculateCPUSpeed()
 		PerfToMillisec = PerfToSec * 1000.0;
 	}
 
-	if (!batchrun) Printf ("CPU speed: %.0f MHz\n", 0.001 / PerfToMillisec);
+	if (!batchrun && !RunningAsTool) Printf ("CPU speed: %.0f MHz\n", 0.001 / PerfToMillisec);
 }
 
 //==========================================================================
@@ -276,24 +276,40 @@ void CalculateCPUSpeed()
 //
 //==========================================================================
 
+std::wstring to_utf16(const std::string& str)
+{
+	if (str.empty()) return {};
+	int needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
+	if (needed == 0)
+		return {};
+	std::wstring result;
+	result.resize(needed);
+	needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), &result[0], (int)result.size());
+	if (needed == 0)
+		return {};
+	return result;
+}
+
 static void PrintToStdOut(const char *cpt, HANDLE StdOut)
 {
 	const char* srcp = cpt;
 	FString printData = "";
 	bool terminal = FancyStdOut;
+	bool colorSet = false;
 
 	while (*srcp != 0)
 	{
 		if (*srcp == 0x1c && terminal)
 		{
 			srcp += 1;
-			const uint8_t* scratch = (const uint8_t*)srcp; // GCC does not like direct casting of the parameter.
+			const uint8_t* scratch = (const uint8_t*)srcp;
 			EColorRange range = V_ParseFontColor(scratch, CR_UNTRANSLATED, CR_YELLOW);
 			srcp = (char*)scratch;
 			if (range != CR_UNDEFINED)
 			{
 				PalEntry color = V_LogColorFromColorRange(range);
-				printData.AppendFormat("\033[38;2;%u;%u;%um", color.r, color.g, color.b);
+				printData.AppendFormat("\x1b[38;2;%u;%u;%um", color.r, color.g, color.b);
+				colorSet = true;
 			}
 		}
 		else if (*srcp != 0x1c && *srcp != 0x1d && *srcp != 0x1e && *srcp != 0x1f)
@@ -307,10 +323,11 @@ static void PrintToStdOut(const char *cpt, HANDLE StdOut)
 		}
 	}
 
+	if (colorSet)
+		printData += "\x1b[0m";
+
 	DWORD bytes_written;
-	WriteFile(StdOut, printData.GetChars(), (DWORD)printData.Len(), &bytes_written, NULL);
-	if (terminal) 
-		WriteFile(StdOut, "\033[0m", 4, &bytes_written, NULL);
+	WriteFile(StdOut, printData.GetChars(), (DWORD)printData.Len(), &bytes_written, nullptr);
 }
 
 void I_PrintStr(const char *cp)

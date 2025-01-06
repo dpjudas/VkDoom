@@ -196,7 +196,7 @@ void CalculateCPUSpeed()
 	PerfAvailable = true;
 	PerfToSec = .000001/mhz;
 	PerfToMillisec = PerfToSec*1000.;
-	if (!batchrun) Printf("CPU speed: %.0f MHz\n", mhz);
+	if (!batchrun && !RunningAsTool) Printf("CPU speed: %.0f MHz\n", mhz);
 	close(fd);
 #endif
 }

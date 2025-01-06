@@ -47,6 +47,7 @@
 #include "gstrings.h"
 #include "i_mainwindow.h"
 #include "engineerrors.h"
+#include "i_interface.h"
 
 
 static int isportable = -1;
@@ -98,7 +99,7 @@ bool IsPortable()
 		if (file != INVALID_HANDLE_VALUE)
 		{
 			CloseHandle(file);
-			if (!batchrun) Printf("Using portable configuration\n");
+			if (!batchrun && !RunningAsTool) Printf("Using portable configuration\n");
 			isportable = true;
 			return true;
 		}

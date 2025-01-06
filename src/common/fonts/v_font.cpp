@@ -53,6 +53,7 @@
 #include "texturemanager.h"
 #include "printf.h"
 #include "palentry.h"
+#include "i_interface.h"
 
 #include "fontinternals.h"
 
@@ -784,6 +785,41 @@ static void CalcDefaultTranslation(FFont* base, int index)
 
 PalEntry V_LogColorFromColorRange (EColorRange range)
 {
+	// Console wants to use colors before we loaded anything and we can't retroactively apply them like we can for the console in the game
+	if (RunningAsTool)
+	{
+		static std::vector<PalEntry> colors =
+		{
+			0x00cc3333,
+			0x00d2b48c,
+			0x00cccccc,
+			0x0000cc00,
+			0x00996633,
+			0x00ffcc00,
+			0x00ff5566,
+			0x009999ff,
+			0x00ffaa00,
+			0x00dfdfdf,
+			0x00eeee33,
+			0x00dfdfdf,
+			0x00000000,
+			0x0033eeff,
+			0x00ffcc99,
+			0x00d1d8a8,
+			0x00008c00,
+			0x00800000,
+			0x00663333,
+			0x009966cc,
+			0x00808080,
+			0x0000dddd,
+			0x007c7c98,
+			0x00d57604,
+			0x00506cfc,
+			0x00236773,
+		};
+		return (size_t)range >= colors.size() ? DEFAULT_LOG_COLOR : colors[range];
+	}
+
 	if ((unsigned int)range >= TranslationColors.Size())
 	{ // Return default color
 		return DEFAULT_LOG_COLOR;

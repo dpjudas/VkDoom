@@ -95,6 +95,7 @@ void DestroyCustomCursor();
 int GameMain();
 
 extern UINT TimerPeriod;
+extern bool RunningAsTool;
 
 // The command line arguments.
 FArgs *Args;
@@ -140,16 +141,15 @@ bool isConsoleApp()
 	return returnvalue;
 }
 
-//==========================================================================
-
-int DoMain (HINSTANCE hInstance)
+void InitComAndCommonControls()
 {
-	LONG WinWidth, WinHeight;
-	int height, width, x, y;
-	RECT cRect;
-	TIMECAPS tc;
-	DEVMODE displaysettings;
+	InitCommonControls();
+	if (SUCCEEDED(CoInitialize(nullptr)))
+		atexit([]() { CoUninitialize(); }); // beware of calling convention.
+}
 
+void InitArgs()
+{
 	// Do not use the multibyte __argv here because we want UTF-8 arguments
 	// and those can only be done by converting the Unicode variants.
 	Args = new FArgs();
@@ -159,6 +159,51 @@ int DoMain (HINSTANCE hInstance)
 	{
 		Args->AppendArg(FString(wargv[i]));
 	}
+}
+
+void InitTimer()
+{
+	// Set the timer to be as accurate as possible
+	TIMECAPS tc;
+	if (timeGetDevCaps(&tc, sizeof(tc)) != TIMERR_NOERROR)
+		TimerPeriod = 1;	// Assume minimum resolution of 1 ms
+	else
+		TimerPeriod = tc.wPeriodMin;
+
+	timeBeginPeriod(TimerPeriod);
+	atexit([]() { timeEndPeriod(TimerPeriod); });
+}
+
+void InitExePath()
+{
+	// Figure out what directory the program resides in.
+	WCHAR progbuff[1024];
+	if (GetModuleFileNameW(nullptr, progbuff, 1024) == 0)
+	{
+		MessageBoxA(nullptr, "Fatal", "Could not determine program location.", MB_ICONEXCLAMATION | MB_OK);
+		exit(-1);
+	}
+
+	progbuff[1023] = '\0';
+	if (auto lastsep = wcsrchr(progbuff, '\\'))
+	{
+		lastsep[1] = '\0';
+	}
+
+	progdir = progbuff;
+	FixPathSeperator(progdir);
+}
+
+//==========================================================================
+
+int DoMain (HINSTANCE hInstance)
+{
+	LONG WinWidth, WinHeight;
+	int height, width, x, y;
+	RECT cRect;
+	DEVMODE displaysettings;
+
+	InitArgs();
 
 	if (isConsoleApp())
 	{
@@ -171,7 +216,7 @@ int DoMain (HINSTANCE hInstance)
 
 		if (GetConsoleMode(StdOut, &mode))
 		{
-			if (SetConsoleMode(StdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+			if (SetConsoleMode(StdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT))
 				FancyStdOut = IsWindows10OrGreater(); // Windows 8.1 and lower do not understand ANSI formatting.
 		}
 	}
@@ -223,31 +268,8 @@ int DoMain (HINSTANCE hInstance)
 		}
 	}
 
-	// Set the timer to be as accurate as possible
-	if (timeGetDevCaps (&tc, sizeof(tc)) != TIMERR_NOERROR)
-		TimerPeriod = 1;	// Assume minimum resolution of 1 ms
-	else
-		TimerPeriod = tc.wPeriodMin;
-
-	timeBeginPeriod (TimerPeriod);
-	atexit([](){ timeEndPeriod(TimerPeriod); });
-
-	// Figure out what directory the program resides in.
-	WCHAR progbuff[1024];
-	if (GetModuleFileNameW(nullptr, progbuff, 1024) == 0)
-	{
-		MessageBoxA(nullptr, "Fatal", "Could not determine program location.", MB_ICONEXCLAMATION|MB_OK);
-		exit(-1);
-	}
-
-	progbuff[1023] = '\0';
-	if (auto lastsep = wcsrchr(progbuff, '\\'))
-	{
-		lastsep[1] = '\0';
-	}
-
-	progdir = progbuff;
-	FixPathSeperator(progdir);
+	InitTimer();
+	InitExePath();
 
 	HDC screenDC = GetDC(0);
 	int dpi = GetDeviceCaps(screenDC, LOGPIXELSX);
@@ -323,13 +345,13 @@ void I_ShowFatalError(const char *msg)
 		Printf("%s", CVMAbortException::stacktrace.GetChars());
 	}
 
-	if (!batchrun)
+	if (!batchrun && !RunningAsTool)
 	{
 		mainwindow.ShowErrorPane(msg);
 	}
 	else
 	{
-		Printf("%s\n", msg);
+		Printf(TEXTCOLOR_ORANGE "%s\n", msg);
 	}
 }
 
@@ -344,10 +366,7 @@ int I_GameMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdS
 {
 	g_hInst = hInstance;
 
-	InitCommonControls();
-
-	if (SUCCEEDED(CoInitialize(nullptr)))
-		atexit([]() { CoUninitialize(); }); // beware of calling convention.
+	InitComAndCommonControls();
 
 #if defined(_DEBUG) && defined(_MSC_VER)
 	// Uncomment this line to make the Visual C++ CRT check the heap before
@@ -383,17 +402,33 @@ int I_GameMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdS
 int I_ToolMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow)
 {
 	g_hInst = hInstance;
+	RunningAsTool = true;
 
-	InitCommonControls();
-	if (SUCCEEDED(CoInitialize(nullptr)))
-		atexit([]() { CoUninitialize(); }); // beware of calling convention.
+	InitComAndCommonControls();
 
 	FString reportsDirectory = GetKnownFolder(CSIDL_LOCAL_APPDATA, FOLDERID_LocalAppData, true);
 	reportsDirectory += "/" GAMENAMELOWERCASE;
 	reportsDirectory += "/crashreports";
 	CreatePath(reportsDirectory.GetChars());
-
 	InitCrashReporter(reportsDirectory.WideString(), {});
 
-	return DoMain(hInstance);
+	InitArgs();
+
+	StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleCP(CP_UTF8);
+	SetConsoleOutputCP(CP_UTF8);
+
+	DWORD mode;
+	if (GetConsoleMode(StdOut, &mode))
+	{
+		if (SetConsoleMode(StdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT))
+			FancyStdOut = IsWindows10OrGreater(); // Windows 8.1 and lower do not understand ANSI formatting.
+	}
+
+	InitTimer();
+	InitExePath();
+
+	int res = GameMain();
+	SetConsoleMode(StdOut, mode);
+	return res;
 }
