@@ -2,9 +2,12 @@
 #include "commandlet.h"
 #include "lightmapcmd.h"
 #include "version.h"
+#include "v_draw.h"
+#include "v_video.h"
 #include <functional>
 
 int D_DoomMain_Game();
+void D_BeginDoomLoop();
 static std::function<void()>* ToolCallback;
 extern bool DisableLogging;
 
@@ -17,8 +20,11 @@ int ToolMain()
 
 void Commandlet::RunInGame(std::function<void()> action)
 {
-	std::function<void()> callback = [=]() {
+	std::function<void()> callback = [&]() {
 		DisableLogging = false;
+
+		D_BeginDoomLoop();
+		twod->Begin(screen->GetWidth(), screen->GetHeight());
 		action();
 	};
 

@@ -1216,6 +1216,33 @@ void D_ErrorCleanup ()
 	ClearGlobalVMStack();
 }
 
+void D_BeginDoomLoop()
+{
+	// Clamp the timer to TICRATE until the playloop has been entered.
+	r_NoInterpolate = true;
+	Page.SetInvalid();
+	Subtitle = nullptr;
+	Advisory.SetInvalid();
+}
+
+void D_SingleTick()
+{
+	I_StartTic();
+	D_ProcessEvents();
+	G_BuildTiccmd(&netcmds[consoleplayer][maketic % BACKUPTICS]);
+	if (advancedemo)
+		D_DoAdvanceDemo();
+	C_Ticker();
+	M_Ticker();
+	G_Ticker();
+	// [RH] Use the consoleplayer's camera to update sounds
+	S_UpdateSounds(players[consoleplayer].camera);	// move positional sounds
+	gametic++;
+	maketic++;
+	GC::CheckGC();
+	Net_NewMakeTic();
+}
+
 //==========================================================================
 //
 // D_DoomLoop
@@ -1227,15 +1254,10 @@ void D_ErrorCleanup ()
 
 void D_DoomLoop ()
 {
-	int lasttic = 0;
-
-	// Clamp the timer to TICRATE until the playloop has been entered.
-	r_NoInterpolate = true;
-	Page.SetInvalid();
-	Subtitle = nullptr;
-	Advisory.SetInvalid();
-
+	D_BeginDoomLoop();
 	vid_cursor->Callback();
+
+	int lasttic = 0;
 
 	for (;;)
 	{
@@ -1254,20 +1276,7 @@ void D_DoomLoop ()
 			// process one or more tics
 			if (singletics)
 			{
-				I_StartTic ();
-				D_ProcessEvents ();
-				G_BuildTiccmd (&netcmds[consoleplayer][maketic%BACKUPTICS]);
-				if (advancedemo)
-					D_DoAdvanceDemo ();
-				C_Ticker ();
-				M_Ticker ();
-				G_Ticker ();
-				// [RH] Use the consoleplayer's camera to update sounds
-				S_UpdateSounds (players[consoleplayer].camera);	// move positional sounds
-				gametic++;
-				maketic++;
-				GC::CheckGC ();
-				Net_NewMakeTic ();
+				D_SingleTick();
 			}
 			else
 			{

@@ -1,5 +1,10 @@
 
 #include "lightmapcmd.h"
+#include "g_levellocals.h"
+#include "d_event.h"
+
+void G_SetMap(const char* mapname, int mode);
+void D_SingleTick();
 
 LightmapCmdletGroup::LightmapCmdletGroup()
 {
@@ -20,8 +25,24 @@ LightmapBuildCmdlet::LightmapBuildCmdlet()
 
 void LightmapBuildCmdlet::OnCommand(FArgs args)
 {
-	RunInGame([]() {
+	RunInGame([&]() {
+
+		FString mapname;
+		if (args.NumArgs() > 0 && args.GetArg(0)[0] != '-')
+			mapname = args.GetArg(0);
+		else
+			mapname = "map01";
+
+		G_SetMap(mapname.GetChars(), 0);
+		for (int i = 0; i < 100; i++)
+		{
+			D_SingleTick();
+			if (gameaction == ga_nothing)
+				break;
+		}
+
 		Printf("Baking LIGHTMAP lump!\n");
+		Printf("Current map is %s", level.LevelName.GetChars());
 	});
 }
 

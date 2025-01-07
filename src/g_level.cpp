@@ -305,6 +305,30 @@ void G_DeferedInitNew (FNewGameStartup *gs)
 //
 //==========================================================================
 
+void G_SetMap(const char* mapname, int mode)
+{
+	if (!strcmp(mapname, "*")) mapname = primaryLevel->MapName.GetChars();
+
+	if (!P_CheckMapData(mapname))
+	{
+		Printf("No map %s\n", mapname);
+	}
+	else
+	{
+		if (mode == 1)
+		{
+			deathmatch = false;
+			multiplayernext = true;
+		}
+		else if (mode == 2)
+		{
+			deathmatch = true;
+			multiplayernext = true;
+		}
+		G_DeferedInitNew(mapname);
+	}
+}
+
 CCMD (map)
 {
 	if (netgame)
@@ -316,28 +340,15 @@ CCMD (map)
 	if (argv.argc() > 1)
 	{
 		const char *mapname = argv[1];
-		if (!strcmp(mapname, "*")) mapname = primaryLevel->MapName.GetChars();
 
 		try
 		{
-			if (!P_CheckMapData(mapname))
-			{
-				Printf ("No map %s\n", mapname);
-			}
-			else
-			{
-				if (argv.argc() > 2 && stricmp(argv[2], "coop") == 0)
-				{
-					deathmatch = false;
-					multiplayernext = true;
-				}
-				else if (argv.argc() > 2 && stricmp(argv[2], "dm") == 0)
-				{
-					deathmatch = true;
-					multiplayernext = true;
-				}
-				G_DeferedInitNew (mapname);
-			}
+			int mode = 0;
+			if (argv.argc() > 2 && stricmp(argv[2], "coop") == 0)
+				mode = 1;
+			else if (argv.argc() > 2 && stricmp(argv[2], "dm") == 0)
+				mode = 2;
+			G_SetMap(mapname, mode);
 		}
 		catch(CRecoverableError &error)
 		{
