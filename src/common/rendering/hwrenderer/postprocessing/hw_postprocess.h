@@ -9,6 +9,8 @@
 #include "vectors.h"
 #include <vector>
 
+#include "hw_useruniforms.h"
+
 struct PostProcessShader;
 
 typedef FRenderStyle PPBlendMode;
@@ -27,34 +29,6 @@ enum class ETonemapMode : uint8_t
 	Linear,
 	Palette,
 	NumTonemapModes
-};
-
-enum class UniformType
-{
-	Int,
-	UInt,
-	Float,
-	Vec2,
-	Vec3,
-	Vec4,
-	IVec2,
-	IVec3,
-	IVec4,
-	UVec2,
-	UVec3,
-	UVec4,
-	Mat4
-};
-
-class UniformFieldDesc
-{
-public:
-	UniformFieldDesc() = default;
-	UniformFieldDesc(const char* name, UniformType type, std::size_t offset) : Name(name), Type(type), Offset(offset) { }
-
-	const char* Name;
-	UniformType Type;
-	std::size_t Offset;
 };
 
 
@@ -78,47 +52,6 @@ public:
 	PPTexture *Texture = nullptr;
 };
 
-class PPUniforms
-{
-public:
-	PPUniforms()
-	{
-	}
-
-	PPUniforms(const PPUniforms &src)
-	{
-		Data = src.Data;
-	}
-
-	~PPUniforms()
-	{
-		Clear();
-	}
-
-	PPUniforms &operator=(const PPUniforms &src)
-	{
-		Data = src.Data;
-		return *this;
-	}
-
-	void Clear()
-	{
-		Data.Clear();
-	}
-
-	template<typename T>
-	void Set(const T &v)
-	{
-		if (Data.Size() != (int)sizeof(T))
-		{
-			Data.Resize(sizeof(T));
-			memcpy(Data.Data(), &v, Data.Size());
-		}
-	}
-
-	TArray<uint8_t> Data;
-};
-
 class PPRenderState
 {
 public:
@@ -133,7 +66,7 @@ public:
 	{
 		Shader = nullptr;
 		Textures = TArray<PPTextureInput>();
-		Uniforms = PPUniforms();
+		Uniforms.Clear();
 		Viewport = PPViewport();
 		BlendMode = PPBlendMode();
 		Output = PPOutput();
@@ -265,7 +198,7 @@ public:
 
 	PPShader *Shader;
 	TArray<PPTextureInput> Textures;
-	PPUniforms Uniforms;
+	UniformStructHolder Uniforms;
 	PPViewport Viewport;
 	PPBlendMode BlendMode;
 	PPOutput Output;
@@ -371,7 +304,7 @@ public:
 
 /////////////////////////////////////////////////////////////////////////////
 
-struct ExtractUniforms
+struct alignas(32) ExtractUniforms
 {
 	FVector2 Scale;
 	FVector2 Offset;
@@ -386,7 +319,7 @@ struct ExtractUniforms
 	}
 };
 
-struct BlurUniforms
+struct alignas(32) BlurUniforms
 {
 	float SampleWeights[8];
 
@@ -441,7 +374,7 @@ private:
 
 /////////////////////////////////////////////////////////////////////////////
 
-struct LensUniforms
+struct alignas(32) LensUniforms
 {
 	float AspectRatio;
 	float Scale;
@@ -474,7 +407,7 @@ private:
 
 /////////////////////////////////////////////////////////////////////////////
 
-struct FXAAUniforms
+struct alignas(32) FXAAUniforms
 {
 	FVector2 ReciprocalResolution;
 	float Padding0, Padding1;
@@ -507,7 +440,7 @@ private:
 
 /////////////////////////////////////////////////////////////////////////////
 
-struct ExposureExtractUniforms
+struct alignas(32) ExposureExtractUniforms
 {
 	FVector2 Scale;
 	FVector2 Offset;
@@ -522,7 +455,7 @@ struct ExposureExtractUniforms
 	}
 };
 
-struct ExposureCombineUniforms
+struct alignas(32) ExposureCombineUniforms
 {
 	float ExposureBase;
 	float ExposureMin;
@@ -568,7 +501,7 @@ private:
 
 /////////////////////////////////////////////////////////////////////////////
 
-struct ColormapUniforms
+struct alignas(32) ColormapUniforms
 {
 	FVector4 MapStart;
 	FVector4 MapRange;
@@ -616,7 +549,7 @@ private:
 
 /////////////////////////////////////////////////////////////////////////////
 
-struct LinearDepthUniforms
+struct alignas(32) LinearDepthUniforms
 {
 	int SampleIndex;
 	float LinearizeDepthA;
@@ -657,7 +590,7 @@ private:
 
 /////////////////////////////////////////////////////////////////////////////
 
-struct SSAOUniforms
+struct alignas(32) SSAOUniforms
 {
 	FVector2 UVToViewA;
 	FVector2 UVToViewB;
@@ -693,7 +626,7 @@ struct SSAOUniforms
 	}
 };
 
-struct DepthBlurUniforms
+struct alignas(32) DepthBlurUniforms
 {
 	float BlurSharpness;
 	float PowExponent;
@@ -711,7 +644,7 @@ struct DepthBlurUniforms
 	}
 };
 
-struct AmbientCombineUniforms
+struct alignas(32) AmbientCombineUniforms
 {
 	int SampleCount;
 	int DebugMode, Padding1, Padding2;
@@ -772,7 +705,7 @@ private:
 	PPTexture AmbientRandomTexture[NumAmbientRandomTextures];
 };
 
-struct PresentUniforms
+struct alignas(32) PresentUniforms
 {
 	float InvGamma;
 	float Contrast;
@@ -816,7 +749,7 @@ public:
 	PPShader Row3D = { "shaders/pp/present_row3d.fp", "", PresentUniforms::Desc() };
 };
 
-struct ShadowMapUniforms
+struct alignas(32) ShadowMapUniforms
 {
 	float ShadowmapQuality;
 	int NodesCount;
@@ -844,16 +777,11 @@ public:
 	PostProcessShader *Desc = nullptr;
 
 private:
-	void AddUniformField(size_t &offset, const FString &name, UniformType type, size_t fieldsize, size_t alignment = 0);
 	void SetTextures(PPRenderState *renderstate);
 	void SetUniforms(PPRenderState *renderstate);
 
 	PPShader Shader;
-	int UniformStructSize = 0;
-	std::vector<UniformFieldDesc> Fields;
-	std::vector<std::unique_ptr<FString>> FieldNames;
 	std::map<FTexture*, std::unique_ptr<PPTexture>> Textures;
-	std::map<FString, size_t> FieldOffset;
 };
 
 class PPCustomShaders

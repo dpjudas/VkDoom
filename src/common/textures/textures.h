@@ -44,6 +44,9 @@
 #include "hw_texcontainer.h"
 #include "floatrect.h"
 #include "refcounted.h"
+#include "tarray.h"
+
+#include "hwrenderer/postprocessing/hw_useruniforms.h"
 
 class FImageSource;
 class FGameTexture;
@@ -110,6 +113,9 @@ struct UserShaderDesc
 	FString defines;
 	bool disablealphatest = false;
 	uint8_t shaderFlags = 0;
+
+	TMap<FString, UserUniformValue> Uniforms;
+	UserUniforms UniformData;
 };
 
 extern TArray<UserShaderDesc> usershaders;

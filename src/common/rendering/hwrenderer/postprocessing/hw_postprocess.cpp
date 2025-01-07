@@ -96,13 +96,14 @@ void PPBloom::RenderBloom(PPRenderState *renderstate, int sceneWidth, int sceneH
 	// Extract blooming pixels from scene texture:
 	renderstate->Clear();
 	renderstate->Shader = &BloomExtract;
-	renderstate->Uniforms.Set(extractUniforms);
+	renderstate->Uniforms.Set(&extractUniforms);
 	renderstate->Viewport = level0.Viewport;
 	renderstate->SetInputCurrent(0, PPFilterMode::Linear);
 	renderstate->SetInputTexture(1, &hw_postprocess.exposure.CameraTexture);
 	renderstate->SetOutputTexture(&level0.VTexture);
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	const float blurAmount = gl_bloom_amount;
 	BlurUniforms blurUniforms;
@@ -120,7 +121,6 @@ void PPBloom::RenderBloom(PPRenderState *renderstate, int sceneWidth, int sceneH
 		// Linear downscale:
 		renderstate->Clear();
 		renderstate->Shader = &BloomCombine;
-		renderstate->Uniforms.Clear();
 		renderstate->Viewport = next.Viewport;
 		renderstate->SetInputTexture(0, &blevel.VTexture, PPFilterMode::Linear);
 		renderstate->SetOutputTexture(&next.VTexture);
@@ -140,7 +140,6 @@ void PPBloom::RenderBloom(PPRenderState *renderstate, int sceneWidth, int sceneH
 		// Linear upscale:
 		renderstate->Clear();
 		renderstate->Shader = &BloomCombine;
-		renderstate->Uniforms.Clear();
 		renderstate->Viewport = next.Viewport;
 		renderstate->SetInputTexture(0, &blevel.VTexture, PPFilterMode::Linear);
 		renderstate->SetOutputTexture(&next.VTexture);
@@ -154,7 +153,6 @@ void PPBloom::RenderBloom(PPRenderState *renderstate, int sceneWidth, int sceneH
 	// Add bloom back to scene texture:
 	renderstate->Clear();
 	renderstate->Shader = &BloomCombine;
-	renderstate->Uniforms.Clear();
 	renderstate->Viewport = screen->mSceneViewport;
 	renderstate->SetInputTexture(0, &level0.VTexture, PPFilterMode::Linear);
 	renderstate->SetOutputCurrent();
@@ -265,12 +263,13 @@ void PPBloom::BlurStep(PPRenderState *renderstate, const BlurUniforms &blurUnifo
 {
 	renderstate->Clear();
 	renderstate->Shader = vertical ? &BlurVertical : &BlurHorizontal;
-	renderstate->Uniforms.Set(blurUniforms);
+	renderstate->Uniforms.Set(&blurUniforms);
 	renderstate->Viewport = viewport;
 	renderstate->SetInputTexture(0, &input);
 	renderstate->SetOutputTexture(&output);
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 }
 
 float PPBloom::ComputeBlurGaussian(float n, float theta) // theta = Blur Amount
@@ -344,12 +343,13 @@ void PPLensDistort::Render(PPRenderState *renderstate)
 
 	renderstate->Clear();
 	renderstate->Shader = &Lens;
-	renderstate->Uniforms.Set(uniforms);
+	renderstate->Uniforms.Set(&uniforms);
 	renderstate->Viewport = screen->mScreenViewport;
 	renderstate->SetInputCurrent(0, PPFilterMode::Linear);
 	renderstate->SetOutputNext();
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	renderstate->PopGroup();
 }
@@ -380,9 +380,10 @@ void PPFXAA::Render(PPRenderState *renderstate)
 	renderstate->Draw();
 
 	renderstate->Shader = &FXAA;
-	renderstate->Uniforms.Set(uniforms);
+	renderstate->Uniforms.Set(&uniforms);
 	renderstate->SetInputCurrent(0, PPFilterMode::Linear);
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	renderstate->PopGroup();
 }
@@ -457,12 +458,13 @@ void PPCameraExposure::Render(PPRenderState *renderstate, int sceneWidth, int sc
 	// Extract light blevel from scene texture:
 	renderstate->Clear();
 	renderstate->Shader = &ExposureExtract;
-	renderstate->Uniforms.Set(extractUniforms);
+	renderstate->Uniforms.Set(&extractUniforms);
 	renderstate->Viewport = level0.Viewport;
 	renderstate->SetInputCurrent(0, PPFilterMode::Linear);
 	renderstate->SetOutputTexture(&level0.Texture);
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	// Find the average value:
 	for (size_t i = 0; i + 1 < ExposureLevels.size(); i++)
@@ -471,7 +473,6 @@ void PPCameraExposure::Render(PPRenderState *renderstate, int sceneWidth, int sc
 		auto &next = ExposureLevels[i + 1];
 
 		renderstate->Shader = &ExposureAverage;
-		renderstate->Uniforms.Clear();
 		renderstate->Viewport = next.Viewport;
 		renderstate->SetInputTexture(0, &blevel.Texture, PPFilterMode::Linear);
 		renderstate->SetOutputTexture(&next.Texture);
@@ -481,7 +482,7 @@ void PPCameraExposure::Render(PPRenderState *renderstate, int sceneWidth, int sc
 
 	// Combine average value with current camera exposure:
 	renderstate->Shader = &ExposureCombine;
-	renderstate->Uniforms.Set(combineUniforms);
+	renderstate->Uniforms.Set(&combineUniforms);
 	renderstate->Viewport.left = 0;
 	renderstate->Viewport.top = 0;
 	renderstate->Viewport.width = 1;
@@ -493,6 +494,7 @@ void PPCameraExposure::Render(PPRenderState *renderstate, int sceneWidth, int sc
 	else
 		renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	renderstate->PopGroup();
 
@@ -559,12 +561,13 @@ void PPColormap::Render(PPRenderState *renderstate, int fixedcm, float flash)
 
 	renderstate->Clear();
 	renderstate->Shader = &Colormap;
-	renderstate->Uniforms.Set(uniforms);
+	renderstate->Uniforms.Set(&uniforms);
 	renderstate->Viewport = screen->mScreenViewport;
 	renderstate->SetInputCurrent(0);
 	renderstate->SetOutputNext();
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	renderstate->PopGroup();
 }
@@ -664,13 +667,14 @@ void PPLinearDepth::Render(PPRenderState* renderstate, int sceneWidth, int scene
 	// Calculate linear depth values
 	renderstate->Clear();
 	renderstate->Shader = gl_multisample > 1 ? &LinearDepthMS : &LinearDepth;
-	renderstate->Uniforms.Set(linearUniforms);
+	renderstate->Uniforms.Set(&linearUniforms);
 	renderstate->Viewport = viewport;
 	renderstate->SetInputSceneDepth(0);
 	renderstate->SetInputSceneColor(1);
 	renderstate->SetOutputSceneLinearDepth();
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	renderstate->PopGroup();
 }
@@ -818,7 +822,7 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 	// Apply ambient occlusion
 	renderstate->Clear();
 	renderstate->Shader = gl_multisample > 1 ? &AmbientOccludeMS : &AmbientOcclude;
-	renderstate->Uniforms.Set(ssaoUniforms);
+	renderstate->Uniforms.Set(&ssaoUniforms);
 	renderstate->Viewport = ambientViewport;
 	renderstate->SetInputSceneLinearDepth(0);
 	renderstate->SetInputSceneNormal(1);
@@ -826,33 +830,36 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 	renderstate->SetOutputTexture(&Ambient0);
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	// Blur SSAO texture
 	if (gl_ssao_debug < 2 && !gl_shownormals)
 	{
 		renderstate->Clear();
 		renderstate->Shader = &BlurHorizontal;
-		renderstate->Uniforms.Set(blurUniforms);
+		renderstate->Uniforms.Set(&blurUniforms);
 		renderstate->Viewport = ambientViewport;
 		renderstate->SetInputTexture(0, &Ambient0);
 		renderstate->SetOutputTexture(&Ambient1);
 		renderstate->SetNoBlend();
 		renderstate->Draw();
+		renderstate->Uniforms.Clear();
 
 		renderstate->Clear();
 		renderstate->Shader = &BlurVertical;
-		renderstate->Uniforms.Set(blurUniforms);
+		renderstate->Uniforms.Set(&blurUniforms);
 		renderstate->Viewport = ambientViewport;
 		renderstate->SetInputTexture(0, &Ambient1);
 		renderstate->SetOutputTexture(&Ambient0);
 		renderstate->SetNoBlend();
 		renderstate->Draw();
+		renderstate->Uniforms.Clear();
 	}
 
 	// Add SSAO back to scene texture:
 	renderstate->Clear();
 	renderstate->Shader = gl_multisample > 1 ? &CombineMS : &Combine;
-	renderstate->Uniforms.Set(combineUniforms);
+	renderstate->Uniforms.Set(&combineUniforms);
 	renderstate->Viewport = screen->mSceneViewport;
 	renderstate->SetInputTexture(0, &Ambient0, PPFilterMode::Linear);
 	if (gl_ssao_debug < 4 && !gl_shownormals)
@@ -865,6 +872,7 @@ void PPAmbientOcclusion::Render(PPRenderState *renderstate, float m5, int sceneW
 	else
 		renderstate->SetAlphaBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	renderstate->PopGroup();
 }
@@ -903,12 +911,13 @@ void PPShadowMap::Update(PPRenderState* renderstate)
 
 	renderstate->Clear();
 	renderstate->Shader = &ShadowMap;
-	renderstate->Uniforms.Set(uniforms);
+	renderstate->Uniforms.Set(&uniforms);
 	renderstate->Viewport = { 0, 0, gl_shadowmap_quality, 1024 };
 	renderstate->SetShadowMapBuffers(true);
 	renderstate->SetOutputShadowMap();
 	renderstate->SetNoBlend();
 	renderstate->Draw();
+	renderstate->Uniforms.Clear();
 
 	renderstate->PopGroup();
 }
@@ -948,11 +957,13 @@ void PPCustomShaders::CreateShaders()
 
 /////////////////////////////////////////////////////////////////////////////
 
-PPCustomShaderInstance::PPCustomShaderInstance(PostProcessShader *desc) : Desc(desc)
+void UserUniforms::LoadUniforms(const TMap<FString, UserUniformValue> &Uniforms)
 {
+	assert(UniformStructSize == 0);
+
 	// Build an uniform block to be used as input
-	TMap<FString, PostProcessUniformValue>::Iterator it(Desc->Uniforms);
-	TMap<FString, PostProcessUniformValue>::Pair *pair;
+	TMap<FString, UserUniformValue>::ConstIterator it(Uniforms);
+	TMap<FString, UserUniformValue>::ConstPair *pair;
 	size_t offset = 0;
 	while (it.NextPair(pair))
 	{
@@ -961,16 +972,21 @@ PPCustomShaderInstance::PPCustomShaderInstance(PostProcessShader *desc) : Desc(d
 
 		switch (pair->Value.Type)
 		{
-		case PostProcessUniformType::Float: AddUniformField(offset, name, UniformType::Float, sizeof(float)); break;
-		case PostProcessUniformType::Int: AddUniformField(offset, name, UniformType::Int, sizeof(int)); break;
-		case PostProcessUniformType::Vec2: AddUniformField(offset, name, UniformType::Vec2, sizeof(float) * 2); break;
-		case PostProcessUniformType::Vec3: AddUniformField(offset, name, UniformType::Vec3, sizeof(float) * 3, sizeof(float) * 4); break;
-		case PostProcessUniformType::Vec4: AddUniformField(offset, name, UniformType::Vec4, sizeof(float) * 4); break;
+		case UniformType::Float: AddUniformField(offset, name, UniformType::Float, sizeof(float)); break;
+		case UniformType::Int: AddUniformField(offset, name, UniformType::Int, sizeof(int)); break;
+		case UniformType::Vec2: AddUniformField(offset, name, UniformType::Vec2, sizeof(float) * 2); break;
+		case UniformType::Vec3: AddUniformField(offset, name, UniformType::Vec3, sizeof(float) * 3, sizeof(float) * 4); break;
+		case UniformType::Vec4: AddUniformField(offset, name, UniformType::Vec4, sizeof(float) * 4); break;
 		default: break;
 		}
 	}
-	UniformStructSize = ((int)offset + 15) / 16 * 16;
 
+	UniformStructSize = ((int)offset + 15) / 16 * 16;
+	BuildStruct(Uniforms);
+}
+
+PPCustomShaderInstance::PPCustomShaderInstance(PostProcessShader *desc) : Desc(desc)
+{
 	// Build the input textures
 	FString uniformTextures;
 	uniformTextures += "layout(binding=0) uniform sampler2D InputTexture;\n";
@@ -1000,7 +1016,7 @@ PPCustomShaderInstance::PPCustomShaderInstance(PostProcessShader *desc) : Desc(d
 	prolog += uniformTextures;
 	prolog += pipelineInOut;
 
-	Shader = PPShader(Desc->ShaderLumpName, prolog, Fields);
+	Shader = PPShader(Desc->ShaderLumpName, prolog, Desc->Uniforms.Fields);
 }
 
 void PPCustomShaderInstance::Run(PPRenderState *renderstate)
@@ -1070,75 +1086,82 @@ void PPCustomShaderInstance::SetTextures(PPRenderState *renderstate)
 
 void PPCustomShaderInstance::SetUniforms(PPRenderState *renderstate)
 {
-	TArray<uint8_t> uniforms;
-	uniforms.Resize(UniformStructSize);
-
-	TMap<FString, PostProcessUniformValue>::Iterator it(Desc->Uniforms);
-	TMap<FString, PostProcessUniformValue>::Pair *pair;
-	while (it.NextPair(pair))
-	{
-		auto it2 = FieldOffset.find(pair->Key);
-		if (it2 != FieldOffset.end())
-		{
-			uint8_t *dst = &uniforms[it2->second];
-			float fValues[4];
-			int iValues[4];
-			switch (pair->Value.Type)
-			{
-			case PostProcessUniformType::Float:
-				fValues[0] = (float)pair->Value.Values[0];
-				memcpy(dst, fValues, sizeof(float));
-				break;
-			case PostProcessUniformType::Int:
-				iValues[0] = (int)pair->Value.Values[0];
-				memcpy(dst, iValues, sizeof(int));
-				break;
-			case PostProcessUniformType::Vec2:
-				fValues[0] = (float)pair->Value.Values[0];
-				fValues[1] = (float)pair->Value.Values[1];
-				memcpy(dst, fValues, sizeof(float) * 2);
-				break;
-			case PostProcessUniformType::Vec3:
-				fValues[0] = (float)pair->Value.Values[0];
-				fValues[1] = (float)pair->Value.Values[1];
-				fValues[2] = (float)pair->Value.Values[2];
-				memcpy(dst, fValues, sizeof(float) * 3);
-				break;
-			case PostProcessUniformType::Vec4:
-				fValues[0] = (float)pair->Value.Values[0];
-				fValues[1] = (float)pair->Value.Values[1];
-				fValues[2] = (float)pair->Value.Values[2];
-				fValues[3] = (float)pair->Value.Values[3];
-				memcpy(dst, fValues, sizeof(float) * 4);
-				break;
-			default:
-				break;
-			}
-		}
-	}
-
-	renderstate->Uniforms.Data = uniforms;
+	Desc->Uniforms.WriteUniforms(renderstate->Uniforms);
 }
 
-void PPCustomShaderInstance::AddUniformField(size_t &offset, const FString &name, UniformType type, size_t fieldsize, size_t alignment)
+void UserUniforms::BuildStruct(const TMap<FString, UserUniformValue> &Uniforms)
+{
+	if(UniformStruct) delete[] UniformStruct;
+
+	UniformStruct = new uint8_t[UniformStructSize];
+
+	for(UniformFieldDesc &field : Fields)
+	{
+		uint8_t *dst = &UniformStruct[field.Offset];
+		float *fValues = reinterpret_cast<float *>(dst);
+		int *iValues = reinterpret_cast<int *>(dst);
+
+		const UserUniformValue &val = Uniforms[field.Name];
+
+		switch (field.Type)
+		{
+		case UniformType::Float:
+			fValues[0] = (float)val.Values[0];
+			break;
+		case UniformType::Int:
+			iValues[0] = (int)val.Values[0];
+			break;
+		case UniformType::Vec2:
+			fValues[0] = (float)val.Values[0];
+			fValues[1] = (float)val.Values[1];
+			break;
+		case UniformType::Vec3:
+			fValues[0] = (float)val.Values[0];
+			fValues[1] = (float)val.Values[1];
+			fValues[2] = (float)val.Values[2];
+			break;
+		case UniformType::Vec4:
+			fValues[0] = (float)val.Values[0];
+			fValues[1] = (float)val.Values[1];
+			fValues[2] = (float)val.Values[2];
+			fValues[3] = (float)val.Values[3];
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+UniformField UserUniforms::GetField(const FString &name)
+{
+	size_t *index = FieldNames.CheckKey(name);
+	if(!index || !UniformStruct) return {};
+
+	auto &field = Fields[*index];
+
+	return {field.Type, UniformStruct + field.Offset};
+}
+
+void UserUniforms::WriteUniforms(UniformStructHolder &Uniforms)
+{
+	Uniforms.Clear();
+	Uniforms.addr = UniformStruct;
+	Uniforms.sz = UniformStructSize;
+}
+
+void UserUniforms::AddUniformField(size_t &offset, const FString &name, UniformType type, size_t fieldsize, size_t alignment)
 {
 	if (alignment == 0) alignment = fieldsize;
 	offset = (offset + alignment - 1) / alignment * alignment;
 
-	FieldOffset[name] = offset;
-
-	auto name2 = std::make_unique<FString>(name);
-	auto chars = name2->GetChars();
-	FieldNames.push_back(std::move(name2));
-	Fields.push_back({ chars, type, offset });
+	FieldNames.Insert(name, Fields.size());
+	Fields.push_back({ name, type, offset });
 	offset += fieldsize;
 
 	if (fieldsize != alignment) // Workaround for buggy OpenGL drivers that does not do std140 layout correctly for vec3
 	{
-		name2 = std::make_unique<FString>(name + "_F39350FF12DE_padding");
-		chars = name2->GetChars();
-		FieldNames.push_back(std::move(name2));
-		Fields.push_back({ chars, UniformType::Float, offset });
+		FString name2 = name + "_F39350FF12DE_padding";
+		Fields.push_back({ name2, UniformType::Float, offset });
 		offset += alignment - fieldsize;
 	}
 }
