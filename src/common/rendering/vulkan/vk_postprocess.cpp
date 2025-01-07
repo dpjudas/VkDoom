@@ -233,7 +233,7 @@ void VkPostprocess::DrawPresentTexture(const IntRect &box, bool applyGamma, bool
 
 	renderstate.Clear();
 	renderstate.Shader = &hw_postprocess.present.Present;
-	renderstate.Uniforms.Set(uniforms);
+	renderstate.Uniforms.Set(&uniforms);
 	renderstate.Viewport = box;
 	renderstate.SetInputCurrent(0, ViewportLinearScale() ? PPFilterMode::Linear : PPFilterMode::Nearest);
 	renderstate.SetInputTexture(1, &hw_postprocess.present.Dither, PPFilterMode::Nearest, PPWrapMode::Repeat);
@@ -243,6 +243,7 @@ void VkPostprocess::DrawPresentTexture(const IntRect &box, bool applyGamma, bool
 		renderstate.SetOutputSwapChain();
 	renderstate.SetNoBlend();
 	renderstate.Draw();
+	renderstate.Uniforms.Clear();
 }
 
 void VkPostprocess::UpdateLinearDepthTexture()
