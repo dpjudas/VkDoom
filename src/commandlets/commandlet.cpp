@@ -2,6 +2,45 @@
 #include "commandlet.h"
 #include "lightmapcmd.h"
 #include "version.h"
+#include <functional>
+
+int D_DoomMain_Game();
+static std::function<void()>* ToolCallback;
+extern bool DisableLogging;
+
+int ToolMain()
+{
+	RootCommandlet commands;
+	commands.RunCommand();
+	return 0;
+}
+
+void Commandlet::RunInGame(std::function<void()> action)
+{
+	std::function<void()> callback = [=]() {
+		DisableLogging = false;
+		action();
+	};
+
+	try
+	{
+		bool verbose = Args->CheckParm("-verbose") != 0;
+		if (!verbose)
+			DisableLogging = true;
+		ToolCallback = &callback;
+		D_DoomMain_Game();
+		ToolCallback = nullptr;
+		DisableLogging = false;
+	}
+	catch (...)
+	{
+		ToolCallback = nullptr;
+		DisableLogging = false;
+		throw;
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////
 
 void CommandletGroup::AddGroup(std::unique_ptr<CommandletGroup> group)
 {
@@ -18,6 +57,12 @@ void CommandletGroup::AddCommand(std::unique_ptr<Commandlet> command)
 RootCommandlet::RootCommandlet()
 {
 	AddGroup<LightmapCmdletGroup>();
+}
+
+void RootCommandlet::RunEngineCommand()
+{
+	if (ToolCallback)
+		(*ToolCallback)();
 }
 
 void RootCommandlet::RunCommand()

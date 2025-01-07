@@ -2,6 +2,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 #include "templates.h"
 #include "zstring.h"
 #include "printf.h"
@@ -14,6 +15,8 @@ public:
 
 	virtual void OnCommand(FArgs args) = 0;
 	virtual void OnPrintHelp() = 0;
+
+	void RunInGame(std::function<void()> action);
 
 	const FString& GetLongFormName() const { return LongFormName; }
 	const FString& GetShortDescription() const { return ShortDescription; }
@@ -60,7 +63,9 @@ class RootCommandlet : public CommandletGroup
 {
 public:
 	RootCommandlet();
+
 	void RunCommand();
+	static void RunEngineCommand();
 
 private:
 	void RunCommand(CommandletGroup* group, FArgs args, const FString prefix);

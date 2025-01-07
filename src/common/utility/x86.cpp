@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "x86.h"
+#include "printf.h"
 
 CPUInfo CPU;
 
@@ -194,7 +195,7 @@ FString DumpCPUInfo(const CPUInfo *cpu, bool brief)
 		out.Format("CPU Vendor ID: %s\n", cpu->VendorID);
 		if (cpustring[0])
 		{
-			out.AppendFormat("  Name: %s\n", cpustring);
+			out.AppendFormat("  Name: " TEXTCOLOR_ORANGE "%s" TEXTCOLOR_NORMAL "\n", cpustring);
 		}
 		if (cpu->bIsAMD)
 		{

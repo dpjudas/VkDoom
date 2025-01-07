@@ -586,9 +586,9 @@ void VulkanRenderDevice::PrintStartupLog()
 	Printf(PRINT_LOG, "\n");
 
 	const auto &limits = props.limits;
-	Printf("Max. texture size: %d\n", limits.maxImageDimension2D);
-	Printf("Max. uniform buffer range: %d\n", limits.maxUniformBufferRange);
-	Printf("Min. uniform buffer offset alignment: %" PRIu64 "\n", limits.minUniformBufferOffsetAlignment);
+	Printf(PRINT_LOG, "Max. texture size: %d\n", limits.maxImageDimension2D);
+	Printf(PRINT_LOG, "Max. uniform buffer range: %d\n", limits.maxUniformBufferRange);
+	Printf(PRINT_LOG, "Min. uniform buffer offset alignment: %" PRIu64 "\n", limits.minUniformBufferOffsetAlignment);
 }
 
 void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)

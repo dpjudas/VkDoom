@@ -408,11 +408,12 @@ void WriteLineToLog(FILE *LogFile, const char *outline)
 	fflush(LogFile);
 }
 
+bool DisableLogging;
 extern bool gameisdead;
 
 int PrintString (int iprintlevel, const char *outline)
 {
-	if (gameisdead)
+	if ((!RunningAsTool && gameisdead) || DisableLogging)
 		return 0;
 
 	if (!conbuffer) return 0;	// when called too early

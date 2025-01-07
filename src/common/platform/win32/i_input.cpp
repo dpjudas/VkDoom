@@ -520,7 +520,8 @@ bool I_InitInput (void *hwnd)
 {
 	HRESULT hr;
 
-	Printf ("I_InitInput\n");
+	if (!RunningAsTool)
+		Printf ("I_InitInput\n");
 
 	noidle = !!Args->CheckParm ("-noidle");
 	g_pdi = NULL;
@@ -532,19 +533,24 @@ bool I_InitInput (void *hwnd)
 		g_pdi = NULL;	// Just to be sure DirectInput8Create didn't change it
 	}
 
-	Printf ("I_StartupMouse\n");
+	if (!RunningAsTool)
+		Printf ("I_StartupMouse\n");
 	I_StartupMouse();
 
-	Printf ("I_StartupKeyboard\n");
+	if (!RunningAsTool)
+		Printf ("I_StartupKeyboard\n");
 	I_StartupKeyboard();
 
-	Printf ("I_StartupXInput\n");
+	if (!RunningAsTool)
+		Printf ("I_StartupXInput\n");
 	I_StartupXInput();
 
-	Printf ("I_StartupRawPS2\n");
+	if (!RunningAsTool)
+		Printf ("I_StartupRawPS2\n");
 	I_StartupRawPS2();
 
-	Printf ("I_StartupDirectInputJoystick\n");
+	if (!RunningAsTool)
+		Printf ("I_StartupDirectInputJoystick\n");
 	I_StartupDirectInputJoystick();
 
 	return TRUE;

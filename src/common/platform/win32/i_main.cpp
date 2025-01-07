@@ -337,7 +337,8 @@ int DoMain (HINSTANCE hInstance)
 void I_ShowFatalError(const char *msg)
 {
 	I_ShutdownGraphics ();
-	mainwindow.RestoreConView();
+	if (!RunningAsTool)
+		mainwindow.RestoreConView();
 	S_StopMusic(true);
 
 	if (CVMAbortException::stacktrace.IsNotEmpty())

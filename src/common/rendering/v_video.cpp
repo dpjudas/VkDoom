@@ -365,7 +365,8 @@ void V_Init2()
 	I_InitGraphics();
 
 	Video->SetResolution();	// this only fails via exceptions.
-	Printf ("Resolution: %d x %d\n", SCREENWIDTH, SCREENHEIGHT);
+	if (!RunningAsTool)
+		Printf("Resolution: %d x %d\n", SCREENWIDTH, SCREENHEIGHT);
 
 	// init these for the scaling menu
 	menu_resolution_custom_width = SCREENWIDTH;

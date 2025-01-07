@@ -20,7 +20,9 @@ LightmapBuildCmdlet::LightmapBuildCmdlet()
 
 void LightmapBuildCmdlet::OnCommand(FArgs args)
 {
-	Printf("Baking LIGHTMAP lump!\n");
+	RunInGame([]() {
+		Printf("Baking LIGHTMAP lump!\n");
+	});
 }
 
 void LightmapBuildCmdlet::OnPrintHelp()
@@ -38,7 +40,9 @@ LightmapDeleteCmdlet::LightmapDeleteCmdlet()
 
 void LightmapDeleteCmdlet::OnCommand(FArgs args)
 {
-	Printf("Deleting LIGHTMAP lump!\n");
+	RunInGame([]() {
+		Printf("Deleting LIGHTMAP lump!\n");
+	});
 }
 
 void LightmapDeleteCmdlet::OnPrintHelp()

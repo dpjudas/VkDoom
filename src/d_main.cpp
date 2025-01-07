@@ -141,6 +141,7 @@ void D_DoAnonStats();
 void I_DetectOS();
 void UpdateGenericUI(bool cvar);
 void Local_Job_Init();
+int ToolMain();
 
 // MACROS ------------------------------------------------------------------
 
@@ -3646,11 +3647,16 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 //
 //==========================================================================
 
-static int D_DoomMain_Internal (void)
+namespace
 {
-	const char *wad;
-	FIWadManager *iwad_man;
+	const char* wad;
+	const char* batchout;
+}
 
+int D_DoomMain_Game();
+
+int GameMain_Internal()
+{
 	NetworkEntityManager::NetIDStart = MAXPLAYERS + 1;
 	GC::AddMarkerFunc(GC_MarkGameRoots);
 	VM_CastSpriteIDToString = Doom_CastSpriteIDToString;
@@ -3700,7 +3706,7 @@ static int D_DoomMain_Internal (void)
 
 	
 	std::set_new_handler(NewFailure);
-	const char *batchout = Args->CheckValue("-errorlog");
+	batchout = Args->CheckValue("-errorlog");
 
 	D_DoomInit();
 	
@@ -3764,6 +3770,19 @@ static int D_DoomMain_Internal (void)
 	}
 
 	C_InitConsole(80*8, 25*8, false);
+
+	if (RunningAsTool)
+	{
+		return ToolMain();
+	}
+	else
+	{
+		return D_DoomMain_Game();
+	}
+}
+
+int D_DoomMain_Game()
+{
 	I_DetectOS();
 
 	// +logfile gets checked too late to catch the full startup log in the logfile so do some extra check for it here.
@@ -3794,7 +3813,7 @@ static int D_DoomMain_Internal (void)
 
 	FString optionalwad = BaseFileSearch(OPTIONALWAD, NULL, true, GameConfig);
 
-	iwad_man = new FIWadManager(basewad.GetChars(), optionalwad.GetChars());
+	FIWadManager* iwad_man = new FIWadManager(basewad.GetChars(), optionalwad.GetChars());
 
 	// Now that we have the IWADINFO, initialize the autoload ini sections.
 	GameConfig->DoAutoloadSetup(iwad_man);
@@ -3852,9 +3871,7 @@ static int D_DoomMain_Internal (void)
 
 		if (RunningAsTool)
 		{
-			Printf("\n");
-			RootCommandlet commands;
-			commands.RunCommand();
+			RootCommandlet::RunEngineCommand();
 			return 0;
 		}
 
@@ -3891,7 +3908,7 @@ int GameMain()
 
 	try
 	{
-		ret = D_DoomMain_Internal();
+		ret = GameMain_Internal();
 	}
 	catch (const CExitEvent &exit)	// This is a regular exit initiated from deeply nested code.
 	{

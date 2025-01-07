@@ -38,6 +38,7 @@
 #include "oalsound.h"
 
 #include "i_module.h"
+#include "i_interface.h"
 #include "cmdlib.h"
 
 #include "c_dispatch.h"
@@ -252,6 +253,9 @@ void I_InitSound ()
 	/* Get command line options: */
 	nosound = !!Args->CheckParm ("-nosound");
 	nosfx = !!Args->CheckParm ("-nosfx");
+
+	if (RunningAsTool)
+		nosound = true;
 
 	GSnd = NULL;
 	if (nosound)

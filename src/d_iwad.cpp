@@ -759,7 +759,7 @@ int FIWadManager::IdentifyVersion (std::vector<std::string>&wadfiles, const char
 	{
 		if (RunningAsTool)
 		{
-			Printf("Please specify which iwad to use with -iwad\n");
+			I_FatalError("Please specify which iwad to use with -iwad\n");
 			return -1;
 		}
 
