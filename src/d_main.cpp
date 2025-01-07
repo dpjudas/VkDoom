@@ -121,6 +121,7 @@
 #include "startscreen.h"
 #include "shiftstate.h"
 #include "common/widgets/errorwindow.h"
+#include "commandlets/commandlet.h"
 
 #ifdef __unix__
 #include "i_system.h"  // for SHARE_DIR
@@ -3851,10 +3852,9 @@ static int D_DoomMain_Internal (void)
 
 		if (RunningAsTool)
 		{
-			// To do: We got a game loaded and can now process commandlets
-
 			Printf("\n");
-			Printf("Specify " TEXTCOLOR_ORANGE "--help" TEXTCOLOR_NORMAL " for a list of commands\n");
+			RootCommandlet commands;
+			commands.RunCommand();
 			return 0;
 		}
 

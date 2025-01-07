@@ -554,6 +554,7 @@ file( GLOB HEADER_FILES
 	intermission/*.h
 	maploader/*.h
 	menu/*.h
+	commandlets/*.h
 	sound/*.h
 	sound/backend/*.h*
 	posix/*.h
@@ -816,6 +817,8 @@ set (PCH_SOURCES
 	playsim/p_user.cpp
 	rendering/r_utility.cpp
 	rendering/r_sky.cpp
+	commandlets/commandlet.cpp
+	commandlets/lightmapcmd.cpp
 	sound/s_advsound.cpp
 	sound/s_sndseq.cpp
 	sound/s_doomsound.cpp
@@ -1472,6 +1475,7 @@ install(TARGETS ztool
 		DESTINATION ${INSTALL_PATH}
 		COMPONENT "Tool executable")
 
+source_group("Commandlets" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/commandlets/.+")
 source_group("Audio Files" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/sound/.+")
 source_group("Game Data" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/gamedata/.+")
 source_group("Game Data\\Fonts" REGULAR_EXPRESSION "^${CMAKE_CURRENT_SOURCE_DIR}/gamedata/fonts/.+")

@@ -36,6 +36,8 @@
 #include "m_argv.h"
 #include "zstring.h"
 
+extern bool RunningAsTool;
+
 //===========================================================================
 //
 // FArgs Default Constructor
@@ -489,29 +491,32 @@ void FArgs::CollectFiles(const char *finalname, const char **param, const char *
 	unsigned int i;
 	size_t extlen = extension == nullptr ? 0 : strlen(extension);
 
-	// Step 1: Find suitable arguments before the first switch.
 	i = 1;
-	while (i < Argv.Size() && Argv[i][0] != '-' && Argv[i][0] != '+')
+	if (!RunningAsTool) // Arguments before the first switch belong to the commandlet
 	{
-		bool useit;
+		// Step 1: Find suitable arguments before the first switch.
+		while (i < Argv.Size() && Argv[i][0] != '-' && Argv[i][0] != '+')
+		{
+			bool useit;
 
-		if (extlen > 0)
-		{ // Argument's extension must match.
-			size_t len = Argv[i].Len();
-			useit = (len >= extlen && stricmp(&Argv[i][len - extlen], extension) == 0);
-		}
-		else
-		{ // Anything will do so long as it's before the first switch.
-			useit = true;
-		}
-		if (useit)
-		{
-			work.Push(Argv[i]);
-			Argv.Delete(i);
-		}
-		else
-		{
-			i++;
+			if (extlen > 0)
+			{ // Argument's extension must match.
+				size_t len = Argv[i].Len();
+				useit = (len >= extlen && stricmp(&Argv[i][len - extlen], extension) == 0);
+			}
+			else
+			{ // Anything will do so long as it's before the first switch.
+				useit = true;
+			}
+			if (useit)
+			{
+				work.Push(Argv[i]);
+				Argv.Delete(i);
+			}
+			else
+			{
+				i++;
+			}
 		}
 	}
 
