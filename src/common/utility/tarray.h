@@ -1246,12 +1246,12 @@ public:
 	//
 	//=======================================================================
 
-	VT &operator[] (const KT key)
+	VT &operator[] (const KT &key)
 	{
 		return GetNode(key)->Pair.Value;
 	}
 
-	const VT &operator[] (const KT key) const
+	const VT &operator[] (const KT &key) const
 	{
 		return GetNode(key)->Pair.Value;
 	}
@@ -1265,13 +1265,13 @@ public:
 	//
 	//=======================================================================
 
-	VT *CheckKey (const KT key)
+	VT *CheckKey (const KT &key)
 	{
 		Node *n = FindKey(key);
 		return n != NULL ? &n->Pair.Value : NULL;
 	}
 
-	const VT *CheckKey (const KT key) const
+	const VT *CheckKey (const KT &key) const
 	{
 		const Node *n = FindKey(key);
 		return n != NULL ? &n->Pair.Value : NULL;
@@ -1290,7 +1290,7 @@ public:
 	//
 	//=======================================================================
 
-	VT &Insert(const KT key, const VT &value)
+	VT &Insert(const KT &key, const VT &value)
 	{
 		Node *n = FindKey(key);
 		if (n != NULL)
@@ -1305,7 +1305,7 @@ public:
 		return n->Pair.Value;
 	}
 
-	VT &Insert(const KT key, VT &&value)
+	VT &Insert(const KT &key, VT &&value)
 	{
 		Node *n = FindKey(key);
 		if (n != NULL)
@@ -1320,7 +1320,7 @@ public:
 		return n->Pair.Value;
 	}
 
-	VT &InsertNew(const KT key)
+	VT &InsertNew(const KT &key)
 	{
 		Node *n = FindKey(key);
 		if (n != NULL)
@@ -1343,7 +1343,7 @@ public:
 	//
 	//=======================================================================
 
-	void Remove(const KT key)
+	void Remove(const KT &key)
 	{
 		DelKey(key);
 	}
@@ -1386,13 +1386,13 @@ protected:
 	hash_t Size;		/* must be a power of 2 */
 	hash_t NumUsed;
 
-	const Node *MainPosition(const KT k) const
+	const Node *MainPosition(const KT &k) const
 	{
 		HashTraits Traits;
 		return &Nodes[Traits.Hash(k) & (Size - 1)];
 	}
 
-	Node *MainPosition(const KT k)
+	Node *MainPosition(const KT &k)
 	{
 		HashTraits Traits;
 		return &Nodes[Traits.Hash(k) & (Size - 1)];
@@ -1473,7 +1473,7 @@ protected:
 	**
 	** The Value field is left unconstructed.
 	*/
-	Node *NewKey(const KT key)
+	Node *NewKey(const KT &key)
 	{
 		Node *mp = MainPosition(key);
 		if (!mp->IsNil())
@@ -1512,7 +1512,7 @@ protected:
 		return mp;
 	}
 
-	void DelKey(const KT key)
+	void DelKey(const KT &key)
 	{
 		Node *mp = MainPosition(key), **mpp;
 		HashTraits Traits;
@@ -1551,7 +1551,7 @@ protected:
 		}
 	}
 
-	Node *FindKey(const KT key)
+	Node *FindKey(const KT &key)
 	{
 		HashTraits Traits;
 		Node *n = MainPosition(key);
@@ -1562,7 +1562,7 @@ protected:
 		return n == NULL || n->IsNil() ? NULL : n;
 	}
 
-	const Node *FindKey(const KT key) const
+	const Node *FindKey(const KT &key) const
 	{
 		HashTraits Traits;
 		const Node *n = MainPosition(key);
@@ -1573,7 +1573,7 @@ protected:
 		return n == NULL || n->IsNil() ? NULL : n;
 	}
 
-	Node *GetNode(const KT key)
+	Node *GetNode(const KT &key)
 	{
 		Node *n = FindKey(key);
 		if (n != NULL)
@@ -1584,6 +1584,17 @@ protected:
 		ValueTraits traits;
 		traits.Init(n->Pair.Value);
 		return n;
+	}
+
+	const Node *GetNode(const KT &key) const
+	{
+
+		Node *n = ((TMap<KT, VT, HashTraits, ValueTraits>*)(this))->FindKey(key);
+		if (n != NULL)
+		{
+			return n;
+		}
+		return nullptr;
 	}
 
 	/* Perform a bit-wise copy of the node. Used when relocating a node in the table. */
