@@ -42,6 +42,13 @@ struct UniformFieldDesc
 	std::size_t Offset;
 };
 
+struct VaryingFieldDesc
+{
+	FString Name;
+	FString Property;
+	UniformType Type;
+};
+
 struct UniformField
 {
 	UniformType Type = UniformType::Undefined;

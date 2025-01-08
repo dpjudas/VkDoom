@@ -163,9 +163,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? vert_nocustom : desc.vertshader.GetChars(), defines.GetChars(), key, &desc.Uniforms);
+			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? vert_nocustom : desc.vertshader.GetChars(), defines.GetChars(), key, &desc);
 			if (!key.NoFragmentShader)
-				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc.Uniforms);
+				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc);
 
 			desc.Uniforms.WriteUniforms(program.Uniforms);
 		}
@@ -201,7 +201,7 @@ static void addPushConstants(FString &layoutBlock, const UserUniforms *uniforms)
 
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserUniforms *uniforms)
+std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)
 {
 	FString definesBlock;
 	definesBlock << defines;
@@ -222,9 +222,16 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 		definesBlock << "#define USE_LEVELMESH\n";
 
 	FString layoutBlock;
-	addPushConstants(layoutBlock, uniforms);
+	addPushConstants(layoutBlock, shader ? &shader->Uniforms : nullptr);
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_vert.glsl").GetChars() << "\n";
+
+	int varyingLocation = 11;
+	if(shader) for(auto &varying : shader->Varyings)
+	{
+		layoutBlock.AppendFormat("layout(location = %d) %s out %s %s;\n", varyingLocation, varying.Property.GetChars(), GetTypeStr(varying.Type), varying.Name.GetChars());
+		varyingLocation++;
+	}
 
 
 	FString codeBlock;
@@ -243,7 +250,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 		.Create(shadername.GetChars(), fb->GetDevice());
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserUniforms *uniforms)
+std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)
 {
 	FString definesBlock;
 	if (fb->IsRayQueryEnabled()) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
@@ -331,9 +338,16 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	else definesBlock << "#define uFogEnabled 0\n";
 
 	FString layoutBlock;
-	addPushConstants(layoutBlock, uniforms);
+	addPushConstants(layoutBlock, shader ? &shader->Uniforms : nullptr);
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_frag.glsl").GetChars() << "\n";
+
+	int varyingLocation = 11;
+	if(shader) for(auto &varying : shader->Varyings)
+	{
+		layoutBlock.AppendFormat("layout(location = %d) %s in %s %s;\n", varyingLocation, varying.Property.GetChars(), GetTypeStr(varying.Type), varying.Name.GetChars());
+		varyingLocation++;
+	}
 
 
 	FString codeBlock;

@@ -1634,6 +1634,68 @@ class GLDefsParser
 					hasUniforms = true;
 					ParseShaderUniform(Uniforms, usershaders.Size(), false, is_globalshader ? globaltargets.Size() : 1);
 				}
+				else if (sc.Compare("varying"))
+				{
+					isProperty = true;
+					bool ok = true;
+
+					sc.MustGetString();
+					FString varyingProperty = "";
+
+					if (sc.Compare("noperspective"))
+					{
+						varyingProperty = "noperspective";
+						sc.MustGetString();
+					}
+					else if (sc.Compare("flat") == 0)
+					{
+						varyingProperty = "flat";
+						sc.MustGetString();
+					}
+					else
+					{
+						varyingProperty = "";
+					}
+
+					FString varyingType = sc.String;
+					varyingType.ToLower();
+
+					sc.MustGetString();
+					FString varyingName = sc.String;
+
+					UniformType parsedType = UniformType::Undefined;
+
+					if (varyingType.Compare("int") == 0)
+					{
+						parsedType = UniformType::Int;
+					}
+					else if (varyingType.Compare("float") == 0)
+					{
+						parsedType = UniformType::Float;
+					}
+					else if (varyingType.Compare("vec2") == 0)
+					{
+						parsedType = UniformType::Vec2;
+					}
+					else if (varyingType.Compare("vec3") == 0)
+					{
+						parsedType = UniformType::Vec3;
+					}
+					else if (varyingType.Compare("vec4") == 0)
+					{
+						parsedType = UniformType::Vec4;
+					}
+					else
+					{
+						sc.ScriptError("Unrecognized varying type '%s'", sc.String);
+						ok = false;
+					}
+					
+					if(ok)
+					{
+						usershader.Varyings.push_back({varyingName, varyingProperty, parsedType});
+					}
+				}
 				else if (sc.Compare("texture"))
 				{
 					isProperty = true;
