@@ -113,9 +113,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		};
 
 		const auto& desc = effectshaders[key.SpecialEffect];
-		program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.defines, key);
+		program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.defines, key, nullptr);
 		if (!key.NoFragmentShader)
-			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key);
+			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key, nullptr);
 	}
 	else
 	{
@@ -153,9 +153,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		if (key.EffectState < FIRST_USER_SHADER)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
-			program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.Defines, key);
+			program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.Defines, key, nullptr);
 			if (!key.NoFragmentShader)
-				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key);
+				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key, nullptr);
 		}
 		else
 		{
@@ -163,15 +163,45 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? vert_nocustom : desc.vertshader.GetChars(), defines.GetChars(), key);
+			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? vert_nocustom : desc.vertshader.GetChars(), defines.GetChars(), key, &desc.Uniforms);
 			if (!key.NoFragmentShader)
-				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key);
+				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc.Uniforms);
+
+			desc.Uniforms.WriteUniforms(program.Uniforms);
 		}
 	}
 	return &program;
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key)
+static void addPushConstants(FString &layoutBlock, const UserUniforms *uniforms)
+{
+
+	layoutBlock << "// This must match the PushConstants struct\n";
+	layoutBlock << "layout(push_constant) uniform PushConstants\n";
+	layoutBlock << "{\n";
+	layoutBlock << "#if defined(USE_LEVELMESH)\n";
+	layoutBlock << "    int unused0;\n";
+	layoutBlock << "    int unused1;\n";
+	layoutBlock << "#else\n";
+	layoutBlock << "    int uDataIndex; // surfaceuniforms index\n";
+	layoutBlock << "    int uLightIndex; // dynamic lights\n";
+	layoutBlock << "#endif\n";
+	layoutBlock << "    int uBoneIndexBase; // bone animation\n";
+	layoutBlock << "    int uFogballIndex; // fog balls\n";
+
+	if(uniforms && uniforms->UniformStructSize)
+	{
+		for(auto &field : uniforms->Fields)
+		{
+			//layoutBlock.AppendFormat("    layout(offset = %d) %s %s;\n", (field.Offset + sizeof(PushConstants)), GetTypeStr(field.Type), field.Name.GetChars());
+			layoutBlock.AppendFormat("    %s %s;\n", GetTypeStr(field.Type), field.Name.GetChars());
+		}
+	}
+	layoutBlock << "};\n";
+
+}
+
+std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserUniforms *uniforms)
 {
 	FString definesBlock;
 	definesBlock << defines;
@@ -192,8 +222,10 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 		definesBlock << "#define USE_LEVELMESH\n";
 
 	FString layoutBlock;
+	addPushConstants(layoutBlock, uniforms);
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_vert.glsl").GetChars() << "\n";
+
 
 	FString codeBlock;
 	codeBlock << LoadPrivateShaderLump(vert_lump).GetChars() << "\n";
@@ -211,7 +243,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 		.Create(shadername.GetChars(), fb->GetDevice());
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key)
+std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserUniforms *uniforms)
 {
 	FString definesBlock;
 	if (fb->IsRayQueryEnabled()) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
@@ -299,8 +331,10 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	else definesBlock << "#define uFogEnabled 0\n";
 
 	FString layoutBlock;
+	addPushConstants(layoutBlock, uniforms);
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
 	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_frag.glsl").GetChars() << "\n";
+
 
 	FString codeBlock;
 	codeBlock << LoadPrivateShaderLump(frag_lump).GetChars() << "\n";

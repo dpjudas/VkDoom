@@ -1142,7 +1142,7 @@ UniformField UserUniforms::GetField(const FString &name)
 	return {field.Type, UniformStruct + field.Offset};
 }
 
-void UserUniforms::WriteUniforms(UniformStructHolder &Uniforms)
+void UserUniforms::WriteUniforms(UniformStructHolder &Uniforms) const
 {
 	Uniforms.Clear();
 	Uniforms.addr = UniformStruct;

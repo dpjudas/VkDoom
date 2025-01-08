@@ -138,14 +138,14 @@ FString VkPPShader::CreateUniformBlockDecl(const char* name, const std::vector<U
 	decl.Format("layout(%s) uniform %s\n{\n", layout.GetChars(), name);
 	for (size_t i = 0; i < fields.size(); i++)
 	{
-		decl.AppendFormat("\t%s %s;\n", GetTypeStr(fields[i].Type), fields[i].Name);
+		decl.AppendFormat("\t%s %s;\n", GetTypeStr(fields[i].Type), fields[i].Name.GetChars());
 	}
 	decl += "};\n";
 
 	return decl;
 }
 
-const char* VkPPShader::GetTypeStr(UniformType type)
+const char* GetTypeStr(UniformType type)
 {
 	switch (type)
 	{
