@@ -1632,7 +1632,7 @@ class GLDefsParser
 				{
 					isProperty = true;
 					hasUniforms = true;
-					ParseShaderUniform(Uniforms, usershaders.Size(), false);
+					ParseShaderUniform(Uniforms, usershaders.Size(), false, is_globalshader ? globaltargets.Size() : 1);
 				}
 				else if (sc.Compare("texture"))
 				{
@@ -1989,7 +1989,7 @@ class GLDefsParser
 	//
 	//==========================================================================
 
-	void ParseShaderUniform(TMap<FString, UserUniformValue> &Uniforms, int ShaderIndex, bool isPP)
+	void ParseShaderUniform(TMap<FString, UserUniformValue> &Uniforms, int ShaderIndex, bool isPP, int numShaders = 1)
 	{
 		bool is_cvar = false;
 		bool ok = true;
@@ -2195,23 +2195,29 @@ class GLDefsParser
 
 			if(ok)
 			{
-				ExtraUniformCVARData* oldextra = (ExtraUniformCVARData*) cvar->GetExtraDataPointer2();
+				while(numShaders > 0)
+				{
+					ExtraUniformCVARData* oldextra = (ExtraUniformCVARData*) cvar->GetExtraDataPointer2();
 
-				ExtraUniformCVARData* extra = new ExtraUniformCVARData;
-				extra->isPP = isPP;
-				extra->ShaderIndex = ShaderIndex;
-				extra->Uniform = uniformName.GetChars();
-				extra->OldCallback = oldextra ? oldextra->OldCallback : cvar->m_Callback;
-				extra->Next = oldextra;
+					ExtraUniformCVARData* extra = new ExtraUniformCVARData;
+					extra->isPP = isPP;
+					extra->ShaderIndex = ShaderIndex;
+					extra->Uniform = uniformName.GetChars();
+					extra->OldCallback = oldextra ? oldextra->OldCallback : cvar->m_Callback;
+					extra->Next = oldextra;
 
-				cvar->SetCallback(callback);
-				cvar->SetExtraDataPointer2(extra);
+					cvar->SetCallback(callback);
+					cvar->SetExtraDataPointer2(extra);
 
-				Uniforms[uniformName].Type = parsedType;
-				Uniforms[uniformName].Values[0] = Values[0];
-				Uniforms[uniformName].Values[1] = Values[1];
-				Uniforms[uniformName].Values[2] = Values[2];
-				Uniforms[uniformName].Values[3] = Values[3];
+					Uniforms[uniformName].Type = parsedType;
+					Uniforms[uniformName].Values[0] = Values[0];
+					Uniforms[uniformName].Values[1] = Values[1];
+					Uniforms[uniformName].Values[2] = Values[2];
+					Uniforms[uniformName].Values[3] = Values[3];
+
+					numShaders--;
+					ShaderIndex++;
+				}
 			}
 		}
 
