@@ -351,6 +351,7 @@ static const char *CoreKeywords[]=
    "material",
    "lightsizefactor",
    "colorization",
+   "globalshader",
    nullptr
 };
 
@@ -376,6 +377,7 @@ enum
    TAG_MATERIAL,
    TAG_LIGHTSIZEFACTOR,
    TAG_COLORIZATION,
+   TAG_GLOBALSHADER,
 };
 
 //==========================================================================
@@ -1397,7 +1399,7 @@ class GLDefsParser
 	//
 	//==========================================================================
 
-	void ParseMaterial()
+	void ParseMaterial(bool is_globalshader = false)
 	{
 		ETextureType type = ETextureType::Any;
 		bool disable_fullbright = false;
@@ -1409,7 +1411,6 @@ class GLDefsParser
 		bool hasUniforms = false;
 		TMap<FString, UserUniformValue> Uniforms;
 
-		bool is_globalshader = false;
 		TArray<int> globaltargets;
 		FString str_globaltargets;
 
@@ -1426,12 +1427,13 @@ class GLDefsParser
 		FGameTexture* tex = nullptr;
 
 		sc.MustGetString();
-		if(sc.Compare("globalshader"))
+		if(is_globalshader || sc.Compare("globalshader"))
 		{
-			is_globalshader = true;
 			usershader.shaderFlags |= SFlag_Global; // make sure global usershader objects aren't reused for material shaders
 
-			sc.MustGetString();
+			if(!is_globalshader) sc.MustGetString();
+
+			is_globalshader = true;
 
 			if (sc.Compare("all"))
 			{
@@ -2654,7 +2656,10 @@ public:
 				ParseBrightmap();
 				break;
 			case TAG_MATERIAL:
-				ParseMaterial();
+				ParseMaterial(false);
+				break;
+			case TAG_GLOBALSHADER:
+				ParseMaterial(true);
 				break;
 			case TAG_HARDWARESHADER:
 				ParseHardwareShader();
