@@ -330,7 +330,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 
 	if (changingPipeline)
 	{
-		mCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, mPassSetup->GetPipeline(pipelineKey));
+		mCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, mPassSetup->GetPipeline(pipelineKey, mUniforms));
 		mPipelineKey = pipelineKey;
 	}
 }
@@ -444,7 +444,12 @@ void VkRenderState::ApplyPushConstants()
 	mPushConstants.uBoneIndexBase = mBoneIndexBase;
 	mPushConstants.uFogballIndex = mFogballIndex >= 0 ? (mFogballIndex % MAX_FOGBALL_DATA) : -1;
 
-	mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
+	mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
+
+	if(mUniforms.sz > 0)
+	{
+		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, (uint32_t)sizeof(PushConstants), (uint32_t)mUniforms.sz, mUniforms.addr);
+	}
 }
 
 void VkRenderState::ApplyMatrices()
@@ -510,7 +515,7 @@ void VkRenderState::ApplyBufferSets()
 	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || surfaceUniformsOffset != mLastSurfaceUniformsOffset || lightsOffset != mLastLightsOffset || fogballsOffset != mLastFogballsOffset)
 	{
 		auto descriptors = fb->GetDescriptorSetManager();
-		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh);
+		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz);
 
 		uint32_t offsets[5] = { mViewpointOffset, matrixOffset, surfaceUniformsOffset, lightsOffset, fogballsOffset };
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
@@ -1092,14 +1097,14 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	pushConstants.uBoneIndexBase = -1;
 	pushConstants.uFogballIndex = -1;
 
-	VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(pipelineKey.ShaderKey.UseLevelMesh);
+	VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(pipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz);
 	uint32_t viewpointOffset = mViewpointOffset;
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
 	uint32_t fogballsOffset = 0;
 	uint32_t offsets[] = { viewpointOffset, matrixOffset, fogballsOffset };
 
 	auto descriptors = fb->GetDescriptorSetManager();
-	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, mPassSetup->GetPipeline(pipelineKey));
+	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, mPassSetup->GetPipeline(pipelineKey, mUniforms));
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, descriptors->GetLevelMeshSet(), 3, offsets);
 	cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, descriptors->GetBindlessSet());

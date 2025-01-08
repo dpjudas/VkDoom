@@ -3,20 +3,6 @@
 #include "shaders/scene/binding_rsbuffers.glsl"
 #include "shaders/scene/binding_textures.glsl"
 
-// This must match the PushConstants struct
-layout(push_constant) uniform PushConstants
-{
-#if defined(USE_LEVELMESH)
-	int unused0;
-	int unused1;
-#else
-	int uDataIndex; // surfaceuniforms index
-	int uLightIndex; // dynamic lights
-#endif
-	int uBoneIndexBase; // bone animation
-	int uFogballIndex; // fog balls
-};
-
 // material types
 #if defined(SPECULAR)
 #define normaltexture texture2

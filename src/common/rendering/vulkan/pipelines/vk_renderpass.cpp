@@ -131,7 +131,7 @@ VkVertexFormat *VkRenderPassManager::GetVertexFormat(int index)
 	return &VertexFormats[index];
 }
 
-VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(bool levelmesh)
+VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(bool levelmesh, int UserUniformSize)
 {
 	auto &layout = PipelineLayouts[levelmesh];
 	if (layout)
@@ -144,6 +144,12 @@ VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(bool levelmesh)
 	builder.AddSetLayout(levelmesh ? descriptors->GetLevelMeshLayout() : descriptors->GetRSBufferLayout());
 	builder.AddSetLayout(descriptors->GetBindlessLayout());
 	builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants));
+
+	if(UserUniformSize > 0)
+	{
+		builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstants), UserUniformSize);
+	}
+
 	builder.DebugName("VkRenderPassManager.PipelineLayout");
 	layout = builder.Create(fb->GetDevice());
 	return layout.get();
@@ -273,15 +279,25 @@ VulkanRenderPass *VkRenderPassSetup::GetRenderPass(int clearTargets)
 	return RenderPasses[clearTargets].get();
 }
 
-VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key)
+VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms)
 {
-	auto &item = Pipelines[key];
-	if (!item)
-		item = CreatePipeline(key);
-	return item.get();
+	auto item = Pipelines.find(key);
+	if (item == Pipelines.end())
+	{
+		Uniforms.Clear();
+		auto pipeline = CreatePipeline(key, Uniforms);
+		auto ptr = pipeline.get();
+		Pipelines.insert(std::pair<VkPipelineKey, PipelineData>{key, PipelineData{std::move(pipeline), Uniforms}});
+		return ptr;
+	}
+	else
+	{
+		Uniforms = item->second.Uniforms;
+		return item->second.pipeline.get();
+	}
 }
 
-std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipelineKey &key)
+std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms)
 {
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
@@ -365,9 +381,11 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 
 	builder.RasterizationSamples((VkSampleCountFlagBits)PassKey.Samples);
 
-	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.UseLevelMesh));
+	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.UseLevelMesh, program->Uniforms.sz));
 	builder.RenderPass(GetRenderPass(0));
 	builder.DebugName("VkRenderPassSetup.Pipeline");
+
+	Uniforms = program->Uniforms;
 
 	return builder.Create(fb->GetDevice());
 }

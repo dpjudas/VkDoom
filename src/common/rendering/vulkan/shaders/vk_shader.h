@@ -10,6 +10,8 @@
 #include <list>
 #include <map>
 
+#include "hwrenderer/postprocessing/hw_useruniforms.h"
+
 class ShaderIncludeResult;
 class VulkanRenderDevice;
 class VulkanDevice;
@@ -122,6 +124,8 @@ class VkShaderProgram
 public:
 	std::unique_ptr<VulkanShader> vert;
 	std::unique_ptr<VulkanShader> frag;
+
+	UniformStructHolder Uniforms;
 };
 
 class VkShaderManager
@@ -146,8 +150,8 @@ public:
 	VulkanShader* GetLightTilesShader() { return LightTiles.get(); }
 
 private:
-	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key);
-	std::unique_ptr<VulkanShader> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *lightmodel_lump, const char *defines, const VkShaderKey& key);
+	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserUniforms *uniforms);
+	std::unique_ptr<VulkanShader> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *lightmodel_lump, const char *defines, const VkShaderKey& key, const UserUniforms *uniforms);
 
 	ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
 

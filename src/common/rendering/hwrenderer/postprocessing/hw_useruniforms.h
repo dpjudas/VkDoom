@@ -26,6 +26,9 @@ enum class UniformType
 	Mat4
 };
 
+
+const char* GetTypeStr(UniformType type);
+
 struct UserUniformValue
 {
 	UniformType Type = UniformType::Undefined;
@@ -136,7 +139,7 @@ public:
 
 	//must only be called once
 	void LoadUniforms(const TMap<FString, UserUniformValue> &Uniforms);
-	void WriteUniforms(UniformStructHolder &Data);
+	void WriteUniforms(UniformStructHolder &Data) const;
 
 
 	int UniformStructSize = 0;

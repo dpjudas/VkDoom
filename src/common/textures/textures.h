@@ -114,8 +114,7 @@ struct UserShaderDesc
 	bool disablealphatest = false;
 	uint8_t shaderFlags = 0;
 
-	TMap<FString, UserUniformValue> Uniforms;
-	UserUniforms UniformData;
+	UserUniforms Uniforms;
 };
 
 extern TArray<UserShaderDesc> usershaders;
