@@ -1480,6 +1480,15 @@ class GLDefsParser
 				str_globaltargets = "pbr";
 				globaltargets.Push(SHADER_PBR);
 			}
+			else if(sc.Compare("base"))
+			{
+				str_globaltargets = "base";
+				globaltargets.Push(SHADER_Default);
+				globaltargets.Push(SHADER_Warp1);
+				globaltargets.Push(SHADER_Warp2);
+				globaltargets.Push(SHADER_Specular);
+				globaltargets.Push(SHADER_PBR);
+			}
 			else if(sc.Compare("paletted"))
 			{
 				str_globaltargets = "paletted";
@@ -1499,6 +1508,7 @@ class GLDefsParser
 				globaltargets.Push(SHADER_Specular);
 				globaltargets.Push(SHADER_PBR);
 				globaltargets.Push(SHADER_Paletted);
+				globaltargets.Push(SHADER_NoTexture);
 			}
 			else if(sc.Compare("fuzz"))
 			{
