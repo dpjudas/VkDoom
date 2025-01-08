@@ -114,6 +114,7 @@ struct UserShaderDesc
 	bool disablealphatest = false;
 	uint8_t shaderFlags = 0;
 
+	std::vector<VaryingFieldDesc> Varyings;
 	UserUniforms Uniforms;
 };
 
