@@ -83,8 +83,8 @@ public:
 	int UploadFogballs(const TArray<Fogball>& balls) override { return -1; }
 
 	// Draw commands
-	void Draw(int dt, int index, int count, bool apply = true) override;
-	void DrawIndexed(int dt, int index, int count, bool apply = true) override;
+	void DoDraw(int dt, int index, int count, bool apply = true) override;
+	void DoDrawIndexed(int dt, int index, int count, bool apply = true) override;
 
 	// Immediate render state change commands. These only change infrequently and should not clutter the render state.
 	void SetDepthFunc(int func) override;

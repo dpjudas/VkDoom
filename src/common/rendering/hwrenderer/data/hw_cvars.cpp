@@ -160,3 +160,6 @@ CUSTOM_CVAR(Int, gl_shadowmap_quality, 512, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 }
 
 CVAR(Bool, gl_strict_gldefs, true, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)
+
+CVAR(Int, gl_wireframe, 0, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)
+CVAR(Color, gl_wireframecolor, -1, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)

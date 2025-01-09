@@ -1215,6 +1215,8 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	state.SetDepthMask(true);
 	if (!gl_no_skyclear && !gl_levelmesh) drawctx->portalState.RenderFirstSkyPortal(recursion, this, state);
 
+	state.SetWireframe(gl_wireframe, gl_wireframecolor.get()->asFV4());
+
 	RenderScene(state);
 
 	screen->UpdateLinearDepthTexture();
@@ -1237,6 +1239,9 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	{
 		state.SetFogballIndex(-1);
 	}
+
+	state.SetWireframe(0, {});
+
 }
 
 //-----------------------------------------------------------------------------

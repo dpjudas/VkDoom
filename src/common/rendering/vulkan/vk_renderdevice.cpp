@@ -252,11 +252,7 @@ void VulkanRenderDevice::InitializeState()
 
 	mDescriptorSetManager->Init();
 
-#ifdef __APPLE__
-	mRenderState = std::make_unique<VkRenderStateMolten>(this);
-#else
 	mRenderState = std::make_unique<VkRenderState>(this);
-#endif
 }
 
 void VulkanRenderDevice::Update()

@@ -399,6 +399,8 @@ public:
 
 	GraphicsPipelineBuilder& AddDynamicState(VkDynamicState state);
 
+	GraphicsPipelineBuilder& PolygonMode(VkPolygonMode mode) {rasterizer.polygonMode = mode; return *this;};
+
 	GraphicsPipelineBuilder& DebugName(const char* name) { debugName = name; return *this; }
 
 	std::unique_ptr<VulkanPipeline> Create(VulkanDevice *device);

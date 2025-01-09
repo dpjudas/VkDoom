@@ -22,8 +22,8 @@ public:
 
 	// Draw commands
 	void ClearScreen() override;
-	void Draw(int dt, int index, int count, bool apply = true) override;
-	void DrawIndexed(int dt, int index, int count, bool apply = true) override;
+	void DoDraw(int dt, int index, int count, bool apply) override;
+	void DoDrawIndexed(int dt, int index, int count, bool apply) override;
 
 	// Immediate render state change commands. These only change infrequently and should not clutter the render state.
 	bool SetDepthClamp(bool on) override;
@@ -105,6 +105,7 @@ protected:
 	VkRenderPassSetup* mPassSetup = nullptr;
 	int mClearTargets = 0;
 	bool mNeedApply = true;
+	bool mDrawLine = false;
 
 	int mScissorX = 0, mScissorY = 0, mScissorWidth = -1, mScissorHeight = -1;
 	int mViewportX = 0, mViewportY = 0, mViewportWidth = -1, mViewportHeight = -1;
@@ -154,12 +155,4 @@ protected:
 	} mRenderTarget;
 
 	TArray<uint32_t> mQueryResultsBuffer;
-};
-
-class VkRenderStateMolten : public VkRenderState
-{
-public:
-	using VkRenderState::VkRenderState;
-
-	void Draw(int dt, int index, int count, bool apply = true) override;
 };

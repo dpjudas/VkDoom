@@ -994,6 +994,22 @@ int FColorCVar::ToInt2 (UCVarValue value, ECVarType type)
 	return ret;
 }
 
+DVector4 FColorCVar::asDV4() const
+{
+	PalEntry col;
+	col.d = Value;
+
+	return {col.r / 255.0, col.g / 255.0, col.b / 255.0, col.a / 255.0};
+}
+
+FVector4 FColorCVar::asFV4() const
+{
+	PalEntry col;
+	col.d = Value;
+
+	return {col.r / 255.0f, col.g / 255.0f, col.b / 255.0f, col.a / 255.0f};
+}
+
 //
 // More base cvar stuff
 //
