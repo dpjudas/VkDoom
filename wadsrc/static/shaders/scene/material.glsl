@@ -14,6 +14,7 @@ struct Material
 	float Metallic;
 	float Roughness;
 	float AO;
+	vec2 LightmapCoord;
 };
 
 vec4 Process(vec4 color);
@@ -50,6 +51,8 @@ void SetMaterialProps(inout Material material, vec2 texCoord)
 #endif	
 	material.Base = getTexel(texCoord.st); 
 	material.Normal = ApplyNormalMap(texCoord.st);
+
+	material.LightmapCoord = vLightmap.xy;
 
 // OpenGL doesn't care, but Vulkan pukes all over the place if these texture samplings are included in no-texture shaders, even though never called.
 #ifndef NO_LAYERS
