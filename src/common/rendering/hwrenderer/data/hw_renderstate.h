@@ -138,6 +138,10 @@ protected:
 	uint8_t mGradientEnabled : 1;
 	uint8_t mSplitEnabled : 1;
 	uint8_t mBrightmapEnabled : 1;
+	uint8_t mWireframe : 2;
+
+	FVector4 mWireframeColor;
+	FVector4 uObjectColor;
 
 	int mLightIndex;
 	int mBoneIndexBase;
@@ -166,12 +170,16 @@ protected:
 
 	EPassType mPassType = NORMAL_PASS;
 
+	virtual void DoDraw(int dt, int index, int count, bool apply) = 0;
+	virtual void DoDrawIndexed(int dt, int index, int count, bool apply) = 0;
 public:
 
 	uint64_t firstFrame = 0;
 
 	void Reset()
 	{
+		mWireframe = 0;
+		mWireframeColor = toFVector4(PalEntry(0xffffffff));
 		mTextureEnabled = true;
 		mBrightmapEnabled = mGradientEnabled = mFogEnabled = mGlowEnabled = false;
 		mFogColor = 0xffffffff;
@@ -183,7 +191,7 @@ public:
 		mSurfaceUniforms.uAlphaThreshold = 0.5f;
 		mSplitEnabled = false;
 		mSurfaceUniforms.uAddColor = toFVector4(PalEntry(0));
-		mSurfaceUniforms.uObjectColor = toFVector4(PalEntry(0xffffffff));
+		uObjectColor = toFVector4(PalEntry(0xffffffff));
 		mSurfaceUniforms.uObjectColor2 = toFVector4(PalEntry(0));
 		mSurfaceUniforms.uTextureBlendColor = toFVector4(PalEntry(0));
 		mSurfaceUniforms.uTextureAddColor = toFVector4(PalEntry(0));
@@ -231,6 +239,12 @@ public:
 	void SetNormal(FVector3 norm)
 	{
 		mSurfaceUniforms.uVertexNormal = { norm.X, norm.Y, norm.Z, 0.f };
+	}
+
+	void SetWireframe(int mode, FVector4 color)
+	{
+		mWireframe = mode;
+		mWireframeColor = color;
 	}
 
 	void SetNormal(float x, float y, float z)
@@ -409,7 +423,7 @@ public:
 
 	void SetObjectColor(PalEntry pe)
 	{
-		mSurfaceUniforms.uObjectColor = toFVector4(pe);
+		uObjectColor = toFVector4(pe);
 	}
 
 	void SetObjectColor2(PalEntry pe)
@@ -672,8 +686,59 @@ public:
 
 	// Draw commands
 	virtual void ClearScreen() = 0;
-	virtual void Draw(int dt, int index, int count, bool apply = true) = 0;
-	virtual void DrawIndexed(int dt, int index, int count, bool apply = true) = 0;
+
+	void Draw(int dt, int index, int count, bool apply = true)
+	{
+		if(mWireframe == 0)
+		{
+			mSurfaceUniforms.uObjectColor = uObjectColor;
+			DoDraw(dt, index, count, apply);
+		}
+		else if(mWireframe == 1)
+		{
+			mSurfaceUniforms.uObjectColor = mWireframeColor;
+			DoDraw(dt, index, count, apply);
+		}
+		else //if(mWireframe == 2)
+		{
+			mWireframe = 0;
+			mSurfaceUniforms.uObjectColor = uObjectColor;
+			DoDraw(dt, index, count, true);
+
+			mWireframe = 1;
+			mSurfaceUniforms.uObjectColor = mWireframeColor;
+			DoDraw(dt, index, count, true);
+
+			mWireframe = 2;
+		}
+	}
+
+	void DrawIndexed(int dt, int index, int count, bool apply = true)
+	{
+		if(mWireframe == 0)
+		{
+			mSurfaceUniforms.uObjectColor = uObjectColor;
+			DoDrawIndexed(dt, index, count, apply);
+		}
+		else if(mWireframe == 1)
+		{
+			mSurfaceUniforms.uObjectColor = mWireframeColor;
+			DoDrawIndexed(dt, index, count, apply);
+		}
+		else //if(mWireframe == 2)
+		{
+			mWireframe = 0;
+			mSurfaceUniforms.uObjectColor = uObjectColor;
+			DoDrawIndexed(dt, index, count, true);
+
+			mWireframe = 1;
+			mSurfaceUniforms.uObjectColor = mWireframeColor;
+			DoDrawIndexed(dt, index, count, true);
+
+			mWireframe = 2;
+		}
+	}
+
 
 	// Immediate render state change commands. These only change infrequently and should not clutter the render state.
 	virtual bool SetDepthClamp(bool on) = 0;					// Deactivated only by skyboxes.

@@ -38,6 +38,7 @@
 #include "autosegs.h"
 #include "name.h"
 #include "dobjgc.h"
+#include "vectors.h"
 
 class FSerializer; // this needs to go away.
 /*
@@ -451,6 +452,10 @@ public:
 
 	inline operator uint32_t () const { return Value; }
 	inline uint32_t operator *() const { return Value; }
+
+	DVector4 asDV4() const;
+
+	FVector4 asFV4() const;
 
 protected:
 	virtual void DoSet (UCVarValue value, ECVarType type);

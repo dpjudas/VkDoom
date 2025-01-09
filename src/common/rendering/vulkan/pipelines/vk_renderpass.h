@@ -34,7 +34,8 @@ public:
 			uint64_t DepthFunc : 2;
 			uint64_t StencilTest : 1;
 			uint64_t StencilPassOp : 2;
-			uint64_t Unused : 46;
+			uint64_t DrawLine : 1;
+			uint64_t Unused : 45;
 		};
 		uint64_t AsQWORD = 0;
 	};

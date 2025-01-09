@@ -24,7 +24,7 @@ void MeshBuilder::SetShadowData(const TArray<FFlatVertex>& vertices, const TArra
 	mIndexes = indexes;
 }
 
-void MeshBuilder::Draw(int dt, int index, int count, bool apply)
+void MeshBuilder::DoDraw(int dt, int index, int count, bool apply)
 {
 	if (apply)
 		Apply();
@@ -37,7 +37,7 @@ void MeshBuilder::Draw(int dt, int index, int count, bool apply)
 	mDrawLists->mDraws.Push(command);
 }
 
-void MeshBuilder::DrawIndexed(int dt, int index, int count, bool apply)
+void MeshBuilder::DoDrawIndexed(int dt, int index, int count, bool apply)
 {
 	if (apply)
 		Apply();

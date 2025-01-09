@@ -302,6 +302,8 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
 
+	builder.PolygonMode(key.DrawLine ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL);
+
 	VkShaderProgram *program = fb->GetShaderManager()->Get(key.ShaderKey);
 	builder.AddVertexShader(program->vert.get());
 	if (program->frag)
