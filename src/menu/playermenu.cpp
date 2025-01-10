@@ -41,8 +41,6 @@
 #include "vm.h"
 #include "d_player.h"
 
-void LinkPlayermenu() { }
-
 EXTERN_CVAR(Int, team)
 EXTERN_CVAR(Float, autoaim)
 EXTERN_CVAR(Bool, neverswitchonpickup)

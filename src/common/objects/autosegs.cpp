@@ -81,28 +81,6 @@ AUTOSEG_VARIABLE(CVarDecl, AUTOSEG_VREG)
 #undef AUTOSEG_STOP
 #undef AUTOSEG_START
 
-void LinkVMThunksActors();
-void LinkVMIterators();
-void LinkDynArrays();
-void LinkMaps();
-void LinkDate();
-void LinkPPShader();
-void LinkMoviePlayer();
-void LinkPlayermenu();
-
-void LinkUnreferencedZScriptGlobals()
-{
-	// The linker in C++ only links .obj files from static libraries that it can find direct references to.
-	// Some source files contain no external references so we have to force the linkage.
-	LinkVMThunksActors();
-	LinkVMIterators();
-	LinkDynArrays();
-	LinkMaps();
-	LinkDate();
-	LinkPPShader();
-	LinkMoviePlayer();
-	LinkPlayermenu();
-}
 
 void FAutoSeg::Initialize()
 {

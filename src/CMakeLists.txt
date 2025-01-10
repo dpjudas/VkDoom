@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.16.0 )
+cmake_minimum_required( VERSION 3.24.0 )
 
 include(precompiled_headers)
 
@@ -1312,8 +1312,9 @@ add_dependencies( zdoom zengine )
 add_dependencies( ztool zengine )
 
 target_link_libraries( zengine ${PROJECT_LIBRARIES} lzma ${ZMUSIC_LIBRARIES} )
-target_link_libraries( zdoom zengine )
-target_link_libraries( ztool zengine )
+
+target_link_libraries( zdoom "$<LINK_LIBRARY:WHOLE_ARCHIVE,zengine>" )
+target_link_libraries( ztool "$<LINK_LIBRARY:WHOLE_ARCHIVE,zengine>" )
 
 # Due to some quirks, we need to do this in this order
 if( NOT ZDOOM_OUTPUT_OLDSTYLE )
