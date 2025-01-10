@@ -78,12 +78,14 @@ private:
 		int clampmode;
 		intptr_t remap;
 		int bindlessIndex;
+		GlobalShaderAddr globalShaderAddr;
 
-		DescriptorEntry(int cm, intptr_t f, int index)
+		DescriptorEntry(int cm, intptr_t f, int index, GlobalShaderAddr addr)
 		{
 			clampmode = cm;
 			remap = f;
 			bindlessIndex = index;
+			globalShaderAddr = addr;
 		}
 	};
 

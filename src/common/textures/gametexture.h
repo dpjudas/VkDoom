@@ -94,9 +94,37 @@ struct GlobalShaderDesc
 	int shaderindex = -1;
 	RefCountedPtr<FTexture> CustomShaderTextures[MAX_CUSTOM_HW_SHADER_TEXTURES];
 	MaterialLayerSampling CustomShaderTextureSampling[MAX_CUSTOM_HW_SHADER_TEXTURES];
+
+	operator bool() const { return shaderindex >= 0; }
 };
 
+struct GlobalShaderAddr
+{
+	int16_t num;  // [0 - NUM_BUILTIN_SHADERS)
+	int16_t type; // 0 - global, 1 - map, 2 - class, 3 - invalid
+	int32_t name; // global - unused, 1 - map name index, 2 - class name index
+
+	bool operator<(GlobalShaderAddr other)
+	{
+		return reinterpret_cast<uint64_t&>(*this) < reinterpret_cast<uint64_t&>(other);
+	}
+
+	bool operator==(GlobalShaderAddr other)
+	{
+		return reinterpret_cast<uint64_t&>(*this) == reinterpret_cast<uint64_t&>(other);
+	}
+};
+
+static_assert(sizeof(GlobalShaderAddr) == sizeof(uint64_t));
+
+extern const GlobalShaderDesc nullglobalshader;
 extern GlobalShaderDesc globalshaders[NUM_BUILTIN_SHADERS];
+
+const GlobalShaderAddr GetGlobalShaderAddr(int shaderNum, class PClass * curActor); // full checks
+const GlobalShaderDesc * GetGlobalShader(int shaderNum, class PClass * curActor, GlobalShaderAddr &addr); // full checks
+const GlobalShaderDesc * GetGlobalShader(int shaderNum, class PClass * curActor); // full checks
+const GlobalShaderDesc * GetGlobalShader(GlobalShaderAddr index); // no checks, only use with addrs gotten from GetGlobalShaderAddr
+void CleanupGlobalShaders();
 
 // Refactoring helper to allow piece by piece adjustment of the API
 class FGameTexture

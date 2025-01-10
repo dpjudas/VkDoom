@@ -328,16 +328,18 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 	auto base = Source();
 	int clampmode = state.mClampMode;
 	int translation = state.mTranslation;
+	GlobalShaderAddr globalShaderAddr = state.globalShaderAddr;
 	auto translationp = IsLuminosityTranslation(translation)? translation : intptr_t(GPalette.GetTranslation(GetTranslationType(translation), GetTranslationIndex(translation)));
 
 	clampmode = base->GetClampMode(clampmode);
 
 	for (auto& set : mDescriptorSets)
 	{
-		if (set.clampmode == clampmode && set.remap == translationp) return set;
+		if (set.clampmode == clampmode && set.remap == translationp && set.globalShaderAddr == globalShaderAddr) return set;
 	}
 
-	int numLayers = NumLayers();
+	auto globalshader = GetGlobalShader(globalShaderAddr);
+	int numLayersMat = *globalshader ? NumNonMaterialLayers() : NumLayers();
 	auto descriptors = fb->GetDescriptorSetManager();
 	auto* sampler = fb->GetSamplerManager()->Get(clampmode);
 
@@ -348,11 +350,26 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 
 	if (!(layer->scaleFlags & CTF_Indexed))
 	{
-		for (int i = 1; i < numLayers; i++)
+		for (int i = 1; i < numLayersMat; i++)
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, 0, &layer));
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
 			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
+		}
+
+		if(*globalshader)
+		{
+			size_t i = 0;
+			for (auto& texture : globalshader->CustomShaderTextures)
+			{
+				if (texture != nullptr)
+				{
+					VkHardwareTexture *tex = static_cast<VkHardwareTexture*>(texture.get()->GetHardwareTexture(0, 0));
+					VkTextureImage *img = tex->GetImage(texture.get(), 0, 0);
+					descriptors->AddBindlessTextureIndex(img->View.get(), fb->GetSamplerManager()->Get(globalshader->CustomShaderTextureSampling[i], clampmode));
+				}
+				i++;
+			}
 		}
 	}
 	else
@@ -363,9 +380,8 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
 			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
-		numLayers = 3;
 	}
 
-	mDescriptorSets.emplace_back(clampmode, translationp, bindlessIndex);
+	mDescriptorSets.emplace_back(clampmode, translationp, bindlessIndex, globalShaderAddr);
 	return mDescriptorSets.back();
 }

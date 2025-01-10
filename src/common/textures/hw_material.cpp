@@ -28,11 +28,45 @@
 #include "texturemanager.h"
 #include "c_cvars.h"
 #include "v_video.h"
+#include "hw_renderstate.h"
 
 
 CVAR(Bool, gl_customshader, true, 0);
 
 TArray<UserShaderDesc> usershaders;
+
+
+void FRenderState::SetMaterial(FMaterial *mat, int clampmode, int translation, int overrideshader)
+{
+	mMaterial.mMaterial = mat;
+	mMaterial.mClampMode = clampmode;
+	mMaterial.mTranslation = translation;
+	if(overrideshader > 0)
+	{
+		mMaterial.mOverrideShader = overrideshader;
+		mMaterial.globalShaderAddr = {0, 3, 0};
+	}
+	else
+	{ // handle per-map global shaders
+		GlobalShaderAddr addr;
+		auto globalshader = GetGlobalShader(mat->GetShaderIndex(), nullptr, addr);
+
+		if(addr.type == 1 && globalshader->shaderindex >= 0)
+		{
+			mMaterial.mOverrideShader = globalshader->shaderindex;
+			mMaterial.globalShaderAddr = addr;
+		}
+		else
+		{
+			mMaterial.mOverrideShader = -1;
+			mMaterial.globalShaderAddr = {0, 3, 0};
+		}
+	}
+	mMaterial.mChanged = true;
+	mTextureModeFlags = mat->GetLayerFlags();
+	auto scale = mat->GetDetailScale();
+	mSurfaceUniforms.uDetailParms = { scale.X, scale.Y, 2, 0 };
+}
 
 //===========================================================================
 //
@@ -120,11 +154,15 @@ FMaterial::FMaterial(FGameTexture * tx, int scaleflags)
 			mTextureLayers.Push({ placeholder->GetTexture(), 0, -1, MaterialLayerSampling::Default });
 		}
 
+		mNumNonMaterialLayers = mTextureLayers.Size();
+
 		auto index = tx->GetShaderIndex();
+
+		const auto globalshader = mShaderIndex < FIRST_USER_SHADER ? &globalshaders[mShaderIndex] : &nullglobalshader;
 
 		if (gl_customshader)
 		{
-			if (index >= FIRST_USER_SHADER || (mShaderIndex < FIRST_USER_SHADER && globalshaders[mShaderIndex].shaderindex >= FIRST_USER_SHADER))
+			if (index >= FIRST_USER_SHADER || globalshader->shaderindex >= FIRST_USER_SHADER)
 			{
 
 				if (index >= FIRST_USER_SHADER && usershaders[index - FIRST_USER_SHADER].shaderType == mShaderIndex) // Only apply user shader if it matches the expected material
@@ -136,24 +174,26 @@ FMaterial::FMaterial(FGameTexture * tx, int scaleflags)
 						{
 							if (texture != nullptr)
 							{
-								mTextureLayers.Push({ texture.get(), 0, -1, tx->Layers->CustomShaderTextureSampling[i++]});	// scalability should be user-definable.
+								mTextureLayers.Push({ texture.get(), 0, -1, tx->Layers->CustomShaderTextureSampling[i]});	// scalability should be user-definable.
 							}
+							i++;
 						}
 					}
 					mShaderIndex = index;
 				}
-				else if(mShaderIndex < FIRST_USER_SHADER && globalshaders[mShaderIndex].shaderindex >= FIRST_USER_SHADER)
+				else if(mShaderIndex < FIRST_USER_SHADER && globalshader->shaderindex >= FIRST_USER_SHADER)
 				{
 					size_t i = 0;
-					for (auto& texture : globalshaders[mShaderIndex].CustomShaderTextures)
+					for (auto& texture : globalshader->CustomShaderTextures)
 					{
 						if (texture != nullptr)
 						{
-							mTextureLayers.Push({ texture.get(), 0, -1, globalshaders[mShaderIndex].CustomShaderTextureSampling[i++]});	// scalability should be user-definable.
+							mTextureLayers.Push({ texture.get(), 0, -1, globalshader->CustomShaderTextureSampling[i]});	// scalability should be user-definable.
 						}
+						i++;
 					}
 
-					mShaderIndex = globalshaders[mShaderIndex].shaderindex;
+					mShaderIndex = globalshader->shaderindex;
 				}
 			}
 		}

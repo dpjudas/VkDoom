@@ -8,10 +8,11 @@ class FMaterial;
 struct FMaterialState
 {
 	FMaterial* mMaterial = nullptr;
-	int mClampMode;
-	int mTranslation;
-	int mOverrideShader;
-	bool mChanged;
+	int mClampMode = 0;
+	int mTranslation = CLAMP_NONE;
+	int mOverrideShader = -1;
+	bool mChanged = false;
+	GlobalShaderAddr globalShaderAddr = {0, 3, 0}; // null global shader entry, TODO
 
 	void Reset()
 	{
@@ -20,5 +21,6 @@ struct FMaterialState
 		mClampMode = CLAMP_NONE;
 		mOverrideShader = -1;
 		mChanged = false;
+		globalShaderAddr = {0, 3, 0};
 	}
 };

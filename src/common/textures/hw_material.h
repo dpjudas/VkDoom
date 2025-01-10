@@ -30,6 +30,8 @@ class FMaterial
 	int mLayerFlags = 0;
 	int mScaleFlags;
 
+	int mNumNonMaterialLayers = 0;
+
 public:
 
 	FGameTexture *sourcetex;	// the owning texture. 
@@ -63,6 +65,11 @@ public:
 	int NumLayers() const
 	{
 		return mTextureLayers.Size();
+	}
+
+	int NumNonMaterialLayers() const
+	{
+		return mNumNonMaterialLayers;
 	}
 
 	IHardwareTexture *GetLayer(int i, int translation, MaterialLayerInfo **pLayer = nullptr) const;

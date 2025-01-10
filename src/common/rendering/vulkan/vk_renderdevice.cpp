@@ -656,10 +656,20 @@ void VulkanRenderDevice::DownloadLightmap(int arrayIndex, uint16_t* buffer)
 
 int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation)
 {
+	GlobalShaderAddr addr;
+	auto globalshader = GetGlobalShader(material->GetShaderIndex(), nullptr, addr);
+
 	FMaterialState materialState;
 	materialState.mMaterial = material;
 	materialState.mClampMode = clampmode;
 	materialState.mTranslation = translation;
+
+	if(addr.type == 1 && *globalshader)
+	{ // handle per-map global shaders
+		materialState.globalShaderAddr = addr;
+		materialState.mOverrideShader = globalshader->shaderindex;
+	}
+
 	return static_cast<VkMaterial*>(material)->GetBindlessIndex(materialState);
 }
 
