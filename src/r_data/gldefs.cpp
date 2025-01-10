@@ -50,6 +50,7 @@
 #include "texturemanager.h"
 #include "gameconfigfile.h"
 #include "m_argv.h"
+#include "types.h"
 
 void AddLightDefaults(FLightDefaults *defaults, double attnFactor);
 void AddLightAssociation(const char *actor, const char *frame, const char *light);
@@ -297,6 +298,154 @@ void uniform_callback_color4f(FColorCVar &self)
 	col.d = *self;
 
 	do_uniform_set4f(col.r / 255.0, col.g / 255.0, col.b / 255.0, col.a / 255.0, data);
+}
+
+void setUniformI(UniformField field, int val)
+{
+	switch(field.Type)
+	{
+	case UniformType::Int:
+		((int *)field.Value)[0] = val;
+		break;
+	case UniformType::Vec4:
+		((float *)field.Value)[3] = 1.0f;
+	case UniformType::Vec3:
+		((float *)field.Value)[2] = 0.0f;
+	case UniformType::Vec2:
+		((float *)field.Value)[1] = 0.0f;
+	case UniformType::Float:
+		((float *)field.Value)[0] = val;
+		break;
+	}
+}
+
+void setUniformF(UniformField field, float val)
+{
+	switch(field.Type)
+	{
+	case UniformType::Int:
+		((int *)field.Value)[0] = val;
+		break;
+	case UniformType::Vec4:
+		((float *)field.Value)[3] = 1.0f;
+	case UniformType::Vec3:
+		((float *)field.Value)[2] = 0.0f;
+	case UniformType::Vec2:
+		((float *)field.Value)[1] = 0.0f;
+	case UniformType::Float:
+		((float *)field.Value)[0] = val;
+		break;
+	}
+}
+
+void setUniformF(UniformField field, const FVector2 &val)
+{
+	switch(field.Type)
+	{
+	case UniformType::Int:
+		((int *)field.Value)[0] = val.X;
+		break;
+	case UniformType::Vec4:
+		((float *)field.Value)[3] = 1.0f;
+	case UniformType::Vec3:
+		((float *)field.Value)[2] = 0.0f;
+	case UniformType::Vec2:
+		((float *)field.Value)[1] = val.Y;
+	case UniformType::Float:
+		((float *)field.Value)[0] = val.X;
+		break;
+	}
+}
+
+void setUniformF(UniformField field, const FVector3 &val)
+{
+	switch(field.Type)
+	{
+	case UniformType::Int:
+		((int *)field.Value)[0] = val.X;
+		break;
+	case UniformType::Vec4:
+		((float *)field.Value)[3] = 1.0f;
+	case UniformType::Vec3:
+		((float *)field.Value)[2] = val.Z;
+	case UniformType::Vec2:
+		((float *)field.Value)[1] = val.Y;
+	case UniformType::Float:
+		((float *)field.Value)[0] = val.X;
+		break;
+	}
+}
+
+void setUniformF(UniformField field, const FVector4 &val)
+{
+	switch(field.Type)
+	{
+	case UniformType::Int:
+		((int *)field.Value)[0] = val.X;
+		break;
+	case UniformType::Vec4:
+		((float *)field.Value)[3] = val.W;
+	case UniformType::Vec3:
+		((float *)field.Value)[2] = val.Z;
+	case UniformType::Vec2:
+		((float *)field.Value)[1] = val.Y;
+	case UniformType::Float:
+		((float *)field.Value)[0] = val.X;
+		break;
+	}
+}
+
+void UserShaderDesc::BindActorFields(AActor * act)
+{
+	TMapIterator<FString, FString> it(ActorFieldBindings);
+	TMap<FString, FString>::Pair * p;
+	while(it.NextPair(p))
+	{
+		UniformField uniformField = Uniforms.GetField(p->Key);
+		PField * actorField = dyn_cast<PField>(act->GetClass()->FindSymbol(p->Value, true));
+		if(actorField && uniformField.Type != UniformType::Undefined)
+		{
+			void * addr = reinterpret_cast<uint8_t*>(act) + actorField->Offset;
+
+			PType * t = actorField->Type;
+			if(t == TypeUInt32 || t == TypeSInt32)
+			{
+				setUniformI(uniformField, *(int*)addr);
+			}
+			else if(t == TypeFloat32)
+			{
+				setUniformF(uniformField, *(float*)addr);
+			}
+			else if(t == TypeFloat64)
+			{
+				setUniformF(uniformField, (float)*(double*)addr);
+			}
+			else if(t == TypeFVector2)
+			{
+				setUniformF(uniformField, *(FVector2*)addr);
+			}
+			else if(t == TypeVector2)
+			{
+				setUniformF(uniformField, FVector2(*(DVector2*)addr));
+			}
+			else if(t == TypeFVector3)
+			{
+				setUniformF(uniformField, *(FVector3*)addr);
+			}
+			else if(t == TypeVector3)
+			{
+				setUniformF(uniformField, FVector3(*(DVector3*)addr));
+			}
+			else if(t == TypeFVector4 || t == TypeQuaternion)
+			{
+				setUniformF(uniformField, *(FVector4*)addr);
+			}
+			else if(t == TypeVector4 || t == TypeFQuaternion)
+			{
+				setUniformF(uniformField, FVector4(*(DVector4*)addr));
+			}
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

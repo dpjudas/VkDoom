@@ -137,6 +137,17 @@ void FHWModelRenderer::SetInterpolation(double inter)
 void FHWModelRenderer::SetMaterial(FGameTexture *skin, bool clampNoFilter, FTranslationID translation, AActor * act)
 {
 	state.SetMaterial(skin, UF_Skin, 0, clampNoFilter ? CLAMP_NOFILTER : CLAMP_NONE, translation, -1, act ? act->GetClass() : nullptr);
+
+	int shader = state.getShaderIndex();
+
+	if(shader >= FIRST_USER_SHADER && act && (act != lastAct || shader != lastShader))
+	{ // only re-bind uniforms if the actor or the shader have changed
+		usershaders[shader - FIRST_USER_SHADER].BindActorFields(act);
+	}
+
+	lastAct = act;
+	lastShader = shader;
+
 	state.SetLightIndex(modellightindex);
 }
 

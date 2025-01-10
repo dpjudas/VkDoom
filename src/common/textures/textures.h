@@ -105,6 +105,8 @@ enum
 	SFlag_Global = 1,
 };
 
+class AActor;
+
 struct UserShaderDesc
 {
 	FString shader;
@@ -117,6 +119,8 @@ struct UserShaderDesc
 	std::vector<VaryingFieldDesc> Varyings;
 	UserUniforms Uniforms;
 	TMap<FString, FString> ActorFieldBindings;
+
+	void BindActorFields(AActor * act);
 };
 
 extern TArray<UserShaderDesc> usershaders;

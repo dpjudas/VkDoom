@@ -42,6 +42,9 @@ class FHWModelRenderer : public FModelRenderer
 	int boneIndexBase = -1;
 	HWDrawInfo *di;
 	FRenderState &state;
+
+	AActor * lastAct = nullptr;
+	int lastShader = 0;
 public:
 	FHWModelRenderer(HWDrawInfo *d, FRenderState &st, int mli) : modellightindex(mli), di(d), state(st)
 	{}
