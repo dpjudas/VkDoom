@@ -541,17 +541,7 @@ public:
 	}
 
 private:
-	void SetMaterial(FMaterial *mat, int clampmode, int translation, int overrideshader)
-	{
-		mMaterial.mMaterial = mat;
-		mMaterial.mClampMode = clampmode;
-		mMaterial.mTranslation = translation;
-		mMaterial.mOverrideShader = overrideshader;
-		mMaterial.mChanged = true;
-		mTextureModeFlags = mat->GetLayerFlags();
-		auto scale = mat->GetDetailScale();
-		mSurfaceUniforms.uDetailParms = { scale.X, scale.Y, 2, 0 };
-	}
+	void SetMaterial(FMaterial *mat, int clampmode, int translation, int overrideshader);
 
 public:
 	void SetMaterial(FGameTexture* tex, EUpscaleFlags upscalemask, int scaleflags, int clampmode, int translation, int overrideshader)

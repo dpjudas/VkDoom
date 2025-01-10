@@ -639,6 +639,20 @@ bool FScanner::CheckToken (int token, bool evaluate)
 	return false;
 }
 
+bool FScanner::PeekToken (int token, bool evaluate)
+{
+	if (GetToken (evaluate))
+	{
+		if (TokenType == token)
+		{
+			UnGet ();
+			return true;
+		}
+		UnGet ();
+	}
+	return false;
+}
+
 //==========================================================================
 //
 // FScanner :: GetNumber

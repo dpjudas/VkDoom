@@ -114,6 +114,7 @@ public:
 	void TokenMustBe(int token);
 	void MustGetToken(int token, bool evaluate = false);
 	bool CheckToken(int token, bool evaluate = false);
+	bool PeekToken(int token, bool evaluate = false);
 	bool CheckTokenId(ENamedName id);
 
 	bool GetNumber(bool evaluate = false);

@@ -4011,10 +4011,7 @@ void D_Cleanup()
 		*(afunc->VMPointer) = NULL;
 	});
 
-	for(auto &gshader : globalshaders)
-	{
-		gshader = {};
-	}
+	CleanupGlobalShaders();
 	
 	GC::DelSoftRootHead();
 	

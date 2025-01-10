@@ -59,7 +59,97 @@ void ParseColorization(FScanner& sc);
 extern TDeletingArray<FLightDefaults *> LightDefaults;
 extern int AttenuationIsSet;
 
+const GlobalShaderDesc nullglobalshader = {};
+
 GlobalShaderDesc globalshaders[NUM_BUILTIN_SHADERS];
+
+TMap<FName, GlobalShaderDesc> mapshaders[NUM_BUILTIN_SHADERS];
+TMap<FName, GlobalShaderDesc> classshaders[NUM_BUILTIN_SHADERS];
+
+const GlobalShaderDesc * GetGlobalShader(int shaderNum, PClass * curActor, GlobalShaderAddr &addr)
+{
+	if(shaderNum < NUM_BUILTIN_SHADERS)
+	{
+		GlobalShaderDesc * shader;
+		if(curActor)
+		{
+			while(curActor->TypeName != NAME_Actor)
+			{
+				shader = classshaders[shaderNum].CheckKey(curActor->TypeName);
+				if(shader && shader->shaderindex > 0)
+				{
+					addr = {int16_t(shaderNum), 2, curActor->TypeName.GetIndex()};
+					return shader;
+				}
+
+				curActor = curActor->ParentClass;
+			}
+		}
+
+		FName MapName = level.MapName;
+		shader = mapshaders[shaderNum].CheckKey(MapName);
+		if(shader && shader->shaderindex > 0)
+		{
+			addr = {int16_t(shaderNum), 1, MapName.GetIndex()};
+			return shader;
+		}
+
+		addr = {int16_t(shaderNum), 0, 0};
+		return &globalshaders[shaderNum];
+	}
+	else
+	{
+		addr = {0, 3, 0};
+		return &nullglobalshader;
+	}
+}
+
+const GlobalShaderAddr GetGlobalShaderAddr(int shaderNum, PClass * curActor)
+{
+	GlobalShaderAddr addr;
+	GetGlobalShader(shaderNum, curActor, addr);
+	return addr;
+}
+
+const GlobalShaderDesc * GetGlobalShader(int shaderNum, PClass * curActor)
+{
+	GlobalShaderAddr dummy;
+	return GetGlobalShader(shaderNum, curActor, dummy);
+}
+
+
+
+const GlobalShaderDesc * GetGlobalShader(GlobalShaderAddr index)
+{
+	if(index.num > NUM_BUILTIN_SHADERS || index.type > 2) return &nullglobalshader;
+
+	if(index.type == 0) return &globalshaders[index.num];
+
+	FName name {ENamedName(index.name)};
+	
+	assert((index.type == 1 && mapshaders[index.num].CheckKey(name)) || (index.type == 2 && classshaders[index.num].CheckKey(name)) || index.type == 3);
+
+	if(index.type == 1) return mapshaders[index.num].CheckKey(name);
+	if(index.type == 2) return classshaders[index.num].CheckKey(name);
+}
+
+void CleanupGlobalShaders()
+{
+	for(auto &gshader : globalshaders)
+	{
+		gshader = {};
+	}
+
+	for(auto &gshader2 : mapshaders)
+	{
+		gshader2.Clear();
+	}
+
+	for(auto &gshader3 : classshaders)
+	{
+		gshader3.Clear();
+	}
+}
 
 struct ExtraUniformCVARData
 {
@@ -1413,6 +1503,8 @@ class GLDefsParser
 
 		TArray<int> globaltargets;
 		FString str_globaltargets;
+		TArray<FName> globalshader_maps;
+		TArray<FName> globalshader_classes;
 
 		UserShaderDesc usershader;
 		TArray<FString> texNameList;
@@ -1527,6 +1619,25 @@ class GLDefsParser
 			else
 			{
 				sc.ScriptMessage("Invalid globalshader target\n", sc.String);
+			}
+
+			if(sc.CheckString("map"))
+			{
+				do
+				{
+					sc.MustGetString();
+					globalshader_maps.Push(sc.String);
+				}
+				while(!sc.PeekToken('{'));
+			}
+			else if(sc.CheckString("class"))
+			{
+				do
+				{
+					sc.MustGetString();
+					globalshader_classes.Push(sc.String);
+				}
+				while(!sc.PeekToken('{'));
 			}
 		}
 		else
@@ -1847,17 +1958,43 @@ class GLDefsParser
 		}
 		if(is_globalshader)
 		{
-			if(fileSystem.GetFileContainer(workingLump) > fileSystem.GetMaxIwadNum())
+			if(fileSystem.GetFileContainer(workingLump) > fileSystem.GetMaxIwadNum() && globalshader_maps.Size() == 0 && globalshader_classes.Size() == 0)
 			{
 				sc.ScriptError("globalshader only supported on iwad");
 				return;
 			}
 			else for(int target : globaltargets)
 			{
-				if(globalshaders[target].shaderindex >= 0)
+
+				if(globalshader_maps.Size() > 0)
 				{
-					sc.ScriptError("globalshader already exists for '%s'", str_globaltargets.GetChars());
-					return;
+					for(FName map : globalshader_maps)
+					{
+						if(mapshaders[target][map].shaderindex >= 0)
+						{
+							sc.ScriptError("globalshader '%s' already exists for map '%s'", str_globaltargets.GetChars(), map.GetChars());
+							return;
+						}
+					}
+				}
+				else if(globalshader_classes.Size() > 0)
+				{
+					for(FName clazz : globalshader_classes)
+					{
+						if(classshaders[target][clazz].shaderindex >= 0)
+						{
+							sc.ScriptError("globalshader '%s' already exists for class '%s'", str_globaltargets.GetChars(), clazz.GetChars());
+							return;
+						}
+					}
+				}
+				else
+				{
+					if(globalshaders[target].shaderindex >= 0)
+					{
+						sc.ScriptError("globalshader '%s' already exists", str_globaltargets.GetChars());
+						return;
+					}
 				}
 			}
 
@@ -1866,7 +2003,7 @@ class GLDefsParser
 				int lump = fileSystem.CheckNumForFullName(usershader.shader.GetChars());
 				if (lump == -1)
 				{
-					sc.ScriptError("inexistent shader lump '%s' in globalshader '%s'", usershader.shader.GetChars(), str_globaltargets.GetChars());
+					sc.ScriptError("inexistent shader lump '%s' in global shader '%s'", usershader.shader.GetChars(), str_globaltargets.GetChars());
 					return;
 				}
 
@@ -1875,7 +2012,7 @@ class GLDefsParser
 					int lump = fileSystem.CheckNumForFullName(usershader.vertshader.GetChars());
 					if (lump == -1)
 					{
-						sc.ScriptError("inexistent vertex shader lump '%s' in globalshader '%s'", usershader.vertshader.GetChars(), str_globaltargets.GetChars());
+						sc.ScriptError("inexistent vertex shader lump '%s' in global shader '%s'", usershader.vertshader.GetChars(), str_globaltargets.GetChars());
 						return;
 					}
 				}
@@ -1906,7 +2043,26 @@ class GLDefsParser
 
 					usershader.shaderType = MaterialShaderIndex(target);
 
-					globalshaders[target].shaderindex = usershaders.Push(usershader) + FIRST_USER_SHADER;
+					int shaderIndex = usershaders.Push(usershader) + FIRST_USER_SHADER;
+
+					if(globalshader_maps.Size() > 0)
+					{
+						for(FName map : globalshader_maps)
+						{
+							mapshaders[target][map].shaderindex = shaderIndex;
+						}
+					}
+					else if(globalshader_classes.Size() > 0)
+					{
+						for(FName clazz : globalshader_classes)
+						{
+							classshaders[target][clazz].shaderindex = shaderIndex;
+						}
+					}
+					else
+					{
+						globalshaders[target].shaderindex = shaderIndex;
+					}
 
 					if(hasUniforms)
 					{
@@ -1917,8 +2073,27 @@ class GLDefsParser
 					{
 						if (mlay.CustomShaderTextures[i])
 						{
-							globalshaders[target].CustomShaderTextureSampling[i] = mlay.CustomShaderTextureSampling[i];
-							globalshaders[target].CustomShaderTextures[i] = mlay.CustomShaderTextures[i]->GetTexture();
+							if(globalshader_maps.Size() > 0)
+							{
+								for(FName map : globalshader_maps)
+								{
+									mapshaders[target][map].CustomShaderTextureSampling[i] = mlay.CustomShaderTextureSampling[i];
+									mapshaders[target][map].CustomShaderTextures[i] = mlay.CustomShaderTextures[i]->GetTexture();
+								}
+							}
+							else if(globalshader_classes.Size() > 0)
+							{
+								for(FName clazz : globalshader_classes)
+								{
+									classshaders[target][clazz].CustomShaderTextureSampling[i] = mlay.CustomShaderTextureSampling[i];
+									classshaders[target][clazz].CustomShaderTextures[i] = mlay.CustomShaderTextures[i]->GetTexture();
+								}
+							}
+							else
+							{
+								globalshaders[target].CustomShaderTextureSampling[i] = mlay.CustomShaderTextureSampling[i];
+								globalshaders[target].CustomShaderTextures[i] = mlay.CustomShaderTextures[i]->GetTexture();
+							}
 						}
 					}
 
