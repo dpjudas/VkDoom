@@ -116,6 +116,7 @@ struct UserShaderDesc
 
 	std::vector<VaryingFieldDesc> Varyings;
 	UserUniforms Uniforms;
+	TMap<FString, FString> ActorFieldBindings;
 };
 
 extern TArray<UserShaderDesc> usershaders;
