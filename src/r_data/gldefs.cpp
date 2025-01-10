@@ -68,7 +68,12 @@ TMap<FName, GlobalShaderDesc> classshaders[NUM_BUILTIN_SHADERS];
 
 const GlobalShaderDesc * GetGlobalShader(int shaderNum, PClass * curActor, GlobalShaderAddr &addr)
 {
-	if(shaderNum < NUM_BUILTIN_SHADERS)
+	if(shaderNum >= NUM_BUILTIN_SHADERS && usershaders[shaderNum - NUM_BUILTIN_SHADERS].shaderFlags & SFlag_Global)
+	{ // allow class and map shaders to override gobal shaders
+		shaderNum = usershaders[shaderNum - NUM_BUILTIN_SHADERS].shaderType;
+	}
+
+	if(shaderNum >= 0 && shaderNum < NUM_BUILTIN_SHADERS)
 	{
 		GlobalShaderDesc * shader;
 		if(curActor)
