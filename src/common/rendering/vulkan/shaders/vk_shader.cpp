@@ -86,7 +86,6 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		return &program;
 
 	const char* mainvp = "shaders/scene/vert_main.glsl";
-	const char* vert_nocustom = "shaders/scene/vert_nocustom.glsl";
 	const char* mainfp = "shaders/scene/frag_main.glsl";
 
 	if (key.SpecialEffect != EFF_NONE)
@@ -113,7 +112,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		};
 
 		const auto& desc = effectshaders[key.SpecialEffect];
-		program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.defines, key, nullptr);
+		program.vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.defines, key, nullptr);
 		if (!key.NoFragmentShader)
 			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key, nullptr);
 	}
@@ -153,7 +152,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 		if (key.EffectState < FIRST_USER_SHADER)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
-			program.vert = LoadVertShader(desc.ShaderName, mainvp, vert_nocustom, desc.Defines, key, nullptr);
+			program.vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.Defines, key, nullptr);
 			if (!key.NoFragmentShader)
 				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key, nullptr);
 		}
@@ -163,7 +162,7 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? vert_nocustom : desc.vertshader.GetChars(), defines.GetChars(), key, &desc);
+			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? nullptr : desc.vertshader.GetChars(), defines.GetChars(), key, &desc);
 			if (!key.NoFragmentShader)
 				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc);
 
@@ -173,95 +172,66 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 	return &program;
 }
 
-static void addPushConstants(FString &layoutBlock, const UserUniforms *uniforms)
+void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader)
 {
-
 	layoutBlock << "// This must match the PushConstants struct\n";
 	layoutBlock << "layout(push_constant) uniform PushConstants\n";
 	layoutBlock << "{\n";
-	layoutBlock << "#if defined(USE_LEVELMESH)\n";
-	layoutBlock << "    int unused0;\n";
-	layoutBlock << "    int unused1;\n";
-	layoutBlock << "#else\n";
-	layoutBlock << "    int uDataIndex; // surfaceuniforms index\n";
-	layoutBlock << "    int uLightIndex; // dynamic lights\n";
-	layoutBlock << "#endif\n";
+	if (key.UseLevelMesh)
+	{
+		layoutBlock << "    int unused0;\n";
+		layoutBlock << "    int unused1;\n";
+	}
+	else
+	{
+		layoutBlock << "    int uDataIndex; // surfaceuniforms index\n";
+		layoutBlock << "    int uLightIndex; // dynamic lights\n";
+	}
 	layoutBlock << "    int uBoneIndexBase; // bone animation\n";
 	layoutBlock << "    int uFogballIndex; // fog balls\n";
 
-	if(uniforms && uniforms->UniformStructSize)
+	if(shader && shader->Uniforms.UniformStructSize)
 	{
-		for(auto &field : uniforms->Fields)
+		for(auto &field : shader->Uniforms.Fields)
 		{
-			//layoutBlock.AppendFormat("    layout(offset = %d) %s %s;\n", (field.Offset + sizeof(PushConstants)), GetTypeStr(field.Type), field.Name.GetChars());
 			layoutBlock.AppendFormat("    %s %s;\n", GetTypeStr(field.Type), field.Name.GetChars());
 		}
 	}
 	layoutBlock << "};\n";
 
+	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
+	layoutBlock << LoadPrivateShaderLump(isFrag ? "shaders/scene/layout_frag.glsl" : "shaders/scene/layout_vert.glsl").GetChars() << "\n";
+
+	int varyingLocation = 11;
+	if(shader) for(auto &varying : shader->Varyings)
+	{
+		layoutBlock.AppendFormat("layout(location = %d) %s %s %s %s;\n", varyingLocation, varying.Property.GetChars(), isFrag ? "in" : "out", GetTypeStr(varying.Type), varying.Name.GetChars());
+		varyingLocation++;
+	}
+
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)
+void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader)
 {
-	FString definesBlock;
+	if (fb->IsRayQueryEnabled())
+	{
+		definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
+	}
+
 	definesBlock << defines;
 	definesBlock << "\n#define MAX_SURFACE_UNIFORMS " << std::to_string(MAX_SURFACE_UNIFORMS).c_str() << "\n";
 	definesBlock << "#define MAX_LIGHT_DATA " << std::to_string(MAX_LIGHT_DATA).c_str() << "\n";
 	definesBlock << "#define MAX_FOGBALL_DATA " << std::to_string(MAX_FOGBALL_DATA).c_str() << "\n";
-#ifdef NPOT_EMULATION
-	definesBlock << "#define NPOT_EMULATION\n";
-#endif
+
+	#ifdef NPOT_EMULATION
+		definesBlock << "#define NPOT_EMULATION\n";
+	#endif
+
 	if (!fb->GetDevice()->EnabledFeatures.Features.shaderClipDistance)
 	{
 		definesBlock << "#define NO_CLIPDISTANCE_SUPPORT\n";
 	}
 
-	if (key.Simple2D) definesBlock << "#define SIMPLE2D\n";
-
-	if (key.UseLevelMesh)
-		definesBlock << "#define USE_LEVELMESH\n";
-
-	FString layoutBlock;
-	addPushConstants(layoutBlock, shader ? &shader->Uniforms : nullptr);
-	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
-	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_vert.glsl").GetChars() << "\n";
-
-	int varyingLocation = 11;
-	if(shader) for(auto &varying : shader->Varyings)
-	{
-		layoutBlock.AppendFormat("layout(location = %d) %s out %s %s;\n", varyingLocation, varying.Property.GetChars(), GetTypeStr(varying.Type), varying.Name.GetChars());
-		varyingLocation++;
-	}
-
-
-	FString codeBlock;
-	codeBlock << LoadPrivateShaderLump(vert_lump).GetChars() << "\n";
-	codeBlock << LoadPublicShaderLump(vert_lump_custom).GetChars() << "\n";
-
-	return ShaderBuilder()
-		.Type(ShaderType::Vertex)
-		.DebugName(shadername.GetChars())
-		.AddSource("VersionBlock", GetVersionBlock().GetChars())
-		.AddSource("DefinesBlock", definesBlock.GetChars())
-		.AddSource("LayoutBlock", layoutBlock.GetChars())
-		.AddSource(vert_lump, codeBlock.GetChars())
-		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
-		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
-		.Create(shadername.GetChars(), fb->GetDevice());
-}
-
-std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)
-{
-	FString definesBlock;
-	if (fb->IsRayQueryEnabled()) definesBlock << "\n#define SUPPORTS_RAYQUERY\n";
-	definesBlock << defines;
-	definesBlock << "\n#define MAX_SURFACE_UNIFORMS " << std::to_string(MAX_SURFACE_UNIFORMS).c_str() << "\n";
-	definesBlock << "#define MAX_LIGHT_DATA " << std::to_string(MAX_LIGHT_DATA).c_str() << "\n";
-	definesBlock << "#define MAX_FOGBALL_DATA " << std::to_string(MAX_FOGBALL_DATA).c_str() << "\n";
-#ifdef NPOT_EMULATION
-	definesBlock << "#define NPOT_EMULATION\n";
-#endif
-	if (!fb->GetDevice()->EnabledFeatures.Features.shaderClipDistance) definesBlock << "#define NO_CLIPDISTANCE_SUPPORT\n";
 	if (!key.AlphaTest) definesBlock << "#define NO_ALPHATEST\n";
 	if (key.GBufferPass) definesBlock << "#define GBUFFER_PASS\n";
 	if (key.AlphaTestOnly) definesBlock << "#define ALPHATEST_ONLY\n";
@@ -299,7 +269,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 
 	if (key.UseRaytrace) definesBlock << "#define USE_RAYTRACE\n";
 	if (key.UseRaytracePrecise) definesBlock << "#define USE_RAYTRACE_PRECISE\n";
-	
+
 	definesBlock << "#define SHADOWMAP_FILTER ";
 	definesBlock << std::to_string(key.ShadowmapFilter).c_str();
 	definesBlock << "\n";
@@ -333,21 +303,50 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (key.SWLightBanded) definesBlock << "#define SWLIGHT_BANDED\n";
 	if (key.FogBalls) definesBlock << "#define FOGBALLS\n";
 
-	// Backwards compatibility with shaders that rape and pillage... uhm, I mean abused uFogEnabled to detect 2D rendering!
-	if (key.Simple2D) definesBlock << "#define uFogEnabled -3\n";
-	else definesBlock << "#define uFogEnabled 0\n";
+	definesBlock << ((key.Simple2D) ? "#define uFogEnabled -3\n" : "#define uFogEnabled 0\n");
+
+}
+
+std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)
+{
+	FString definesBlock;
+	BuildDefinesBlock(definesBlock, defines, false, key, shader);
 
 	FString layoutBlock;
-	addPushConstants(layoutBlock, shader ? &shader->Uniforms : nullptr);
-	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
-	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_frag.glsl").GetChars() << "\n";
+	BuildLayoutBlock(layoutBlock, false, key, shader);
 
-	int varyingLocation = 11;
-	if(shader) for(auto &varying : shader->Varyings)
+
+	FString codeBlock;
+	codeBlock << LoadPrivateShaderLump(vert_lump).GetChars() << "\n";
+	if(vert_lump_custom)
 	{
-		layoutBlock.AppendFormat("layout(location = %d) %s in %s %s;\n", varyingLocation, varying.Property.GetChars(), GetTypeStr(varying.Type), varying.Name.GetChars());
-		varyingLocation++;
+		codeBlock << "\n#line 1\n";
+		codeBlock << LoadPublicShaderLump(vert_lump_custom).GetChars() << "\n";
 	}
+	else
+	{
+		codeBlock << LoadPrivateShaderLump("shaders/scene/vert_nocustom.glsl").GetChars() << "\n";
+	}
+
+	return ShaderBuilder()
+		.Type(ShaderType::Vertex)
+		.DebugName(shadername.GetChars())
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("DefinesBlock", definesBlock.GetChars())
+		.AddSource("LayoutBlock", layoutBlock.GetChars())
+		.AddSource(vert_lump_custom ? vert_lump_custom : vert_lump, codeBlock.GetChars())
+		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
+		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
+		.Create(shadername.GetChars(), fb->GetDevice());
+}
+
+std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)
+{
+	FString definesBlock;
+	BuildDefinesBlock(definesBlock, defines, false, key, shader);
+
+	FString layoutBlock;
+	BuildLayoutBlock(layoutBlock, true, key, shader);
 
 
 	FString codeBlock;
@@ -412,14 +411,14 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 	if (light_lump && lightBlock.IsEmpty())
 	{
 		lightname = light_lump;
+
 		if(light_lump_shared)
 		{
-			lightBlock << (LoadPrivateShaderLump(light_lump_shared) + LoadPrivateShaderLump(light_lump)).GetChars();
+			lightBlock << LoadPrivateShaderLump(light_lump_shared).GetChars();
 		}
-		else 
-		{
-			lightBlock << LoadPrivateShaderLump(light_lump).GetChars();
-		}
+
+		lightBlock << LoadPrivateShaderLump(light_lump).GetChars();
+		
 	}
 
 	if (mateffect_lump && mateffectBlock.IsEmpty())
