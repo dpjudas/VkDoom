@@ -1750,7 +1750,7 @@ class GLDefsParser
 				{
 					isProperty = true;
 					hasUniforms = true;
-					ParseShaderUniform(Uniforms, usershaders.Size(), false, is_globalshader ? globaltargets.Size() : 1);
+					ParseShaderUniform(Uniforms, usershaders.Size(), false, is_globalshader ? globaltargets.Size() : 1, &usershader.ActorFieldBindings);
 				}
 				else if (sc.Compare("varying"))
 				{
@@ -2233,9 +2233,10 @@ class GLDefsParser
 	//
 	//==========================================================================
 
-	void ParseShaderUniform(TMap<FString, UserUniformValue> &Uniforms, int ShaderIndex, bool isPP, int numShaders = 1)
+	void ParseShaderUniform(TMap<FString, UserUniformValue> &Uniforms, int ShaderIndex, bool isPP, int numShaders = 1, TMap<FString, FString> * actorFieldBindings = nullptr)
 	{
 		bool is_cvar = false;
+		bool is_field = false;
 		bool ok = true;
 
 		sc.MustGetString();
@@ -2281,6 +2282,10 @@ class GLDefsParser
 			{
 				is_cvar = true;
 			}
+			else if(actorFieldBindings && sc.CheckString("field"))
+			{
+				is_field = true;
+			}
 			else switch(parsedType)
 			{
 			case UniformType::Int:
@@ -2319,23 +2324,29 @@ class GLDefsParser
 			}
 		}
 
-		if (ok && !is_cvar)
+		if (ok)
 		{
-			Uniforms[uniformName].Type = parsedType;
-			Uniforms[uniformName].Values[0] = Values[0];
-			Uniforms[uniformName].Values[1] = Values[1];
-			Uniforms[uniformName].Values[2] = Values[2];
-			Uniforms[uniformName].Values[3] = Values[3];
-		}
-
-		if (ok && is_cvar)
-		{
-			FBaseCVar *cvar;
-			FString cvarname;
-			void (*callback)(FBaseCVar&) = nullptr;
-
-			if(ok)
+			if(!is_cvar && !is_field)
 			{
+				Uniforms[uniformName].Type = parsedType;
+				Uniforms[uniformName].Values[0] = Values[0];
+				Uniforms[uniformName].Values[1] = Values[1];
+				Uniforms[uniformName].Values[2] = Values[2];
+				Uniforms[uniformName].Values[3] = Values[3];
+			}
+			else if (is_field)
+			{
+				sc.MustGetString();
+				FString fieldname = sc.String;
+				actorFieldBindings->Insert(uniformName, fieldname);
+				Uniforms[uniformName].Type = parsedType;
+			}
+			else if (is_cvar)
+			{
+				FBaseCVar *cvar;
+				FString cvarname;
+				void (*callback)(FBaseCVar&) = nullptr;
+
 				sc.MustGetString();
 				cvarname = sc.String;
 				cvar = FindCVar(cvarname.GetChars(), NULL);
@@ -2345,122 +2356,122 @@ class GLDefsParser
 					sc.ScriptMessage("Unknown cvar passed to cvar_uniform");
 					ok = false;
 				}
-			}
 
-			if(ok)
-			{
-				switch (cvar->GetRealType())
+				if(ok)
 				{
-				case CVAR_Bool:
-					if(parsedType == UniformType::Int)
+					switch (cvar->GetRealType())
 					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback1i<FBoolCVar>);
-						Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
-					}
-					else if(parsedType == UniformType::Float)
-					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback1f<FBoolCVar>);
-						Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
-					}
-					else
-					{
-						sc.ScriptError("CVar '%s' type (bool) is not convertible to uniform type (%s), must be int or float", cvarname.GetChars(), uniformType.GetChars());
-						ok = false;
-					}
-					break;
-				case CVAR_Int:
-					if(parsedType == UniformType::Int)
-					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback1i<FIntCVar>);
-						Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
-					}
-					else if(parsedType == UniformType::Float)
-					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback1f<FIntCVar>);
-						Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
-					}
-					else
-					{
-						sc.ScriptError("CVar '%s' type (int) is not convertible to uniform type (%s), must be int or float", cvarname.GetChars(), uniformType.GetChars());
-						ok = false;
-					}
-					break;
-				case CVAR_Float:
-					if(parsedType == UniformType::Int)
-					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback1i<FFloatCVar>);
-						Values[0] = cvar->GetGenericRep(CVAR_Float).Float;
-					}
-					else if(parsedType == UniformType::Float)
-					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback1f<FFloatCVar>);
-						Values[0] = cvar->GetGenericRep(CVAR_Float).Float;
-					}
-					else
-					{
-						sc.ScriptError("CVar '%s' type (float) is not convertible to uniform type (%s), must be int or float", cvarname.GetChars(), uniformType.GetChars());
-						ok = false;
-					}
-					break;
-				case CVAR_Color:
-					if(parsedType == UniformType::Vec3)
-					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback_color3f);
+					case CVAR_Bool:
+						if(parsedType == UniformType::Int)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback1i<FBoolCVar>);
+							Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
+						}
+						else if(parsedType == UniformType::Float)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback1f<FBoolCVar>);
+							Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
+						}
+						else
+						{
+							sc.ScriptError("CVar '%s' type (bool) is not convertible to uniform type (%s), must be int or float", cvarname.GetChars(), uniformType.GetChars());
+							ok = false;
+						}
+						break;
+					case CVAR_Int:
+						if(parsedType == UniformType::Int)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback1i<FIntCVar>);
+							Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
+						}
+						else if(parsedType == UniformType::Float)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback1f<FIntCVar>);
+							Values[0] = cvar->GetGenericRep(CVAR_Int).Int;
+						}
+						else
+						{
+							sc.ScriptError("CVar '%s' type (int) is not convertible to uniform type (%s), must be int or float", cvarname.GetChars(), uniformType.GetChars());
+							ok = false;
+						}
+						break;
+					case CVAR_Float:
+						if(parsedType == UniformType::Int)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback1i<FFloatCVar>);
+							Values[0] = cvar->GetGenericRep(CVAR_Float).Float;
+						}
+						else if(parsedType == UniformType::Float)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback1f<FFloatCVar>);
+							Values[0] = cvar->GetGenericRep(CVAR_Float).Float;
+						}
+						else
+						{
+							sc.ScriptError("CVar '%s' type (float) is not convertible to uniform type (%s), must be int or float", cvarname.GetChars(), uniformType.GetChars());
+							ok = false;
+						}
+						break;
+					case CVAR_Color:
+						if(parsedType == UniformType::Vec3)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback_color3f);
 
-						PalEntry col;
-						col.d = cvar->GetGenericRep(CVAR_Int).Int;
-						Values[0] = col.r / 255.0;
-						Values[1] = col.g / 255.0;
-						Values[2] = col.b / 255.0;
-					}
-					else if(parsedType == UniformType::Vec4)
-					{
-						callback = (void (*)(FBaseCVar&))(&uniform_callback_color4f);
+							PalEntry col;
+							col.d = cvar->GetGenericRep(CVAR_Int).Int;
+							Values[0] = col.r / 255.0;
+							Values[1] = col.g / 255.0;
+							Values[2] = col.b / 255.0;
+						}
+						else if(parsedType == UniformType::Vec4)
+						{
+							callback = (void (*)(FBaseCVar&))(&uniform_callback_color4f);
 
-						PalEntry col;
-						col.d = cvar->GetGenericRep(CVAR_Int).Int;
-						Values[0] = col.r / 255.0;
-						Values[1] = col.g / 255.0;
-						Values[2] = col.b / 255.0;
-						Values[3] = col.a / 255.0;
-					}
-					else
-					{
-						sc.ScriptError("CVar '%s' type (color) is not convertible to uniform type (%s), must be vec3 or vec4", cvarname.GetChars(), uniformType.GetChars());
+							PalEntry col;
+							col.d = cvar->GetGenericRep(CVAR_Int).Int;
+							Values[0] = col.r / 255.0;
+							Values[1] = col.g / 255.0;
+							Values[2] = col.b / 255.0;
+							Values[3] = col.a / 255.0;
+						}
+						else
+						{
+							sc.ScriptError("CVar '%s' type (color) is not convertible to uniform type (%s), must be vec3 or vec4", cvarname.GetChars(), uniformType.GetChars());
+							ok = false;
+						}
+						break;
+					default:
+						sc.ScriptError("CVar '%s' type not supported for uniforms!", cvarname.GetChars());
 						ok = false;
+						break;
 					}
-					break;
-				default:
-					sc.ScriptError("CVar '%s' type not supported for uniforms!", cvarname.GetChars());
-					ok = false;
-					break;
 				}
-			}
 
-			if(ok)
-			{
-				while(numShaders > 0)
+				if(ok)
 				{
-					ExtraUniformCVARData* oldextra = (ExtraUniformCVARData*) cvar->GetExtraDataPointer2();
+					while(numShaders > 0)
+					{
+						ExtraUniformCVARData* oldextra = (ExtraUniformCVARData*) cvar->GetExtraDataPointer2();
 
-					ExtraUniformCVARData* extra = new ExtraUniformCVARData;
-					extra->isPP = isPP;
-					extra->ShaderIndex = ShaderIndex;
-					extra->Uniform = uniformName.GetChars();
-					extra->OldCallback = oldextra ? oldextra->OldCallback : cvar->m_Callback;
-					extra->Next = oldextra;
+						ExtraUniformCVARData* extra = new ExtraUniformCVARData;
+						extra->isPP = isPP;
+						extra->ShaderIndex = ShaderIndex;
+						extra->Uniform = uniformName.GetChars();
+						extra->OldCallback = oldextra ? oldextra->OldCallback : cvar->m_Callback;
+						extra->Next = oldextra;
 
-					cvar->SetCallback(callback);
-					cvar->SetExtraDataPointer2(extra);
+						cvar->SetCallback(callback);
+						cvar->SetExtraDataPointer2(extra);
 
-					Uniforms[uniformName].Type = parsedType;
-					Uniforms[uniformName].Values[0] = Values[0];
-					Uniforms[uniformName].Values[1] = Values[1];
-					Uniforms[uniformName].Values[2] = Values[2];
-					Uniforms[uniformName].Values[3] = Values[3];
+						Uniforms[uniformName].Type = parsedType;
+						Uniforms[uniformName].Values[0] = Values[0];
+						Uniforms[uniformName].Values[1] = Values[1];
+						Uniforms[uniformName].Values[2] = Values[2];
+						Uniforms[uniformName].Values[3] = Values[3];
 
-					numShaders--;
-					ShaderIndex++;
+						numShaders--;
+						ShaderIndex++;
+					}
 				}
 			}
 		}
