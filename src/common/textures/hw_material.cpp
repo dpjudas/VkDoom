@@ -36,29 +36,29 @@ CVAR(Bool, gl_customshader, true, 0);
 TArray<UserShaderDesc> usershaders;
 
 
-void FRenderState::SetMaterial(FMaterial *mat, int clampmode, int translation, int overrideshader)
+void FRenderState::SetMaterial(FMaterial *mat, int clampmode, int translation, int overrideshader, PClass *cls)
 {
 	mMaterial.mMaterial = mat;
 	mMaterial.mClampMode = clampmode;
 	mMaterial.mTranslation = translation;
-	if(overrideshader > 0)
+	if(overrideshader >= FIRST_USER_SHADER)
 	{
 		mMaterial.mOverrideShader = overrideshader;
 		mMaterial.globalShaderAddr = {0, 3, 0};
 	}
 	else
-	{ // handle per-map global shaders
+	{ // handle per-map/per-class global shaders
 		GlobalShaderAddr addr;
-		auto globalshader = GetGlobalShader(mat->GetShaderIndex(), nullptr, addr);
+		auto globalshader = GetGlobalShader((overrideshader > 0) ? overrideshader : mat->GetShaderIndex(), cls, addr);
 
-		if(addr.type == 1 && globalshader->shaderindex >= 0)
+		if(addr.type > 0 && globalshader->shaderindex >= 0)
 		{
 			mMaterial.mOverrideShader = globalshader->shaderindex;
 			mMaterial.globalShaderAddr = addr;
 		}
 		else
 		{
-			mMaterial.mOverrideShader = -1;
+			mMaterial.mOverrideShader = overrideshader;
 			mMaterial.globalShaderAddr = {0, 3, 0};
 		}
 	}

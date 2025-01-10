@@ -174,6 +174,11 @@ protected:
 	virtual void DoDrawIndexed(int dt, int index, int count, bool apply) = 0;
 public:
 
+	int getShaderIndex()
+	{
+		return (mMaterial.mOverrideShader > 0) ? mMaterial.mOverrideShader : (mMaterial.mMaterial ? mMaterial.mMaterial->GetShaderIndex() : 0);
+	}
+
 	uint64_t firstFrame = 0;
 
 	void Reset()
@@ -541,10 +546,10 @@ public:
 	}
 
 private:
-	void SetMaterial(FMaterial *mat, int clampmode, int translation, int overrideshader);
+	void SetMaterial(FMaterial *mat, int clampmode, int translation, int overrideshader, PClass *cls);
 
 public:
-	void SetMaterial(FGameTexture* tex, EUpscaleFlags upscalemask, int scaleflags, int clampmode, int translation, int overrideshader)
+	void SetMaterial(FGameTexture* tex, EUpscaleFlags upscalemask, int scaleflags, int clampmode, int translation, int overrideshader, PClass *cls = nullptr)
 	{
 		tex->setSeen();
 		if (!sysCallbacks.PreBindTexture || !sysCallbacks.PreBindTexture(this, tex, upscalemask, scaleflags, clampmode, translation, overrideshader))
@@ -553,12 +558,12 @@ public:
 		}
 		auto mat = FMaterial::ValidateTexture(tex, scaleflags);
 		assert(mat);
-		SetMaterial(mat, clampmode, translation, overrideshader);
+		SetMaterial(mat, clampmode, translation, overrideshader, cls);
 	}
 
-	void SetMaterial(FGameTexture* tex, EUpscaleFlags upscalemask, int scaleflags, int clampmode, FTranslationID translation, int overrideshader)
+	void SetMaterial(FGameTexture* tex, EUpscaleFlags upscalemask, int scaleflags, int clampmode, FTranslationID translation, int overrideshader, PClass *cls = nullptr)
 	{
-		SetMaterial(tex, upscalemask, scaleflags, clampmode, translation.index(), overrideshader);
+		SetMaterial(tex, upscalemask, scaleflags, clampmode, translation.index(), overrideshader, cls);
 	}
 
 
