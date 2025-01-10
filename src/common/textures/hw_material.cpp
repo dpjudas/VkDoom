@@ -32,14 +32,7 @@
 
 CVAR(Bool, gl_customshader, true, 0);
 
-
-static IHardwareTexture* (*layercallback)(int layer, int translation);
 TArray<UserShaderDesc> usershaders;
-
-void FMaterial::SetLayerCallback(IHardwareTexture* (*cb)(int layer, int translation))
-{
-	layercallback = cb;
-}
 
 //===========================================================================
 //
@@ -191,23 +184,10 @@ FMaterial::~FMaterial()
 
 IHardwareTexture* FMaterial::GetLayer(int i, int translation, MaterialLayerInfo** pLayer) const
 {
-	if ((mScaleFlags & CTF_Indexed) && i > 0 && layercallback)
-	{
-		static MaterialLayerInfo deflayer = { nullptr, 0, CLAMP_XY };
-		if (i == 1 || i == 2)
-		{
-			if (pLayer) *pLayer = &deflayer;
-			//This must be done with a user supplied callback because we cannot set up the rules for palette data selection here
-			return layercallback(i, translation);
-		}
-	}
-	else
-	{
-		auto& layer = mTextureLayers[i];
-		if (pLayer) *pLayer = &layer;
-		if (mScaleFlags & CTF_Indexed) translation = -1;
-		if (layer.layerTexture) return layer.layerTexture->GetHardwareTexture(translation, layer.scaleFlags);
-	}
+	auto& layer = mTextureLayers[i];
+	if (pLayer) *pLayer = &layer;
+	if (mScaleFlags & CTF_Indexed) translation = -1;
+	if (layer.layerTexture) return layer.layerTexture->GetHardwareTexture(translation, layer.scaleFlags);
 	return nullptr;
 }
 
