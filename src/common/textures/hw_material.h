@@ -31,7 +31,6 @@ class FMaterial
 	int mScaleFlags;
 
 public:
-	static void SetLayerCallback(IHardwareTexture* (*layercallback)(int layer, int translation));
 
 	FGameTexture *sourcetex;	// the owning texture. 
 
