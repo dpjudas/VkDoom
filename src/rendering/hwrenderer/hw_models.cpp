@@ -134,8 +134,10 @@ void FHWModelRenderer::SetInterpolation(double inter)
 	state.SetInterpolationFactor((float)inter);
 }
 
-void FHWModelRenderer::SetMaterial(FGameTexture *skin, bool clampNoFilter, FTranslationID translation, AActor * act)
+void FHWModelRenderer::SetMaterial(FGameTexture *skin, bool clampNoFilter, FTranslationID translation, void * act_v)
 {
+	AActor * act = static_cast<AActor*>(act_v);
+
 	state.SetMaterial(skin, UF_Skin, 0, clampNoFilter ? CLAMP_NOFILTER : CLAMP_NONE, translation, -1, act ? act->GetClass() : nullptr);
 
 	int shader = state.getShaderIndex();
