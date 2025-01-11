@@ -105,7 +105,7 @@ LevelMeshSurface* LevelMesh::Trace(const FVector3& start, FVector3 direction, fl
 		hitSurface = &Mesh.Surfaces[Mesh.SurfaceIndexes[hit.triangle]];
 
 		int portal = hitSurface->PortalIndex;
-		if (!portal)
+		if (!portal && hitSurface->Alpha >= 1.0)
 		{
 			break;
 		}
