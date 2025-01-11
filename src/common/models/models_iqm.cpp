@@ -469,7 +469,7 @@ double IQMModel::FindFramerate(FName name)
 	return FErr_NotFound;
 }
 
-void IQMModel::RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame1, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, const TArray<VSMatrix>& boneData, int boneStartPosition, AActor * act)
+void IQMModel::RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame1, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, const TArray<VSMatrix>& boneData, int boneStartPosition, void * act)
 {
 	renderer->SetupFrame(this, 0, 0, NumVertices, boneData, boneStartPosition);
 

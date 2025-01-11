@@ -116,7 +116,7 @@ public:
 	int FindFirstFrame(FName name) override;
 	int FindLastFrame(FName name) override;
 	double FindFramerate(FName name) override;
-	void RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, const TArray<VSMatrix>& boneData, int boneStartPosition, AActor * act) override;
+	void RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, const TArray<VSMatrix>& boneData, int boneStartPosition, void * act) override;
 	void BuildVertexBuffer(FModelRenderer* renderer) override;
 	void AddSkins(uint8_t* hitlist, const FTextureID* surfaceskinids) override;
 	const TArray<TRS>* AttachAnimationData() override;

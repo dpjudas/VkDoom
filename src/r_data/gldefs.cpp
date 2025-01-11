@@ -395,8 +395,10 @@ void setUniformF(UniformField field, const FVector4 &val)
 	}
 }
 
-void UserShaderDesc::BindActorFields(AActor * act)
+void UserShaderDesc::BindActorFields(void * act_v)
 {
+	AActor * act = static_cast<AActor *>(act_v);
+
 	TMapIterator<FString, FString> it(ActorFieldBindings);
 	TMap<FString, FString>::Pair * p;
 	while(it.NextPair(p))
