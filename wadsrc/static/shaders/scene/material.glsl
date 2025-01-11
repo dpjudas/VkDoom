@@ -35,6 +35,7 @@ Material CreateMaterial()
 	material.Metallic = 0.0;
 	material.Roughness = 0.0;
 	material.AO = 0.0;
+	material.LightmapCoord = vLightmap.xy;
 	SetupMaterial(material);
 	return material;
 }
@@ -51,9 +52,7 @@ void SetMaterialProps(inout Material material, vec2 texCoord)
 #endif	
 	material.Base = getTexel(texCoord.st); 
 	material.Normal = ApplyNormalMap(texCoord.st);
-
-	material.LightmapCoord = vLightmap.xy;
-
+    
 // OpenGL doesn't care, but Vulkan pukes all over the place if these texture samplings are included in no-texture shaders, even though never called.
 #ifndef NO_LAYERS
 	#if defined(TEXF_Brightmap)
