@@ -63,7 +63,7 @@ vec4 getLightColor(Material material)
 	//
 	if (vLightmap.z >= 0.0)
 	{
-		color.rgb += texture(LightMap, vec3(material.LightmapCoord.xy, vLightmap.z)).rgb;
+		color.rgb += texture(LightMap, vLightmap).rgb;
 	}
 
 	//
