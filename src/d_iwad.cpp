@@ -598,38 +598,82 @@ int FIWadManager::IdentifyVersion (std::vector<std::string>&wadfiles, const char
 
 	if (iwadparm)
 	{
-		const char* const extensions[] = { ".wad", ".pk3", ".iwad", ".ipk3", ".ipk7" };
-
-		for (auto ext : extensions)
+		// Check if the given IWAD is a directory
+		bool isdiriwad = false;
 		{
-			// Check if the given IWAD has an absolute path, in which case the search path will be ignored.
 			custwad = iwadparm;
 			FixPathSeperator(custwad);
-			DefaultExtension(custwad, ext);
 			bool isAbsolute = (custwad[0] == '/');
 #ifdef _WIN32
 			isAbsolute |= (custwad.Len() >= 2 && custwad[1] == ':');
 #endif
 			if (isAbsolute)
 			{
-				if (FileExists(custwad)) mFoundWads.Push({ custwad, "", -1 });
-			}
-			else
-			{
-				for (auto &dir : mSearchPaths)
+				bool isdir = false;
+				if (FileSys::FS_DirEntryExists(custwad.GetChars(), &isdir))
 				{
-					FStringf fullpath("%s/%s", dir.GetChars(), custwad.GetChars());
-					if (FileExists(fullpath))
+					if (isdir)
 					{
-						mFoundWads.Push({ fullpath, "", -1 });
+						mFoundWads.Push({ custwad, "", -1 });
+						isdiriwad = true;
 					}
 				}
 			}
-
-			if (mFoundWads.Size() != numFoundWads)
+			else
 			{
-				// Found IWAD with guessed extension
-				break;
+				for (auto& dir : mSearchPaths)
+				{
+					FStringf fullpath("%s/%s", dir.GetChars(), custwad.GetChars());
+					bool isdir = false;
+					if (FileSys::FS_DirEntryExists(custwad.GetChars(), &isdir))
+					{
+						if (isdir)
+						{
+							mFoundWads.Push({ fullpath, "", -1 });
+							isdiriwad = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		// If it is not a directory, check if its a file with a known file extension
+		if (!isdiriwad)
+		{
+			const char* const extensions[] = { ".wad", ".pk3", ".iwad", ".ipk3", ".ipk7" };
+
+			for (auto ext : extensions)
+			{
+				// Check if the given IWAD has an absolute path, in which case the search path will be ignored.
+				custwad = iwadparm;
+				FixPathSeperator(custwad);
+				DefaultExtension(custwad, ext);
+				bool isAbsolute = (custwad[0] == '/');
+#ifdef _WIN32
+				isAbsolute |= (custwad.Len() >= 2 && custwad[1] == ':');
+#endif
+				if (isAbsolute)
+				{
+					if (FileExists(custwad)) mFoundWads.Push({ custwad, "", -1 });
+				}
+				else
+				{
+					for (auto& dir : mSearchPaths)
+					{
+						FStringf fullpath("%s/%s", dir.GetChars(), custwad.GetChars());
+						if (FileExists(fullpath))
+						{
+							mFoundWads.Push({ fullpath, "", -1 });
+						}
+					}
+				}
+
+				if (mFoundWads.Size() != numFoundWads)
+				{
+					// Found IWAD with guessed extension
+					break;
+				}
 			}
 		}
 	}
@@ -639,6 +683,13 @@ int FIWadManager::IdentifyVersion (std::vector<std::string>&wadfiles, const char
 	// Check for symbolic links leading to non-existent files and for files that are unreadable.
 	for (unsigned int i = 0; i < mFoundWads.Size(); i++)
 	{
+		bool isdir = false;
+		if (FileSys::FS_DirEntryExists(mFoundWads[i].mFullPath.GetChars(), &isdir))
+		{
+			if (isdir)
+				continue;
+		}
+
 		if (!FileExists(mFoundWads[i].mFullPath) || !FileReadable(mFoundWads[i].mFullPath.GetChars())) mFoundWads.Delete(i--);
 	}
 
