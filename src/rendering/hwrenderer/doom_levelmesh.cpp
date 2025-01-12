@@ -127,20 +127,6 @@ CCMD(invalidatelightmap)
 	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->Lightmap.Tiles.Size());
 }
 
-CCMD(savelightmap)
-{
-	if (!RequireLightmap()) return;
-
-	level.levelMesh->SaveLightmapLump(level);
-}
-
-CCMD(deletelightmap)
-{
-	if (!RequireLightmap()) return;
-
-	level.levelMesh->DeleteLightmapLump(level);
-}
-
 CCMD(cpublasinfo)
 {
 	if (!level.levelMesh || !level.levelMesh->Collision)

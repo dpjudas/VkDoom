@@ -110,8 +110,36 @@ LightmapDeleteCmdlet::LightmapDeleteCmdlet()
 
 void LightmapDeleteCmdlet::OnCommand(FArgs args)
 {
-	RunInGame([]() {
-		Printf("Deleting LIGHTMAP lump!\n");
+	// Pretty lame that we have to load the map here, but cba to figure out how to deal with map loading outside the engine...
+
+	RunInGame([&]() {
+		FString mapname;
+		if (args.NumArgs() > 0 && args.GetArg(0)[0] != '-')
+			mapname = args.GetArg(0);
+		else
+			mapname = "map01";
+
+		G_SetMap(mapname.GetChars(), 0);
+		for (int i = 0; i < 100; i++)
+		{
+			D_SingleTick();
+			if (gameaction == ga_nothing)
+				break;
+		}
+
+		if (!level.levelMesh)
+		{
+			Printf("No level mesh. Perhaps your level has no lightmap loaded?\n");
+			return;
+		}
+
+		if (!level.lightmaps)
+		{
+			Printf("Lightmap is not enabled in this level.\n");
+		}
+
+		level.levelMesh->DeleteLightmapLump(level);
+		
 	});
 }
 
