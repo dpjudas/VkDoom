@@ -14,7 +14,6 @@ struct Material
 	float Metallic;
 	float Roughness;
 	float AO;
-	vec2 LightmapCoord;
 };
 
 vec4 Process(vec4 color);
@@ -35,7 +34,6 @@ Material CreateMaterial()
 	material.Metallic = 0.0;
 	material.Roughness = 0.0;
 	material.AO = 0.0;
-	material.LightmapCoord = vLightmap.xy;
 	SetupMaterial(material);
 	return material;
 }
