@@ -58,27 +58,26 @@ void SetMaterialProps(inout Material material, vec2 texCoord)
 	#if defined(TEXF_Brightmap)
 		material.Bright = desaturate(texture(brighttexture, texCoord.st));
 	#endif
-    
+	
 	#if defined(TEXF_Detailmap)
 		vec4 Detail = texture(detailtexture, texCoord.st * uDetailParms.xy) * uDetailParms.z;
 		material.Base.rgb *= Detail.rgb;
 	#endif
-    
+	
 	#if defined(TEXF_Glowmap)
 		material.Glow = desaturate(texture(glowtexture, texCoord.st));
 	#endif
-    
-    #ifdef PBR
-        material.Metallic = texture(metallictexture, texCoord.st).r;
-        material.Roughness = texture(roughnesstexture, texCoord.st).r;
-        material.AO = texture(aotexture, texCoord.st).r;
-    #endif
-    
-    #ifdef SPECULAR
-        material.Specular = texture(speculartexture, texCoord.st).rgb;
-        material.Glossiness = uSpecularMaterial.x;
-        material.SpecularLevel = uSpecularMaterial.y;
-    #endif
-#endif
-    
+	
+	#ifdef PBR
+		material.Metallic = texture(metallictexture, texCoord.st).r;
+		material.Roughness = texture(roughnesstexture, texCoord.st).r;
+		material.AO = texture(aotexture, texCoord.st).r;
+	#endif
+	
+	#ifdef SPECULAR
+		material.Specular = texture(speculartexture, texCoord.st).rgb;
+		material.Glossiness = uSpecularMaterial.x;
+		material.SpecularLevel = uSpecularMaterial.y;
+	#endif
+#endif   
 }
