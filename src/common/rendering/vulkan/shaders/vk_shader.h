@@ -104,7 +104,8 @@ public:
 			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
 			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
 			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
-			uint64_t Unused : 32;
+			uint64_t Simple3D : 1; // SIMPLE3D
+			uint64_t Unused : 31;
 		};
 		uint64_t AsQWORD = 0;
 	};

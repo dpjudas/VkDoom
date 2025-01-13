@@ -1240,7 +1240,7 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 		state.SetFogballIndex(-1);
 	}
 
-	state.SetWireframe(0, {});
+	state.SetWireframe(0);
 
 }
 

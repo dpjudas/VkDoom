@@ -36,7 +36,7 @@ void main()
 		vColor = aColor;
 	#endif
 
-	#ifndef SIMPLE
+	#if !defined(SIMPLE) || defined(SIMPLE3D)
 		vLightmap = vec3(aLightmap, aPosition.w);
 
 		pixelpos.xyz = worldcoord.xyz;
@@ -69,7 +69,7 @@ void main()
 		vWorldNormal = NormalModelMatrix * vec4(normalize(bones.Normal), 1.0);
 		vEyeNormal = NormalViewMatrix * vec4(normalize(vWorldNormal.xyz), 1.0);
 	#endif
-
+	
 	#ifdef SPHEREMAP
 		vec3 u = normalize(eyeCoordPos.xyz);
 		vec4 n = normalize(NormalViewMatrix * vec4(parmTexCoord.x, 0.0, parmTexCoord.y, 0.0));
@@ -122,6 +122,6 @@ void main()
 #endif
 
 	gl_PointSize = 1.0;
-    
-    ModifyVertex();
+	
+	ModifyVertex();
 }

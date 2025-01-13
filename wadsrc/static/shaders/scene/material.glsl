@@ -1,6 +1,8 @@
 
-#include "shaders/scene/material_getTexel.glsl"
-#include "shaders/scene/material_normalmap.glsl"
+#ifndef SIMPLE3D
+	#include "shaders/scene/material_getTexel.glsl"
+	#include "shaders/scene/material_normalmap.glsl"
+#endif
 
 struct Material
 {
@@ -38,44 +40,46 @@ Material CreateMaterial()
 	return material;
 }
 
-void SetMaterialProps(inout Material material, vec2 texCoord)
-{
-#ifdef NPOT_EMULATION
-	if (uNpotEmulation.y != 0.0)
+#ifndef SIMPLE3D
+	void SetMaterialProps(inout Material material, vec2 texCoord)
 	{
-		float period = floor(texCoord.t / uNpotEmulation.y);
-		texCoord.s += uNpotEmulation.x * floor(mod(texCoord.t, uNpotEmulation.y));
-		texCoord.t = period + mod(texCoord.t, uNpotEmulation.y);
+		#ifdef NPOT_EMULATION
+			if (uNpotEmulation.y != 0.0)
+			{
+				float period = floor(texCoord.t / uNpotEmulation.y);
+				texCoord.s += uNpotEmulation.x * floor(mod(texCoord.t, uNpotEmulation.y));
+				texCoord.t = period + mod(texCoord.t, uNpotEmulation.y);
+			}
+		#endif	
+			material.Base = getTexel(texCoord.st); 
+			material.Normal = ApplyNormalMap(texCoord.st);
+			
+		// OpenGL doesn't care, but Vulkan pukes all over the place if these texture samplings are included in no-texture shaders, even though never called.
+		#ifndef NO_LAYERS
+			#if defined(TEXF_Brightmap)
+				material.Bright = desaturate(texture(brighttexture, texCoord.st));
+			#endif
+			
+			#if defined(TEXF_Detailmap)
+				vec4 Detail = texture(detailtexture, texCoord.st * uDetailParms.xy) * uDetailParms.z;
+				material.Base.rgb *= Detail.rgb;
+			#endif
+			
+			#if defined(TEXF_Glowmap)
+				material.Glow = desaturate(texture(glowtexture, texCoord.st));
+			#endif
+			
+			#ifdef PBR
+				material.Metallic = texture(metallictexture, texCoord.st).r;
+				material.Roughness = texture(roughnesstexture, texCoord.st).r;
+				material.AO = texture(aotexture, texCoord.st).r;
+			#endif
+			
+			#ifdef SPECULAR
+				material.Specular = texture(speculartexture, texCoord.st).rgb;
+				material.Glossiness = uSpecularMaterial.x;
+				material.SpecularLevel = uSpecularMaterial.y;
+			#endif
+		#endif
 	}
-#endif	
-	material.Base = getTexel(texCoord.st); 
-	material.Normal = ApplyNormalMap(texCoord.st);
-    
-// OpenGL doesn't care, but Vulkan pukes all over the place if these texture samplings are included in no-texture shaders, even though never called.
-#ifndef NO_LAYERS
-	#if defined(TEXF_Brightmap)
-		material.Bright = desaturate(texture(brighttexture, texCoord.st));
-	#endif
-	
-	#if defined(TEXF_Detailmap)
-		vec4 Detail = texture(detailtexture, texCoord.st * uDetailParms.xy) * uDetailParms.z;
-		material.Base.rgb *= Detail.rgb;
-	#endif
-	
-	#if defined(TEXF_Glowmap)
-		material.Glow = desaturate(texture(glowtexture, texCoord.st));
-	#endif
-	
-	#ifdef PBR
-		material.Metallic = texture(metallictexture, texCoord.st).r;
-		material.Roughness = texture(roughnesstexture, texCoord.st).r;
-		material.AO = texture(aotexture, texCoord.st).r;
-	#endif
-	
-	#ifdef SPECULAR
-		material.Specular = texture(speculartexture, texCoord.st).rgb;
-		material.Glossiness = uSpecularMaterial.x;
-		material.SpecularLevel = uSpecularMaterial.y;
-	#endif
-#endif   
-}
+#endif

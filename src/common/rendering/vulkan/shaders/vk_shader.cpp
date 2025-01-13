@@ -235,6 +235,7 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 	if (!key.AlphaTest) definesBlock << "#define NO_ALPHATEST\n";
 	if (key.GBufferPass) definesBlock << "#define GBUFFER_PASS\n";
 	if (key.AlphaTestOnly) definesBlock << "#define ALPHATEST_ONLY\n";
+	if (key.Simple3D) definesBlock << "#define SIMPLE\n#define SIMPLE3D\n";
 
 	switch(key.LightBlendMode)
 	{
