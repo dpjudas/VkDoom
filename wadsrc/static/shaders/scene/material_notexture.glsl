@@ -1,5 +1,9 @@
 
 void SetupMaterial(inout Material material)
 {
-	material.Base = desaturate(uObjectColor);
+	#ifdef SIMPLE3D
+		material.Base = uObjectColor;
+	#else
+		material.Base = desaturate(uObjectColor);
+	#endif
 }

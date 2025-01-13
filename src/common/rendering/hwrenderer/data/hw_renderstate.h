@@ -246,10 +246,32 @@ public:
 		mSurfaceUniforms.uVertexNormal = { norm.X, norm.Y, norm.Z, 0.f };
 	}
 
+	void SetWireframe(int mode)
+	{
+		mWireframe = mode;
+		mWireframeColor = toFVector4(PalEntry(0xffffffff));
+	}
+
 	void SetWireframe(int mode, FVector4 color)
 	{
 		mWireframe = mode;
 		mWireframeColor = color;
+	}
+
+	void SetWireframe(int mode, PalEntry color)
+	{
+		mWireframe = mode;
+		mWireframeColor = toFVector4(color);
+	}
+
+	void SetWireframeColor(FVector4 color)
+	{
+		mWireframeColor = color;
+	}
+
+	void SetWireframeColor(PalEntry color)
+	{
+		mWireframeColor = toFVector4(color);
 	}
 
 	void SetNormal(float x, float y, float z)
@@ -565,7 +587,6 @@ public:
 	{
 		SetMaterial(tex, upscalemask, scaleflags, clampmode, translation.index(), overrideshader, cls);
 	}
-
 
 	void SetClipSplit(float bottom, float top)
 	{

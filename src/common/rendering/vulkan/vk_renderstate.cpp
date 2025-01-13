@@ -283,6 +283,8 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.Detailmap = (uTextureMode & TEXF_Detailmap) != 0;
 	pipelineKey.ShaderKey.Glowmap = (uTextureMode & TEXF_Glowmap) != 0;
 
+	pipelineKey.ShaderKey.Simple3D = mWireframe; // simple notexture drawing for wireframe
+
 	pipelineKey.ShaderKey.DepthFadeThreshold = mSurfaceUniforms.uDepthFadeThreshold > 0.0f;
 
 	// The way GZDoom handles state is just plain insanity!
@@ -1114,6 +1116,8 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	pipelineKey.CullMode = mCullMode;
 	if (!mTextureEnabled || mWireframe)
 		pipelineKey.ShaderKey.EffectState = SHADER_NoTexture;
+
+	pipelineKey.ShaderKey.Simple3D = mWireframe; // simple notexture drawing for wireframe
 
 	mPipelineKey = pipelineKey;
 

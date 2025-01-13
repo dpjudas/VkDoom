@@ -7,3 +7,9 @@
 #include "shaders/scene/light_spot.glsl"
 
 #endif
+
+#ifdef SIMPLE3D
+
+#include "shaders/scene/material.glsl"
+
+#endif
