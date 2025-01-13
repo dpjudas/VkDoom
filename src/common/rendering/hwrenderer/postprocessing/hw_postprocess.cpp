@@ -1157,13 +1157,6 @@ void UserUniforms::AddUniformField(size_t &offset, const FString &name, UniformT
 	FieldNames.Insert(name, Fields.size());
 	Fields.push_back({ name, type, offset });
 	offset += fieldsize;
-
-	if (fieldsize != alignment) // Workaround for buggy OpenGL drivers that does not do std140 layout correctly for vec3
-	{
-		FString name2 = name + "_F39350FF12DE_padding";
-		Fields.push_back({ name2, UniformType::Float, offset });
-		offset += alignment - fieldsize;
-	}
 }
 
 
