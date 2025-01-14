@@ -264,6 +264,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 	{
 		pipelineKey.ShaderKey.SpecialEffect = mSpecialEffect;
 		pipelineKey.ShaderKey.EffectState = 0;
+		pipelineKey.ShaderKey.Simple = (mSpecialEffect == EFF_BURN || mSpecialEffect == EFF_STENCIL || mSpecialEffect == EFF_PORTAL);
 		pipelineKey.ShaderKey.AlphaTest = false;
 	}
 	else
@@ -274,6 +275,9 @@ void VkRenderState::ApplyRenderPass(int dt)
 		if (r_skipmats && pipelineKey.ShaderKey.EffectState >= 3 && pipelineKey.ShaderKey.EffectState <= 4)
 			pipelineKey.ShaderKey.EffectState = 0;
 		pipelineKey.ShaderKey.AlphaTest = mSurfaceUniforms.uAlphaThreshold >= 0.f;
+
+		pipelineKey.ShaderKey.Simple = mWireframe;
+		pipelineKey.ShaderKey.Simple3D = mWireframe; // simple notexture drawing for wireframe
 	}
 
 	int uTextureMode = GetTextureModeAndFlags((mMaterial.mMaterial && mMaterial.mMaterial->Source()->isHardwareCanvas()) ? TM_OPAQUE : TM_NORMAL);
@@ -282,8 +286,6 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.Brightmap = (uTextureMode & TEXF_Brightmap) != 0;
 	pipelineKey.ShaderKey.Detailmap = (uTextureMode & TEXF_Detailmap) != 0;
 	pipelineKey.ShaderKey.Glowmap = (uTextureMode & TEXF_Glowmap) != 0;
-
-	pipelineKey.ShaderKey.Simple3D = mWireframe; // simple notexture drawing for wireframe
 
 	pipelineKey.ShaderKey.DepthFadeThreshold = mSurfaceUniforms.uDepthFadeThreshold > 0.0f;
 

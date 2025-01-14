@@ -81,3 +81,41 @@ float noise1(float) { return 0; }
 vec2 noise2(vec2) { return vec2(0); }
 vec3 noise3(vec3) { return vec3(0); }
 vec4 noise4(vec4) { return vec4(0); }
+
+vec4 texture(int index, vec2 p)
+{
+#ifndef FRAGSHADER
+	return textureLod(textures[uTextureIndex + index], p, 0.0);
+#else
+	return texture(textures[uTextureIndex + index], p);
+#endif
+}
+
+vec4 texture(int index, vec2 p, float bias)
+{
+#ifndef FRAGSHADER
+	return textureLod(textures[uTextureIndex + index], p, 0.0);
+#else
+	return texture(textures[uTextureIndex + index], p, bias);
+#endif
+}
+
+ivec2 textureSize(int index, int lod)
+{
+	return textureSize(textures[uTextureIndex + index], lod);
+}
+
+vec4 textureGrad(int index, vec2 P, vec2 dPdx, vec2 dPdy)
+{
+	return textureGrad(textures[uTextureIndex + index], P, dPdx, dPdy);
+}
+
+vec4 textureLod(int index, vec2 P, float lod)
+{
+	return textureLod(textures[uTextureIndex + index], P, lod);
+}
+
+vec4 texelFetch(int index, ivec2 P, int lod)
+{
+	return texelFetch(textures[uTextureIndex + index], P, lod);
+}

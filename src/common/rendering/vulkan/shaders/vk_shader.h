@@ -80,7 +80,9 @@ public:
 		struct
 		{
 			uint64_t AlphaTest : 1;     // !NO_ALPHATEST
-			uint64_t Simple2D : 1;      // uFogEnabled == -3
+			uint64_t Simple : 1;		// SIMPLE
+			uint64_t Simple2D : 1;      // SIMPLE2D, uFogEnabled == -3
+			uint64_t Simple3D : 1;		// SIMPLE3D
 			uint64_t TextureMode : 3;   // uTextureMode & 0xffff
 			uint64_t ClampY : 1;        // uTextureMode & TEXF_ClampY
 			uint64_t Brightmap : 1;     // uTextureMode & TEXF_Brightmap
@@ -104,8 +106,8 @@ public:
 			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
 			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
 			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
-			uint64_t Simple3D : 1; // SIMPLE3D
-			uint64_t Unused : 31;
+			uint64_t ShadeVertex : 2; // 0 = nothing, 1 = SHADE_VERTEX, 2 = SHADE_VERTEX_CENTER
+			uint64_t Unused : 28;
 		};
 		uint64_t AsQWORD = 0;
 	};
