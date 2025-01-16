@@ -1,4 +1,4 @@
-#include <shaders/lightmap/binding_struct_definitions.glsl>
+#include <shaders/binding_struct_definitions.glsl>
 
 layout(set = 0, binding = 0, std430) buffer readonly SurfaceIndexBuffer { uint surfaceIndices[]; };
 layout(set = 0, binding = 1, std430) buffer readonly SurfaceBuffer { SurfaceInfo surfaces[]; };

@@ -48,7 +48,7 @@ float traceHit(vec3 origin, vec3 direction, float dist)
 	#endif
 }
 
-float traceShadow(vec4 lightpos, float softShadowRadius)
+float traceShadow(vec3 lightpos, float softShadowRadius)
 {
 	vec3 origin = pixelpos.xyz + vWorldNormal.xyz;
 	vec3 target = lightpos.xyz + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
@@ -82,14 +82,8 @@ float traceShadow(vec4 lightpos, float softShadowRadius)
 #endif
 }
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)
+float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius)
 {
-	float shadowIndex = abs(lightcolorA) - 1.0;
-	if (shadowIndex >= 16000000.0)
-		return 1.0; // No shadowmap available for this light
-
-	if (lightpos.w > 1000000.0)
-		return 1.0; // Sunlight
 	return traceShadow(lightpos, softShadowRadius);
 }
 
@@ -200,7 +194,7 @@ float sampleShadowmapPCF(vec3 planePoint, float v)
 	return sum / (SHADOWMAP_FILTER * 2.0 + 1.0);
 }
 
-float shadowmapAttenuation(vec4 lightpos, float shadowIndex)
+float shadowmapAttenuation(vec3 lightpos, float shadowIndex)
 {
 	vec3 planePoint = pixelpos.xyz - lightpos.xyz;
 	planePoint += 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
@@ -217,21 +211,17 @@ float shadowmapAttenuation(vec4 lightpos, float shadowIndex)
 	#endif
 }
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)
+float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius)
 {
-	if (lightpos.w > 1000000.0)
-		return 1.0; // Sunlight
-
-	float shadowIndex = abs(lightcolorA) - 1.0;
-	if (shadowIndex >= 1024.0)
+	if (shadowIndex >= 1024)
 		return 1.0; // No shadowmap available for this light
-
-	return shadowmapAttenuation(lightpos, shadowIndex);
+	
+	return shadowmapAttenuation(lightpos, float(shadowIndex));
 }
 
 #else
 
-float shadowAttenuation(vec4 lightpos, float lightcolorA, float softShadowRadius)
+float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius)
 {
 	return 1.0;
 }

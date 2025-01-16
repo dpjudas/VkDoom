@@ -1,3 +1,25 @@
+//#include <shaders/binding_struct_definitions.glsl> //doesn't work somehow?
+
+struct DynLightInfo
+{
+	vec3 pos; float padding0;
+	vec3 color; float padding1;
+	vec3 spotDir; float padding2;
+	float radius;
+	float linarity;
+	float softShadowRadius;
+	float strength;
+	float spotInnerAngle;
+	float spotOuterAngle;
+	int shadowIndex;
+	int flags;
+};
+
+struct LightTileBlock
+{
+	ivec4 indices;
+	DynLightInfo lights[16];
+};
 
 #define TILE_SIZE 64
 
@@ -7,12 +29,13 @@ layout(set = 0, binding = 0, rg32f) readonly uniform image2D zminmax;
 
 layout(set = 0, binding = 1) readonly buffer Lights
 {
-	vec4 lights[];
+	ivec4 indices;
+	DynLightInfo lights[];
 };
 
 layout(set = 0, binding = 2) buffer Tiles
 {
-	vec4 tiles[];
+	LightTileBlock tiles[];
 };
 
 layout(push_constant) uniform LightTilesPushConstants
@@ -40,70 +63,57 @@ void main()
 	ivec2 tilePos = ivec2(gl_GlobalInvocationID.xy);
 	if (tilePos.x >= zminmaxSize.x || tilePos.y >= zminmaxSize.y)
 		return;
-
+	
 	vec2 minmax = imageLoad(zminmax, tilePos).xy;
 	float zmin = minmax.x;
 	float zmax = minmax.y;
 	Tile tile = findTileFrustum(zmin, zmax, tilePos.x, tilePos.y);
-
+	
 	const int maxLights = 16;
-	const int lightSize = 4;
-	int tileOffset = (tilePos.x + tilePos.y * zminmaxSize.x) * (1 + maxLights * lightSize);
-
-	ivec4 inRanges = ivec4(lights[0]) + ivec4(1);
+	int tileOffset = (tilePos.x + tilePos.y * zminmaxSize.x);
+	
+	ivec4 inRanges = indices;
 	ivec4 outRanges = ivec4(0);
-
+	
 	int count = 0;
-	int offset = tileOffset + 1;
-	for (int i = inRanges.x; i < inRanges.y; i += 4)
+	
+	if(count < maxLights) for (int i = inRanges.x; i < inRanges.y; i++)
 	{
-		vec4 inLight = lights[i];
-		vec3 pos = (worldToView * vec4(inLight.xyz, 1.0)).xyz;
-		float radius = inLight.w;
+		vec3 pos = (worldToView * vec4(lights[i].pos, 1.0)).xyz;
+		float radius = lights[i].radius;
 		if (isLightVisible(tile, pos, radius))
 		{
-			tiles[offset++] = inLight;
-			tiles[offset++] = lights[i + 1];
-			tiles[offset++] = lights[i + 2];
-			tiles[offset++] = lights[i + 3];
-			count += 4;
+			tiles[tileOffset].lights[count++] = lights[i];
+			if(count == maxLights) break;
 		}
 	}
 	outRanges.y = count;
-
-	for (int i = inRanges.y; i < inRanges.z; i += 4)
+	
+	if(count < maxLights) for (int i = inRanges.y; i < inRanges.z; i++)
 	{
-		vec4 inLight = lights[i];
-		vec3 pos = (worldToView * vec4(inLight.xyz, 1.0)).xyz;
-		float radius = inLight.w;
+		vec3 pos = (worldToView * vec4(lights[i].pos, 1.0)).xyz;
+		float radius = lights[i].radius;
 		if (isLightVisible(tile, pos, radius))
 		{
-			tiles[offset++] = inLight;
-			tiles[offset++] = lights[i + 1];
-			tiles[offset++] = lights[i + 2];
-			tiles[offset++] = lights[i + 3];
-			count += 4;
+			tiles[tileOffset].lights[count++] = lights[i];
+			if(count == maxLights) break;
 		}
 	}
 	outRanges.z = count;
-
-	for (int i = inRanges.z; i < inRanges.w; i += 4)
+	
+	if(count < maxLights) for (int i = inRanges.z; i < inRanges.w; i++)
 	{
-		vec4 inLight = lights[i];
-		vec3 pos = (worldToView * vec4(inLight.xyz, 1.0)).xyz;
-		float radius = inLight.w;
+		vec3 pos = (worldToView * vec4(lights[i].pos, 1.0)).xyz;
+		float radius = lights[i].radius;
 		if (isLightVisible(tile, pos, radius))
 		{
-			tiles[offset++] = inLight;
-			tiles[offset++] = lights[i + 1];
-			tiles[offset++] = lights[i + 2];
-			tiles[offset++] = lights[i + 3];
-			count += 4;
+			tiles[tileOffset].lights[count++] = lights[i];
+			if(count == maxLights) break;
 		}
 	}
 	outRanges.w = count;
-
-	tiles[tileOffset] = vec4(outRanges);
+	
+	tiles[tileOffset].indices = outRanges;
 }
 
 bool isLightVisible(Tile tile, vec3 lightPos, float lightRadius)
@@ -136,5 +146,5 @@ Tile findTileFrustum(float viewZNear, float viewZFar, uint tileX, uint tileY)
 
 vec3 unprojectDirection(vec2 pos)
 {
-    return vec3(posToViewA * (pos - viewportPos) + posToViewB, 1.0f);
+	return vec3(posToViewA * (pos - viewportPos) + posToViewB, 1.0f);
 }

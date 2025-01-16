@@ -1,4 +1,4 @@
-#include <shaders/lightmap/binding_struct_definitions.glsl>
+#include <shaders/binding_struct_definitions.glsl>
 
 #if defined(USE_RAYQUERY)
 

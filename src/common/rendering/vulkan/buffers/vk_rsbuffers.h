@@ -38,8 +38,9 @@ public:
 	struct
 	{
 		int UploadIndex = 0;
-		int Count = 80000;
-		std::unique_ptr<VulkanBuffer> UBO;
+		int DataIndex = 0;
+		int Count = MAX_LIGHT_DATA;
+		std::unique_ptr<VulkanBuffer> SSO;
 		void* Data = nullptr;
 	} Lightbuffer;
 

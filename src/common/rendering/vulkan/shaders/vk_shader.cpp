@@ -290,9 +290,6 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 		}
 	}
 	layoutBlock << "};\n";
-	layoutBlock << "#line 1\n";
-
-	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
 
 	if(!isFrag)
 	{
@@ -316,6 +313,10 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 		int index = 0;
 		AddBuiltinFields(layoutBlock, index, false, fragShaderOutputs, key, hasClipDistance);
 	}
+
+	layoutBlock << "#line 1\n";
+
+	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
 
 }
 
