@@ -330,7 +330,7 @@ void VkRenderBuffers::CreateSceneLightTiles(int width, int height)
 	height = (height + 63) / 64;
 
 	// Make room for 16 lights plus the lightdata header
-	size_t blockSize = (1 + 4 * 16) * sizeof(FVector4);
+	size_t blockSize = (4 * sizeof(int)) + 16 * sizeof(FDynLightInfo);
 
 	SceneLightTiles = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)

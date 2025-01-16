@@ -10,6 +10,8 @@
 #include <list>
 #include <map>
 
+#include "hw_dynlightdata.h"
+
 #include "hwrenderer/postprocessing/hw_useruniforms.h"
 
 class ShaderIncludeResult;
@@ -33,11 +35,11 @@ struct SurfaceUniformsUBO
 	SurfaceUniforms data[MAX_SURFACE_UNIFORMS];
 };
 
-#define MAX_LIGHT_DATA ((int)(65536 / sizeof(FVector4)))
-
-struct LightBufferUBO
+struct LightBufferSSO
 {
-	FVector4 lights[MAX_LIGHT_DATA];
+	//TODO deduplicate individual lights
+	int lightIndex[MAX_LIGHT_DATA * 4];
+	FDynLightInfo lights[MAX_LIGHT_DATA];
 };
 
 #define MAX_FOGBALL_DATA ((int)(65536 / sizeof(Fogball)))

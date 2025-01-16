@@ -537,7 +537,7 @@ void VkRenderState::ApplyBufferSets()
 {
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
 	uint32_t surfaceUniformsOffset = mRSBuffers->SurfaceUniformsBuffer->Offset();
-	uint32_t lightsOffset = mLightIndex >= 0 ? (uint32_t)(mLightIndex / MAX_LIGHT_DATA) * sizeof(LightBufferUBO) : mLastLightsOffset;
+	uint32_t lightsOffset = mLightIndex >= 0 ? (uint32_t)(mLightIndex / MAX_LIGHT_DATA) * sizeof(LightBufferSSO) : mLastLightsOffset;
 	uint32_t fogballsOffset = mFogballIndex >= 0 ? (uint32_t)(mFogballIndex / MAX_FOGBALL_DATA) * sizeof(FogballBufferUBO) : mLastFogballsOffset;
 	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || surfaceUniformsOffset != mLastSurfaceUniformsOffset || lightsOffset != mLastLightsOffset || fogballsOffset != mLastFogballsOffset)
 	{
@@ -603,51 +603,31 @@ void VkRenderState::SetTextureMatrix(const VSMatrix& matrix)
 int VkRenderState::UploadLights(const FDynLightData& data)
 {
 	// All meaasurements here are in vec4's.
-	int size0 = data.arrays[0].Size() / 4;
-	int size1 = data.arrays[1].Size() / 4;
-	int size2 = data.arrays[2].Size() / 4;
-	int totalsize = size0 + size1 + size2 + 1;
+	int size0 = data.arrays[LIGHTARRAY_NORMAL].Size();
+	int size1 = data.arrays[LIGHTARRAY_SUBTRACTIVE].Size();
+	int size2 = data.arrays[LIGHTARRAY_ADDITIVE].Size();
+	int totalsize = size0 + size1 + size2;
 
-	// Clamp lights so they aren't bigger than what fits into a single dynamic uniform buffer page
-	if (totalsize > MAX_LIGHT_DATA)
+	int indexindex = mRSBuffers->Lightbuffer.UploadIndex;
+	int dataindex = mRSBuffers->Lightbuffer.DataIndex;
+
+	if((indexindex <= mRSBuffers->Lightbuffer.Count) && (dataindex + totalsize <= mRSBuffers->Lightbuffer.Count))
 	{
-		int diff = totalsize - MAX_LIGHT_DATA;
+		mRSBuffers->Lightbuffer.UploadIndex++;
 
-		size2 -= diff;
-		if (size2 < 0)
-		{
-			size1 += size2;
-			size2 = 0;
-		}
-		if (size1 < 0)
-		{
-			size0 += size1;
-			size1 = 0;
-		}
-		totalsize = size0 + size1 + size2 + 1;
-	}
+		mRSBuffers->Lightbuffer.DataIndex += totalsize;
 
-	// Check if we still have any lights
-	if (totalsize <= 1)
-		return -1;
+		int parmcnt[] = { dataindex, dataindex + size0, dataindex + size0 + size1, dataindex + size0 + size1 + size2 };
 
-	// Make sure the light list doesn't cross a page boundary
-	if (mRSBuffers->Lightbuffer.UploadIndex % MAX_LIGHT_DATA + totalsize > MAX_LIGHT_DATA)
-		mRSBuffers->Lightbuffer.UploadIndex = (mRSBuffers->Lightbuffer.UploadIndex / MAX_LIGHT_DATA + 1) * MAX_LIGHT_DATA;
+		int* indexptr = ((int*)mRSBuffers->Lightbuffer.Data) + (indexindex * 4);
+		memcpy(indexptr, parmcnt, sizeof(int) * 4);
 
-	int thisindex = mRSBuffers->Lightbuffer.UploadIndex;
-	if (thisindex + totalsize <= mRSBuffers->Lightbuffer.Count)
-	{
-		mRSBuffers->Lightbuffer.UploadIndex += totalsize;
+		FDynLightInfo* dataptr = ((FDynLightInfo*)(((int*)mRSBuffers->Lightbuffer.Data) + (mRSBuffers->Lightbuffer.Count * 4))) + dataindex;
+		memcpy(dataptr, &data.arrays[0][0], size0 * sizeof(FDynLightInfo));
+		memcpy(dataptr + size0, &data.arrays[1][0], size1 * sizeof(FDynLightInfo));
+		memcpy(dataptr + (size0 + size1), &data.arrays[2][0], size2 * sizeof(FDynLightInfo));
 
-		float parmcnt[] = { 0, float(size0), float(size0 + size1), float(size0 + size1 + size2) };
-
-		float* copyptr = (float*)mRSBuffers->Lightbuffer.Data + thisindex * 4;
-		memcpy(&copyptr[0], parmcnt, sizeof(FVector4));
-		memcpy(&copyptr[4], &data.arrays[0][0], size0 * sizeof(FVector4));
-		memcpy(&copyptr[4 + 4 * size0], &data.arrays[1][0], size1 * sizeof(FVector4));
-		memcpy(&copyptr[4 + 4 * (size0 + size1)], &data.arrays[2][0], size2 * sizeof(FVector4));
-		return thisindex;
+		return indexindex;
 	}
 	else
 	{
@@ -774,6 +754,7 @@ void VkRenderState::BeginFrame()
 
 	mRSBuffers->Viewpoint.UploadIndex = 0;
 	mRSBuffers->Lightbuffer.UploadIndex = 0;
+	mRSBuffers->Lightbuffer.DataIndex = 0;
 	mRSBuffers->Bonebuffer.UploadIndex = 0;
 	mRSBuffers->Fogballbuffer.UploadIndex = 0;
 	mRSBuffers->OcclusionQuery.NextIndex = 0;

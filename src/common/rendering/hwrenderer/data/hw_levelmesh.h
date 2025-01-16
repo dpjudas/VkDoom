@@ -173,7 +173,7 @@ public:
 
 		// Lights
 		TArray<LevelMeshLight> Lights;
-		TArray<FVector4> DynLights;
+		TArray<uint8_t> DynLights;
 
 		// Index data
 		TArray<uint32_t> Indexes;

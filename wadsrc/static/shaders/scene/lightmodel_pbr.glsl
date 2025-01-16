@@ -44,10 +44,53 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+vec3 ProcessLight(const DynLightInfo light, vec3 albedo, float metallic, float roughness, const vec3 N, const vec3 V, const vec3 F0)
+{
+	vec3 L = normalize(light.pos.xyz - pixelpos.xyz);
+	vec3 H = normalize(V + L);
+	
+	float attenuation = distanceAttenuation(distance(light.pos.xyz, pixelpos.xyz), light.radius, light.strength, light.linearity);
+	if ((light.flags & LIGHTINFO_SPOT) != 0)
+	{
+		attenuation *= spotLightAttenuation(light.pos.xyz, light.spotDir.xyz, light.spotInnerAngle, light.spotOuterAngle);
+	}
+	
+	if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
+	{
+		attenuation *= clamp(dot(N, L), 0.0, 1.0);
+	}
+
+	if (attenuation > 0.0)
+	{
+		// light.radius >= 1000000.0 is sunlight(?), skip attenuation
+		
+		if(light.radius < 1000000.0 && (light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
+		{
+			attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius);
+		}
+		
+		vec3 radiance = light.color.rgb * attenuation;
+		
+		// cook-torrance brdf
+		float NDF = DistributionGGX(N, H, roughness);
+		float G = GeometrySmith(N, V, L, roughness);
+		vec3 F = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+		
+		vec3 kS = F;
+		vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+		
+		vec3 nominator = NDF * G * F;
+		float denominator = 4.0 * clamp(dot(N, V), 0.0, 1.0) * clamp(dot(N, L), 0.0, 1.0);
+		vec3 specular = nominator / max(denominator, 0.001);
+		
+		return (kD * albedo / PI + specular) * radiance;
+	}
+	
+	return vec3(0.0);
+}
+
 vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 {
-	vec3 worldpos = pixelpos.xyz;
-
 	vec3 albedo = material.Base.rgb;
 
 	float metallic = material.Metallic;
@@ -55,7 +98,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 	float ao = material.AO;
 
 	vec3 N = material.Normal;
-	vec3 V = normalize(uCameraPos.xyz - worldpos);
+	vec3 V = normalize(uCameraPos.xyz - pixelpos.xyz);
 
 	vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
@@ -63,88 +106,22 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 
 	if (uLightIndex >= 0)
 	{
-		ivec4 lightRange = ivec4(lights[uLightIndex]) + ivec4(uLightIndex + 1);
+		ivec4 lightRange = getLightRange();
 		if (lightRange.z > lightRange.x)
 		{
 			//
 			// modulated lights
 			//
-			for(int i=lightRange.x; i<lightRange.y; i+=4)
+			for(int i = lightRange.x; i < lightRange.y; i++)
 			{
-				vec4 lightpos = lights[i];
-				vec4 lightcolor = lights[i+1];
-				vec4 lightspot1 = lights[i+2];
-				vec4 lightspot2 = lights[i+3];
-
-				vec3 L = normalize(lightpos.xyz - worldpos);
-				vec3 H = normalize(V + L);
-
-				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), abs(lightpos.w), lightspot2.w, lightspot1.w);
-				if (lightpos.w < 0.0)
-					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y); // Sign bit is the spotlight flag
-				if (lightcolor.a < 0.0)
-					attenuation *= clamp(dot(N, L), 0.0, 1.0); // Sign bit is the attenuated light flag
-
-				if (attenuation > 0.0)
-				{
-					attenuation *= shadowAttenuation(lightpos, lightcolor.a, lightspot2.z);
-
-					vec3 radiance = lightcolor.rgb * attenuation;
-
-					// cook-torrance brdf
-					float NDF = DistributionGGX(N, H, roughness);
-					float G = GeometrySmith(N, V, L, roughness);
-					vec3 F = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
-
-					vec3 kS = F;
-					vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-
-					vec3 nominator = NDF * G * F;
-					float denominator = 4.0 * clamp(dot(N, V), 0.0, 1.0) * clamp(dot(N, L), 0.0, 1.0);
-					vec3 specular = nominator / max(denominator, 0.001);
-
-					Lo += (kD * albedo / PI + specular) * radiance;
-				}
+				Lo += ProcessLight(getLights()[i], albedo, metallic, roughness, N, V, F0);
 			}
 			//
 			// subtractive lights
 			//
-			for(int i=lightRange.y; i<lightRange.z; i+=4)
+			for(int i = lightRange.y; i < lightRange.z; i++)
 			{
-				vec4 lightpos = lights[i];
-				vec4 lightcolor = lights[i+1];
-				vec4 lightspot1 = lights[i+2];
-				vec4 lightspot2 = lights[i+3];
-
-				vec3 L = normalize(lightpos.xyz - worldpos);
-				vec3 H = normalize(V + L);
-
-				float attenuation = distanceAttenuation(distance(lightpos.xyz, pixelpos.xyz), abs(lightpos.w), lightspot2.w, lightspot1.w);
-				if (lightpos.w < 0.0)
-					attenuation *= spotLightAttenuation(lightpos, lightspot1.xyz, lightspot2.x, lightspot2.y); // Sign bit is the spotlight flag
-				if (lightcolor.a < 0.0)
-					attenuation *= clamp(dot(N, L), 0.0, 1.0); // Sign bit is the attenuated light flag
-
-				if (attenuation > 0.0)
-				{
-					attenuation *= shadowAttenuation(lightpos, lightcolor.a, lightspot2.z);
-
-					vec3 radiance = lightcolor.rgb * attenuation;
-
-					// cook-torrance brdf
-					float NDF = DistributionGGX(N, H, roughness);
-					float G = GeometrySmith(N, V, L, roughness);
-					vec3 F = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
-
-					vec3 kS = F;
-					vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-
-					vec3 nominator = NDF * G * F;
-					float denominator = 4.0 * clamp(dot(N, V), 0.0, 1.0) * clamp(dot(N, L), 0.0, 1.0);
-					vec3 specular = nominator / max(denominator, 0.001);
-
-					Lo -= (kD * albedo / PI + specular) * radiance;
-				}
+				Lo -= ProcessLight(getLights()[i], albedo, metallic, roughness, N, V, F0);
 			}
 		}
 	}

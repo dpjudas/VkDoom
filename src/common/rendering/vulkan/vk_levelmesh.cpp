@@ -317,7 +317,7 @@ void VkLevelMesh::CreateBuffers()
 
 	DynLightBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(Mesh->Mesh.DynLights.Size() * sizeof(FVector4))
+		.Size(Mesh->Mesh.DynLights.Size())
 		.DebugName("DynLightBuffer")
 		.Create(fb->GetDevice());
 }
@@ -976,7 +976,7 @@ size_t VkLevelMeshUploader::GetTransferSize()
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Portals.GetRanges()) transferBufferSize += range.Count() * sizeof(PortalInfo);
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.LightIndex.GetRanges()) transferBufferSize += range.Count() * sizeof(int32_t);
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Light.GetRanges()) transferBufferSize += range.Count() * sizeof(LightInfo);
-	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.DynLight.GetRanges()) transferBufferSize += range.Count() * sizeof(FVector4);
+	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.DynLight.GetRanges()) transferBufferSize += range.Count();
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.DrawIndex.GetRanges()) transferBufferSize += range.Count() * sizeof(uint32_t);
 	return transferBufferSize;
 }

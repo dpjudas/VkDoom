@@ -77,16 +77,19 @@ bool GetLight(FDynLightData& dld, int group, Plane & p, FDynamicLight * light, b
 //==========================================================================
 void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool forceAttenuate)
 {
-	int i = 0;
+	FDynLightInfo info = {};
+
+	int i = LIGHTARRAY_NORMAL;
 
 	DVector3 pos = light->PosRelative(group);
-	float radius = light->GetRadius();
+	
+	info.radius = light->GetRadius();
 
 	float cs;
 	if (light->IsAdditive()) 
 	{
 		cs = 0.2f;
-		i = 2;
+		i = LIGHTARRAY_ADDITIVE;
 	}
 	else 
 	{
@@ -96,110 +99,80 @@ void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool f
 	if (light->target)
 		cs *= (float)light->target->Alpha;
 
-	float r = light->GetRed() / 255.0f * cs;
-	float g = light->GetGreen() / 255.0f * cs;
-	float b = light->GetBlue() / 255.0f * cs;
+	info.r = light->GetRed() / 255.0f * cs;
+	info.g = light->GetGreen() / 255.0f * cs;
+	info.b = light->GetBlue() / 255.0f * cs;
 
 	if (light->IsSubtractive())
 	{
-		DVector3 v(r, g, b);
+		DVector3 v(info.r, info.g, info.b);
 		float length = (float)v.Length();
 		
-		r = length - r;
-		g = length - g;
-		b = length - b;
-		i = 1;
+		info.r = length - info.r;
+		info.g = length - info.g;
+		info.b = length - info.b;
+		i = LIGHTARRAY_SUBTRACTIVE;
 	}
 
-	float shadowIndex;
-	if (screen->mShadowMap->Enabled()) // note: with shadowmaps switched off, we cannot rely on properly set indices anymore.
+	if(light->shadowmapped && screen->mShadowMap->Enabled())
 	{
-		shadowIndex = light->mShadowmapIndex + 1.0f;
+		info.flags |= LIGHTINFO_SHADOWMAPPED;
+		info.shadowIndex = light->mShadowmapIndex + 1.0f;
 	}
-	else shadowIndex = 1025.f;
-	// Store attenuate flag in the sign bit of the float.
-	if (light->IsAttenuated() || forceAttenuate) shadowIndex = -shadowIndex;
+	else
+	{
+		info.shadowIndex = 1025.f;
+	}
 
-	bool lightType = false;
-	float spotInnerAngle = 0.0f;
-	float spotOuterAngle = 0.0f;
-	float spotDirX = 0.0f;
-	float spotDirY = 0.0f;
-	float spotDirZ = 0.0f;
+	// Store attenuate flag in the sign bit of the float.
+	if (light->IsAttenuated() || forceAttenuate)
+	{
+		info.flags |= LIGHTINFO_ATTENUATED;
+	}
+
 	if (light->IsSpot())
 	{
-		lightType = true;
-		spotInnerAngle = (float)light->pSpotInnerAngle->Cos();
-		spotOuterAngle = (float)light->pSpotOuterAngle->Cos();
+		info.flags |= LIGHTINFO_SPOT;
+
+		info.spotInnerAngle = (float)light->pSpotInnerAngle->Cos();
+		info.spotOuterAngle = (float)light->pSpotOuterAngle->Cos();
 
 		DAngle negPitch = -*light->pPitch;
 		DAngle Angle = light->target->Angles.Yaw;
 		double xzLen = negPitch.Cos();
-		spotDirX = float(-Angle.Cos() * xzLen);
-		spotDirY = float(-negPitch.Sin());
-		spotDirZ = float(-Angle.Sin() * xzLen);
+		info.spotDirX = float(-Angle.Cos() * xzLen);
+		info.spotDirY = float(-negPitch.Sin());
+		info.spotDirZ = float(-Angle.Sin() * xzLen);
 	}
 
+	info.x = float(pos.X);
+	info.z = float(pos.Y);
+	info.y = float(pos.Z);
 
-	float softShadowRadius = light->GetSoftShadowRadius();
+	info.softShadowRadius = light->GetSoftShadowRadius();
 
-    float linearity = light->GetLinearity();
+	info.linearity = std::clamp(light->GetLinearity(), 0.0f, 1.0f);
 
-	float strength = light->GetStrength();
+	info.strength = light->GetStrength();
 
-	float *data = &dld.arrays[i][dld.arrays[i].Reserve(16)];
-	data[0] = float(pos.X);
-	data[1] = float(pos.Z);
-	data[2] = float(pos.Y);
-	data[3] = lightType ? -radius : radius;
-	data[4] = r;
-	data[5] = g;
-	data[6] = b;
-	data[7] = shadowIndex;
-	data[8] = spotDirX;
-	data[9] = spotDirY;
-	data[10] = spotDirZ;
-	data[11] = std::clamp(linearity, 0.0f, 1.0f);
-	data[12] = spotInnerAngle;
-	data[13] = spotOuterAngle;
-	data[14] = softShadowRadius;
-	data[15] = strength;
+	dld.arrays[i].Push(info);
 }
 
 void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVector3& sundir, const FVector3& suncolor)
 {
+	FDynLightInfo info = {};
+
 	// Cheap way of faking a directional light
 	float dist = 100000.0f;
-	float radius = 100000000.0f;
-	x += sundir.X * dist;
-	y += sundir.Y * dist;
-	z += sundir.Z * dist;
+	info.radius = 100000000.0f;
+	info.x = x + sundir.X * dist;
+	info.z = y + sundir.Y * dist;
+	info.y = z + sundir.Z * dist;
+	info.r = suncolor.X;
+	info.g = suncolor.Y;
+	info.b = suncolor.Z;
+	info.flags = LIGHTINFO_ATTENUATED;
+	info.strength = 1500.0f;
 
-	int i = 0;
-	float spotInnerAngle = 0.0f;
-	float spotOuterAngle = 0.0f;
-	float spotDirX = 0.0f;
-	float spotDirY = 0.0f;
-	float spotDirZ = 0.0f;
-	float shadowIndex = -1025.f; // Note: 1025 disables shadowmap and the attenuate flag is in the sign bit of the float
-
-	float strength = 1500.0f;
-
-	float* data = &dld.arrays[i][dld.arrays[i].Reserve(16)];
-	data[0] = float(x);
-	data[1] = float(z);
-	data[2] = float(y);
-	data[3] = radius;
-	data[4] = suncolor.X;
-	data[5] = suncolor.Y;
-	data[6] = suncolor.Z;
-	data[7] = shadowIndex;
-	data[8] = spotDirX;
-	data[9] = spotDirY;
-	data[10] = spotDirZ;
-	data[11] = 0.0f; // unused
-	data[12] = spotInnerAngle;
-	data[13] = spotOuterAngle;
-	data[14] = 0.0f; // unused
-	data[15] = strength;
+	dld.arrays[LIGHTARRAY_NORMAL].Push(info);
 }

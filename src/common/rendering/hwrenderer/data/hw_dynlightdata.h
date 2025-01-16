@@ -25,15 +25,55 @@
 
 #include "tarray.h"
 
+enum FDynLightInfoFlags
+{
+	LIGHTINFO_ATTENUATED = 1,
+	LIGHTINFO_SHADOWMAPPED = 2,
+	LIGHTINFO_SPOT = 4,
+};
+
+struct FDynLightInfo
+{
+	float x;
+	float y;
+	float z;
+	float padding0; // 4
+	float r;
+	float g;
+	float b;
+	float padding1; // 8
+	float spotDirX;
+	float spotDirY;
+	float spotDirZ;
+	float padding2; // 12
+	float radius;
+	float linearity;
+	float softShadowRadius;
+	float strength; // 16
+	float spotInnerAngle;
+	float spotOuterAngle;
+	int shadowIndex;
+	int flags; // 20
+};
+
+enum FDynLightDataArrays
+{
+	LIGHTARRAY_NORMAL,
+	LIGHTARRAY_SUBTRACTIVE,
+	LIGHTARRAY_ADDITIVE,
+};
+
+#define MAX_LIGHT_DATA 65536
+
 struct FDynLightData
 {
-	TArray<float> arrays[3];
+	TArray<FDynLightInfo> arrays[3];
 
 	void Clear()
 	{
-		arrays[0].Clear();
-		arrays[1].Clear();
-		arrays[2].Clear();
+		arrays[LIGHTARRAY_NORMAL].Clear();
+		arrays[LIGHTARRAY_SUBTRACTIVE].Clear();
+		arrays[LIGHTARRAY_ADDITIVE].Clear();
 	}
 
 };
