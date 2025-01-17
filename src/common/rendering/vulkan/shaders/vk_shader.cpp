@@ -205,15 +205,16 @@ static std::vector<BuiltinFieldDesc> vertexShaderOutputs
 {
 	{"vTexCoord",		"",		UniformType::Vec4,	FieldCondition::ALWAYS},			//0
 	{"vColor",			"",		UniformType::Vec4,	FieldCondition::ALWAYS},			//1
-	{"pixelpos",		"",		UniformType::Vec4,	FieldCondition::NOTSIMPLE},			//2
+	{"pixelpos",		"",		UniformType::Vec4,	FieldCondition::ALWAYS},			//2
 	{"glowdist",		"",		UniformType::Vec3,	FieldCondition::NOTSIMPLE},			//3
 	{"gradientdist",	"",		UniformType::Vec3,	FieldCondition::NOTSIMPLE},			//4
-	{"vWorldNormal",	"",		UniformType::Vec4,	FieldCondition::NOTSIMPLE},			//5
-	{"vEyeNormal",		"",		UniformType::Vec4,	FieldCondition::NOTSIMPLE},			//6
+	{"vWorldNormal",	"",		UniformType::Vec4,	FieldCondition::ALWAYS},			//5
+	{"vEyeNormal",		"",		UniformType::Vec4,	FieldCondition::ALWAYS},			//6
 	{"ClipDistanceA",	"",		UniformType::Vec4,	FieldCondition::HAS_CLIPDISTANCE},	//7
 	{"ClipDistanceB",	"",		UniformType::Vec4,	FieldCondition::HAS_CLIPDISTANCE},	//8
 	{"vLightmap",		"",		UniformType::Vec3,	FieldCondition::ALWAYS},			//9
 	{"uDataIndex",		"flat", UniformType::Int,	FieldCondition::USELEVELMESH},		//10
+	{"vLightColor",		"",		UniformType::Vec3,	FieldCondition::SHADE_VERTEX},		//11
 };
 
 static std::vector<BuiltinFieldDesc> fragShaderOutputs
@@ -423,7 +424,7 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 	switch (key.ShadeVertex)
 	{
 	case 1: definesBlock << "#define SHADE_VERTEX\n"; break;
-	case 2: definesBlock << "#define SHADE_VERTEX_CENTER\n"; break;
+	case 2: definesBlock << "#define SHADE_VERTEX\n#define SHADE_VERTEX_CENTER\n"; break;
 	//case 3: definesBlock << "#define ???\n"; break;
 	}
 

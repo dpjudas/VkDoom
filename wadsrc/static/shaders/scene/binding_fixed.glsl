@@ -6,7 +6,6 @@ layout(set = 0, binding = 2) uniform sampler2D LinearDepth;
 layout(set = 0, binding = 3) uniform samplerCubeArray IrradianceMap;
 layout(set = 0, binding = 4) uniform samplerCubeArray PrefilterMap;
 
-#if defined(USE_RAYTRACE)
 #if defined(SUPPORTS_RAYQUERY)
 
 layout(set = 0, binding = 5) uniform accelerationStructureEXT acc;
@@ -29,4 +28,4 @@ layout(set = 0, binding = 7,  std430) buffer readonly ElementBuffer			{ int elem
 layout(set = 0, binding = 8,  std430) buffer readonly SurfaceIndexBuffer	{ uint surfaceIndices[]; };
 layout(set = 0, binding = 9,  std430) buffer readonly SurfaceBuffer			{ SurfaceInfo surfaces[]; };
 layout(set = 0, binding = 10, std430) buffer readonly PortalBuffer			{ PortalInfo portals[]; };
-#endif
+

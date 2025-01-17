@@ -44,6 +44,7 @@
 		vec4 dynlight = uDynLightColor;
 		vec3 normal = material.Normal;
 		
+#if !defined(SHADE_VERTEX)
 		if (uLightIndex >= 0)
 		{
 			ivec4 lightRange = getLightRange();
@@ -63,6 +64,9 @@
 				}
 			}
 		}
+#else
+		dynlight.rgb += vLightColor;
+#endif
 		
 		#ifdef LIGHT_BLEND_CLAMPED
 			
@@ -80,6 +84,7 @@
 		#endif
 
 
+#if !defined(SHADE_VERTEX)
 		if (uLightIndex >= 0)
 		{
 			ivec4 lightRange = getLightRange();
@@ -96,6 +101,7 @@
 				frag = clamp(frag + desaturate(addlight).rgb, 0.0, 1.0);
 			}
 		}
+#endif
 
 		return frag;
 	}

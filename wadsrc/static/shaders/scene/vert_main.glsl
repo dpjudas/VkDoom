@@ -1,6 +1,89 @@
 
 #include "shaders/scene/bones.glsl"
 
+#if defined(SHADE_VERTEX) && !defined(PBR) && !defined(SPECULAR) && !defined(SIMPLE)
+#undef SHADOWMAP_FILTER
+#define SHADOWMAP_FILTER 0
+	#include <shaders/scene/lightmodel_shared.glsl>
+	#include <shaders/scene/light_trace.glsl>
+	#include <shaders/scene/light_spot.glsl>
+	
+	vec3 lightValue(DynLightInfo light)
+	{
+		float lightdistance = distance(light.pos.xyz, pixelpos.xyz);
+		
+		if (light.radius < lightdistance)
+			return vec3(0.0); // Early out lights touching surface but not this fragment
+
+		vec3 lightdir = normalize(light.pos.xyz - pixelpos.xyz);
+		float dotprod = dot(vWorldNormal.xyz, lightdir);
+		
+		float attenuation = distanceAttenuation(lightdistance, light.radius, light.strength, light.linearity);
+
+		if ((light.flags & LIGHTINFO_SPOT) != 0)
+		{
+			attenuation *= spotLightAttenuation(light.pos.xyz, light.spotDir.xyz, light.spotInnerAngle, light.spotOuterAngle);
+		}
+
+		if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
+		{
+			attenuation *= clamp(dotprod, 0.0, 1.0);
+		}
+		
+
+		if (attenuation > 0.0) // Skip shadow map test if possible
+		{
+			#ifdef USE_RAYTRACE
+				// light.radius >= 1000000.0 is sunlight(?), skip attenuation
+				if(light.radius < 1000000.0 && (light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
+				{
+					attenuation *= traceShadow(light.pos.xyz, light.softShadowRadius);
+				}
+			#endif
+			
+			return light.color.rgb * attenuation;
+		}
+		else
+		{
+			return vec3(0.0);
+		}
+
+		return vec3(0.0);
+	}
+	
+	vec3 ProcessVertexLight()
+	{
+		#if defined(USE_LEVELMESH)
+			const int lightTileSize = 1;
+			uLightIndex = int(uint(gl_FragCoord.x) / 64 + uint(gl_FragCoord.y) / 64 * uLightTilesWidth) * lightTileSize;
+		#endif
+		
+		vec3 light = vec3(0.0);
+		
+		if (uLightIndex >= 0)
+		{
+			ivec4 lightRange = getLightRange();
+			
+			if (lightRange.z > lightRange.x)
+			{
+				// modulated lights
+				for(int i=lightRange.x; i<lightRange.y; i++)
+				{
+					light += lightValue(getLights()[i]);
+				}
+				
+				// subtractive lights
+				for(int i=lightRange.y; i<lightRange.z; i++)
+				{
+					light -= lightValue(getLights()[i]);
+				}
+			}
+		}
+		
+		return light;
+	}
+#endif
+
 void ModifyVertex();
 
 void main()
@@ -42,23 +125,25 @@ void main()
 		pixelpos.xyz = worldcoord.xyz;
 		pixelpos.w = -eyeCoordPos.z/eyeCoordPos.w;
 
-		if (uGlowTopColor.a > 0 || uGlowBottomColor.a > 0)
-		{
-			float topatpoint = (uGlowTopPlane.w + uGlowTopPlane.x * worldcoord.x + uGlowTopPlane.y * worldcoord.z) * uGlowTopPlane.z;
-			float bottomatpoint = (uGlowBottomPlane.w + uGlowBottomPlane.x * worldcoord.x + uGlowBottomPlane.y * worldcoord.z) * uGlowBottomPlane.z;
-			glowdist.x = topatpoint - worldcoord.y;
-			glowdist.y = worldcoord.y - bottomatpoint;
-			glowdist.z = clamp(glowdist.x / (topatpoint - bottomatpoint), 0.0, 1.0);
-		}
+		#if !defined(SIMPLE)
+			if (uGlowTopColor.a > 0 || uGlowBottomColor.a > 0)
+			{
+				float topatpoint = (uGlowTopPlane.w + uGlowTopPlane.x * worldcoord.x + uGlowTopPlane.y * worldcoord.z) * uGlowTopPlane.z;
+				float bottomatpoint = (uGlowBottomPlane.w + uGlowBottomPlane.x * worldcoord.x + uGlowBottomPlane.y * worldcoord.z) * uGlowBottomPlane.z;
+				glowdist.x = topatpoint - worldcoord.y;
+				glowdist.y = worldcoord.y - bottomatpoint;
+				glowdist.z = clamp(glowdist.x / (topatpoint - bottomatpoint), 0.0, 1.0);
+			}
 
-		if (uObjectColor2.a != 0)
-		{
-			float topatpoint = (uGradientTopPlane.w + uGradientTopPlane.x * worldcoord.x + uGradientTopPlane.y * worldcoord.z) * uGradientTopPlane.z;
-			float bottomatpoint = (uGradientBottomPlane.w + uGradientBottomPlane.x * worldcoord.x + uGradientBottomPlane.y * worldcoord.z) * uGradientBottomPlane.z;
-			gradientdist.x = topatpoint - worldcoord.y;
-			gradientdist.y = worldcoord.y - bottomatpoint;
-			gradientdist.z = clamp(gradientdist.x / (topatpoint - bottomatpoint), 0.0, 1.0);
-		}
+			if (uObjectColor2.a != 0)
+			{
+				float topatpoint = (uGradientTopPlane.w + uGradientTopPlane.x * worldcoord.x + uGradientTopPlane.y * worldcoord.z) * uGradientTopPlane.z;
+				float bottomatpoint = (uGradientBottomPlane.w + uGradientBottomPlane.x * worldcoord.x + uGradientBottomPlane.y * worldcoord.z) * uGradientBottomPlane.z;
+				gradientdist.x = topatpoint - worldcoord.y;
+				gradientdist.y = worldcoord.y - bottomatpoint;
+				gradientdist.z = clamp(gradientdist.x / (topatpoint - bottomatpoint), 0.0, 1.0);
+			}
+		#endif
 
 		if (uSplitBottomPlane.z != 0.0)
 		{
@@ -122,6 +207,10 @@ void main()
 #endif
 
 	gl_PointSize = 1.0;
+	
+	#if defined(SHADE_VERTEX) && !defined(PBR) && !defined(SPECULAR) && !defined(SIMPLE)
+		vLightColor = ProcessVertexLight();
+	#endif
 	
 	ModifyVertex();
 }
