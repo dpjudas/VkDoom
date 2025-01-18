@@ -140,6 +140,7 @@ protected:
 	uint8_t mBrightmapEnabled : 1;
 	uint8_t mWireframe : 2;
 	uint8_t mShadeVertex : 1;
+	uint8_t mLightNoNormals : 1;
 
 	FVector4 mWireframeColor;
 	FVector4 uObjectColor;
@@ -184,6 +185,7 @@ public:
 
 	void Reset()
 	{
+		mLightNoNormals = 0;
 		mShadeVertex = 0;
 		mWireframe = 0;
 		mWireframeColor = toFVector4(PalEntry(0xffffffff));
@@ -270,6 +272,11 @@ public:
 	void SetShadeVertex(bool value)
 	{
 		mShadeVertex = value;
+	}
+
+	void SetLightNoNormals(bool value)
+	{
+		mLightNoNormals = value;
 	}
 
 	void SetWireframeColor(FVector4 color)

@@ -5,10 +5,13 @@
 		
 		if (light.radius < lightdistance)
 			return vec3(0.0); // Early out lights touching surface but not this fragment
-
+		
 		vec3 lightdir = normalize(light.pos.xyz - pixelpos.xyz);
-		float dotprod = dot(normal, lightdir);
-		if (dotprod < -0.0001) return vec3(0.0);	// light hits from the backside. This can happen with full sector light lists and must be rejected for all cases. Note that this can cause precision issues.
+		
+		#ifndef LIGHT_NONORMALS
+			float dotprod = dot(normal, lightdir);
+			if (dotprod < -0.0001) return vec3(0.0);	// light hits from the backside. This can happen with full sector light lists and must be rejected for all cases. Note that this can cause precision issues.
+		#endif
 		
 		float attenuation = distanceAttenuation(lightdistance, light.radius, light.strength, light.linearity);
 
@@ -16,13 +19,15 @@
 		{
 			attenuation *= spotLightAttenuation(light.pos.xyz, light.spotDir.xyz, light.spotInnerAngle, light.spotOuterAngle);
 		}
-
-		if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
-		{
-			attenuation *= clamp(dotprod, 0.0, 1.0);
-		}
 		
-
+		#ifndef LIGHT_NONORMALS
+			if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
+			{
+				attenuation *= clamp(dotprod, 0.0, 1.0);
+			}
+		#endif
+		
+		
 		if (attenuation > 0.0) // Skip shadow map test if possible
 		{
 			// light.radius >= 1000000.0 is sunlight(?), skip attenuation

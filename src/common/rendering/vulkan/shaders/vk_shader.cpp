@@ -422,9 +422,9 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 
 
 	if (key.ShadeVertex) definesBlock << "#define SHADE_VERTEX\n";
+	if (key.LightNoNormals) definesBlock << "#define LIGHT_NONORMALS\n";
 
 	definesBlock << ((key.Simple2D) ? "#define uFogEnabled -3\n" : "#define uFogEnabled 0\n");
-
 }
 
 std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)

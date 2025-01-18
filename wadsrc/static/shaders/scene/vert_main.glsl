@@ -14,28 +14,29 @@
 		
 		if (light.radius < lightdistance)
 			return vec3(0.0); // Early out lights touching surface but not this fragment
-
+		
 		vec3 lightdir = normalize(light.pos.xyz - pixelpos.xyz);
-		float dotprod = dot(vWorldNormal.xyz, lightdir);
 		
 		float attenuation = distanceAttenuation(lightdistance, light.radius, light.strength, light.linearity);
-
+		
 		if ((light.flags & LIGHTINFO_SPOT) != 0)
 		{
 			attenuation *= spotLightAttenuation(light.pos.xyz, light.spotDir.xyz, light.spotInnerAngle, light.spotOuterAngle);
 		}
-
-		if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
-		{
-			attenuation *= clamp(dotprod, 0.0, 1.0);
-		}
 		
-
+		#ifndef LIGHT_NONORMALS
+			if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
+			{
+				float dotprod = dot(vWorldNormal.xyz, lightdir);
+				attenuation *= clamp(dotprod, 0.0, 1.0);
+			}
+		#endif
+		
 		if (attenuation > 0.0) // Skip shadow map test if possible
 		{
 			#ifdef USE_RAYTRACE
 				// light.radius >= 1000000.0 is sunlight(?), skip attenuation
-				if(light.radius < 1000000.0 && (light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
+				if((light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
 				{
 					attenuation *= traceShadow(light.pos.xyz, light.softShadowRadius);
 				}
@@ -47,7 +48,7 @@
 		{
 			return vec3(0.0);
 		}
-
+		
 		return vec3(0.0);
 	}
 	
