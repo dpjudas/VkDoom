@@ -48,6 +48,7 @@
 #include "tflags.h"
 #include "portal.h"
 #include "bonecomponents.h"
+#include "hw_dynlightdata.h"
 
 struct subsector_t;
 struct FBlockNode;
@@ -1643,11 +1644,7 @@ public:
 
 	bool				hasmodel;
 
-	struct
-	{
-		DVector3 Pos = DVector3(-12345678.0, -12345678.0, -12345678.0);
-		bool SunResult = false;
-	} StaticLightsTraceCache;
+	sun_trace_cache_t StaticLightsTraceCache;
 
 	void InvalidateLightTraceCache()
 	{

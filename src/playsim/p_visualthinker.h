@@ -40,6 +40,7 @@ public:
 
 	// internal only variables
 	particle_t		PT;
+	sun_trace_cache_t StaticLightsTraceCache;
 
 	DVisualThinker();
 	void Construct();

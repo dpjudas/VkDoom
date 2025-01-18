@@ -23,7 +23,7 @@ vec2 lightAttenuation(DynLightInfo light, vec3 normal, vec3 viewdir, float gloss
 		// light.radius >= 1000000.0 is sunlight(?), skip attenuation
 		if(light.radius < 1000000.0 && (light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
 		{
-			attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius);
+			attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius, light.flags);
 		}
 	}
 

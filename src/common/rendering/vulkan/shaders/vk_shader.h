@@ -108,8 +108,8 @@ public:
 			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
 			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
 			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
-			uint64_t ShadeVertex : 2; // 0 = nothing, 1 = SHADE_VERTEX, 2 = SHADE_VERTEX_CENTER
-			uint64_t Unused : 28;
+			uint64_t ShadeVertex : 1; // SHADE_VERTEX
+			uint64_t Unused : 29;
 		};
 		uint64_t AsQWORD = 0;
 	};

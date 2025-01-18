@@ -421,12 +421,7 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 	if (key.FogBalls) definesBlock << "#define FOGBALLS\n";
 
 
-	switch (key.ShadeVertex)
-	{
-	case 1: definesBlock << "#define SHADE_VERTEX\n"; break;
-	case 2: definesBlock << "#define SHADE_VERTEX\n#define SHADE_VERTEX_CENTER\n"; break;
-	//case 3: definesBlock << "#define ???\n"; break;
-	}
+	if (key.ShadeVertex) definesBlock << "#define SHADE_VERTEX\n";
 
 	definesBlock << ((key.Simple2D) ? "#define uFogEnabled -3\n" : "#define uFogEnabled 0\n");
 

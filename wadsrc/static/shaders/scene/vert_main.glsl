@@ -2,8 +2,8 @@
 #include "shaders/scene/bones.glsl"
 
 #if defined(SHADE_VERTEX) && !defined(PBR) && !defined(SPECULAR) && !defined(SIMPLE)
-#undef SHADOWMAP_FILTER
-#define SHADOWMAP_FILTER 0
+	#undef SHADOWMAP_FILTER
+	#define SHADOWMAP_FILTER 0
 	#include <shaders/scene/lightmodel_shared.glsl>
 	#include <shaders/scene/light_trace.glsl>
 	#include <shaders/scene/light_spot.glsl>
