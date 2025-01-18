@@ -739,7 +739,11 @@ void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area, F
 		// set the lighting parameters
 		if (hudsprite.RenderStyle.BlendOp != STYLEOP_Shadow && Level->HasDynamicLights && !isFullbrightScene() && gl_light_sprites)
 		{
-			GetDynSpriteLight(playermo, nullptr, hudsprite.dynrgb);
+			GetDynSpriteLight(playermo, nullptr, nullptr, hudsprite.dynrgb);
+			if (gl_spritelight > 0)
+			{
+				GetDynSpriteLightList(playermo, lightdata);
+			}
 		}
 
 		if (!hudsprite.GetWeaponRect(this, state, psp, spos.X, spos.Y, player, vp.TicFrac)) continue;
@@ -842,7 +846,7 @@ void HWDrawInfo::PreparePlayerSprites3D(sector_t * viewsector, area_t in_area, F
 		// set the lighting parameters
 		if (hudsprite.RenderStyle.BlendOp != STYLEOP_Shadow && Level->HasDynamicLights && !isFullbrightScene() && gl_light_sprites)
 		{
-			hw_GetDynModelLight(drawctx, playermo, lightdata);
+			GetDynSpriteLightList(playermo, lightdata);
 			hudsprite.lightindex = state.UploadLights(lightdata);
 		}
 

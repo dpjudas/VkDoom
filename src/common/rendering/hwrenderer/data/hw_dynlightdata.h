@@ -24,12 +24,14 @@
 #define __GLC_DYNLIGHT_H
 
 #include "tarray.h"
+#include "vectors.h"
 
 enum FDynLightInfoFlags
 {
 	LIGHTINFO_ATTENUATED = 1,
 	LIGHTINFO_SHADOWMAPPED = 2,
 	LIGHTINFO_SPOT = 4,
+	LIGHTINFO_TRACE = 8,
 };
 
 struct FDynLightInfo
@@ -76,6 +78,12 @@ struct FDynLightData
 		arrays[LIGHTARRAY_ADDITIVE].Clear();
 	}
 
+};
+
+struct sun_trace_cache_t
+{
+	DVector3 Pos = DVector3(-12345678.0, -12345678.0, -12345678.0);
+	bool SunResult = false;
 };
 
 extern thread_local FDynLightData lightdata;

@@ -139,6 +139,7 @@ protected:
 	uint8_t mSplitEnabled : 1;
 	uint8_t mBrightmapEnabled : 1;
 	uint8_t mWireframe : 2;
+	uint8_t mShadeVertex : 1;
 
 	FVector4 mWireframeColor;
 	FVector4 uObjectColor;
@@ -183,6 +184,7 @@ public:
 
 	void Reset()
 	{
+		mShadeVertex = 0;
 		mWireframe = 0;
 		mWireframeColor = toFVector4(PalEntry(0xffffffff));
 		mTextureEnabled = true;
@@ -262,6 +264,12 @@ public:
 	{
 		mWireframe = mode;
 		mWireframeColor = toFVector4(color);
+	}
+	
+
+	void SetShadeVertex(bool value)
+	{
+		mShadeVertex = value;
 	}
 
 	void SetWireframeColor(FVector4 color)

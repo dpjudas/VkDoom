@@ -39,6 +39,7 @@
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "models.h"
 #include <cmath>	// needed for std::floor on mac
+#include "hw_cvars.h"
 
 template<class T>
 T smoothstep(const T edge0, const T edge1, const T x)
@@ -90,20 +91,20 @@ public:
 		}
 	}
 
-	bool TraceSunVisibility(float x, float y, float z)
+	static bool TraceSunVisibility(float x, float y, float z, sun_trace_cache_t *cache, bool moved)
 	{
-		if (!level.lightmaps || !Actor)
+		if (!level.lightmaps || !cache)
 			return false;
 
-		if (!ActorMoved)
+		if (!moved)
 		{
-			bool traceResult = Actor->StaticLightsTraceCache.SunResult;
+			bool traceResult = cache->SunResult;
 			return traceResult;
 		}
 		else
 		{
 			bool traceResult = level.levelMesh->TraceSky(FVector3(x, y, z), level.SunDirection, 65536.0f);
-			Actor->StaticLightsTraceCache.SunResult = traceResult;
+			cache->SunResult = traceResult;
 			return traceResult;
 		}
 	}
@@ -126,9 +127,9 @@ float inverseSquareAttenuation(float dist, float radius, float strength)
 	return (b * b) / (dist * dist + 1.0) * strength;
 }
 
-void HWDrawInfo::GetDynSpriteLight(AActor *self, float x, float y, float z, FLightNode *node, int portalgroup, float *out, bool fullbright)
+void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache, double x, double y, double z, FLightNode *node, int portalgroup, float *out, bool fullbright)
 {
-	if (fullbright)
+	if (fullbright || gl_spritelight > 0)
 		return;
 
 	FDynamicLight *light;
@@ -139,8 +140,13 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, float x, float y, float z, FLig
 
 	ActorTraceStaticLight staticLight(self);
 
-	if (staticLight.TraceSunVisibility(x, y, z))
+	if (ActorTraceStaticLight::TraceSunVisibility(x, y, z, traceCache, (self ? staticLight.ActorMoved : traceCache ? traceCache->Pos != DVector3(x, y, z) : false)))
 	{
+		if(!self && traceCache)
+		{
+			traceCache->Pos = DVector3(x, y, z);
+		}
+
 		out[0] = Level->SunColor.X * Level->SunIntensity;
 		out[1] = Level->SunColor.Y * Level->SunIntensity;
 		out[2] = Level->SunColor.Z * Level->SunIntensity;
@@ -239,20 +245,20 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, float x, float y, float z, FLig
 	}
 }
 
-void HWDrawInfo::GetDynSpriteLight(AActor *thing, particle_t *particle, float *out)
+void HWDrawInfo::GetDynSpriteLight(AActor *thing, particle_t *particle, sun_trace_cache_t * traceCache, float *out)
 {
-	if (thing != NULL)
+	if (thing)
 	{
-		GetDynSpriteLight(thing, (float)thing->X(), (float)thing->Y(), (float)thing->Center(), thing->section->lighthead, thing->Sector->PortalGroup, out, (thing->flags5 & MF5_BRIGHT));
+		GetDynSpriteLight(thing, &thing->StaticLightsTraceCache, thing->X(), thing->Y(), thing->Center(), thing->section->lighthead, thing->Sector->PortalGroup, out, (thing->flags5 & MF5_BRIGHT));
 	}
-	else if (particle != NULL)
+	else if (particle)
 	{
-		GetDynSpriteLight(NULL, (float)particle->Pos.X, (float)particle->Pos.Y, (float)particle->Pos.Z, particle->subsector->section->lighthead, particle->subsector->sector->PortalGroup, out, (particle->flags & SPF_FULLBRIGHT));
+		GetDynSpriteLight(nullptr, traceCache, particle->Pos.X, particle->Pos.Y, particle->Pos.Z, particle->subsector->section->lighthead, particle->subsector->sector->PortalGroup, out, (particle->flags & SPF_FULLBRIGHT));
 	}
 }
 
 
-void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &modellightdata)
+void HWDrawInfo::GetDynSpriteLightList(AActor *self, FDynLightData &modellightdata)
 {
 	modellightdata.Clear();
 
@@ -274,9 +280,9 @@ void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &mo
 
 		ActorTraceStaticLight staticLight(self);
 
-		if (staticLight.TraceSunVisibility(x, y, z))
+		if (gl_spritelight > 0 || ActorTraceStaticLight::TraceSunVisibility(x, y, z, (self ? &self->StaticLightsTraceCache : nullptr), (self ? staticLight.ActorMoved : false)))
 		{
-			AddSunLightToList(modellightdata, x, y, z, self->Level->SunDirection, self->Level->SunColor * self->Level->SunIntensity);
+			AddSunLightToList(modellightdata, x, y, z, self->Level->SunDirection, self->Level->SunColor * self->Level->SunIntensity, gl_spritelight > 0);
 		}
 
 		BSPWalkCircle(self->Level, x, y, radiusSquared, [&](subsector_t *subsector) // Iterate through all subsectors potentially touched by actor
@@ -298,19 +304,20 @@ void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &mo
 					double distSquared = dx * dx + dy * dy + dz * dz;
 					if (distSquared < radius * radius) // Light and actor touches
 					{
-						if (std::find(addedLights.begin(), addedLights.end(), light) == addedLights.end()) // Check if we already added this light from a different subsector
+						unsigned index = addedLights.SortedFind(light, false);
+						if(index == addedLights.Size() || addedLights[index] != light) // Check if we already added this light from a different subsector (use binary search instead of linear search)
 						{
 							FVector3 L(dx, dy, dz);
 							float dist = sqrtf(distSquared);
-							if (light->TraceActors())
+							if (gl_spritelight == 0 && light->TraceActors())
 								L *= 1.0f / dist;
 
-							if (staticLight.TraceLightVisbility(node, L, dist, light->updated))
+							if (gl_spritelight > 0 || staticLight.TraceLightVisbility(node, L, dist, light->updated))
 							{
-								AddLightToList(modellightdata, group, light, true);
+								AddLightToList(modellightdata, group, light, true, gl_spritelight > 0);
 							}
 
-							addedLights.Push(light);
+							addedLights.Insert(index, light);
 						}
 					}
 				}

@@ -66,7 +66,7 @@ bool GetLight(FDynLightData& dld, int group, Plane & p, FDynamicLight * light, b
 		return false;
 	}
 
-	AddLightToList(dld, group, light, false);
+	AddLightToList(dld, group, light, false, false);
 	return true;
 }
 
@@ -75,7 +75,7 @@ bool GetLight(FDynLightData& dld, int group, Plane & p, FDynamicLight * light, b
 // Add one dynamic light to the light data list
 //
 //==========================================================================
-void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool forceAttenuate)
+void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool forceAttenuate, bool doTrace)
 {
 	FDynLightInfo info = {};
 
@@ -117,11 +117,11 @@ void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool f
 	if(light->shadowmapped && screen->mShadowMap->Enabled())
 	{
 		info.flags |= LIGHTINFO_SHADOWMAPPED;
-		info.shadowIndex = light->mShadowmapIndex + 1.0f;
+		info.shadowIndex = light->mShadowmapIndex;
 	}
 	else
 	{
-		info.shadowIndex = 1025.f;
+		info.shadowIndex = 1024;
 	}
 
 	// Store attenuate flag in the sign bit of the float.
@@ -145,6 +145,11 @@ void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool f
 		info.spotDirZ = float(-Angle.Sin() * xzLen);
 	}
 
+	if(light->Trace() && doTrace)
+	{
+		info.flags |= LIGHTINFO_TRACE;
+	}
+
 	info.x = float(pos.X);
 	info.z = float(pos.Y);
 	info.y = float(pos.Z);
@@ -158,7 +163,7 @@ void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool f
 	dld.arrays[i].Push(info);
 }
 
-void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVector3& sundir, const FVector3& suncolor)
+void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVector3& sundir, const FVector3& suncolor, bool doTrace)
 {
 	FDynLightInfo info = {};
 
@@ -171,7 +176,7 @@ void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVec
 	info.r = suncolor.X;
 	info.g = suncolor.Y;
 	info.b = suncolor.Z;
-	info.flags = LIGHTINFO_ATTENUATED;
+	info.flags = LIGHTINFO_ATTENUATED | (doTrace ? LIGHTINFO_TRACE : 0);
 	info.strength = 1500.0f;
 
 	dld.arrays[LIGHTARRAY_NORMAL].Push(info);

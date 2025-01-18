@@ -1,14 +1,11 @@
 
 // Check if light is in shadow
 
+#include <shaders/scene/light_trace.glsl> // needed always to do per-pixel tracing of lightmap lights for sprites
+
 #if defined(USE_RAYTRACE)
 
-#include <shaders/scene/light_trace.glsl>
-
-float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius)
-{
-	return traceShadow(lightpos, softShadowRadius);
-}
+#define shadowAttenuation(lightpos, shadowIndex, softShadowRadius, flags) traceShadow(lightpos, softShadowRadius)
 
 #elif defined(USE_SHADOWMAP)
 
@@ -134,19 +131,31 @@ float shadowmapAttenuation(vec3 lightpos, float shadowIndex)
 	#endif
 }
 
-float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius)
+float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
 {
-	if (shadowIndex >= 1024)
-		return 1.0; // No shadowmap available for this light
-	
-	return shadowmapAttenuation(lightpos, float(shadowIndex));
+	if((flags & LIGHTINFO_TRACE) > 0)
+	{
+		return traceShadow(lightpos, softShadowRadius);
+	}
+	else
+	{
+		if (shadowIndex >= 1024)
+			return 1.0; // No shadowmap available for this light
+		return shadowmapAttenuation(lightpos, float(shadowIndex));
+	}
 }
-
 #else
 
-float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius)
+float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
 {
-	return 1.0;
+	if((flags & LIGHTINFO_TRACE) > 0)
+	{
+		return traceShadow(lightpos, softShadowRadius);
+	}
+	else
+	{
+		return 1.0;
+	}
 }
 
 #endif

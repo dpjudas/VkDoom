@@ -66,7 +66,7 @@ vec3 ProcessLight(const DynLightInfo light, vec3 albedo, float metallic, float r
 		
 		if(light.radius < 1000000.0 && (light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
 		{
-			attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius);
+			attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius, light.flags);
 		}
 		
 		vec3 radiance = light.color.rgb * attenuation;

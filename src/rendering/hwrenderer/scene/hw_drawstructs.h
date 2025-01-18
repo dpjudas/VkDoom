@@ -370,6 +370,8 @@ public:
 //
 //==========================================================================
 
+class DVisualThinker;
+
 
 class HWSprite
 {
@@ -407,6 +409,7 @@ public:
 	FGameTexture *texture;
 	AActor * actor;
 	particle_t * particle;
+	DVisualThinker *spr;
 	TArray<lightlist_t> *lightlist;
 	DRotator Angles;
 
@@ -419,7 +422,7 @@ public:
 	void CreateVertices(HWDrawInfo *di, FRenderState& state);
 	void PutSprite(HWDrawInfo *di, FRenderState& state, bool translucent);
 	void Process(HWDrawInfo *di, FRenderState& state, AActor* thing,sector_t * sector, area_t in_area, int thruportal = false, bool isSpriteShadow = false);
-	void ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t *particle, sector_t *sector, class DVisualThinker *spr);//, int shade, int fakeside)
+	void ProcessParticle (HWDrawInfo *di, FRenderState& state, particle_t *particle, sector_t *sector, DVisualThinker *spr);//, int shade, int fakeside)
 	void AdjustVisualThinker(HWDrawInfo *di, DVisualThinker *spr, sector_t *sector);
 
 	void DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent);
@@ -487,13 +490,11 @@ inline float Dist2(float x1,float y1,float x2,float y2)
 	return sqrtf((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2));
 }
 
-void hw_GetDynModelLight(HWDrawContext* drawctx, AActor *self, FDynLightData &modellightdata);
-
 extern const float LARGE_VALUE;
 
 struct FDynLightData;
 struct FDynamicLight;
 bool GetLight(FDynLightData& dld, int group, Plane& p, FDynamicLight* light, bool checkside);
-void AddLightToList(FDynLightData &dld, int group, FDynamicLight* light, bool forceAttenuate);
-void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVector3& sundir, const FVector3& suncolor);
+void AddLightToList(FDynLightData &dld, int group, FDynamicLight* light, bool forceAttenuate, bool doTrace);
+void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVector3& sundir, const FVector3& suncolor, bool doTrace);
 void SetSplitPlanes(FRenderState& state, const secplane_t& top, const secplane_t& bottom);

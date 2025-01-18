@@ -344,7 +344,7 @@ void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
 		else
 		{
 			int portalGroup = 0; // What value should this have?
-			AddLightToList(lightdata, portalGroup, light, false);
+			AddLightToList(lightdata, portalGroup, light, false, false);
 			CurFrameStats.DynLights++;
 		}
 	}

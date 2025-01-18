@@ -138,6 +138,7 @@ struct Fogball
 #define LIGHTINFO_ATTENUATED 1
 #define LIGHTINFO_SHADOWMAPPED 2
 #define LIGHTINFO_SPOT 4
+#define LIGHTINFO_TRACE 8
 
 struct DynLightInfo
 {

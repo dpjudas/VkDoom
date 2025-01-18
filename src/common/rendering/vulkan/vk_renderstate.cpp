@@ -329,6 +329,8 @@ void VkRenderState::ApplyRenderPass(int dt)
 			pipelineKey.ShaderKey.LightMode = 1; // Software
 	}
 
+	pipelineKey.ShaderKey.ShadeVertex = mShadeVertex;
+
 	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
 	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows >= 2;
 	pipelineKey.ShaderKey.UseRaytracePrecise = gl_light_shadows >= 3;
@@ -1077,6 +1079,8 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 		noFragmentShader = false;
 		pipelineKey.ShaderKey.AlphaTestOnly = true;
 	}
+
+	pipelineKey.ShaderKey.ShadeVertex = mShadeVertex;
 
 	// Global state that don't require rebuilding the mesh
 	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;
