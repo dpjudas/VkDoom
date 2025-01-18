@@ -331,6 +331,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 
 	pipelineKey.ShaderKey.ShadeVertex = mShadeVertex;
 	pipelineKey.ShaderKey.LightNoNormals = mLightNoNormals;
+	pipelineKey.ShaderKey.UseSpriteCenter = mUseSpriteCenter;
 
 	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
 	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows >= 2;
@@ -1082,6 +1083,8 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	}
 
 	pipelineKey.ShaderKey.ShadeVertex = mShadeVertex;
+	pipelineKey.ShaderKey.LightNoNormals = mLightNoNormals;
+	pipelineKey.ShaderKey.UseSpriteCenter = mUseSpriteCenter;
 
 	// Global state that don't require rebuilding the mesh
 	pipelineKey.ShaderKey.NoFragmentShader = noFragmentShader;

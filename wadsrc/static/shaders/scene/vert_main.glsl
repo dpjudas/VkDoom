@@ -2,6 +2,7 @@
 #include "shaders/scene/bones.glsl"
 
 #if defined(SHADE_VERTEX) && !defined(PBR) && !defined(SPECULAR) && !defined(SIMPLE)
+
 	#undef SHADOWMAP_FILTER
 	#define SHADOWMAP_FILTER 0
 	#include <shaders/scene/lightmodel_shared.glsl>
@@ -10,12 +11,21 @@
 	
 	vec3 lightValue(DynLightInfo light)
 	{
+#ifdef USE_SPRITE_CENTER
+		float lightdistance = distance(light.pos.xyz, uActorCenter.xyz);
+		
+		if (light.radius < lightdistance)
+			return vec3(0.0); // Early out lights touching surface but not this fragment
+		
+		vec3 lightdir = normalize(light.pos.xyz - uActorCenter.xyz);
+#else
 		float lightdistance = distance(light.pos.xyz, pixelpos.xyz);
 		
 		if (light.radius < lightdistance)
 			return vec3(0.0); // Early out lights touching surface but not this fragment
 		
 		vec3 lightdir = normalize(light.pos.xyz - pixelpos.xyz);
+#endif
 		
 		float attenuation = distanceAttenuation(lightdistance, light.radius, light.strength, light.linearity);
 		
@@ -54,11 +64,6 @@
 	
 	vec3 ProcessVertexLight()
 	{
-		#if defined(USE_LEVELMESH)
-			const int lightTileSize = 1;
-			uLightIndex = int(uint(gl_FragCoord.x) / 64 + uint(gl_FragCoord.y) / 64 * uLightTilesWidth) * lightTileSize;
-		#endif
-		
 		vec3 light = vec3(0.0);
 		
 		if (uLightIndex >= 0)
@@ -83,6 +88,7 @@
 		
 		return light;
 	}
+
 #endif
 
 void ModifyVertex();
