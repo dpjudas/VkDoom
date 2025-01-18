@@ -280,7 +280,7 @@ void HWDrawInfo::GetDynSpriteLightList(AActor *self, FDynLightData &modellightda
 
 		ActorTraceStaticLight staticLight(self);
 
-		if (gl_spritelight > 0 || ActorTraceStaticLight::TraceSunVisibility(x, y, z, (self ? &self->StaticLightsTraceCache : nullptr), (self ? staticLight.ActorMoved : false)))
+		if ((level.lightmaps && gl_spritelight > 0) || ActorTraceStaticLight::TraceSunVisibility(x, y, z, (self ? &self->StaticLightsTraceCache : nullptr), (self ? staticLight.ActorMoved : false)))
 		{
 			AddSunLightToList(modellightdata, x, y, z, self->Level->SunDirection, self->Level->SunColor * self->Level->SunIntensity, gl_spritelight > 0);
 		}

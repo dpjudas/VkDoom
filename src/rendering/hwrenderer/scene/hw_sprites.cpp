@@ -305,6 +305,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 				state.SetDepthBias(-1, -128);
 			}
 
+			state.SetLightNoNormals(true);
 			state.SetLightIndex(dynlightindex);
 			state.Draw(DT_TriangleStrip, vertexindex, 4);
 			state.SetLightIndex(-1);
@@ -318,6 +319,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 				state.Draw(DT_TriangleStrip, vertexindex, 4);
 				state.SetTextureMode(TM_NORMAL);
 			}
+			state.SetLightNoNormals(false);
 		}
 		else
 		{

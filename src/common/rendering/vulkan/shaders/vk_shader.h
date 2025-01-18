@@ -109,7 +109,8 @@ public:
 			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
 			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
 			uint64_t ShadeVertex : 1; // SHADE_VERTEX
-			uint64_t Unused : 29;
+			uint64_t LightNoNormals : 1; // LIGHT_NONORMALS
+			uint64_t Unused : 28;
 		};
 		uint64_t AsQWORD = 0;
 	};

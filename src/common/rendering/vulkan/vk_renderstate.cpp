@@ -330,6 +330,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 	}
 
 	pipelineKey.ShaderKey.ShadeVertex = mShadeVertex;
+	pipelineKey.ShaderKey.LightNoNormals = mLightNoNormals;
 
 	pipelineKey.ShaderKey.UseShadowmap = gl_light_shadows == 1;
 	pipelineKey.ShaderKey.UseRaytrace = gl_light_shadows >= 2;
