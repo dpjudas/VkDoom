@@ -47,7 +47,10 @@ float traceHit(vec3 origin, vec3 direction, float dist)
 float traceShadow(vec3 lightpos, float softShadowRadius)
 {
 	vec3 target = lightpos.xyz + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
-#ifdef LIGHT_NONORMALS
+#ifdef USE_SPRITE_CENTER
+	vec3 origin = uActorCenter.xyz;
+	vec3 direction = normalize(target - origin);
+#elif defined(LIGHT_NONORMALS)
 	vec3 origin = pixelpos.xyz;
 	vec3 direction = normalize(target - origin);
 	origin -= direction;

@@ -141,6 +141,7 @@ protected:
 	uint8_t mWireframe : 2;
 	uint8_t mShadeVertex : 1;
 	uint8_t mLightNoNormals : 1;
+	uint8_t mUseSpriteCenter : 1;
 
 	FVector4 mWireframeColor;
 	FVector4 uObjectColor;
@@ -185,6 +186,7 @@ public:
 
 	void Reset()
 	{
+		mUseSpriteCenter = 0;
 		mLightNoNormals = 0;
 		mShadeVertex = 0;
 		mWireframe = 0;
@@ -279,6 +281,11 @@ public:
 		mLightNoNormals = value;
 	}
 
+	void SetUseSpriteCenter(bool value)
+	{
+		mUseSpriteCenter = value;
+	}
+
 	void SetWireframeColor(FVector4 color)
 	{
 		mWireframeColor = color;
@@ -292,6 +299,11 @@ public:
 	void SetNormal(float x, float y, float z)
 	{
 		mSurfaceUniforms.uVertexNormal = { x, y, z, 0.f };
+	}
+
+	void SetActorCenter(float x, float y, float z)
+	{
+		mSurfaceUniforms.uActorCenter = { x, y, z };
 	}
 
 	void SetColor(float r, float g, float b, float a = 1.f, int desat = 0)

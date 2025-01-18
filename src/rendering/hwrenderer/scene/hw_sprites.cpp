@@ -294,9 +294,20 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 			SetSplitPlanes(state, topp, bottomp);
 		}
 
+		if(actor)
+		{
+			state.SetActorCenter(actor->X(), actor->Center(), actor->Y());
+		}
+
 		if (!modelframe)
 		{
+			state.SetLightNoNormals(true);
 			state.SetNormal(0, 0, 0);
+
+			if(actor && gl_spritelight < 2)
+			{
+				state.SetUseSpriteCenter(true);
+			}
 
 			CreateVertices(di, state);
 
@@ -305,7 +316,6 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 				state.SetDepthBias(-1, -128);
 			}
 
-			state.SetLightNoNormals(true);
 			state.SetLightIndex(dynlightindex);
 			state.Draw(DT_TriangleStrip, vertexindex, 4);
 			state.SetLightIndex(-1);
@@ -320,6 +330,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 				state.SetTextureMode(TM_NORMAL);
 			}
 			state.SetLightNoNormals(false);
+			state.SetUseSpriteCenter(false);
 		}
 		else
 		{
