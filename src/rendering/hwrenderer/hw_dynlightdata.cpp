@@ -176,7 +176,7 @@ void AddSunLightToList(FDynLightData& dld, float x, float y, float z, const FVec
 	info.r = suncolor.X;
 	info.g = suncolor.Y;
 	info.b = suncolor.Z;
-	info.flags = LIGHTINFO_ATTENUATED | (doTrace ? LIGHTINFO_TRACE : 0) | LIGHTINFO_SUN;
+	info.flags = LIGHTINFO_ATTENUATED | (doTrace ? (LIGHTINFO_TRACE | LIGHTINFO_SUN) : 0);
 	info.strength = 1500.0f;
 
 	dld.arrays[LIGHTARRAY_NORMAL].Push(info);

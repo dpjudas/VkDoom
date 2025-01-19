@@ -64,3 +64,5 @@ EXTERN_CVAR(Int, gl_wireframe)
 EXTERN_CVAR(Color, gl_wireframecolor)
 
 int get_gl_spritelight();
+
+EXTERN_CVAR(Bool, gl_fakemodellight)

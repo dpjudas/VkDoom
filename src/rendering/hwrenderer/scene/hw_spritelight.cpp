@@ -258,7 +258,7 @@ void HWDrawInfo::GetDynSpriteLight(AActor *thing, particle_t *particle, sun_trac
 }
 
 
-void HWDrawInfo::GetDynSpriteLightList(AActor *self, FDynLightData &modellightdata)
+void HWDrawInfo::GetDynSpriteLightList(AActor *self, FDynLightData &modellightdata, bool isModel)
 {
 	modellightdata.Clear();
 
@@ -281,6 +281,12 @@ void HWDrawInfo::GetDynSpriteLightList(AActor *self, FDynLightData &modellightda
 		ActorTraceStaticLight staticLight(self);
 
 		int gl_spritelight = get_gl_spritelight();
+
+		if(isModel && gl_fakemodellight)
+		{
+			//fake light for contrast
+			AddSunLightToList(modellightdata, x, y, z, FVector3(self->Level->SunDirection.X + 180, 45, 0), self->Level->SunColor * self->Level->SunIntensity * 0.05, false);
+		}
 
 		if ((level.lightmaps && gl_spritelight > 0) || ActorTraceStaticLight::TraceSunVisibility(x, y, z, (self ? &self->StaticLightsTraceCache : nullptr), (self ? staticLight.ActorMoved : false)))
 		{
