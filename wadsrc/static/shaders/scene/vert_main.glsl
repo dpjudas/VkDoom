@@ -44,13 +44,14 @@
 		
 		if (attenuation > 0.0) // Skip shadow map test if possible
 		{
-			#ifdef USE_RAYTRACE
-				// light.radius >= 1000000.0 is sunlight(?), skip attenuation
-				if((light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
-				{
-					attenuation *= traceShadow(light.pos.xyz, light.softShadowRadius);
-				}
-			#endif
+			if((light.flags & LIGHTINFO_SUN) != 0)
+			{
+				attenuation *= traceSun(lightdir);
+			}
+			else if((light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
+			{
+				attenuation *= traceShadow(light.pos.xyz, light.softShadowRadius);
+			}
 			
 			return light.color.rgb * attenuation;
 		}

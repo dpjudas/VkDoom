@@ -55,7 +55,7 @@ float traceShadow(vec3 lightpos, float softShadowRadius)
 	vec3 direction = normalize(target - origin);
 	origin -= direction;
 #else
-	vec3 origin = pixelpos.xyz + vWorldNormal.xyz;
+	vec3 origin = pixelpos.xyz + (vWorldNormal.xyz * 0.1);
 	vec3 direction = normalize(target - origin);
 #endif
 
@@ -84,5 +84,38 @@ float traceShadow(vec3 lightpos, float softShadowRadius)
 		}
 		return (sum / step_count);
 	}
+#endif
+}
+
+float traceSun(vec3 SunDir)
+{
+#ifdef USE_SPRITE_CENTER
+	vec3 origin = uActorCenter.xyz;
+#elif defined(LIGHT_NONORMALS)
+	vec3 origin = pixelpos.xyz;
+	origin -= SunDir;
+#else
+	vec3 origin = pixelpos.xyz + (vWorldNormal.xyz * 0.1);
+#endif
+
+	float dist = 65536.0;
+
+#if SHADOWMAP_FILTER == 0
+	return TraceDynLightRay(origin, 0.01f, SunDir, dist);
+#else
+	vec3 target = (SunDir * dist) + origin;
+	vec3 v = (abs(SunDir.x) > abs(SunDir.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+	vec3 xdir = normalize(cross(SunDir, v));
+	vec3 ydir = cross(SunDir, xdir);
+
+	float sum = 0.0;
+	const int step_count = SHADOWMAP_FILTER * 4;
+	for (int i = 0; i < step_count; i++)
+	{
+		vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * 100.0;
+		vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
+		sum += TraceDynLightRay(origin, 0.01f, normalize(pos - origin), dist);
+	}
+	return (sum / step_count);
 #endif
 }

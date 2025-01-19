@@ -30,8 +30,11 @@
 		
 		if (attenuation > 0.0) // Skip shadow map test if possible
 		{
-			// light.radius >= 1000000.0 is sunlight(?), skip attenuation
-			if(light.radius < 1000000.0 && (light.flags & LIGHTINFO_SHADOWMAPPED) != 0)
+			if((light.flags & (LIGHTINFO_SUN | LIGHTINFO_TRACE)) == (LIGHTINFO_SUN | LIGHTINFO_TRACE))
+			{
+				attenuation *= traceSun(lightdir);
+			}
+			else if((light.flags & (LIGHTINFO_SHADOWMAPPED | LIGHTINFO_SUN)) == LIGHTINFO_SHADOWMAPPED)
 			{
 				attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius, light.flags);
 			}
