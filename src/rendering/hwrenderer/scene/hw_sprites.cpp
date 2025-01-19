@@ -109,6 +109,8 @@ CVARD(Bool, r_showhitbox, false, CVAR_GLOBALCONFIG | CVAR_CHEAT, "show actor hit
 
 void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 {
+	int gl_spritelight = get_gl_spritelight();
+
 	state.SetShadeVertex(gl_spritelight == 1);
 	bool additivefog = false;
 	bool foglayer = false;
@@ -650,7 +652,7 @@ bool HWSprite::CalculateVertices(HWDrawInfo* di, FVector3* v, DVector3* vp)
 inline void HWSprite::PutSprite(HWDrawInfo *di, FRenderState& state, bool translucent)
 {
 	// That's a lot of checks...
-	if ((gl_spritelight > 0 || (modelframe && !modelframe->isVoxel && !(modelframeflags & MDL_NOPERPIXELLIGHTING))) && RenderStyle.BlendOp != STYLEOP_Shadow && gl_light_sprites && di->Level->HasDynamicLights && !di->isFullbrightScene() && !fullbright)
+	if ((get_gl_spritelight() > 0 || (modelframe && !modelframe->isVoxel && !(modelframeflags & MDL_NOPERPIXELLIGHTING))) && RenderStyle.BlendOp != STYLEOP_Shadow && gl_light_sprites && di->Level->HasDynamicLights && !di->isFullbrightScene() && !fullbright)
 	{
 		di->GetDynSpriteLightList(actor, lightdata);
 		dynlightindex = state.UploadLights(lightdata);
