@@ -2964,7 +2964,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 		}
 	}
 
-	if (map->Size(ML_LIGHTMAP))
+	if (map->Size(ML_LIGHTMAP) && !RunningAsTool)
 	{
 		// Arbitrary ZDRay limit. This will break lightmap lump loading if not enforced.
 		Level->LightmapSampleDistance = std::clamp((int)Level->LightmapSampleDistance, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX);
@@ -3025,7 +3025,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 
 bool MapLoader::LoadLightmap(MapData* map)
 {
-	if (!Level->lightmaps || !map->Size(ML_LIGHTMAP) || ignorelightmaplump)
+	if (RunningAsTool || !Level->lightmaps || !map->Size(ML_LIGHTMAP) || ignorelightmaplump)
 		return false;
 
 	FileReader fr;
@@ -3205,6 +3205,8 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	Level->SunIntensity = gameinfo.defaultSunIntensity;
 	Level->LightmapSampleDistance = gameinfo.defaultLightmapSampleDistance;
 	Level->lightmaps = gameinfo.forceEnableLightmaps;
+	Level->LightBounce = true;
+	Level->AmbientOcclusion = true;
 
 	// note: most of this ordering is important 
 	ForceNodeBuild = gennodes;

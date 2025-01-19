@@ -26,9 +26,9 @@ CVAR(Int, lm_max_updates, 128, CVAR_NOSAVE);
 CVAR(Float, lm_scale, 1.0, CVAR_NOSAVE);
 CVAR(Bool, lm_sunlight, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_blur, true, CVAR_ARCHIVE);
-CVAR(Bool, lm_ao, false, CVAR_NOSAVE);
+CVAR(Bool, lm_ao, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_softshadows, true, CVAR_ARCHIVE);
-CVAR(Bool, lm_bounce, false, CVAR_NOSAVE);
+CVAR(Bool, lm_bounce, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_dynamic, true, CVAR_ARCHIVE);
 
 VkLightmapper::VkLightmapper(VulkanRenderDevice* fb) : fb(fb)
@@ -592,14 +592,20 @@ void VkLightmapper::CreateShaders()
 
 int VkLightmapper::GetRaytracePipelineIndex()
 {
+	// When running as the baking tool we don't care about the CVAR or hardware preferences and only want to act on what the map specified.
+	bool userSoftshadows = RunningAsTool || (lm_softshadows && useRayQuery);
+	bool userAO = RunningAsTool || (lm_ao && useRayQuery);
+	bool userSunlight = RunningAsTool || lm_sunlight;
+	bool userBounce = RunningAsTool || lm_bounce;
+
 	int index = 0;
-	if (lm_softshadows && useRayQuery)
+	if (userSoftshadows)
 		index |= 1;
-	if (lm_ao && useRayQuery)
+	if (mesh->AmbientOcclusion && userAO)
 		index |= 2;
-	if (lm_sunlight && mesh->SunColor != FVector3(0.0f, 0.0f, 0.0f))
+	if (mesh->SunColor != FVector3(0.0f, 0.0f, 0.0f) && userSunlight)
 		index |= 4;
-	if (lm_bounce)
+	if (mesh->LightBounce && userBounce)
 		index |= 8;
 	return index;
 }

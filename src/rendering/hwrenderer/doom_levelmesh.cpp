@@ -211,6 +211,8 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	SunDirection = doomMap.SunDirection;
 	SunIntensity = doomMap.SunIntensity;
 	Lightmap.SampleDistance = doomMap.LightmapSampleDistance;
+	LightBounce = doomMap.LightBounce;
+	AmbientOcclusion = doomMap.AmbientOcclusion;
 
 	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
 	// but we aren't rendering a specific viewpoint when this function gets called

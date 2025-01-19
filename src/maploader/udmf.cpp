@@ -844,6 +844,14 @@ public:
 				Level->LightmapSampleDistance = CheckInt(key);
 				break;
 
+			case NAME_lm_bounce:
+				Level->LightBounce = CheckBool(key);
+				break;
+
+			case NAME_lm_ao:
+				Level->AmbientOcclusion = CheckBool(key);
+				break;
+
 			default:
 				CHECK_N(Zd | Zdt)
 				if (0 == strnicmp("user_", key.GetChars(), 5))
