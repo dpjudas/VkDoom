@@ -183,7 +183,8 @@ endif()
 
 # Set up flags for MSVC
 if (MSVC)
-	set( CMAKE_CXX_FLAGS "/MP ${CMAKE_CXX_FLAGS}" )
+	# /we4715 turns "'function' : not all control paths return a value" as it should be!!!!!!!!one1!
+	set( CMAKE_CXX_FLAGS "/MP /we4715 ${CMAKE_CXX_FLAGS}" )
 endif (MSVC)
 
 # Set up flags for GCC

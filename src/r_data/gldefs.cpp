@@ -137,6 +137,7 @@ const GlobalShaderDesc * GetGlobalShader(GlobalShaderAddr index)
 
 	if(index.type == 1) return mapshaders[index.num].CheckKey(name);
 	if(index.type == 2) return classshaders[index.num].CheckKey(name);
+	return &nullglobalshader;
 }
 
 void CleanupGlobalShaders()
