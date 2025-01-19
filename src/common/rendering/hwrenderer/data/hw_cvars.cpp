@@ -179,3 +179,5 @@ int get_gl_spritelight()
 {
 	return gl_spritelight < 0 ? (screen->IsRayQueryEnabled() ? 1 : 0) : gl_spritelight;
 }
+
+CVAR(Bool, gl_fakemodellight, true, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)

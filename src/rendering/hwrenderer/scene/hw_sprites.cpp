@@ -654,7 +654,7 @@ inline void HWSprite::PutSprite(HWDrawInfo *di, FRenderState& state, bool transl
 	// That's a lot of checks...
 	if ((get_gl_spritelight() > 0 || (modelframe && !modelframe->isVoxel && !(modelframeflags & MDL_NOPERPIXELLIGHTING))) && RenderStyle.BlendOp != STYLEOP_Shadow && gl_light_sprites && di->Level->HasDynamicLights && !di->isFullbrightScene() && !fullbright)
 	{
-		di->GetDynSpriteLightList(actor, lightdata);
+		di->GetDynSpriteLightList(actor, lightdata, modelframe && !modelframe->isVoxel);
 		dynlightindex = state.UploadLights(lightdata);
 	}
 	else
