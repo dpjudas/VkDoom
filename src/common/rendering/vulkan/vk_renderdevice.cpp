@@ -521,12 +521,9 @@ void VulkanRenderDevice::BeginFrame()
 	{
 		levelMeshChanged = false;
 		mLevelMesh->SetLevelMesh(levelMesh);
-
-		if (levelMesh && levelMesh->Lightmap.TextureCount > 0)
-		{
+		if (levelMesh)
 			GetTextureManager()->CreateLightmap(levelMesh->Lightmap.TextureSize, levelMesh->Lightmap.TextureCount, std::move(levelMesh->Lightmap.TextureData));
-			GetLightmapper()->SetLevelMesh(levelMesh);
-		}
+		GetLightmapper()->SetLevelMesh(levelMesh);
 	}
 
 	SetViewportRects(nullptr);

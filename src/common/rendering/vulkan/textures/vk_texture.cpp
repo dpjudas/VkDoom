@@ -397,6 +397,13 @@ void VkTextureManager::CreatePrefiltermap(int size, int count, TArray<uint16_t>&
 
 void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCount, TArray<uint16_t>&& newPixelData)
 {
+	if (newLMTextureCount == 0) // If there is no lightmap we create a dummy texture to simplify code elsewhere
+	{
+		newLMTextureSize = 1;
+		newLMTextureCount = 1;
+		newPixelData = {};
+	}
+
 	if (Lightmap.Size == newLMTextureSize && Lightmap.Count == newLMTextureCount + 1 && newPixelData.Size() == 0)
 		return;
 

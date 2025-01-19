@@ -238,6 +238,10 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	r_viewpoint.camera = oldcamera;
 }
 
+DoomLevelMesh::~DoomLevelMesh()
+{
+}
+
 void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
 {
 	// Try to estimate what the worst case memory needs are for the level

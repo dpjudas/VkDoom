@@ -90,6 +90,7 @@ class DoomLevelMesh : public LevelMesh, public UpdateLevelMesh
 {
 public:
 	DoomLevelMesh(FLevelLocals &doomMap);
+	~DoomLevelMesh();
 
 	void PrintSurfaceInfo(const LevelMeshSurface* surface);
 
