@@ -129,7 +129,7 @@ float inverseSquareAttenuation(float dist, float radius, float strength)
 
 void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache, double x, double y, double z, FLightNode *node, int portalgroup, float *out, bool fullbright)
 {
-	if (fullbright || gl_spritelight > 0)
+	if (fullbright || get_gl_spritelight() > 0)
 		return;
 
 	FDynamicLight *light;
@@ -279,6 +279,8 @@ void HWDrawInfo::GetDynSpriteLightList(AActor *self, FDynLightData &modellightda
 		dl_validcount++;
 
 		ActorTraceStaticLight staticLight(self);
+
+		int gl_spritelight = get_gl_spritelight();
 
 		if ((level.lightmaps && gl_spritelight > 0) || ActorTraceStaticLight::TraceSunVisibility(x, y, z, (self ? &self->StaticLightsTraceCache : nullptr), (self ? staticLight.ActorMoved : false)))
 		{

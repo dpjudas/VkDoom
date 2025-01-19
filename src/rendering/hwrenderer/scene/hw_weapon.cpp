@@ -740,7 +740,7 @@ void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area, F
 		if (hudsprite.RenderStyle.BlendOp != STYLEOP_Shadow && Level->HasDynamicLights && !isFullbrightScene() && gl_light_sprites)
 		{
 			GetDynSpriteLight(playermo, nullptr, nullptr, hudsprite.dynrgb);
-			if (gl_spritelight > 0)
+			if (get_gl_spritelight() > 0)
 			{
 				GetDynSpriteLightList(playermo, lightdata);
 			}
