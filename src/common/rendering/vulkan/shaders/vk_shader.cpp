@@ -464,7 +464,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)
 {
 	FString definesBlock;
-	BuildDefinesBlock(definesBlock, defines, false, key, shader);
+	BuildDefinesBlock(definesBlock, defines, true, key, shader);
 
 	FString layoutBlock;
 	BuildLayoutBlock(layoutBlock, true, key, shader);
