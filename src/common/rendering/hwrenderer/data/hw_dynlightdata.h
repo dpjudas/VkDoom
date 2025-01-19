@@ -32,6 +32,7 @@ enum FDynLightInfoFlags
 	LIGHTINFO_SHADOWMAPPED = 2,
 	LIGHTINFO_SPOT = 4,
 	LIGHTINFO_TRACE = 8,
+	LIGHTINFO_SUN = 16,
 };
 
 struct FDynLightInfo

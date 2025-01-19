@@ -109,7 +109,7 @@ CVARD(Bool, r_showhitbox, false, CVAR_GLOBALCONFIG | CVAR_CHEAT, "show actor hit
 
 void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 {
-	state.SetShadeVertex(gl_spritelight < 2);
+	state.SetShadeVertex(gl_spritelight == 1);
 	bool additivefog = false;
 	bool foglayer = false;
 	int rel = fullbright ? 0 : getExtraLight();
@@ -301,12 +301,15 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 
 		if (!modelframe)
 		{
-			state.SetLightNoNormals(true);
 			state.SetNormal(0, 0, 0);
 
-			if(actor && gl_spritelight < 2)
+			if(gl_spritelight > 0)
 			{
-				state.SetUseSpriteCenter(true);
+				state.SetLightNoNormals(true);
+				if(actor && gl_spritelight < 2)
+				{
+					state.SetUseSpriteCenter(true);
+				}
 			}
 
 			CreateVertices(di, state);
