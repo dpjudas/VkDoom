@@ -12,6 +12,7 @@ We do not have any official release of VKDoom yet. You can however download a bi
 
 ### Build Guide
 
+## Prep
 For Windows, you need the latest version of Visual Studio, Windows SDK, Git, and CMake to build VKDoom.
 
 For Linux, you need the following:
@@ -23,6 +24,7 @@ For Linux, you need the following:
 
 For Mac, the following project is recommended, as it contains all the dependencies and makes building easy: https://github.com/ZDoom/zdoom-macos-deps
 
+## Clone the repo
 After you have the packages installed, `cd` into your projects directory, and do the following to clone:
 
 ```sh
@@ -42,6 +44,9 @@ mkdir build
 cd build
 ```
 
+## Building
+
+### Windows
 For Windows, run the following to prepare your build environment and the second command will build:
 
 ```sh
@@ -51,13 +56,22 @@ cmake --build . --config Release -- -maxcpucount
 
 (replace x64 with ARM64 if you're building on ARM64)
 
-For Linux, run the following to prepare your build environment and the second command will build:
+### Linux - Ninja (Recommended)
+For 'ninja', make sure the ninja package is installed on your distro (ex: Debian: `sudo apt install ninja`) - then run the following to prepare your build environment and the second command will build:
+```sh
+cmake .. -DCMAKE_BUILD_TYPE=Release -G Ninja
+cmake . --build
+```
+
+### Linux - Make
+For 'make', run the following to prepare your build environment and the second command will build:
 
 ```sh
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j $(nproc)
 ```
 
+### Mac OS
 For Mac, if you're using zdoom-macos-deps, simply cd into it and type the following:
 
 ```sh
