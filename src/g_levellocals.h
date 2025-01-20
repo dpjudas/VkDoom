@@ -475,7 +475,7 @@ public:
 	TArray<int> LightmapTiles;
 	FVector3 SunDirection;
 	FVector3 SunColor;
-	float SunIntensity = false;
+	float SunIntensity = 0.f;
 	uint16_t LightmapSampleDistance = 0;
 	bool LightBounce = false;
 	bool AmbientOcclusion = false;
