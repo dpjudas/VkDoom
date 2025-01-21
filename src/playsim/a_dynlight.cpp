@@ -305,6 +305,7 @@ void FDynamicLight::Tick()
 	if (!target)
 	{
 		// How did we get here? :?
+		UnlinkLight();
 		ReleaseLight();
 		return;
 	}
@@ -444,16 +445,18 @@ void FDynamicLight::Tick()
 		if(updated)
 		{
 			ActorList.Clear();
+			ActorResult.Clear();
 		}
 		else if(ActorList.Size() > 0)
 		{
-			unsigned i = ActorList.Size() - 1;
+			unsigned i = ActorList.Size();
 			while(i > 0)
 			{
-				if(ActorList[i]->ObjectFlags & OF_EuthanizeMe)
+				const unsigned index = i - 1u;
+				if(ActorList[index]->ObjectFlags & OF_EuthanizeMe)
 				{
-					ActorList.Delete(i);
-					ActorResult.Delete(i);
+					ActorList.Delete(index);
+					ActorResult.Delete(index);
 				}
 				i--;
 			}
