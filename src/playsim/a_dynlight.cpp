@@ -100,7 +100,7 @@ static void MarkTilesForUpdate(FLevelLocals * Level, FLightNode * touching_sides
 	
 		while(touching_sector)
 		{
-			for(subsector_t * ss : static_cast<FSection *>(touching_sector->targ)->subsectors)
+			for(subsector_t * ss : touching_sector->targSection->subsectors)
 			{
 				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
 				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
@@ -842,7 +842,7 @@ void FDynamicLight::LinkLight()
 		{
 			if (node->lightsource == nullptr)
 			{
-				for(subsector_t * ss : static_cast<FSection *>(node->targ)->subsectors)
+				for(subsector_t * ss : node->targSection->subsectors)
 				{
 					MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
 					MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
@@ -900,7 +900,7 @@ void FDynamicLight::UnlinkLight ()
 
 		while (touching_sector)
 		{
-			for(subsector_t * ss : static_cast<FSection *>(touching_sector->targ)->subsectors)
+			for(subsector_t * ss : touching_sector->targSection->subsectors)
 			{
 				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
 				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);

@@ -200,7 +200,7 @@ struct FLightNode
 	union
 	{
 		side_t * targLine;
-		subsector_t * targSubsector;
+		FSection* targSection;
 		void * targ;
 	};
 };
