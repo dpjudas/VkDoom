@@ -26,7 +26,11 @@ class DVisualThinker : public DThinker
 {
 	DECLARE_CLASS(DVisualThinker, DThinker);
 	void UpdateSector(subsector_t * newSubsector);
+
+	DVisualThinker* _next, * _prev;
 public:
+	static const int DEFAULT_STAT = STAT_VISUALTHINKER;
+
 	DVector3		Prev;
 	DVector2		Scale,
 					Offset;
@@ -42,9 +46,9 @@ public:
 	particle_t		PT;
 	sun_trace_cache_t StaticLightsTraceCache;
 
-	DVisualThinker();
 	void Construct();
 	void OnDestroy() override;
+	DVisualThinker* GetNext() const;
 
 	static DVisualThinker* NewVisualThinker(FLevelLocals* Level, PClass* type);
 	void SetTranslation(FName trname);
