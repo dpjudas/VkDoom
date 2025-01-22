@@ -337,6 +337,7 @@ void HWDrawInfo::GetDynSpriteLightList(AActor *thing, particle_t *particle, sun_
 	}
 	else if (particle)
 	{
+		if(particle->flags & SPF_FULLBRIGHT) return;
 		GetDynSpriteLightList(nullptr, particle->Pos.X, particle->Pos.Y, particle->Pos.Z, traceCache, modellightdata, isModel);
 	}
 }
