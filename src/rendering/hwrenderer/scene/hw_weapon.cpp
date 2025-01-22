@@ -844,7 +844,7 @@ void HWDrawInfo::PreparePlayerSprites3D(sector_t * viewsector, area_t in_area, F
 		// set the lighting parameters
 		if (hudsprite.RenderStyle.BlendOp != STYLEOP_Shadow && Level->HasDynamicLights && !isFullbrightScene() && gl_light_sprites)
 		{
-			GetDynSpriteLightList(playermo, lightdata, true);
+			GetDynSpriteLightList(playermo, nullptr, nullptr, lightdata, true);
 			hudsprite.lightindex = state.UploadLights(lightdata);
 		}
 

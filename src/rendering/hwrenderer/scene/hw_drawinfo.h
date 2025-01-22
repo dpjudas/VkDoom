@@ -316,7 +316,8 @@ public:
 	void GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache, double x, double y, double z, FLightNode *node, int portalgroup, float *out, bool fullbright);
 	void GetDynSpriteLight(AActor *thing, particle_t *particle, sun_trace_cache_t * traceCache, float *out);
 
-	void GetDynSpriteLightList(AActor *self, FDynLightData &modellightdata, bool isModel);
+	void GetDynSpriteLightList(AActor *self, double x, double y, double z, sun_trace_cache_t * traceCache, FDynLightData &modellightdata, bool isModel);
+	void GetDynSpriteLightList(AActor *thing, particle_t *particle, sun_trace_cache_t * traceCache, FDynLightData &modellightdata, bool isModel);
 
 	void PreparePlayerSprites(sector_t * viewsector, area_t in_area, FRenderState& state);
 	void PrepareTargeterSprites(double ticfrac, FRenderState& state);

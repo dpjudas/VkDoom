@@ -258,79 +258,85 @@ void HWDrawInfo::GetDynSpriteLight(AActor *thing, particle_t *particle, sun_trac
 }
 
 
-void HWDrawInfo::GetDynSpriteLightList(AActor *self, FDynLightData &modellightdata, bool isModel)
+void HWDrawInfo::GetDynSpriteLightList(AActor *self, double x, double y, double z, sun_trace_cache_t * traceCache, FDynLightData &modellightdata, bool isModel)
 {
 	modellightdata.Clear();
 
-	if (self)
+	if (self && (self->flags5 & MF5_BRIGHT))
+		return;
+
+	auto &addedLights = drawctx->addedLightsArray;
+
+	addedLights.Clear();
+
+	float actorradius = self ? (float)self->RenderRadius() : 1;
+	float radiusSquared = actorradius * actorradius;
+	dl_validcount++;
+
+	ActorTraceStaticLight staticLight(self);
+
+	int gl_spritelight = get_gl_spritelight();
+
+	if(isModel && gl_fakemodellight)
 	{
-		if ((self->flags5 & MF5_BRIGHT))
-			return;
+		//fake light for contrast
+		AddSunLightToList(modellightdata, x, y, z, FVector3(Level->SunDirection.X + 180, 45, 0), Level->SunColor * Level->SunIntensity * 0.05, false);
+	}
 
-		auto &addedLights = drawctx->addedLightsArray;
+	if ((level.lightmaps && gl_spritelight > 0) || ActorTraceStaticLight::TraceSunVisibility(x, y, z, traceCache, (self ? staticLight.ActorMoved : traceCache ? traceCache->Pos != DVector3(x, y, z) : false)))
+	{
+		AddSunLightToList(modellightdata, x, y, z, Level->SunDirection, Level->SunColor * Level->SunIntensity, gl_spritelight > 0);
+	}
 
-		addedLights.Clear();
-
-		float x = (float)self->X();
-		float y = (float)self->Y();
-		float z = (float)self->Center();
-		float actorradius = (float)self->RenderRadius();
-		float radiusSquared = actorradius * actorradius;
-		dl_validcount++;
-
-		ActorTraceStaticLight staticLight(self);
-
-		int gl_spritelight = get_gl_spritelight();
-
-		if(isModel && gl_fakemodellight)
+	BSPWalkCircle(Level, x, y, radiusSquared, [&](subsector_t *subsector) // Iterate through all subsectors potentially touched by actor
+	{
+		auto section = subsector->section;
+		if (section->validcount == dl_validcount) return;	// already done from a previous subsector.
+		FLightNode * node = section->lighthead;
+		while (node) // check all lights touching a subsector
 		{
-			//fake light for contrast
-			AddSunLightToList(modellightdata, x, y, z, FVector3(self->Level->SunDirection.X + 180, 45, 0), self->Level->SunColor * self->Level->SunIntensity * 0.05, false);
-		}
-
-		if ((level.lightmaps && gl_spritelight > 0) || ActorTraceStaticLight::TraceSunVisibility(x, y, z, (self ? &self->StaticLightsTraceCache : nullptr), (self ? staticLight.ActorMoved : false)))
-		{
-			AddSunLightToList(modellightdata, x, y, z, self->Level->SunDirection, self->Level->SunColor * self->Level->SunIntensity, gl_spritelight > 0);
-		}
-
-		BSPWalkCircle(self->Level, x, y, radiusSquared, [&](subsector_t *subsector) // Iterate through all subsectors potentially touched by actor
-		{
-			auto section = subsector->section;
-			if (section->validcount == dl_validcount) return;	// already done from a previous subsector.
-			FLightNode * node = section->lighthead;
-			while (node) // check all lights touching a subsector
+			FDynamicLight *light = node->lightsource;
+			if (light->ShouldLightActor(self))
 			{
-				FDynamicLight *light = node->lightsource;
-				if (light->ShouldLightActor(self))
+				int group = subsector->sector->PortalGroup;
+				DVector3 pos = light->PosRelative(group);
+				float radius = (float)(light->GetRadius() + actorradius);
+				double dx = pos.X - x;
+				double dy = pos.Y - y;
+				double dz = pos.Z - z;
+				double distSquared = dx * dx + dy * dy + dz * dz;
+				if (distSquared < radius * radius) // Light and actor touches
 				{
-					int group = subsector->sector->PortalGroup;
-					DVector3 pos = light->PosRelative(group);
-					float radius = (float)(light->GetRadius() + actorradius);
-					double dx = pos.X - x;
-					double dy = pos.Y - y;
-					double dz = pos.Z - z;
-					double distSquared = dx * dx + dy * dy + dz * dz;
-					if (distSquared < radius * radius) // Light and actor touches
+					unsigned index = addedLights.SortedFind(light, false);
+					if(index == addedLights.Size() || addedLights[index] != light) // Check if we already added this light from a different subsector (use binary search instead of linear search)
 					{
-						unsigned index = addedLights.SortedFind(light, false);
-						if(index == addedLights.Size() || addedLights[index] != light) // Check if we already added this light from a different subsector (use binary search instead of linear search)
+						FVector3 L(dx, dy, dz);
+						float dist = sqrtf(distSquared);
+						if (gl_spritelight == 0 && light->TraceActors())
+							L *= 1.0f / dist;
+
+						if (gl_spritelight > 0 || staticLight.TraceLightVisbility(node, L, dist, light->updated))
 						{
-							FVector3 L(dx, dy, dz);
-							float dist = sqrtf(distSquared);
-							if (gl_spritelight == 0 && light->TraceActors())
-								L *= 1.0f / dist;
-
-							if (gl_spritelight > 0 || staticLight.TraceLightVisbility(node, L, dist, light->updated))
-							{
-								AddLightToList(modellightdata, group, light, true, gl_spritelight > 0);
-							}
-
-							addedLights.Insert(index, light);
+							AddLightToList(modellightdata, group, light, true, gl_spritelight > 0);
 						}
+
+						addedLights.Insert(index, light);
 					}
 				}
-				node = node->nextLight;
 			}
-		});
+			node = node->nextLight;
+		}
+	});
+}
+
+void HWDrawInfo::GetDynSpriteLightList(AActor *thing, particle_t *particle, sun_trace_cache_t * traceCache, FDynLightData &modellightdata, bool isModel)
+{
+	if (thing)
+	{
+		GetDynSpriteLightList(thing, thing->X(), thing->Y(), thing->Center(), &thing->StaticLightsTraceCache, modellightdata, isModel);
+	}
+	else if (particle)
+	{
+		GetDynSpriteLightList(nullptr, particle->Pos.X, particle->Pos.Y, particle->Pos.Z, traceCache, modellightdata, isModel);
 	}
 }
