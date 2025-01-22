@@ -272,7 +272,7 @@ inline GeometryAllocInfo LevelMesh::AllocGeometry(int vertexCount, int indexCoun
 	UploadRanges.Vertex.Add(info.VertexStart, info.VertexCount);
 	UploadRanges.UniformIndexes.Add(info.VertexStart, info.VertexCount);
 	UploadRanges.Index.Add(info.IndexStart, info.IndexCount);
-	UploadRanges.SurfaceIndex.Add(info.IndexStart / 3, info.IndexCount);
+	UploadRanges.SurfaceIndex.Add(info.IndexStart / 3, info.IndexCount / 3);
 
 	Mesh.IndexCount = std::max(Mesh.IndexCount, info.IndexStart + info.IndexCount);
 
