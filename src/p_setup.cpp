@@ -379,6 +379,7 @@ void FLevelLocals::ClearLevelData(bool fullgc)
 	if (levelMesh) delete levelMesh;
 	aabbTree = nullptr;
 	levelMesh = nullptr;
+	VisualThinkerHead = nullptr;
 	if (screen)
 		screen->SetLevelMesh(nullptr);
 	if (screen && screen->mShadowMap)
