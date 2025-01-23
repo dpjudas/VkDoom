@@ -333,7 +333,7 @@ VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(bool preferFastBuild, int indexOffset,
 	accelStructBLDesc.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
 	accelStructBLDesc.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 	accelStructBLDesc.geometry.triangles = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
-	accelStructBLDesc.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+	accelStructBLDesc.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 	accelStructBLDesc.geometry.triangles.vertexData.deviceAddress = VertexBuffer->GetDeviceAddress();
 	accelStructBLDesc.geometry.triangles.vertexStride = sizeof(FFlatVertex);
 	accelStructBLDesc.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
