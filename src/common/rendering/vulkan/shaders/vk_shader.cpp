@@ -314,11 +314,6 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 		int index = 0;
 		AddBuiltinFields(layoutBlock, index, false, fragShaderOutputs, key, hasClipDistance);
 	}
-
-	layoutBlock << "#line 1\n";
-
-	layoutBlock << LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars() << "\n";
-
 }
 
 void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader)
@@ -436,7 +431,6 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 	FString layoutBlock;
 	BuildLayoutBlock(layoutBlock, false, key, shader);
 
-
 	FString codeBlock;
 	codeBlock << LoadPrivateShaderLump(vert_lump).GetChars() << "\n";
 	if(vert_lump_custom)
@@ -468,7 +462,6 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 
 	FString layoutBlock;
 	BuildLayoutBlock(layoutBlock, true, key, shader);
-
 
 	FString codeBlock;
 	codeBlock << LoadPrivateShaderLump(frag_lump).GetChars() << "\n";
@@ -554,6 +547,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 		.AddSource("VersionBlock", GetVersionBlock().GetChars())
 		.AddSource("DefinesBlock", definesBlock.GetChars())
 		.AddSource("LayoutBlock", layoutBlock.GetChars())
+		.AddSource("shaders/scene/layout_shared.glsl", layoutBlock.GetChars())
 		.AddSource("shaders/scene/includes.glsl", LoadPrivateShaderLump("shaders/scene/includes.glsl").GetChars())
 		.AddSource(mateffectname.GetChars(), mateffectBlock.GetChars())
 		.AddSource(materialname.GetChars(), materialBlock.GetChars())
