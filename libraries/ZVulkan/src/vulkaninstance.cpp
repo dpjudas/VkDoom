@@ -351,9 +351,12 @@ VkBool32 VulkanInstance::DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT me
 	if (parts.size() == 3)
 	{
 		msg = parts[2];
-		size_t pos = msg.find(" The Vulkan spec states:");
+		size_t pos = msg.find("The Vulkan spec states:");
 		if (pos != std::string::npos)
 			msg = msg.substr(0, pos);
+
+		while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r' || msg.back() == ' '))
+			msg.pop_back();
 
 		if (callbackData->objectCount > 0)
 		{
