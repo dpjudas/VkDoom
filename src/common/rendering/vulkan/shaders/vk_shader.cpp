@@ -23,6 +23,7 @@
 #include "vk_shader.h"
 #include "vk_ppshader.h"
 #include "vulkan/vk_renderdevice.h"
+#include "vulkan/pipelines/vk_renderpass.h"
 #include <zvulkan/vulkanbuilders.h>
 #include "hw_shaderpatcher.h"
 #include "filesystem.h"
@@ -224,7 +225,17 @@ static std::vector<BuiltinFieldDesc> fragShaderOutputs
 	{"FragNormal",		"",		UniformType::Vec4, FieldCondition::GBUFFER_PASS},	//2
 };
 
-void AddFields(FString &layoutBlock, int &index, bool is_in, const std::vector<VaryingFieldDesc> &fields)
+static void AddVertexInFields(VulkanRenderDevice* fb, FString& layoutBlock, const VkShaderKey& key)
+{
+	const VkVertexFormat& vfmt = *fb->GetRenderPassManager()->GetVertexFormat(key.VertexFormat);
+	for (const FVertexBufferAttribute& attr : vfmt.Attrs)
+	{
+		const VaryingFieldDesc& desc = vertexShaderInputs[attr.location];
+		layoutBlock.AppendFormat("layout(location = %d) %s %s %s %s;\n", attr.location, desc.Property.GetChars(), "in", GetTypeStr(desc.Type), desc.Name.GetChars());
+	}
+}
+
+static void AddFields(FString &layoutBlock, int &index, bool is_in, const std::vector<VaryingFieldDesc> &fields)
 {
 	for(auto &field : fields)
 	{
@@ -233,7 +244,7 @@ void AddFields(FString &layoutBlock, int &index, bool is_in, const std::vector<V
 	}
 }
 
-void AddBuiltinFields(FString &layoutBlock, int &index, bool is_in, const std::vector<BuiltinFieldDesc> &fields, const VkShaderKey& key, bool hasClipDistance)
+static void AddBuiltinFields(FString &layoutBlock, int &index, bool is_in, const std::vector<BuiltinFieldDesc> &fields, const VkShaderKey& key, bool hasClipDistance)
 {
 	for(auto &field : fields)
 	{
@@ -294,8 +305,7 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 
 	if(!isFrag)
 	{
-		int index = 0;
-		AddFields(layoutBlock, index, true, vertexShaderInputs);
+		AddVertexInFields(fb, layoutBlock, key);
 	}
 
 	{
@@ -421,6 +431,19 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 	if (key.UseSpriteCenter) definesBlock << "#define USE_SPRITE_CENTER\n";
 
 	definesBlock << ((key.Simple2D) ? "#define uFogEnabled -3\n" : "#define uFogEnabled 0\n");
+
+	// Setup fake variables for the 'in' attributes that aren't actually available because the garbage shader code thinks they exist
+	// God I hate this engine... :(
+	std::vector<bool> definedFields(vertexShaderInputs.size());
+	bool hasNormal = false;
+	const VkVertexFormat& vfmt = *fb->GetRenderPassManager()->GetVertexFormat(key.VertexFormat);
+	for (const FVertexBufferAttribute& attr : vfmt.Attrs)
+		definedFields[attr.location] = true;
+	for (size_t i = 0; i < vertexShaderInputs.size(); i++)
+	{
+		if (!definedFields[i])
+			definesBlock << "#define " << vertexShaderInputs[i].Name << " " << GetTypeStr(vertexShaderInputs[i].Type) << "(0)\n";
+	}
 }
 
 std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader)

@@ -118,13 +118,15 @@ public:
 
 	int SpecialEffect = 0;
 	int EffectState = 0;
+	int VertexFormat = 0;
+	int Padding = 0;
 
 	bool operator<(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) < 0; }
 	bool operator==(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) == 0; }
 	bool operator!=(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) != 0; }
 };
 
-static_assert(sizeof(VkShaderKey) == 16, "sizeof(VkShaderKey) is not its expected size!"); // If this assert fails, the flags union no longer adds up to 64 bits. Or there are gaps in the class so the memcmp doesn't work.
+static_assert(sizeof(VkShaderKey) == 24, "sizeof(VkShaderKey) is not its expected size!"); // If this assert fails, the flags union no longer adds up to 64 bits. Or there are gaps in the class so the memcmp doesn't work.
 
 class VkShaderProgram
 {

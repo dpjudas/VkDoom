@@ -309,7 +309,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	if (program->frag)
 		builder.AddFragmentShader(program->frag.get());
 
-	const VkVertexFormat &vfmt = *fb->GetRenderPassManager()->GetVertexFormat(key.VertexFormat);
+	const VkVertexFormat &vfmt = *fb->GetRenderPassManager()->GetVertexFormat(key.ShaderKey.VertexFormat);
 
 	for (int i = 0; i < vfmt.BufferStrides.size(); i++)
 		builder.AddVertexBufferBinding(i, vfmt.BufferStrides[i]);
@@ -325,20 +325,10 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 		VK_FORMAT_R32_SINT
 	};
 
-	bool inputLocations[VATTR_MAX] = {};
-
 	for (size_t i = 0; i < vfmt.Attrs.size(); i++)
 	{
 		const auto &attr = vfmt.Attrs[i];
 		builder.AddVertexAttribute(attr.location, attr.binding, vkfmts[attr.format], attr.offset);
-		inputLocations[attr.location] = true;
-	}
-
-	// Vulkan requires an attribute binding for each location specified in the shader
-	for (int i = 0; i < VATTR_MAX; i++)
-	{
-		if (!inputLocations[i])
-			builder.AddVertexAttribute(i, 0, i != 8 ? VK_FORMAT_R32G32B32_SFLOAT : VK_FORMAT_R8G8B8A8_UINT, 0);
 	}
 
 	builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);

@@ -249,7 +249,6 @@ void VkRenderState::ApplyRenderPass(int dt)
 	VkPipelineKey pipelineKey;
 	pipelineKey.DrawType = dt;
 	pipelineKey.DrawLine = mDrawLine || mWireframe;
-	pipelineKey.VertexFormat = mVertexBuffer ? static_cast<VkHardwareVertexBuffer*>(mVertexBuffer)->VertexFormat : mRSBuffers->Flatbuffer.VertexFormat;
 	pipelineKey.RenderStyle = mRenderStyle;
 	pipelineKey.DepthTest = mDepthTest && !mWireframe;
 	pipelineKey.DepthWrite = mDepthTest && !mWireframe && mDepthWrite;
@@ -260,6 +259,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.StencilPassOp = mStencilOp;
 	pipelineKey.ColorMask = mColorMask;
 	pipelineKey.CullMode = mCullMode;
+	pipelineKey.ShaderKey.VertexFormat = mVertexBuffer ? static_cast<VkHardwareVertexBuffer*>(mVertexBuffer)->VertexFormat : mRSBuffers->Flatbuffer.VertexFormat;
 	if (mSpecialEffect > EFF_NONE)
 	{
 		pipelineKey.ShaderKey.SpecialEffect = mSpecialEffect;

@@ -40,13 +40,13 @@ public:
 		uint64_t AsQWORD = 0;
 	};
 
-	int VertexFormat = 0;
-	int Padding0 = 0;
+	int Padding1 = 0;
+	int Padding2 = 0;
 
 	VkShaderKey ShaderKey;
 	FRenderStyle RenderStyle;
 
-	int Padding1 = 0; // for 64 bit alignment
+	int Padding3 = 0; // for 64 bit alignment
 
 	bool operator<(const VkPipelineKey &other) const { return memcmp(this, &other, sizeof(VkPipelineKey)) < 0; }
 	bool operator==(const VkPipelineKey &other) const { return memcmp(this, &other, sizeof(VkPipelineKey)) == 0; }
@@ -54,8 +54,8 @@ public:
 };
 
 static_assert(sizeof(FRenderStyle) == 4, "sizeof(FRenderStyle) is not its expected size!");
-static_assert(sizeof(VkShaderKey) == 16, "sizeof(VkShaderKey) is not its expected size!");
-static_assert(sizeof(VkPipelineKey) == 16 + 16 + 8, "sizeof(VkPipelineKey) is not its expected size!"); // If this assert fails, the flags union no longer adds up to 64 bits. Or there are gaps in the class so the memcmp doesn't work.
+static_assert(sizeof(VkShaderKey) == 24, "sizeof(VkShaderKey) is not its expected size!");
+static_assert(sizeof(VkPipelineKey) == 16 + 24 + 8, "sizeof(VkPipelineKey) is not its expected size!"); // If this assert fails, the flags union no longer adds up to 64 bits. Or there are gaps in the class so the memcmp doesn't work.
 
 class VkRenderPassKey
 {
