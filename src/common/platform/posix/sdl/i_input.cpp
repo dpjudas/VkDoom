@@ -180,12 +180,12 @@ void I_SetMouseCapture()
 {
 	// Clear out any mouse movement.
 	SDL_GetRelativeMouseState (NULL, NULL);
-	SDL_SetRelativeMouseMode (SDL_TRUE);
+	SDL_CaptureMouse (SDL_TRUE);
 }
 
 void I_ReleaseMouseCapture()
 {
-	SDL_SetRelativeMouseMode (SDL_FALSE);
+	SDL_CaptureMouse (SDL_FALSE);
 }
 
 static void MouseRead ()
@@ -215,10 +215,12 @@ static void I_CheckNativeMouse ()
 	{
 		NativeMouse = wantNative;
 		SDL_ShowCursor (wantNative);
-		if (wantNative)
-			I_ReleaseMouseCapture ();
-		else
-			I_SetMouseCapture ();
+		if (wantNative) {
+			SDL_SetRelativeMouseMode (SDL_FALSE);
+		} else {
+			SDL_GetRelativeMouseState (NULL, NULL);
+			SDL_SetRelativeMouseMode (SDL_TRUE);
+		}
 	}
 }
 
