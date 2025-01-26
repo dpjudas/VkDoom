@@ -52,7 +52,7 @@ public:
 
 	static DVisualThinker* NewVisualThinker(FLevelLocals* Level, PClass* type);
 	void SetTranslation(FName trname);
-	int GetRenderStyle();
+	int GetRenderStyle() const;
 	bool isFrozen();
 	int GetLightLevel(sector_t *rendersector) const;
 	FVector3 InterpolatedPosition(double ticFrac) const;
