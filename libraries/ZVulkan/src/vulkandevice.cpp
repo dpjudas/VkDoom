@@ -177,7 +177,7 @@ VulkanDeviceFaultInfo VulkanDevice::GetDeviceFaultInfo()
 	if (!SupportsExtension(VK_EXT_DEVICE_FAULT_EXTENSION_NAME))
 		return {};
 
-	VkDeviceFaultCountsEXT counts = {};
+	VkDeviceFaultCountsEXT counts = { VK_STRUCTURE_TYPE_DEVICE_FAULT_COUNTS_EXT };
 	VkResult result = vkGetDeviceFaultInfoEXT(device, &counts, nullptr);
 	if (result != VK_INCOMPLETE && result != VK_SUCCESS)
 		return {};
@@ -186,7 +186,7 @@ VulkanDeviceFaultInfo VulkanDevice::GetDeviceFaultInfo()
 	std::vector<VkDeviceFaultVendorInfoEXT> vendorInfos(counts.vendorInfoCount);
 	std::vector<uint8_t> vendorBinaryData(counts.vendorBinarySize);
 
-	VkDeviceFaultInfoEXT info = {};
+	VkDeviceFaultInfoEXT info = { VK_STRUCTURE_TYPE_DEVICE_FAULT_INFO_EXT };
 	info.pAddressInfos = addressInfos.data();
 	info.pVendorInfos = vendorInfos.data();
 	info.pVendorBinaryData = vendorBinaryData.data();
