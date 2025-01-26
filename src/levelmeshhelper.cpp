@@ -49,6 +49,11 @@ void UpdateLevelMesh::SectorChangedOther(sector_t* sector)
 	PropagateCorrelations(this, &UpdateLevelMesh::OnSectorChangedOther, sector);
 }
 
+void UpdateLevelMesh::SectorChangedTexZ(sector_t* sector)
+{
+	PropagateCorrelations(this, &UpdateLevelMesh::OnSectorChangedTexZ, sector);
+}
+
 void UpdateLevelMesh::SideTextureChanged(side_t* side, int section)
 {
 	OnSideTextureChanged(side, section);
@@ -98,6 +103,7 @@ struct NullLevelMeshUpdater : UpdateLevelMesh
 	void OnCeilingTextureChanged(sector_t* sector) override {}
 
 	void OnSectorChangedOther(sector_t* sector) override {}
+	void OnSectorChangedTexZ(sector_t* sector) override {}
 
 	void OnSideTextureChanged(side_t* side, int section) override {}
 	void OnSideDecalsChanged(side_t* side) override {}

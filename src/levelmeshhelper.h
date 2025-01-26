@@ -17,6 +17,7 @@ struct UpdateLevelMesh
 	void CeilingTextureChanged(sector_t *sector);
 
 	void SectorChangedOther(sector_t *sector);
+	void SectorChangedTexZ(sector_t *sector);
 
 	void SideTextureChanged(side_t *side, int section);
 	void SideDecalsChanged(side_t* side);
@@ -34,6 +35,7 @@ struct UpdateLevelMesh
 	virtual void OnCeilingTextureChanged(sector_t *sector) = 0;
 
 	virtual void OnSectorChangedOther(sector_t *sector) = 0;
+	virtual void OnSectorChangedTexZ(sector_t *sector) = 0;
 
 	virtual void OnSideTextureChanged(side_t *side, int section) = 0;
 	virtual void OnSideDecalsChanged(side_t* side) = 0;
