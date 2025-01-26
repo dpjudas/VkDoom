@@ -25,5 +25,6 @@ public:
 	virtual void DrawArrays(int start, int count) = 0;
 	virtual void DrawElements(int numIndices, size_t offset) = 0;
 	virtual void SetupFrame(FModel* model, unsigned int frame1, unsigned int frame2, unsigned int size, int boneStartIndex) {};
+	virtual int UploadBones(const TArray<VSMatrix>& bones) = 0;
 };
 

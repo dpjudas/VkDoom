@@ -60,6 +60,7 @@ public:
 	void DrawArrays(int start, int count) override;
 	void DrawElements(int numIndices, size_t offset) override;
 	void SetupFrame(FModel *model, unsigned int frame1, unsigned int frame2, unsigned int size, int boneStartIndex) override;
+	int UploadBones(const TArray<VSMatrix>& bones) override;
 
 };
 

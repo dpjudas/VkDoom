@@ -564,7 +564,7 @@ void RenderFrameModels(FModelRenderer *renderer, FLevelLocals *Level, const FSpr
 
 				if(smf_flags & MDL_MODELSAREATTACHMENTS || is_decoupled)
 				{
-					boneStartingPosition = boneData ? screen->mBones->UploadBones(*boneData) : -1;
+					boneStartingPosition = boneData ? renderer->UploadBones(*boneData) : -1;
 					evaluatedSingle = true;
 				}
 

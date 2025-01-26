@@ -470,7 +470,7 @@ double IQMModel::FindFramerate(FName name)
 void IQMModel::RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame1, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, int boneStartPosition, void * act)
 {
 	
-	renderer->SetupFrame(this, 0, 0, NumVertices, boneStartPosition >= 0 ? boneStartPosition : screen->mBones->UploadBones(boneData));
+	renderer->SetupFrame(this, 0, 0, NumVertices, boneStartPosition >= 0 ? boneStartPosition : renderer->UploadBones(boneData));
 
 	FGameTexture* lastSkin = nullptr;
 	for (unsigned i = 0; i < Meshes.Size(); i++)
