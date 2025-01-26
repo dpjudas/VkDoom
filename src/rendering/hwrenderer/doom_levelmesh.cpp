@@ -621,11 +621,6 @@ void DoomLevelMesh::OnCeilingTextureChanged(sector_t* sector)
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
-void DoomLevelMesh::OnSectorChangedOther(sector_t* sector)
-{
-	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
-}
-
 void DoomLevelMesh::OnSectorChangedTexZ(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
