@@ -169,6 +169,11 @@ void FHWModelRenderer::DrawElements(int numIndices, size_t offset)
 //
 //===========================================================================
 
+int FHWModelRenderer::UploadBones(const TArray<VSMatrix>& bones)
+{
+	return state.UploadBones(bones);
+}
+
 void FHWModelRenderer::SetupFrame(FModel *model, unsigned int frame1, unsigned int frame2, unsigned int size, int boneStartIndex)
 {
 	auto mdbuff = static_cast<FModelVertexBuffer*>(model->GetVertexBuffer(GetType()));
