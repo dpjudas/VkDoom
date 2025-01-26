@@ -83,8 +83,7 @@ void VulkanDevice::CreateDevice()
 
 	for (int index : neededFamilies)
 	{
-		VkDeviceQueueCreateInfo queueCreateInfo = {};
-		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		VkDeviceQueueCreateInfo queueCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
 		queueCreateInfo.queueFamilyIndex = index;
 		queueCreateInfo.queueCount = 1;
 		queueCreateInfo.pQueuePriorities = &queuePriority;
@@ -166,10 +165,50 @@ void VulkanDevice::SetObjectName(const char* name, uint64_t handle, VkObjectType
 {
 	if (!Instance->DebugLayerActive) return;
 
-	VkDebugUtilsObjectNameInfoEXT info = {};
-	info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+	VkDebugUtilsObjectNameInfoEXT info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
 	info.objectHandle = handle;
 	info.objectType = type;
 	info.pObjectName = name;
 	vkSetDebugUtilsObjectNameEXT(device, &info);
+}
+
+VulkanDeviceFaultInfo VulkanDevice::GetDeviceFaultInfo()
+{
+	if (!SupportsExtension(VK_EXT_DEVICE_FAULT_EXTENSION_NAME))
+		return {};
+
+	VkDeviceFaultCountsEXT counts = {};
+	VkResult result = vkGetDeviceFaultInfoEXT(device, &counts, nullptr);
+	if (result != VK_INCOMPLETE && result != VK_SUCCESS)
+		return {};
+
+	std::vector<VkDeviceFaultAddressInfoEXT> addressInfos(counts.addressInfoCount);
+	std::vector<VkDeviceFaultVendorInfoEXT> vendorInfos(counts.vendorInfoCount);
+	std::vector<uint8_t> vendorBinaryData(counts.vendorBinarySize);
+
+	VkDeviceFaultInfoEXT info = {};
+	info.pAddressInfos = addressInfos.data();
+	info.pVendorInfos = vendorInfos.data();
+	info.pVendorBinaryData = vendorBinaryData.data();
+
+	result = vkGetDeviceFaultInfoEXT(device, &counts, &info);
+	if (result != VK_SUCCESS)
+		return {};
+
+	VulkanDeviceFaultInfo lostinfo;
+	lostinfo.description = info.description;
+
+	/*
+	for (const VkDeviceFaultAddressInfoEXT& addressInfo : addressInfos)
+	{
+		// To do: does vk_mem_alloc have anything that helps us map an address to an allocation?
+	}
+	*/
+
+	for (const VkDeviceFaultVendorInfoEXT& vendorInfo : vendorInfos)
+	{
+		lostinfo.vendorInfos.push_back(vendorInfo.description);
+	}
+
+	return lostinfo;
 }

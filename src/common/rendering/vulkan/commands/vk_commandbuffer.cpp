@@ -128,11 +128,11 @@ void VkCommandBufferManager::FlushCommands(VulkanCommandBuffer** commands, size_
 		do
 		{
 			result = vkWaitForFences(fb->GetDevice()->device, 1, &mSubmitFence[currentIndex]->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
-			CheckVulkanError(result, "Could not wait for commands");
+			fb->GetDevice()->CheckVulkanError(result, "Could not wait for commands");
 		} while (result != VK_SUCCESS);
 
 		result = vkResetFences(fb->GetDevice()->device, 1, &mSubmitFence[currentIndex]->fence);
-		CheckVulkanError(result, "Could not reset fence");
+		fb->GetDevice()->CheckVulkanError(result, "Could not reset fence");
 	}
 
 	QueueSubmit submit;
@@ -220,12 +220,12 @@ void VkCommandBufferManager::WaitForCommands(bool finish, bool uploadOnly)
 	if (numWaitFences > 0)
 	{
 		VkResult result = vkWaitForFences(fb->GetDevice()->device, numWaitFences, mSubmitWaitFences, VK_TRUE, std::numeric_limits<uint64_t>::max());
-		CheckVulkanError(result, "Could not wait for commands");
+		fb->GetDevice()->CheckVulkanError(result, "Could not wait for commands");
 		if (result == VK_TIMEOUT)
 			VulkanError("vkWaitForFences timed out! Broken display driver?");
 
 		result = vkResetFences(fb->GetDevice()->device, numWaitFences, mSubmitWaitFences);
-		CheckVulkanError(result, "Could not reset fences");
+		fb->GetDevice()->CheckVulkanError(result, "Could not reset fences");
 		mNextSubmit = 0;
 	}
 
