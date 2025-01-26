@@ -60,7 +60,8 @@ public:
 		if (result == VK_ERROR_DEVICE_LOST)
 		{
 			VulkanDeviceFaultInfo info = GetDeviceFaultInfo();
-			VulkanPrintLog("fault", info.description);
+			if (!info.description.empty())
+				VulkanPrintLog("fault", info.description);
 			for (const std::string& vendorInfo : info.vendorInfos)
 				VulkanPrintLog("fault", vendorInfo);
 		}
