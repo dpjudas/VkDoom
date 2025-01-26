@@ -626,6 +626,18 @@ void DoomLevelMesh::OnSectorChangedOther(sector_t* sector)
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
 }
 
+void DoomLevelMesh::OnSectorChangedTexZ(sector_t* sector)
+{
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+	for (line_t* line : sector->Lines)
+	{
+		if (line->sidedef[0])
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::Full);
+		else if (line->sidedef[1])
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::Full);
+	}
+}
+
 void DoomLevelMesh::OnSideTextureChanged(side_t* side, int section)
 {
 	UpdateSide(side->Index(), SurfaceUpdateType::Full);
