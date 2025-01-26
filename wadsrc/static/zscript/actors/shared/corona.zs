@@ -34,6 +34,7 @@ class Corona : Actor abstract
 		RenderRadius 1024.0;
 		+BRIGHT
 		+NOINTERACTION
+		+NOBLOCKMAP
 		+NOGRAVITY
 		+FORCEXYBILLBOARD
 	}
