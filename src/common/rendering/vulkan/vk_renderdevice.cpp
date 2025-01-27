@@ -227,6 +227,9 @@ void VulkanRenderDevice::InitializeState()
 	uniformblockalignment = (unsigned int)mDevice->PhysicalDevice.Properties.Properties.limits.minUniformBufferOffsetAlignment;
 	maxuniformblock = std::min(mDevice->PhysicalDevice.Properties.Properties.limits.maxUniformBufferRange, (uint32_t)1024 * 1024);
 
+	NullMesh.reset(new LevelMesh());
+	levelMesh = NullMesh.get();
+
 	mCommands.reset(new VkCommandBufferManager(this));
 
 	mSamplerManager.reset(new VkSamplerManager(this));
@@ -521,8 +524,7 @@ void VulkanRenderDevice::BeginFrame()
 	{
 		levelMeshChanged = false;
 		mLevelMesh->SetLevelMesh(levelMesh);
-		if (levelMesh)
-			GetTextureManager()->CreateLightmap(levelMesh->Lightmap.TextureSize, levelMesh->Lightmap.TextureCount, std::move(levelMesh->Lightmap.TextureData));
+		GetTextureManager()->CreateLightmap(levelMesh->Lightmap.TextureSize, levelMesh->Lightmap.TextureCount, std::move(levelMesh->Lightmap.TextureData));
 		GetLightmapper()->SetLevelMesh(levelMesh);
 	}
 
@@ -586,6 +588,11 @@ void VulkanRenderDevice::PrintStartupLog()
 
 void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)
 {
+	if (!mesh) // Vulkan must have a mesh for its data structures in shaders to remain sane
+	{
+		NullMesh.reset(new LevelMesh()); // we must have a completely new mesh here as the upload ranges needs to reset as well
+		mesh = NullMesh.get();
+	}
 	levelMesh = mesh;
 	levelMeshChanged = true;
 }

@@ -73,8 +73,7 @@ void VkLightmapper::ReleaseResources()
 void VkLightmapper::SetLevelMesh(LevelMesh* level)
 {
 	mesh = level;
-	if (mesh)
-		UpdateAccelStructDescriptors();
+	UpdateAccelStructDescriptors();
 
 	lightmapRaytraceLast.Reset();
 	lastPixelCount = 0;
