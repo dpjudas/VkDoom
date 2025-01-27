@@ -1062,7 +1062,7 @@ void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>
 
 	mQueryResultsBuffer.Resize(queryCount);
 	VkResult result = vkGetQueryPoolResults(fb->GetDevice()->device, mRSBuffers->OcclusionQuery.QueryPool->pool, queryStart, queryCount, mQueryResultsBuffer.Size() * sizeof(uint32_t), mQueryResultsBuffer.Data(), sizeof(uint32_t), VK_QUERY_RESULT_WAIT_BIT);
-	CheckVulkanError(result, "Could not query occlusion query results");
+	fb->GetDevice()->CheckVulkanError(result, "Could not query occlusion query results");
 	if (result == VK_NOT_READY)
 		VulkanError("Occlusion query results returned VK_NOT_READY!");
 

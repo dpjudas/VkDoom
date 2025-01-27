@@ -358,7 +358,7 @@ std::unique_ptr<VulkanImage> ImageBuilder::Create(VulkanDevice* device, VkDevice
 	VmaAllocation allocation;
 
 	VkResult result = vmaCreateImage(device->allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr);
-	CheckVulkanError(result, "Could not create vulkan image");
+	device->CheckVulkanError(result, "Could not create vulkan image");
 
 	if (allocatedBytes != nullptr)
 	{
@@ -423,7 +423,7 @@ std::unique_ptr<VulkanImageView> ImageViewBuilder::Create(VulkanDevice* device)
 {
 	VkImageView view;
 	VkResult result = vkCreateImageView(device->device, &viewInfo, nullptr, &view);
-	CheckVulkanError(result, "Could not create texture image view");
+	device->CheckVulkanError(result, "Could not create texture image view");
 
 	auto obj = std::make_unique<VulkanImageView>(device, view);
 	if (debugName)
@@ -510,7 +510,7 @@ std::unique_ptr<VulkanSampler> SamplerBuilder::Create(VulkanDevice* device)
 {
 	VkSampler sampler;
 	VkResult result = vkCreateSampler(device->device, &samplerInfo, nullptr, &sampler);
-	CheckVulkanError(result, "Could not create texture sampler");
+	device->CheckVulkanError(result, "Could not create texture sampler");
 	auto obj = std::make_unique<VulkanSampler>(device, sampler);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -561,12 +561,12 @@ std::unique_ptr<VulkanBuffer> BufferBuilder::Create(VulkanDevice* device)
 	if (minAlignment == 0)
 	{
 		VkResult result = vmaCreateBuffer(device->allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
-		CheckVulkanError(result, "Could not allocate memory for vulkan buffer");
+		device->CheckVulkanError(result, "Could not allocate memory for vulkan buffer");
 	}
 	else
 	{
 		VkResult result = vmaCreateBufferWithAlignment(device->allocator, &bufferInfo, &allocInfo, minAlignment, &buffer, &allocation, nullptr);
-		CheckVulkanError(result, "Could not allocate memory for vulkan buffer");
+		device->CheckVulkanError(result, "Could not allocate memory for vulkan buffer");
 	}
 
 	auto obj = std::make_unique<VulkanBuffer>(device, buffer, allocation, (size_t)bufferInfo.size);
@@ -694,7 +694,7 @@ std::unique_ptr<VulkanDescriptorSetLayout> DescriptorSetLayoutBuilder::Create(Vu
 {
 	VkDescriptorSetLayout layout;
 	VkResult result = vkCreateDescriptorSetLayout(device->device, &layoutInfo, nullptr, &layout);
-	CheckVulkanError(result, "Could not create descriptor set layout");
+	device->CheckVulkanError(result, "Could not create descriptor set layout");
 	auto obj = std::make_unique<VulkanDescriptorSetLayout>(device, layout);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -738,7 +738,7 @@ std::unique_ptr<VulkanDescriptorPool> DescriptorPoolBuilder::Create(VulkanDevice
 {
 	VkDescriptorPool descriptorPool;
 	VkResult result = vkCreateDescriptorPool(device->device, &poolInfo, nullptr, &descriptorPool);
-	CheckVulkanError(result, "Could not create descriptor pool");
+	device->CheckVulkanError(result, "Could not create descriptor pool");
 	auto obj = std::make_unique<VulkanDescriptorPool>(device, descriptorPool);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -764,7 +764,7 @@ std::unique_ptr<VulkanQueryPool> QueryPoolBuilder::Create(VulkanDevice* device)
 {
 	VkQueryPool queryPool;
 	VkResult result = vkCreateQueryPool(device->device, &poolInfo, nullptr, &queryPool);
-	CheckVulkanError(result, "Could not create query pool");
+	device->CheckVulkanError(result, "Could not create query pool");
 	auto obj = std::make_unique<VulkanQueryPool>(device, queryPool);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -814,7 +814,7 @@ std::unique_ptr<VulkanFramebuffer> FramebufferBuilder::Create(VulkanDevice* devi
 {
 	VkFramebuffer framebuffer = 0;
 	VkResult result = vkCreateFramebuffer(device->device, &framebufferInfo, nullptr, &framebuffer);
-	CheckVulkanError(result, "Could not create framebuffer");
+	device->CheckVulkanError(result, "Could not create framebuffer");
 	auto obj = std::make_unique<VulkanFramebuffer>(device, framebuffer);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -1141,7 +1141,7 @@ std::unique_ptr<VulkanPipeline> GraphicsPipelineBuilder::Create(VulkanDevice* de
 
 	VkPipeline pipeline = 0;
 	VkResult result = vkCreateGraphicsPipelines(device->device, cache ? cache->cache : VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
-	CheckVulkanError(result, "Could not create graphics pipeline");
+	device->CheckVulkanError(result, "Could not create graphics pipeline");
 	auto obj = std::make_unique<VulkanPipeline>(device, pipeline);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -1179,7 +1179,7 @@ std::unique_ptr<VulkanPipelineLayout> PipelineLayoutBuilder::Create(VulkanDevice
 {
 	VkPipelineLayout pipelineLayout;
 	VkResult result = vkCreatePipelineLayout(device->device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
-	CheckVulkanError(result, "Could not create pipeline layout");
+	device->CheckVulkanError(result, "Could not create pipeline layout");
 	auto obj = std::make_unique<VulkanPipelineLayout>(device, pipelineLayout);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -1227,7 +1227,7 @@ std::unique_ptr<VulkanPipelineCache> PipelineCacheBuilder::Create(VulkanDevice* 
 
 	VkPipelineCache pipelineCache;
 	VkResult result = vkCreatePipelineCache(device->device, &pipelineCacheInfo, nullptr, &pipelineCache);
-	CheckVulkanError(result, "Could not create pipeline cache");
+	device->CheckVulkanError(result, "Could not create pipeline cache");
 	auto obj = std::make_unique<VulkanPipelineCache>(device, pipelineCache);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -1331,7 +1331,7 @@ std::unique_ptr<VulkanRenderPass> RenderPassBuilder::Create(VulkanDevice* device
 {
 	VkRenderPass renderPass = 0;
 	VkResult result = vkCreateRenderPass(device->device, &renderPassInfo, nullptr, &renderPass);
-	CheckVulkanError(result, "Could not create render pass");
+	device->CheckVulkanError(result, "Could not create render pass");
 	auto obj = std::make_unique<VulkanRenderPass>(device, renderPass);
 	if (debugName)
 		obj->SetDebugName(debugName);
@@ -1474,7 +1474,7 @@ QueueSubmit& QueueSubmit::AddSignal(VulkanSemaphore* semaphore)
 void QueueSubmit::Execute(VulkanDevice* device, VkQueue queue, VulkanFence* fence)
 {
 	VkResult result = vkQueueSubmit(device->GraphicsQueue, 1, &submitInfo, fence ? fence->fence : VK_NULL_HANDLE);
-	CheckVulkanError(result, "Could not submit command buffer");
+	device->CheckVulkanError(result, "Could not submit command buffer");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1679,6 +1679,9 @@ VulkanDeviceBuilder::VulkanDeviceBuilder()
 	OptionalExtension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
 	OptionalExtension(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 	OptionalExtension(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME);
+
+	// Extensions desired for debugging
+	OptionalExtension(VK_EXT_DEVICE_FAULT_EXTENSION_NAME);
 }
 
 VulkanDeviceBuilder& VulkanDeviceBuilder::RequireExtension(const std::string& extensionName)

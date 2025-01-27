@@ -21,6 +21,11 @@
 #include <vector>
 #include <set>
 
+std::string VkResultToString(VkResult result);
+
+void VulkanPrintLog(const char* typestr, const std::string& msg);
+void VulkanError(const char* text);
+
 class VulkanDeviceFeatures
 {
 public:
@@ -75,6 +80,12 @@ public:
 
 	bool DebugLayerActive = false;
 
+	static void CheckVulkanError(VkResult result, const char* text)
+	{
+		if (result >= VK_SUCCESS) return;
+		VulkanError((text + std::string(": ") + VkResultToString(result)).c_str());
+	}
+
 private:
 	bool WantDebugLayer = false;
 	VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
@@ -90,14 +101,3 @@ private:
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 	static std::vector<std::string> SplitString(const std::string& s, const std::string& seperator);
 };
-
-std::string VkResultToString(VkResult result);
-
-void VulkanPrintLog(const char* typestr, const std::string& msg);
-void VulkanError(const char* text);
-
-inline void CheckVulkanError(VkResult result, const char* text)
-{
-	if (result >= VK_SUCCESS) return;
-	VulkanError((text + std::string(": ") + VkResultToString(result)).c_str());
-}
