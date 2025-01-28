@@ -130,6 +130,7 @@ private:
 
 	LevelMesh* levelMesh = nullptr;
 	bool levelMeshChanged = true;
+	std::unique_ptr<LevelMesh> NullMesh;
 
 	int levelVertexFormatIndex = -1;
 	TArray<VkPipelineKey> levelMeshPipelineKeys;

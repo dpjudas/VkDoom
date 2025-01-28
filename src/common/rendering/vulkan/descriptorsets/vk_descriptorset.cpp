@@ -360,10 +360,11 @@ void VkDescriptorSetManager::CreateFixedPool()
 	if (fb->IsRayQueryEnabled())
 	{
 		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 * MaxFixedSets);
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5 * MaxFixedSets);
 	}
 	else
 	{
-		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3 * MaxFixedSets);
+		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6 * MaxFixedSets);
 	}
 	poolbuilder.MaxSets(MaxFixedSets);
 	poolbuilder.DebugName("VkDescriptorSetManager.Fixed.Pool");

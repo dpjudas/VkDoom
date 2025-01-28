@@ -1917,7 +1917,7 @@ class GLDefsParser
 						varyingProperty = "noperspective";
 						sc.MustGetString();
 					}
-					else if (sc.Compare("flat") == 0)
+					else if (sc.Compare("flat"))
 					{
 						varyingProperty = "flat";
 						sc.MustGetString();

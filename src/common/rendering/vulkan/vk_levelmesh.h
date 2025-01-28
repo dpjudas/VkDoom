@@ -126,7 +126,6 @@ private:
 
 	bool useRayQuery = true;
 
-	LevelMesh NullMesh;
 	LevelMesh* Mesh = nullptr;
 
 	std::unique_ptr<VulkanBuffer> VertexBuffer;

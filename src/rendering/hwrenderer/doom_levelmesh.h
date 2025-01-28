@@ -119,7 +119,7 @@ public:
 	void OnMidTex3DHeightChanged(sector_t* sector) override;
 	void OnFloorTextureChanged(sector_t* sector) override;
 	void OnCeilingTextureChanged(sector_t* sector) override;
-	void OnSectorChangedOther(sector_t* sector) override;
+	void OnSectorChangedTexZ(sector_t* sector) override;
 	void OnSideTextureChanged(side_t* side, int section) override;
 	void OnSideDecalsChanged(side_t* side) override;
 	void OnSectorLightChanged(sector_t* sector) override;

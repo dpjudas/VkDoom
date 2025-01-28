@@ -1008,15 +1008,7 @@ public:
 
 		if (val != old)
 		{
-			//not sure actually what TexZ does, so changing passing this as "Other"
-			if(pos)
-			{
-				LevelMeshUpdater->SectorChangedOther(this);
-			}
-			else
-			{
-				LevelMeshUpdater->SectorChangedOther(this);
-			}
+			LevelMeshUpdater->SectorChangedTexZ(this);
 		}
 	}
 
