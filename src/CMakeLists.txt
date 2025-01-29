@@ -184,7 +184,11 @@ endif()
 # Set up flags for MSVC
 if (MSVC)
 	# /we4715 turns "'function' : not all control paths return a value" as it should be!!!!!!!!one1!
-	set( CMAKE_CXX_FLAGS "/MP /we4715 ${CMAKE_CXX_FLAGS}" )
+	set(CMAKE_CXX_FLAGS "/MP /we4715 ${CMAKE_CXX_FLAGS}")
+	if(X64)
+		# CPUs that don't support AVX2 are going to be too slow to run this properly anyway
+		set(CMAKE_CXX_FLAGS "/arch:AVX2 ${CMAKE_CXX_FLAGS}")
+	endif(X64)
 endif (MSVC)
 
 # Set up flags for GCC
