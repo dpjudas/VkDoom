@@ -7,7 +7,9 @@
 #include "engineerrors.h"
 #include "dobject.h"
 #include "bonecomponents.h"
-#include "v_video.h"
+
+IMPLEMENT_CLASS(DBoneComponents, false, false);
+
 
 IQMModel::IQMModel()
 {
@@ -467,10 +469,9 @@ double IQMModel::FindFramerate(FName name)
 	return FErr_NotFound;
 }
 
-void IQMModel::RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame1, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, int boneStartPosition, void * act)
+void IQMModel::RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame1, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, const TArray<VSMatrix>& boneData, int boneStartPosition, void * act)
 {
-	
-	renderer->SetupFrame(this, 0, 0, NumVertices, boneStartPosition >= 0 ? boneStartPosition : renderer->UploadBones(boneData));
+	renderer->SetupFrame(this, 0, 0, NumVertices, boneData, boneStartPosition);
 
 	FGameTexture* lastSkin = nullptr;
 	for (unsigned i = 0; i < Meshes.Size(); i++)
@@ -562,51 +563,51 @@ static TRS InterpolateBone(const TRS &from, const TRS &to, float t, float invt)
 #include "printf.h"
 
 
-ModelAnimFrame IQMModel::PrecalculateFrame(const ModelAnimFrame &from, const ModelAnimFrameInterp &to, float inter, const TArray<TRS>* animationData)
+ModelAnimFrame IQMModel::PrecalculateFrame(const ModelAnimFrame &from, const ModelAnimFrameInterp &to, float inter, const TArray<TRS>* animationData, DBoneComponents* bones, int index)
 {
 	if(inter <= 0)
 	{
-		return CalculateFrameIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData);
+		return CalculateFrameIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData, bones, index);
 	}
 	else if(std::holds_alternative<ModelAnimFrameInterp>(from))
 	{
 		auto &from_interp = std::get<ModelAnimFrameInterp>(from);
 
-		return CalculateFrameIQM(from_interp.frame2, to.frame2, inter, from_interp.frame1, from_interp.inter, to.frame1, to.inter, nullptr, animationData);
+		return CalculateFrameIQM(from_interp.frame2, to.frame2, inter, from_interp.frame1, from_interp.inter, to.frame1, to.inter, nullptr, animationData, bones, index);
 	}
 	else if(std::holds_alternative<ModelAnimFramePrecalculatedIQM>(from))
 	{
-		return CalculateFrameIQM(0, to.frame2, inter, 0, -1.f, to.frame1, to.inter, &std::get<ModelAnimFramePrecalculatedIQM>(from), animationData);
+		return CalculateFrameIQM(0, to.frame2, inter, 0, -1.f, to.frame1, to.inter, &std::get<ModelAnimFramePrecalculatedIQM>(from), animationData, bones, index);
 	}
 	else
 	{
-		return CalculateFrameIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData);
+		return CalculateFrameIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData, bones, index);
 	}
 }
 
-const TArray<VSMatrix>* IQMModel::CalculateBones(const ModelAnimFrame &from, const ModelAnimFrameInterp &to, float inter, const TArray<TRS>* animationData)
+const TArray<VSMatrix> IQMModel::CalculateBones(const ModelAnimFrame &from, const ModelAnimFrameInterp &to, float inter, const TArray<TRS>* animationData, DBoneComponents* bones, int index)
 {
 	if(inter <= 0)
 	{
-		return CalculateBonesIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData);
+		return CalculateBonesIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData, bones, index);
 	}
 	else if(std::holds_alternative<ModelAnimFrameInterp>(from))
 	{
 		auto &from_interp = std::get<ModelAnimFrameInterp>(from);
 
-		return CalculateBonesIQM(from_interp.frame2, to.frame2, inter, from_interp.frame1, from_interp.inter, to.frame1, to.inter, nullptr, animationData);
+		return CalculateBonesIQM(from_interp.frame2, to.frame2, inter, from_interp.frame1, from_interp.inter, to.frame1, to.inter, nullptr, animationData, bones, index);
 	}
 	else if(std::holds_alternative<ModelAnimFramePrecalculatedIQM>(from))
 	{
-		return CalculateBonesIQM(0, to.frame2, inter, 0, -1.f, to.frame1, to.inter, &std::get<ModelAnimFramePrecalculatedIQM>(from), animationData);
+		return CalculateBonesIQM(0, to.frame2, inter, 0, -1.f, to.frame1, to.inter, &std::get<ModelAnimFramePrecalculatedIQM>(from), animationData, bones, index);
 	}
 	else
 	{
-		return CalculateBonesIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData);
+		return CalculateBonesIQM(to.frame1, to.frame2, to.inter, 0, -1.f, 0, -1.f, nullptr, animationData, bones, index);
 	}
 }
 
-ModelAnimFramePrecalculatedIQM IQMModel::CalculateFrameIQM(int frame1, int frame2, float inter, int frame1_prev, float inter1_prev, int frame2_prev, float inter2_prev, const ModelAnimFramePrecalculatedIQM* precalculated, const TArray<TRS>* animationData)
+ModelAnimFramePrecalculatedIQM IQMModel::CalculateFrameIQM(int frame1, int frame2, float inter, int frame1_prev, float inter1_prev, int frame2_prev, float inter2_prev, const ModelAnimFramePrecalculatedIQM* precalculated, const TArray<TRS>* animationData, DBoneComponents* boneComponentData, int index)
 {
 	ModelAnimFramePrecalculatedIQM out;
 	const TArray<TRS>& animationFrames = animationData ? *animationData : TRSData;
@@ -660,12 +661,17 @@ ModelAnimFramePrecalculatedIQM IQMModel::CalculateFrameIQM(int frame1, int frame
 	return out;
 }
 
-const TArray<VSMatrix>* IQMModel::CalculateBonesIQM(int frame1, int frame2, float inter, int frame1_prev, float inter1_prev, int frame2_prev, float inter2_prev, const ModelAnimFramePrecalculatedIQM* precalculated, const TArray<TRS>* animationData)
+const TArray<VSMatrix> IQMModel::CalculateBonesIQM(int frame1, int frame2, float inter, int frame1_prev, float inter1_prev, int frame2_prev, float inter2_prev, const ModelAnimFramePrecalculatedIQM* precalculated, const TArray<TRS>* animationData, DBoneComponents* boneComponentData, int index)
 {
 	const TArray<TRS>& animationFrames = animationData ? *animationData : TRSData;
 	if (Joints.Size() > 0)
 	{
 		int numbones = Joints.SSize();
+
+		if (boneComponentData->trscomponents[index].SSize() != numbones)
+			boneComponentData->trscomponents[index].Resize(numbones);
+		if (boneComponentData->trsmatrix[index].SSize() != numbones)
+			boneComponentData->trsmatrix[index].Resize(numbones);
 
 		frame1 = clamp(frame1, 0, (animationFrames.SSize() - 1) / numbones);
 		frame2 = clamp(frame2, 0, (animationFrames.SSize() - 1) / numbones);
@@ -680,16 +686,14 @@ const TArray<VSMatrix>* IQMModel::CalculateBonesIQM(int frame1, int frame2, floa
 		float invt1 = 1.0f - inter1_prev;
 		float invt2 = 1.0f - inter2_prev;
 
-		constexpr const float swapYZ[16]
-		{
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		};
+		float swapYZ[16] = { 0.0f };
+		swapYZ[0 + 0 * 4] = 1.0f;
+		swapYZ[1 + 2 * 4] = 1.0f;
+		swapYZ[2 + 1 * 4] = 1.0f;
+		swapYZ[3 + 3 * 4] = 1.0f;
 
-		boneData.Resize(numbones);
-
+		TArray<VSMatrix> bones(numbones, true);
+		TArray<bool> modifiedBone(numbones, true);
 		for (int i = 0; i < numbones; i++)
 		{
 			TRS prev;
@@ -720,16 +724,33 @@ const TArray<VSMatrix>* IQMModel::CalculateBonesIQM(int frame1, int frame2, floa
 				bone = inter < 0 ? animationFrames[offset1 + i] : InterpolateBone(prev, next , inter, invt);
 			}
 
+			if (Joints[i].Parent >= 0 && modifiedBone[Joints[i].Parent])
+			{
+				boneComponentData->trscomponents[index][i] = bone;
+				modifiedBone[i] = true;
+			}
+			else if (boneComponentData->trscomponents[index][i].Equals(bone))
+			{
+				bones[i] = boneComponentData->trsmatrix[index][i];
+				modifiedBone[i] = false;
+				continue;
+			}
+			else
+			{
+				boneComponentData->trscomponents[index][i] = bone;
+				modifiedBone[i] = true;
+			}
+
 			VSMatrix m;
 			m.loadIdentity();
 			m.translate(bone.translation.X, bone.translation.Y, bone.translation.Z);
 			m.multQuaternion(bone.rotation);
 			m.scale(bone.scaling.X, bone.scaling.Y, bone.scaling.Z);
 
-			VSMatrix& result = boneData[i];
+			VSMatrix& result = bones[i];
 			if (Joints[i].Parent >= 0)
 			{
-				result = boneData[Joints[i].Parent];
+				result = bones[Joints[i].Parent];
 				result.multMatrix(swapYZ);
 				result.multMatrix(baseframe[Joints[i].Parent]);
 				result.multMatrix(m);
@@ -744,7 +765,9 @@ const TArray<VSMatrix>* IQMModel::CalculateBonesIQM(int frame1, int frame2, floa
 			result.multMatrix(swapYZ);
 		}
 
-		return &boneData;
+		boneComponentData->trsmatrix[index] = bones;
+
+		return bones;
 	}
-	return nullptr;
+	return {};
 }
