@@ -82,12 +82,14 @@ void HWDrawInfo::DrawPSprite(HUDSprite *huds, FRenderState &state)
 	{
 		state.SetAddColor(0);
 	}
-	state.SetDynLight(huds->dynrgb[0], huds->dynrgb[1], huds->dynrgb[2]);
 	state.EnableBrightmap(!(huds->RenderStyle.Flags & STYLEF_ColorIsFixed));
+
+	int gl_spritelight = get_gl_spritelight();
 
 	if (huds->mframe)
 	{
-		state.SetShadeVertex(get_gl_spritelight() == 1);
+		state.SetDynLight(0.0, 0.0, 0.0);
+		state.SetShadeVertex(gl_spritelight == 1);
 		state.AlphaFunc(Alpha_GEqual, 0);
 
 		FHWModelRenderer renderer(this, state, huds->lightindex);
@@ -97,12 +99,30 @@ void HWDrawInfo::DrawPSprite(HUDSprite *huds, FRenderState &state)
 	}
 	else
 	{
+		if(gl_spritelight != 0)
+		{
+			state.SetShadeVertex(true);
+			state.SetLightNoNormals(true);
+			state.SetUseSpriteCenter(true);
+			state.SetActorCenter(huds->owner->X(), huds->owner->Center(), huds->owner->Y());
+			state.SetLightIndex(huds->lightindex);
+			state.SetDynLight(0.0, 0.0, 0.0);
+		}
+		else
+		{
+			state.SetDynLight(huds->dynrgb[0], huds->dynrgb[1], huds->dynrgb[2]);
+		}
+
 		float thresh = (huds->texture->GetTranslucency() || huds->OverrideShader != -1) ? 0.f : gl_mask_sprite_threshold;
 		state.AlphaFunc(Alpha_GEqual, thresh);
 		FTranslationID trans = huds->weapon->GetTranslation();
 		if ((huds->weapon->Flags & PSPF_PLAYERTRANSLATED)) trans = huds->owner->Translation;
 		state.SetMaterial(huds->texture, UF_Sprite, CTF_Expand, CLAMP_XY_NOMIP, trans, huds->OverrideShader);
 		state.Draw(DT_TriangleStrip, huds->mx, 4);
+		state.SetShadeVertex(false);
+		state.SetLightNoNormals(false);
+		state.SetUseSpriteCenter(false);
+		state.SetLightIndex(-1);
 	}
 
 	state.SetTextureMode(TM_NORMAL);
@@ -741,7 +761,15 @@ void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area, F
 		// set the lighting parameters
 		if (hudsprite.RenderStyle.BlendOp != STYLEOP_Shadow && Level->HasDynamicLights && !isFullbrightScene() && gl_light_sprites)
 		{
-			GetDynSpriteLight(playermo, nullptr, nullptr, hudsprite.dynrgb);
+			if(get_gl_spritelight() == 0)
+			{
+				GetDynSpriteLight(playermo, nullptr, nullptr, hudsprite.dynrgb);
+			}
+			else
+			{
+				GetDynSpriteLightList(playermo, nullptr, nullptr, lightdata, true);
+				hudsprite.lightindex = state.UploadLights(lightdata);
+			}
 		}
 
 		if (!hudsprite.GetWeaponRect(this, state, psp, spos.X, spos.Y, player, vp.TicFrac)) continue;

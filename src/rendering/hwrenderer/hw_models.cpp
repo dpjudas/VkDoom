@@ -169,16 +169,19 @@ void FHWModelRenderer::DrawElements(int numIndices, size_t offset)
 //
 //===========================================================================
 
-int FHWModelRenderer::SetupFrame(FModel *model, unsigned int frame1, unsigned int frame2, unsigned int size, const TArray<VSMatrix>& bones, int boneStartIndex)
+int FHWModelRenderer::UploadBones(const TArray<VSMatrix>& bones)
+{
+	return state.UploadBones(bones);
+}
+
+void FHWModelRenderer::SetupFrame(FModel *model, unsigned int frame1, unsigned int frame2, unsigned int size, int boneStartIndex)
 {
 	auto mdbuff = static_cast<FModelVertexBuffer*>(model->GetVertexBuffer(GetType()));
-	boneIndexBase = boneStartIndex >= 0 ? boneStartIndex : state.UploadBones(bones);
-	state.SetBoneIndexBase(boneIndexBase);
+	state.SetBoneIndexBase(boneStartIndex);
 	if (mdbuff)
 	{
 		state.SetVertexBuffer(mdbuff->vertexBuffer(), frame1, frame2);
 		if (mdbuff->indexBuffer()) state.SetIndexBuffer(mdbuff->indexBuffer());
 	}
-	return boneIndexBase;
 }
 

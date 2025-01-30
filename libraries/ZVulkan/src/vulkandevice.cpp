@@ -136,6 +136,11 @@ void VulkanDevice::CreateDevice()
 		*next = &EnabledFeatures.DescriptorIndexing;
 		next = &EnabledFeatures.DescriptorIndexing.pNext;
 	}
+	if (SupportsExtension(VK_EXT_DEVICE_FAULT_EXTENSION_NAME))
+	{
+		*next = &EnabledFeatures.Fault;
+		next = &EnabledFeatures.Fault.pNext;
+	}
 
 	VkResult result = vkCreateDevice(PhysicalDevice.Device, &deviceCreateInfo, nullptr, &device);
 	CheckVulkanError(result, "Could not create vulkan device");
@@ -174,7 +179,7 @@ void VulkanDevice::SetObjectName(const char* name, uint64_t handle, VkObjectType
 
 VulkanDeviceFaultInfo VulkanDevice::GetDeviceFaultInfo()
 {
-	if (!SupportsExtension(VK_EXT_DEVICE_FAULT_EXTENSION_NAME))
+	if (!SupportsExtension(VK_EXT_DEVICE_FAULT_EXTENSION_NAME) || !EnabledFeatures.Fault.deviceFault)
 		return {};
 
 	VkDeviceFaultCountsEXT counts = { VK_STRUCTURE_TYPE_DEVICE_FAULT_COUNTS_EXT };
