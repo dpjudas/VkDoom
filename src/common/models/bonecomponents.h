@@ -6,6 +6,17 @@
 
 #include <variant>
 
+
+class DBoneComponents : public DObject
+{
+	DECLARE_CLASS(DBoneComponents, DObject);
+public:
+	TArray<TArray<TRS>>			trscomponents;
+	TArray<TArray<VSMatrix>>	trsmatrix;
+
+	DBoneComponents() = default;
+};
+
 struct ModelAnimFrameInterp
 {
 	float inter = -1.0f;
