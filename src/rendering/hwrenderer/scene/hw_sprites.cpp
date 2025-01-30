@@ -1501,7 +1501,7 @@ void HWSprite::ProcessParticle(HWDrawInfo *di, FRenderState& state, particle_t *
 	foglevel = (uint8_t)clamp<short>(sector->lightlevel, 0, 255);
 
 	trans = particle->alpha;
-	OverrideShader = 0;
+	OverrideShader = (particle->flags & SPF_ALLOWSHADERS) ? -1 : 0;
 	modelframe = nullptr;
 	texture = nullptr;
 	topclip = LARGE_VALUE;
