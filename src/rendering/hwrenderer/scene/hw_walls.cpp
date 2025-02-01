@@ -45,6 +45,8 @@
 #include "hw_skydome.h"
 #include "hw_walldispatcher.h"
 
+EXTERN_CVAR(Bool, lm_dynlights);
+
 void SetGlowPlanes(FRenderState &state, const secplane_t& top, const secplane_t& bottom)
 {
 	auto& tn = top.Normal();
@@ -343,7 +345,7 @@ void HWWall::RenderTranslucentWall(HWWallDispatcher*di, FRenderState &state)
 //==========================================================================
 void HWWall::DrawWall(HWWallDispatcher*di, FRenderState &state, bool translucent)
 {
-	if (di->di && di->Level->HasDynamicLights && !di->isFullbrightScene() && texture != nullptr)
+	if (di->di && di->Level->HasDynamicLights && !di->isFullbrightScene() && texture != nullptr && !lm_dynlights)
 	{
 		SetupLights(di->di, state, lightdata);
 	}
@@ -535,7 +537,7 @@ void HWWall::PutWall(HWWallDispatcher *di, FRenderState& state, bool translucent
 	if (hasDecals)
 	{
 		// If we want to use the light infos for the decal we cannot delay the creation until the render pass.
-		if (ddi && ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr)
+		if (ddi && ddi->Level->HasDynamicLights && !ddi->isFullbrightScene() && texture != nullptr && !lm_dynlights)
 		{
 			SetupLights(ddi, state, lightdata);
 		}

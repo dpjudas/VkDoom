@@ -53,6 +53,7 @@
 EXTERN_CVAR(Bool, cl_capfps)
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Bool, gl_bandedswlight)
+EXTERN_CVAR(Bool, lm_dynlights);
 
 CVAR(Bool, gl_raytrace, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
@@ -113,7 +114,7 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 
 	R_SetupFrame(mainvp, r_viewwindow, camera);
 
-	if (mainview && toscreen && !(camera->Level->flags3 & LEVEL3_NOSHADOWMAP) && camera->Level->HasDynamicLights && gl_light_shadows > 0)
+	if (mainview && toscreen && !(camera->Level->flags3 & LEVEL3_NOSHADOWMAP) && camera->Level->HasDynamicLights && gl_light_shadows > 0 && !lm_dynlights)
 	{
 		screen->mShadowMap->SetAABBTree(camera->Level->aabbTree);
 		screen->mShadowMap->SetCollectLights([=] {

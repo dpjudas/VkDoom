@@ -49,6 +49,8 @@
 #include "texturemanager.h"
 #include "hw_flatdispatcher.h"
 
+EXTERN_CVAR(Bool, lm_dynlights);
+
 #ifdef _DEBUG
 CVAR(Int, gl_breaksec, -1, 0)
 #endif
@@ -209,7 +211,7 @@ void HWFlat::SetupLights(HWFlatDispatcher *di, FRenderState& state, FLightNode *
 
 void HWFlat::DrawSubsectors(HWFlatDispatcher *di, FRenderState &state)
 {
-	if (di->Level->HasDynamicLights && !di->isFullbrightScene())
+	if (di->Level->HasDynamicLights && !di->isFullbrightScene() && !lm_dynlights)
 	{
 		SetupLights(di, state, section->lighthead, lightdata, sector->PortalGroup);
 	}

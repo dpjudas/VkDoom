@@ -65,6 +65,8 @@
 #include "actorinlines.h"
 #include "memarena.h"
 
+EXTERN_CVAR(Bool, lm_dynlights);
+
 static FMemArena DynLightArena(sizeof(FDynamicLight) * 200);
 static TArray<FDynamicLight*> FreeList;
 static FCRandom randLight;
@@ -324,7 +326,7 @@ void FDynamicLight::Tick()
 		}
 	}
 
-	bool markTiles = (Trace() && Level->levelMesh);
+	bool markTiles = ((Trace() || lm_dynlights) && Level->levelMesh);
 
 	// Don't bother if the light won't be shown
 	if (!IsActive())
@@ -659,7 +661,7 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 	collected_ss.Push({ section, opos });
 	section->validcount = dl_validcount;
 
-	bool markTiles = (Trace() && Level->levelMesh);
+	bool markTiles = ((Trace() || lm_dynlights) && Level->levelMesh);
 
 	bool hitonesidedback = false;
 	for (unsigned i = 0; i < collected_ss.Size(); i++)
@@ -793,7 +795,7 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 
 void FDynamicLight::LinkLight()
 {
-	bool markTiles = (Trace() && Level->levelMesh);
+	bool markTiles = ((Trace() || lm_dynlights) && Level->levelMesh);
 
 	// mark the old light nodes
 	FLightNode * node;
@@ -891,7 +893,7 @@ void FDynamicLight::LinkLight()
 //==========================================================================
 void FDynamicLight::UnlinkLight ()
 {
-	bool markTiles = (Trace() && Level->levelMesh);
+	bool markTiles = ((Trace() || lm_dynlights) && Level->levelMesh);
 
 	if(markTiles)
 	{
