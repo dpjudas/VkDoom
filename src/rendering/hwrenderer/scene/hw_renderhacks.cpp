@@ -44,6 +44,8 @@
 #include "hw_walldispatcher.h"
 #include "hw_flatdispatcher.h"
 
+EXTERN_CVAR(Bool, lm_dynlights);
+
 //==========================================================================
 //
 // Create render list entries from the data generated below
@@ -113,7 +115,7 @@ static gl_floodrendernode *NewFloodRenderNode(HWDrawContext* drawctx)
 
 int HWDrawInfo::SetupLightsForOtherPlane(subsector_t * sub, FDynLightData &lightdata, const secplane_t *plane, FRenderState& state)
 {
-	if (Level->HasDynamicLights && !isFullbrightScene())
+	if (Level->HasDynamicLights && !isFullbrightScene() && !lm_dynlights)
 	{
 		Plane p;
 

@@ -43,7 +43,7 @@
 #include "unicode.h"
 #include "fs_findfile.h"
 #include "fs_decompress.h"
-#include "wildcards.hpp"
+#include <string_view>
 #include <algorithm>
 
 namespace FileSys {
@@ -344,6 +344,46 @@ void FResourceFile::GenerateHash()
 	}
 }
 
+static bool IsBlockedExt(LumpFilterInfo* filter, const std::string_view& name)
+{
+	size_t extpos = name.find_last_of('.');
+	if (extpos != std::string::npos)
+	{
+		std::string_view ext = name.substr(extpos);
+		for (const auto& blockedext : filter->blockedextensions)
+		{
+			if (ext == blockedext)
+				return true;
+		}
+	}
+	return false;
+}
+
+static bool IsBlockedFolder(LumpFilterInfo* filter, const std::string_view& name)
+{
+	size_t start = 0;
+	while (true)
+	{
+		size_t end = std::min(name.find_first_of("/\\", start), name.size());
+		std::string_view folder = name.substr(start, end - start);
+
+		if (folder.empty())
+			break;
+
+		for (const auto& blockedfolder : filter->blockedfolders)
+		{
+			if (folder == blockedfolder)
+				return true;
+		}
+
+		if (end == name.size())
+			break;
+
+		start = end + 1;
+	}
+	return false;
+}
+
 //==========================================================================
 //
 // FResourceFile :: PostProcessArchive
@@ -365,14 +405,13 @@ void FResourceFile::PostProcessArchive(LumpFilterInfo *filter)
 	{
 		for (uint32_t i = 0; i < NumLumps; i++)
 		{
-			std::string name = Entries[i].FileName;
-			for (auto& pattern : filter->blockednames)
+			// Note: this used wildcards::match before. That was super slow in debug builds in particular.
+			// Do not change it back to wildcards, please.
+
+			std::string_view name = Entries[i].FileName;
+			if (IsBlockedExt(filter, name) || IsBlockedFolder(filter, name))
 			{
-				if (wildcards::match(name, pattern))
-				{
-					Entries[i].FileName = "";
-					continue;
-				}
+				Entries[i].FileName = "";
 			}
 		}
 	}

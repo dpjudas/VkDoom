@@ -97,6 +97,7 @@ CVAR (Bool, genblockmap, false, CVAR_SERVERINFO|CVAR_GLOBALCONFIG);
 CVAR (Bool, gennodes, false, CVAR_SERVERINFO|CVAR_GLOBALCONFIG);
 CVAR (Bool, genlightmaps, false, CVAR_GLOBALCONFIG);
 CVAR (Bool, ignorelightmaplump, false, CVAR_GLOBALCONFIG);
+EXTERN_CVAR(Bool, lm_dynlights);
 
 inline bool P_LoadBuildMap(uint8_t *mapdata, size_t len, FMapThing **things, int *numthings)
 {
@@ -2976,7 +2977,14 @@ void MapLoader::InitLevelMesh(MapData* map)
 	}
 	else
 	{
-		Level->lightmaps = Level->lightmaps || *genlightmaps; // Allow lightmapping in non-lightmapped levels.
+		if (!Level->lightmaps && lm_dynlights)
+		{
+			// Turn off AO and sunlight if we are only enabling the lightmapper for dynamic lights
+			Level->AmbientOcclusion = false;
+			Level->SunColor = FVector3(0.0f, 0.0f, 0.0f);
+		}
+
+		Level->lightmaps = Level->lightmaps || genlightmaps || lm_dynlights; // Allow lightmapping in non-lightmapped levels.
 	}
 
 	// Allocate room for surface arrays on sectors, sides and their 3D floors

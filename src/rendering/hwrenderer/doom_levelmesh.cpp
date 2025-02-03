@@ -19,6 +19,8 @@
 
 #include "vm.h"
 
+EXTERN_CVAR(Bool, lm_dynlights);
+
 static bool RequireLevelMesh()
 {
 	if (level.levelMesh)
@@ -343,7 +345,7 @@ void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
 	lightdata.Clear();
 	for (auto light = doomMap.lights; light; light = light->next)
 	{
-		if (light->Trace())
+		if (light->Trace() || lm_dynlights)
 		{
 			UpdateLight(light);
 		}
@@ -398,7 +400,7 @@ void DoomLevelMesh::ProcessDecals(HWDrawInfo* di, FRenderState& state)
 			continue;
 
 		int dynlightindex = -1;
-		if (di->Level->HasDynamicLights && !di->isFullbrightScene() && side.Decals[0].texture != nullptr)
+		if (di->Level->HasDynamicLights && !di->isFullbrightScene() && side.Decals[0].texture != nullptr && !lm_dynlights)
 		{
 			dynlightindex = side.Decals[0].SetupLights(di, state, lightdata, level.sides[sideIndex].lighthead);
 		}
@@ -688,7 +690,7 @@ LightListAllocInfo DoomLevelMesh::CreateLightList(FLightNode* node, int portalgr
 	while (cur)
 	{
 		FDynamicLight* light = cur->lightsource;
-		if (light && light->Trace() && GetLightIndex(light, portalgroup) >= 0)
+		if (light && (light->Trace() || lm_dynlights) && GetLightIndex(light, portalgroup) >= 0)
 		{
 			lightcount++;
 		}
@@ -701,7 +703,7 @@ LightListAllocInfo DoomLevelMesh::CreateLightList(FLightNode* node, int portalgr
 	while (cur)
 	{
 		FDynamicLight* light = cur->lightsource;
-		if (light && light->Trace())
+		if (light && (light->Trace() || lm_dynlights))
 		{
 			int lightindex = GetLightIndex(light, portalgroup);
 			if (lightindex >= 0)
