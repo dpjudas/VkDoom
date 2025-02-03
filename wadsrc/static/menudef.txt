@@ -1064,11 +1064,11 @@ OptionMenu "LightOptions" protected
 	Option "$GLPREFMNU_FOGMODE",				gl_fogmode,						"FogMode"
 	Option "$DSPLYMNU_FAKECONTRAST",			"r_fakecontrast", "Contrast"
 	StaticText " "
-	Option "$GLPREFMNU_CORONAS",				gl_coronas,						"OnOff"
-	StaticText " "
 	Option "$GLLIGHTMNU_LIGHTSENABLED",			gl_lights,				"OnOff"
 	Option "$GLLIGHTMNU_LIGHTSPRITES",			gl_light_sprites,		"YesNo"
 	Option "$GLLIGHTMNU_LIGHTPARTICLES",		gl_light_particles,		"YesNo"
+	Option "$GLLIGHTMNU_SPRITELIGHT",			gl_spritelight,			"SpriteLightModes"
+	Option "$GLPREFMNU_CORONAS",				gl_coronas,				"OnOff"
 	StaticText " "
 	Option "$GLLIGHTMNU_LIGHTSHADOWS",			gl_light_shadows,		"ShadowMode"
 	Option "$GLLIGHTMNU_LIGHTSHADOWFILTER", 	gl_light_shadow_filter,	"ShadowFilter"
@@ -2601,6 +2601,14 @@ OptionValue "LightingModes"
 	0, "$OPTVAL_CLASSIC"
 	1, "$OPTVAL_SOFTWARE"
 	2, "$OPTVAL_VANILLA"
+}
+
+OptionValue "SpriteLightModes"
+{
+	-1, "$OPTVAL_AUTO"
+	0, "$OPTVAL_CPUSPRITELIGHT"
+	1, "$OPTVAL_GPUVERTEXSPRITELIGHT"
+	2, "$OPTVAL_GPUPERPIXELSPRITELIGHT"
 }
 
 OptionValue "Precision"
