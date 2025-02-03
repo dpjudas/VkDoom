@@ -280,7 +280,7 @@ void HWDrawInfo::GetDynSpriteLightList(AActor *self, double x, double y, double 
 	if(isModel && gl_fakemodellight)
 	{
 		//fake light for contrast
-		AddSunLightToList(modellightdata, x, y, z, FVector3(Level->SunDirection.X + 180, 45, 0), Level->SunColor * Level->SunIntensity * 0.05, false);
+		AddSunLightToList(modellightdata, x, y, z, FVector3(Level->SunDirection.X + 180, 45, 0), Level->SunColor * Level->SunIntensity * gl_fakemodellightintensity, false);
 	}
 
 	if ((level.lightmaps && gl_spritelight > 0) || ActorTraceStaticLight::TraceSunVisibility(x, y, z, traceCache, (self ? staticLight.ActorMoved : traceCache ? traceCache->Pos != DVector3(x, y, z) : false)))

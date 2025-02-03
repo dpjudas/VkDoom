@@ -180,4 +180,5 @@ int get_gl_spritelight()
 	return gl_spritelight < 0 ? (screen->IsRayQueryEnabled() ? 1 : 0) : gl_spritelight;
 }
 
-CVAR(Bool, gl_fakemodellight, true, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)
+CVARD(Bool, gl_fakemodellight, true, CVAR_GLOBALCONFIG | CVAR_ARCHIVE, "adds a fake sunlight on models to improve contrast")
+CVARD(Float, gl_fakemodellightintensity, 0.05, CVAR_GLOBALCONFIG | CVAR_ARCHIVE, "fake sunlight intensity (brightness)")
