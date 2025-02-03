@@ -361,6 +361,7 @@ OptionMenu "OptionsMenu" protected
 	Submenu "$OPTMNU_DISPLAY",			"VideoOptions"
 	Submenu "$OPTMNU_SOUND",			"SoundOptions"
 	Submenu "$OPTMNU_MULTIPLAYER",		"MultiplayerMenu"
+	Submenu "$OPTMNU_MISCELLANEOUS",	"MiscOptions"
 	Submenu "$OPTMNU_SYSTEM",			"SystemMenu"
 	StaticText " "
 	Submenu "$OS_TITLE", "os_Menu"
@@ -416,9 +417,6 @@ OptionMenu "GameplayMenu" protected
 	Submenu "$OPTMNU_COMPATIBILITY",	"CompatibilityOptions"
 	Submenu "$OPTMNU_AUTOMAP",			"AutomapOptions"
 	Submenu "$OPTMNU_HUD",				"HUDOptions"
-	Submenu "$OPTMNU_MISCELLANEOUS",	"MiscOptions"
-
-	StaticText " "
 }
 
 //-------------------------------------------------------------------------------------------
@@ -435,8 +433,6 @@ OptionMenu "MultiplayerMenu" protected
 	Submenu "$GMPLYMNU_DEATHMATCH",		"DeathmatchOptions"
 	Submenu "$GMPLYMNU_COOPERATIVE",	"CoopOptions"
 	Submenu "$OPTMNU_NETWORK",			"NetworkOptions"
-
-	StaticText " "
 }
 
 //-------------------------------------------------------------------------------------------
@@ -452,13 +448,12 @@ OptionMenu "SystemMenu" protected
 	SafeCommand	"$OPTMNU_DEFAULTS",		"reset2defaults"
 	SafeCommand	"$OPTMNU_RESETTOSAVED",	"reset2saved"
 	SafeCommand	"$OPTMNU_WRITEINI",		"writeini"
-	
-	Command "$OPTMNU_CONSOLE",			"menuconsole"
+	StaticText " "
 	Command "$OPTMNU_OPENCONFIG",		"openconfig"
 	Command "$OPTMNU_OPENSCREENSHOTS",	"openscreenshots"
 	Command "$OPTMNU_OPENSAVES",		"opensaves"
-
 	StaticText " "
+	Command "$OPTMNU_CONSOLE",			"menuconsole"
 }
 
 //-------------------------------------------------------------------------------------------
@@ -994,11 +989,13 @@ OptionMenu "VideoOptions" protected
 	Option "$SCALEMNU_HUDASPECT", 				"hud_aspectscale", "OnOff"
 	Option "$MSGMNU_SHOWMESSAGES",				"show_messages", "OnOff" // needs to be on the top level because it can be disabled with a single keypress.
 	
-	Submenu "$OPTMNU_VIDEO",			"VideoModeMenu"
-	Submenu "$DSPLYMNU_APPEARANCE",				"AppearOptions"
-	Submenu "$DSPLYMNU_ADVANCED",				"AdvDisplayOptions"
-	Submenu "$OPTMNU_SPRITE", 					"SpriteOptions"
+	StaticText " "
+	Submenu "$OPTMNU_VIDEO",					"VideoModeMenu"
 
+	StaticText " "
+	Submenu "$DSPLYMNU_APPEARANCE",				"AppearOptions"
+	Submenu "$OPTMNU_SPRITE", 					"SpriteOptions"
+	Submenu "$DSPLYMNU_ADVANCED",				"AdvDisplayOptions"
 }
 
 OptionMenu "AdvDisplayOptions" protected
@@ -1101,7 +1098,8 @@ OptionMenu "SpriteOptions" protected
 	Slider "$DSPLYMNU_MAXDECALS",				"cl_maxdecals", 0, 10000, 100, 0
 	Option "$DSPLYMNU_PLAYERSPRITES",			"r_drawplayersprites", "OnOff"
 	Option "$DSPLYMNU_DRAWFUZZ",				"r_drawfuzz", "Fuzziness"
-	StaticText "$DSPLYMNU_GLOPT"
+	StaticText " "
+	StaticText "$DSPLYMNU_GLOPT", 1
 	Option "$GLPREFMNU_SPRCLIP",				gl_spriteclip,					"SpriteclipModes"
 	Option "$GLPREFMNU_SPRBLEND",				gl_sprite_blend,				"OnOff"
 	Option "$GLPREFMNU_FUZZSTYLE",				gl_fuzztype,					"FuzzStyle"
