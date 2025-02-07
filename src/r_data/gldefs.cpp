@@ -447,6 +447,19 @@ void UserShaderDesc::BindActorFields(void * act_v)
 			{
 				setUniformF(uniformField, FVector4(*(DVector4*)addr));
 			}
+			else if(t == TypeColor)
+			{
+				if(uniformField.Type == UniformType::Int)
+				{
+					setUniformI(uniformField, *(int*)addr);
+				}
+				else
+				{
+					PalEntry col;
+					col.d = *(uint32_t*)addr;
+					setUniformF(uniformField, FVector4(col.r / 255.0, col.g / 255.0, col.b / 255.0, col.a / 255.0));
+				}
+			}
 		}
 	}
 }
