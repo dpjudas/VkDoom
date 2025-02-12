@@ -88,7 +88,7 @@ vec4 texture(int index, vec2 p)
 #ifndef FRAGSHADER
 	return textureLod(textures[uTextureIndex + index], p, 0.0);
 #else
-	return texture(textures[uTextureIndex + index], p);
+	return texture(textures[nonuniformEXT(uTextureIndex + index)], p);
 #endif
 }
 
@@ -97,26 +97,26 @@ vec4 texture(int index, vec2 p, float bias)
 #ifndef FRAGSHADER
 	return textureLod(textures[uTextureIndex + index], p, 0.0);
 #else
-	return texture(textures[uTextureIndex + index], p, bias);
+	return texture(textures[nonuniformEXT(uTextureIndex + index)], p, bias);
 #endif
 }
 
 ivec2 textureSize(int index, int lod)
 {
-	return textureSize(textures[uTextureIndex + index], lod);
+	return textureSize(textures[nonuniformEXT(uTextureIndex + index)], lod);
 }
 
 vec4 textureGrad(int index, vec2 P, vec2 dPdx, vec2 dPdy)
 {
-	return textureGrad(textures[uTextureIndex + index], P, dPdx, dPdy);
+	return textureGrad(textures[nonuniformEXT(uTextureIndex + index)], P, dPdx, dPdy);
 }
 
 vec4 textureLod(int index, vec2 P, float lod)
 {
-	return textureLod(textures[uTextureIndex + index], P, lod);
+	return textureLod(textures[nonuniformEXT(uTextureIndex + index)], P, lod);
 }
 
 vec4 texelFetch(int index, ivec2 P, int lod)
 {
-	return texelFetch(textures[uTextureIndex + index], P, lod);
+	return texelFetch(textures[nonuniformEXT(uTextureIndex + index)], P, lod);
 }
