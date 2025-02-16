@@ -4,6 +4,8 @@
 #include "vulkan/textures/vk_texture.h"
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
+#include "vulkan/textures/vk_renderbuffers.h"
+#include "vulkan/vk_renderstate.h"
 #include "zvulkan/vulkanbuilders.h"
 #include "filesystem.h"
 #include "cmdlib.h"
@@ -97,6 +99,108 @@ void VkLightprober::GenerateBrdfLut()
 	file->Write(databuffer.data(), databuffer.size() * sizeof(uint16_t));
 }
 
+void VkLightprober::CreateEnvironmentMap()
+{
+	environmentMap.cubeimage = ImageBuilder()
+		.Size(environmentMap.textureSize, environmentMap.textureSize, 1, 6)
+		.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+		.Flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+		.DebugName("VkLightprober.environmentMap.cubeimage")
+		.Create(fb->GetDevice());
+
+	environmentMap.cubeview = ImageViewBuilder()
+		.Type(VK_IMAGE_VIEW_TYPE_CUBE)
+		.Image(environmentMap.cubeimage.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
+		.DebugName("VkLightprober.environmentMap.cubeview")
+		.Create(fb->GetDevice());
+
+	VkFormat format = fb->GetBuffers()->SceneDepthStencilFormat;
+
+	environmentMap.zbuffer = ImageBuilder()
+		.Size(environmentMap.textureSize, environmentMap.textureSize)
+		.Samples(VK_SAMPLE_COUNT_1_BIT)
+		.Format(format)
+		.Usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+		.DebugName("VkLightprober.environmentMap.zbuffer")
+		.Create(fb->GetDevice());
+
+	environmentMap.zbufferview = ImageViewBuilder()
+		.Image(environmentMap.zbuffer.get(), format, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)
+		.DebugName("VkLightprober.environmentMap.zbufferview")
+		.Create(fb->GetDevice());
+
+	for (int i = 0; i < 6; i++)
+	{
+		environmentMap.renderTargets[i].View = ImageViewBuilder()
+			.Image(environmentMap.cubeimage.get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1, 1)
+			.Create(fb->GetDevice());
+	}
+}
+
+void VkLightprober::RenderEnvironmentMap(std::function<void(IntRect&, int)> renderFunc)
+{
+	auto renderstate = fb->GetRenderState();
+	renderstate->EndRenderPass();
+
+	PipelineBarrier()
+		.AddImage(
+			environmentMap.cubeimage.get(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+		.Execute(
+			fb->GetCommands()->GetDrawCommands(),
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+	for (int side = 0; side < 6; side++)
+	{
+		environmentMap.renderTargets[side].Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		PipelineBarrier()
+			.AddImage(
+				environmentMap.zbuffer.get(),
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)
+			.Execute(
+				fb->GetCommands()->GetDrawCommands(),
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+
+		renderstate->SetRenderTarget(&environmentMap.renderTargets[side], environmentMap.zbufferview.get(), environmentMap.textureSize, environmentMap.textureSize, VK_FORMAT_R16G16B16A16_SFLOAT, VK_SAMPLE_COUNT_1_BIT);
+
+		IntRect bounds;
+		bounds.left = 0;
+		bounds.top = 0;
+		bounds.width = environmentMap.textureSize;
+		bounds.height = environmentMap.textureSize;
+		renderFunc(bounds, side);
+
+		renderstate->EndRenderPass();
+
+		environmentMap.renderTargets[side].Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	}
+
+	PipelineBarrier()
+		.AddImage(
+			environmentMap.cubeimage.get(),
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT)
+		.Execute(
+			fb->GetCommands()->GetDrawCommands(),
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+	renderstate->SetRenderTarget(&fb->GetBuffers()->SceneColor, fb->GetBuffers()->SceneDepthStencil.View.get(), fb->GetBuffers()->GetWidth(), fb->GetBuffers()->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, fb->GetBuffers()->GetSceneSamples());
+}
+
 void VkLightprober::CreateIrradianceMap()
 {
 	irradianceMap.shader = CompileShader("comp_irradiance_convolute.glsl", "shaders/lightprobe/comp_irradiance_convolute.glsl", "VkLightprober.IrradianceMap");
@@ -146,7 +250,7 @@ void VkLightprober::CreateIrradianceMap()
 	}
 }
 
-void VkLightprober::GenerateIrradianceMap(VulkanImageView* environmentcubemap)
+std::vector<uint8_t> VkLightprober::GenerateIrradianceMap()
 {
 	auto staging = BufferBuilder()
 		.Size(32 * 32 * 8 * 6)
@@ -157,7 +261,7 @@ void VkLightprober::GenerateIrradianceMap(VulkanImageView* environmentcubemap)
 	for (int i = 0; i < 6; i++)
 	{
 		write.AddStorageImage(irradianceMap.descriptorSets[i].get(), 0, irradianceMap.views[i].get(), VK_IMAGE_LAYOUT_GENERAL);
-		write.AddCombinedImageSampler(irradianceMap.descriptorSets[i].get(), 1, environmentcubemap, irradianceMap.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		write.AddCombinedImageSampler(irradianceMap.descriptorSets[i].get(), 1, environmentMap.cubeview.get(), irradianceMap.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 	write.Execute(fb->GetDevice());
 
@@ -226,6 +330,7 @@ void VkLightprober::GenerateIrradianceMap(VulkanImageView* environmentcubemap)
 	auto src = staging->Map(0, databuffer.size());
 	memcpy(databuffer.data(), src, databuffer.size());
 	staging->Unmap();
+	return databuffer;
 }
 
 void VkLightprober::CreatePrefilterMap()
@@ -277,7 +382,7 @@ void VkLightprober::CreatePrefilterMap()
 	}
 }
 
-void VkLightprober::GeneratePrefilterMap(VulkanImageView* environmentcubemap)
+std::vector<uint8_t> VkLightprober::GeneratePrefilterMap()
 {
 	auto staging = BufferBuilder()
 		.Size(prefilterMap.levelsSize * 6)
@@ -288,7 +393,7 @@ void VkLightprober::GeneratePrefilterMap(VulkanImageView* environmentcubemap)
 	for (int i = 0; i < 6 * prefilterMap.maxlevels; i++)
 	{
 		write.AddStorageImage(prefilterMap.descriptorSets[i].get(), 0, prefilterMap.views[i].get(), VK_IMAGE_LAYOUT_GENERAL);
-		write.AddCombinedImageSampler(prefilterMap.descriptorSets[i].get(), 1, environmentcubemap, prefilterMap.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		write.AddCombinedImageSampler(prefilterMap.descriptorSets[i].get(), 1, environmentMap.cubeview.get(), prefilterMap.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 	write.Execute(fb->GetDevice());
 
@@ -365,6 +470,7 @@ void VkLightprober::GeneratePrefilterMap(VulkanImageView* environmentcubemap)
 	auto src = staging->Map(0, databuffer.size());
 	memcpy(databuffer.data(), src, databuffer.size());
 	staging->Unmap();
+	return databuffer;
 }
 
 std::unique_ptr<VulkanShader> VkLightprober::CompileShader(const std::string& name, const std::string& filename, const char* debugName)

@@ -2,6 +2,7 @@
 
 #include "zvulkan/vulkanobjects.h"
 #include "vectors.h"
+#include "vulkan/textures/vk_imagetransition.h"
 
 class VulkanRenderDevice;
 class FString;
@@ -27,13 +28,16 @@ public:
 	VkLightprober(VulkanRenderDevice* fb);
 	~VkLightprober();
 
+	void RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc);
+	std::vector<uint8_t> GenerateIrradianceMap();
+	std::vector<uint8_t> GeneratePrefilterMap();
+
 private:
 	void CreateBrdfLutResources();
+	void CreateEnvironmentMap();
 	void CreateIrradianceMap();
 	void CreatePrefilterMap();
 	void GenerateBrdfLut();
-	void GenerateIrradianceMap(VulkanImageView* environmentcubemap);
-	void GeneratePrefilterMap(VulkanImageView* environmentcubemap);
 
 	std::unique_ptr<VulkanShader> CompileShader(const std::string& name, const std::string& filename, const char* debugName);
 
@@ -52,6 +56,19 @@ private:
 		std::unique_ptr<VulkanImage> image;
 		std::unique_ptr<VulkanImageView> view;
 	} brdfLut;
+
+	struct
+	{
+		enum
+		{
+			textureSize = 256
+		};
+		std::unique_ptr<VulkanImage> cubeimage;
+		std::unique_ptr<VulkanImageView> cubeview;
+		std::unique_ptr<VulkanImage> zbuffer;
+		std::unique_ptr<VulkanImageView> zbufferview;
+		VkTextureImage renderTargets[6];
+	} environmentMap;
 
 	struct
 	{
