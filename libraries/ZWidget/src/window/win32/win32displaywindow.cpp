@@ -682,7 +682,8 @@ static void CALLBACK Win32TimerCallback(HWND handle, UINT message, UINT_PTR time
 	auto it = Win32DisplayWindow::Timers.find(timerID);
 	if (it != Win32DisplayWindow::Timers.end())
 	{
-		it->second();
+		auto callback = it->second;
+		callback();
 	}
 }
 
