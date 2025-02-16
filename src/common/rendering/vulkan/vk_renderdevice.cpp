@@ -321,6 +321,15 @@ void VulkanRenderDevice::RenderTextureView(FCanvasTexture* tex, std::function<vo
 	tex->SetUpdated(true);
 }
 
+void VulkanRenderDevice::RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc)
+{
+	mLightprober->RenderEnvironmentMap(std::move(renderFunc));
+	TArray<uint16_t> irradianceMap = mLightprober->GenerateIrradianceMap();
+	TArray<uint16_t> prefilterMap = mLightprober->GeneratePrefilterMap();
+	mTextureManager->CreateIrradiancemap(32, 6, std::move(irradianceMap));
+	mTextureManager->CreatePrefiltermap(128, 6, std::move(prefilterMap));
+}
+
 void VulkanRenderDevice::PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D)
 {
 	if (!swscene) mPostprocess->BlitSceneToPostprocess(); // Copy the resulting scene to the current post process texture

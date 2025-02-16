@@ -35,8 +35,8 @@ public:
 	~VkLightprober();
 
 	void RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc);
-	std::vector<uint8_t> GenerateIrradianceMap();
-	std::vector<uint8_t> GeneratePrefilterMap();
+	TArray<uint16_t> GenerateIrradianceMap();
+	TArray<uint16_t> GeneratePrefilterMap();
 
 private:
 	void CreateBrdfLutResources();
@@ -94,7 +94,7 @@ private:
 		enum
 		{
 			maxlevels = 5,
-			levelsSize = (128 * 128 + 64 * 64 + 32 * 32 + 16 * 16 + 8 * 8) * 8
+			levelsSize = 128 * 128 + 64 * 64 + 32 * 32 + 16 * 16 + 8 * 8
 		};
 		std::unique_ptr<VulkanShader> shader;
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout;

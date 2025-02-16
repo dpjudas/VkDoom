@@ -14,6 +14,7 @@ VkLightprober::VkLightprober(VulkanRenderDevice* fb) : fb(fb)
 {
 	CreateIrradianceMap();
 	CreatePrefilterMap();
+	CreateEnvironmentMap();
 }
 
 VkLightprober::~VkLightprober()
@@ -134,6 +135,7 @@ void VkLightprober::CreateEnvironmentMap()
 	{
 		environmentMap.renderTargets[i].View = ImageViewBuilder()
 			.Image(environmentMap.cubeimage.get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1, 1)
+			.DebugName("VkLightprober.environmentMap.renderTargets[].View")
 			.Create(fb->GetDevice());
 	}
 }
@@ -149,7 +151,9 @@ void VkLightprober::RenderEnvironmentMap(std::function<void(IntRect&, int)> rend
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			0, 1, 0, 6)
 		.Execute(
 			fb->GetCommands()->GetDrawCommands(),
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -192,7 +196,9 @@ void VkLightprober::RenderEnvironmentMap(std::function<void(IntRect&, int)> rend
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT)
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			0, 1, 0, 6)
 		.Execute(
 			fb->GetCommands()->GetDrawCommands(),
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -250,7 +256,7 @@ void VkLightprober::CreateIrradianceMap()
 	}
 }
 
-std::vector<uint8_t> VkLightprober::GenerateIrradianceMap()
+TArray<uint16_t> VkLightprober::GenerateIrradianceMap()
 {
 	auto staging = BufferBuilder()
 		.Size(32 * 32 * 8 * 6)
@@ -304,7 +310,7 @@ std::vector<uint8_t> VkLightprober::GenerateIrradianceMap()
 		push.up = up[i];
 
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_COMPUTE, irradianceMap.pipelineLayout.get(), 0, irradianceMap.descriptorSets[i].get());
-		cmdbuffer->pushConstants(irradianceMap.pipelineLayout.get(), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, sizeof(PushConstants), &push);
+		cmdbuffer->pushConstants(irradianceMap.pipelineLayout.get(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(IrradianceMapPushConstants), &push);
 		cmdbuffer->dispatch(32, 32, 1);
 	}
 
@@ -327,9 +333,18 @@ std::vector<uint8_t> VkLightprober::GenerateIrradianceMap()
 
 	fb->GetCommands()->WaitForCommands(false);
 
-	std::vector<uint8_t> databuffer(32 * 32 * 8 * 6);
-	auto src = staging->Map(0, databuffer.size());
-	memcpy(databuffer.data(), src, databuffer.size());
+	// Copy while dropping the alpha channel
+	int texelCount = 32 * 32 * 6;
+	TArray<uint16_t> databuffer(texelCount * 3, true);
+	auto dst = databuffer.data();
+	auto src = (uint16_t*)staging->Map(0, texelCount * 8);
+	for (int i = 0; i < texelCount; i++)
+	{
+		*(dst++) = *(src++);
+		*(dst++) = *(src++);
+		*(dst++) = *(src++);
+		src++;
+	}
 	staging->Unmap();
 	return databuffer;
 }
@@ -383,10 +398,10 @@ void VkLightprober::CreatePrefilterMap()
 	}
 }
 
-std::vector<uint8_t> VkLightprober::GeneratePrefilterMap()
+TArray<uint16_t> VkLightprober::GeneratePrefilterMap()
 {
 	auto staging = BufferBuilder()
-		.Size(prefilterMap.levelsSize * 6)
+		.Size(prefilterMap.levelsSize * 6 * 8)
 		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU)
 		.Create(fb->GetDevice());
 
@@ -441,7 +456,7 @@ std::vector<uint8_t> VkLightprober::GeneratePrefilterMap()
 			push.roughness = (float)level / (float)(prefilterMap.maxlevels - 1);
 
 			cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_COMPUTE, prefilterMap.pipelineLayout.get(), 0, prefilterMap.descriptorSets[i * prefilterMap.maxlevels + level].get());
-			cmdbuffer->pushConstants(prefilterMap.pipelineLayout.get(), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, sizeof(PrefilterMapPushConstants), &push);
+			cmdbuffer->pushConstants(prefilterMap.pipelineLayout.get(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PrefilterMapPushConstants), &push);
 			cmdbuffer->dispatch(128 >> level, 128 >> level, 1);
 		}
 	}
@@ -468,9 +483,18 @@ std::vector<uint8_t> VkLightprober::GeneratePrefilterMap()
 
 	fb->GetCommands()->WaitForCommands(false);
 
-	std::vector<uint8_t> databuffer(prefilterMap.levelsSize * 6);
-	auto src = staging->Map(0, databuffer.size());
-	memcpy(databuffer.data(), src, databuffer.size());
+	// Copy while dropping the alpha channel
+	int texelCount = prefilterMap.levelsSize * 6;
+	TArray<uint16_t> databuffer(texelCount * 3, true);
+	auto dst = databuffer.data();
+	auto src = (uint16_t*)staging->Map(0, texelCount * 8);
+	for (int i = 0; i < texelCount; i++)
+	{
+		*(dst++) = *(src++);
+		*(dst++) = *(src++);
+		*(dst++) = *(src++);
+		src++;
+	}
 	staging->Unmap();
 	return databuffer;
 }

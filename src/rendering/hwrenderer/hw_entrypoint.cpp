@@ -56,6 +56,7 @@ EXTERN_CVAR(Bool, gl_bandedswlight)
 EXTERN_CVAR(Bool, lm_dynlights);
 
 CVAR(Bool, gl_raytrace, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+CVAR(Bool, gl_lightprobe, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
 extern bool NoInterpolateView;
 
@@ -108,11 +109,11 @@ void CollectLights(FLevelLocals* Level)
 //
 //-----------------------------------------------------------------------------
 
-sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bounds, float fov, float ratio, float fovratio, bool mainview, bool toscreen)
+sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bounds, float fov, float ratio, float fovratio, bool mainview, bool toscreen, int side)
 {
 	auto& RenderState = *screen->RenderState();
 
-	R_SetupFrame(mainvp, r_viewwindow, camera);
+	R_SetupFrame(mainvp, r_viewwindow, camera, side);
 
 	if (mainview && toscreen && !(camera->Level->flags3 & LEVEL3_NOSHADOWMAP) && camera->Level->HasDynamicLights && gl_light_shadows > 0 && !lm_dynlights)
 	{
@@ -399,6 +400,22 @@ sector_t* RenderView(player_t* player)
 						});
 				});
 		}
+
+		if (gl_lightprobe)
+		{
+			// Render the light probes if not found in a lump
+			// To do: we need light probe actors
+			AActor* lightprobe = player->camera;
+			if (lightprobe)
+			{
+				screen->RenderEnvironmentMap([=](IntRect& bounds, int side)
+					{
+						FRenderViewpoint probevp;
+						RenderViewpoint(probevp, lightprobe, &bounds, 90.0, 1.0f, 1.0f, false, false, side);
+					});
+			}
+		}
+
 		NoInterpolateView = saved_niv;
 
 		// now render the main view

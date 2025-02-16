@@ -221,6 +221,8 @@ public:
 	// Get the array index for the material in the textures array accessible from shaders
 	virtual int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) { return -1; }
 
+	virtual void RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc) {}
+
 	// Screen wiping
 	virtual FTexture *WipeStartScreen();
 	virtual FTexture *WipeEndScreen();

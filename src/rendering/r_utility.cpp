@@ -903,7 +903,7 @@ static void R_DoActorTickerAngleChanges(player_t* const player, DRotator& angles
 EXTERN_CVAR(Float, chase_dist)
 EXTERN_CVAR(Float, chase_height)
 
-void R_SetupFrame(FRenderViewpoint& viewPoint, const FViewWindow& viewWindow, AActor* const actor)
+void R_SetupFrame(FRenderViewpoint& viewPoint, const FViewWindow& viewWindow, AActor* const actor, int side)
 {
 	viewPoint.TicFrac = I_GetTimeFrac();
 	if (cl_capfps || r_NoInterpolate)
@@ -1066,6 +1066,41 @@ void R_SetupFrame(FRenderViewpoint& viewPoint, const FViewWindow& viewWindow, AA
 	}
 
 	R_InterpolateView(viewPoint, player, viewPoint.TicFrac, iView);
+
+	if (side != -1) // Cubemap rendering
+	{
+		DRotator cubeside;
+		cubeside.Roll = DAngle::fromDeg(0);
+		switch (side)
+		{
+		default:
+		case 0: // +X
+			cubeside.Yaw = DAngle::fromDeg(0);
+			cubeside.Pitch = DAngle::fromDeg(0);
+			break;
+		case 1: // +Y
+			cubeside.Yaw = DAngle::fromDeg(90);
+			cubeside.Pitch = DAngle::fromDeg(0);
+			break;
+		case 2: // +Z
+			cubeside.Yaw = DAngle::fromDeg(0);
+			cubeside.Pitch = DAngle::fromDeg(90);
+			break;
+		case 3: // -X
+			cubeside.Yaw = DAngle::fromDeg(180);
+			cubeside.Pitch = DAngle::fromDeg(0);
+			break;
+		case 4: // -Y
+			cubeside.Yaw = DAngle::fromDeg(-90);
+			cubeside.Pitch = DAngle::fromDeg(0);
+			break;
+		case 5: // -Z
+			cubeside.Yaw = DAngle::fromDeg(0);
+			cubeside.Pitch = DAngle::fromDeg(-90);
+			break;
+		}
+		viewPoint.Angles = cubeside;
+	}
 
 	viewPoint.SetViewAngle(viewWindow);
 
