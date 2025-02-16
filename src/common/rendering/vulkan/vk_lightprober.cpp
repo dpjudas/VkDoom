@@ -280,23 +280,23 @@ TArray<uint16_t> VkLightprober::GenerateIrradianceMap()
 
 	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, irradianceMap.pipeline.get());
 
-	// +x, +y, +z, -x, -y, -z
+	// +x, -x, +y, -y, +z, -z
 
 	FVector3 dir[6] = {
 		FVector3( 1.0f,  0.0f,  0.0f),
-		FVector3( 0.0f,  1.0f,  0.0f),
-		FVector3( 0.0f,  0.0f,  1.0f),
 		FVector3(-1.0f,  0.0f,  0.0f),
+		FVector3( 0.0f,  1.0f,  0.0f),
 		FVector3( 0.0f, -1.0f,  0.0f),
+		FVector3( 0.0f,  0.0f,  1.0f),
 		FVector3( 0.0f,  0.0f, -1.0f)
 	};
 
 	FVector3 up[6] = {
 		FVector3(0.0f, -1.0f,  0.0f),
+		FVector3(0.0f, -1.0f,  0.0f),
 		FVector3(0.0f,  0.0f,  1.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
 		FVector3(0.0f,  0.0f, -1.0f),
+		FVector3(0.0f, -1.0f,  0.0f),
 		FVector3(0.0f, -1.0f,  0.0f)
 	};
 
@@ -422,23 +422,23 @@ TArray<uint16_t> VkLightprober::GeneratePrefilterMap()
 
 	cmdbuffer->bindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, prefilterMap.pipeline.get());
 
-	// +x, +y, +z, -x, -y, -z
+	// +x, -x, +y, -y, +z, -z
 
 	FVector3 dir[6] = {
 		FVector3( 1.0f,  0.0f,  0.0f),
-		FVector3( 0.0f,  1.0f,  0.0f),
-		FVector3( 0.0f,  0.0f,  1.0f),
 		FVector3(-1.0f,  0.0f,  0.0f),
+		FVector3( 0.0f,  1.0f,  0.0f),
 		FVector3( 0.0f, -1.0f,  0.0f),
+		FVector3( 0.0f,  0.0f,  1.0f),
 		FVector3( 0.0f,  0.0f, -1.0f)
 	};
 
 	FVector3 up[6] = {
 		FVector3(0.0f, -1.0f,  0.0f),
+		FVector3(0.0f, -1.0f,  0.0f),
 		FVector3(0.0f,  0.0f,  1.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
 		FVector3(0.0f,  0.0f, -1.0f),
+		FVector3(0.0f, -1.0f,  0.0f),
 		FVector3(0.0f, -1.0f,  0.0f)
 	};
 

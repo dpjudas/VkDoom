@@ -1078,25 +1078,25 @@ void R_SetupFrame(FRenderViewpoint& viewPoint, const FViewWindow& viewWindow, AA
 			cubeside.Yaw = DAngle::fromDeg(0);
 			cubeside.Pitch = DAngle::fromDeg(0);
 			break;
-		case 1: // +Y
-			cubeside.Yaw = DAngle::fromDeg(90);
-			cubeside.Pitch = DAngle::fromDeg(0);
-			break;
-		case 2: // +Z
-			cubeside.Yaw = DAngle::fromDeg(0);
-			cubeside.Pitch = DAngle::fromDeg(90);
-			break;
-		case 3: // -X
+		case 1: // -X
 			cubeside.Yaw = DAngle::fromDeg(180);
 			cubeside.Pitch = DAngle::fromDeg(0);
 			break;
-		case 4: // -Y
-			cubeside.Yaw = DAngle::fromDeg(-90);
+		case 2: // +Y
+			cubeside.Yaw = DAngle::fromDeg(90);
+			cubeside.Pitch = DAngle::fromDeg(90);
+			break;
+		case 3: // -Y
+			cubeside.Yaw = DAngle::fromDeg(90);
+			cubeside.Pitch = DAngle::fromDeg(-90);
+			break;
+		case 4: // +Z
+			cubeside.Yaw = DAngle::fromDeg(90);
 			cubeside.Pitch = DAngle::fromDeg(0);
 			break;
 		case 5: // -Z
-			cubeside.Yaw = DAngle::fromDeg(0);
-			cubeside.Pitch = DAngle::fromDeg(-90);
+			cubeside.Yaw = DAngle::fromDeg(-90);
+			cubeside.Pitch = DAngle::fromDeg(0);
 			break;
 		}
 		viewPoint.Angles = cubeside;
