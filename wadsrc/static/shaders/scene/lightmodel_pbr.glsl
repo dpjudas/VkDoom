@@ -149,13 +149,15 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 	vec3 kS = F;
 	vec3 kD = 1.0 - kS;
 
-	vec3 irradiance = texture(IrradianceMap, vec4(N, probeIndex)).rgb;
+	const float environmentScaleFactor = 0.08;
+
+	vec3 irradiance = texture(IrradianceMap, vec4(N, probeIndex)).rgb * environmentScaleFactor;
 	vec3 diffuse = irradiance * albedo;
 
 	kD *= 1.0 - metallic;
 	const float MAX_REFLECTION_LOD = 4.0;
 	vec3 R = reflect(-V, N); 
-	vec3 prefilteredColor = textureLod(PrefilterMap, vec4(R, probeIndex),  roughness * MAX_REFLECTION_LOD).rgb;
+	vec3 prefilteredColor = textureLod(PrefilterMap, vec4(R, probeIndex),  roughness * MAX_REFLECTION_LOD).rgb * environmentScaleFactor;
 	vec2 envBRDF = texture(BrdfLUT, vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
 	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
