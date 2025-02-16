@@ -391,6 +391,7 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 
 	if (key.UseRaytrace) definesBlock << "#define USE_RAYTRACE\n";
 	if (key.UseRaytracePrecise) definesBlock << "#define USE_RAYTRACE_PRECISE\n";
+	if (key.PreciseMidtextureTrace) definesBlock << "#define PRECISE_MIDTEXTURES\n";
 
 	definesBlock << "#define SHADOWMAP_FILTER ";
 	definesBlock << std::to_string(key.ShadowmapFilter).c_str();

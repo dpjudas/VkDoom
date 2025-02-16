@@ -1070,6 +1070,7 @@ OptionMenu "LightOptions" protected
 	Option "$GLLIGHTMNU_LIGHTSHADOWS",			gl_light_shadows,		"ShadowMode"
 	Option "$GLLIGHTMNU_LIGHTSHADOWFILTER", 	gl_light_shadow_filter,	"ShadowFilter"
 	Option "$GLLIGHTMNU_LIGHTSHADOWMAPQUALITY", gl_shadowmap_quality,	"ShadowMapQuality"
+	Option "$GLLIGHTMNU_PRECISEMIDTEXTRACE",	gl_precise_midtextures_trace,	"YesNo"
 	StaticText " "
 	Option "$GLPREFMNU_SWLMBANDED",				gl_bandedswlight,				"OnOff"
 	Option "$GLPREFMNU_FOGFORCEFULLBRIGHT",		gl_brightfog,					"YesNo"
