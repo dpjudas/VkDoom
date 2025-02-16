@@ -10,16 +10,22 @@ class ShaderIncludeResult;
 
 struct IrradianceMapPushConstants
 {
-	FVector4 topLeft;
-	FVector4 bottomRight;
+	FVector3 dir;
+	float padding0;
+	FVector3 up;
+	float padding1;
+	FVector3 side;
+	float padding2;
 };
 
 struct PrefilterMapPushConstants
 {
-	FVector4 topLeft;
-	FVector4 bottomRight;
+	FVector3 dir;
 	float roughness;
-	float padding1, padding2, padding3;
+	FVector3 up;
+	float padding0;
+	FVector3 side;
+	float padding1;
 };
 
 class VkLightprober

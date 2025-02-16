@@ -45,6 +45,7 @@
 #include "vulkan/vk_postprocess.h"
 #include "vulkan/vk_levelmesh.h"
 #include "vulkan/vk_lightmapper.h"
+#include "vulkan/vk_lightprober.h"
 #include "vulkan/pipelines/vk_renderpass.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/shaders/vk_shader.h"
@@ -247,6 +248,7 @@ void VulkanRenderDevice::InitializeState()
 	mRenderPassManager.reset(new VkRenderPassManager(this));
 	mLevelMesh.reset(new VkLevelMesh(this));
 	mLightmapper.reset(new VkLightmapper(this));
+	mLightprober.reset(new VkLightprober(this));
 
 	mBufferManager->Init();
 

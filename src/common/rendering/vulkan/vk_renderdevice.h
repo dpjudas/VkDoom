@@ -16,6 +16,7 @@ class VkRenderPassManager;
 class VkFramebufferManager;
 class VkLevelMesh;
 class VkLightmapper;
+class VkLightprober;
 class VkRenderState;
 class VkStreamBuffer;
 class VkHardwareDataBuffer;
@@ -42,6 +43,7 @@ public:
 	VkRenderPassManager *GetRenderPassManager() { return mRenderPassManager.get(); }
 	VkLevelMesh* GetLevelMesh() { return mLevelMesh.get(); }
 	VkLightmapper* GetLightmapper() { return mLightmapper.get(); }
+	VkLightprober* GetLightproper() { return mLightprober.get(); }
 	VkRenderState *GetRenderState() { return mRenderState.get(); }
 	VkPostprocess *GetPostprocess() { return mPostprocess.get(); }
 	VkRenderBuffers *GetBuffers() { return mActiveRenderBuffers; }
@@ -121,6 +123,7 @@ private:
 	std::unique_ptr<VkRenderPassManager> mRenderPassManager;
 	std::unique_ptr<VkLevelMesh> mLevelMesh;
 	std::unique_ptr<VkLightmapper> mLightmapper;
+	std::unique_ptr<VkLightprober> mLightprober;
 	std::unique_ptr<VkRenderState> mRenderState;
 
 	VkRenderBuffers *mActiveRenderBuffers = nullptr;

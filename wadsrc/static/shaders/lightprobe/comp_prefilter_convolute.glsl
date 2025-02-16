@@ -5,10 +5,12 @@ layout(binding = 1) uniform samplerCube EnvironmentMap;
 
 layout(push_constant) uniform PushConstants
 {
-	vec4 topLeft;
-	vec4 bottomRight;
+	vec3 dir;
 	float roughness;
-	float padding1, padding2, padding3;
+	vec3 up;
+	float padding0;
+	vec3 side;
+	float padding1;
 };
 
 const float PI = 3.14159265359;
@@ -24,7 +26,7 @@ void main()
 		return;
 
 	vec2 uv = (vec2(gl_GlobalInvocationID.xy) + 0.5) / vec2(colorBufferSize);
-	vec3 FragPos = mix(topLeft.xyz, bottomRight.xyz, uv);
+	vec3 FragPos = dir + side * (uv.x * 2.0 - 1.0) + up * (uv.y * 2.0 - 1.0);
 
 	vec3 normal = normalize(FragPos);
 

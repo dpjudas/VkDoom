@@ -299,8 +299,9 @@ std::vector<uint8_t> VkLightprober::GenerateIrradianceMap()
 		FVector3 side = dir[i] ^ up[i];
 
 		IrradianceMapPushConstants push;
-		push.topLeft = FVector4(dir[i] - up[i] - side, 0.0f);
-		push.bottomRight = FVector4(dir[i] + up[i] + side, 0.0f);
+		push.dir = dir[i];
+		push.side = side;
+		push.up = up[i];
 
 		cmdbuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_COMPUTE, irradianceMap.pipelineLayout.get(), 0, irradianceMap.descriptorSets[i].get());
 		cmdbuffer->pushConstants(irradianceMap.pipelineLayout.get(), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, sizeof(PushConstants), &push);
@@ -431,8 +432,9 @@ std::vector<uint8_t> VkLightprober::GeneratePrefilterMap()
 		FVector3 side = dir[i] ^ up[i];
 
 		PrefilterMapPushConstants push;
-		push.topLeft = FVector4(dir[i] - up[i] - side, 0.0f);
-		push.bottomRight = FVector4(dir[i] + up[i] + side, 0.0f);
+		push.dir = dir[i];
+		push.side = side;
+		push.up = up[i];
 
 		for (int level = 0; level < prefilterMap.maxlevels; level++)
 		{
