@@ -43,6 +43,41 @@ TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 	return result;
 }
 
+TraceResult TraceFirstHitReverse(vec3 origin, float tmin, vec3 dir, float tmax)
+{
+	TraceResult result;
+
+	rayQueryEXT rayQuery;
+	rayQueryInitializeEXT(rayQuery, acc, gl_RayFlagsCullFrontFacingTrianglesEXT, 0xFF, origin, tmin, dir, tmax);
+
+	while(rayQueryProceedEXT(rayQuery))
+	{
+		if (rayQueryGetIntersectionTypeEXT(rayQuery, false) == gl_RayQueryCommittedIntersectionTriangleEXT)
+		{
+			rayQueryConfirmIntersectionEXT(rayQuery);
+		}
+	}
+
+	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT)
+	{
+		result.t = rayQueryGetIntersectionTEXT(rayQuery, true);
+
+		result.primitiveWeights.xy = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
+		result.primitiveWeights.z = 1.0 - result.primitiveWeights.x - result.primitiveWeights.y;
+
+		result.primitiveIndex =
+			rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true) +
+			rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+	}
+	else
+	{
+		result.t = tmax;
+		result.primitiveIndex = -1;
+	}
+
+	return result;
+}
+
 bool TraceAnyHit(vec3 origin, float tmin, vec3 dir, float tmax)
 {
 	rayQueryEXT rayQuery;
@@ -275,5 +310,8 @@ TraceResult TraceFirstHit(vec3 origin, float tmin, vec3 dir, float tmax)
 	result.primitiveIndex = -1;
 	return result;
 }
+
+//no nice tracing for you sorry
+#define TraceFirstHitReverse TraceFirstHit
 
 #endif

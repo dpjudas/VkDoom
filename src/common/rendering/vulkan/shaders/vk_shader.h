@@ -111,7 +111,8 @@ public:
 			uint64_t ShadeVertex : 1; // SHADE_VERTEX
 			uint64_t LightNoNormals : 1; // LIGHT_NONORMALS
 			uint64_t UseSpriteCenter : 1; // USE_SPRITE_CENTER
-			uint64_t Unused : 27;
+			uint64_t PreciseMidtextureTrace : 1; // PRECISE_MIDTEXTURES
+			uint64_t Unused : 26;
 		};
 		uint64_t AsQWORD = 0;
 	};

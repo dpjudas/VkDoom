@@ -3,26 +3,109 @@
 #include <shaders/lightmap/trace_levelmesh.glsl>
 #include <shaders/lightmap/montecarlo.glsl>
 
+bool TraceHitIsFacing(vec3 hitPos, SurfaceInfo hitSurface)
+{
+	vec3 target = uCameraPos.xyz - hitPos;
+	return dot(hitSurface.Normal, target) < 0;
+}
+
 float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 {
 	float alpha = 1.0;
 
 	for (int i = 0; i < 3; i++)
 	{
-		TraceResult result = TraceFirstHit(origin, tmin, direction, dist);
+		#ifdef PRECISE_MIDTEXTURES
+			TraceResult result;
+			SurfaceInfo surface;
+			bool skip = true;
 
-		// Stop if we hit nothing - the point light is visible.
-		if (result.primitiveIndex == -1)
-			return alpha;
+			{
+				TraceResult frontResult = TraceFirstHit(origin, tmin, direction, dist);
+				TraceResult backResult = TraceFirstHitReverse(origin, tmin, direction, dist);
+				
+				if(frontResult.primitiveIndex != -1 && backResult.primitiveIndex != -1)
+				{
+					//both hit
+					SurfaceInfo frontSurface = GetSurface(frontResult.primitiveIndex);
+					SurfaceInfo backSurface = GetSurface(backResult.primitiveIndex);
+					
+					bool frontFacing = TraceHitIsFacing(origin + direction * frontResult.t, frontSurface);
+					bool backFacing = TraceHitIsFacing(origin + direction * backResult.t, backSurface);
 
-		SurfaceInfo surface = GetSurface(result.primitiveIndex);
+					//bool frontFacing = dot(frontSurface.Normal, uCameraNormal) > 0;
+					//bool backFacing = dot(backSurface.Normal, uCameraNormal) > 0;
+
+					if(frontFacing && frontFacing == backFacing)
+					{
+						skip = false;
+						if(frontResult.t < backResult.t)
+						{
+							result = frontResult;
+							surface = frontSurface;
+						}
+						else
+						{
+							result = backResult;
+							surface = backSurface;
+						}
+					}
+					else if(backFacing)
+					{
+						skip = false;
+						result = backResult;
+						surface = backSurface;
+					}
+					else
+					{
+						skip = !frontFacing;
+						result = frontResult;
+						surface = frontSurface;
+					}
+				}
+				else if(frontResult.primitiveIndex != -1)
+				{
+					result = frontResult;
+					surface = GetSurface(frontResult.primitiveIndex);
+					skip = TraceHitIsFacing(origin + direction * result.t, surface);//dot(surface.Normal, uCameraNormal) < 0;
+				}
+				else if(backResult.primitiveIndex != -1)
+				{
+					result = backResult;
+					surface = GetSurface(backResult.primitiveIndex);
+					skip = TraceHitIsFacing(origin + direction * result.t, surface);//dot(surface.Normal, uCameraNormal) < 0;
+				}
+				else
+				{
+					// neither hit
+					return alpha;
+				}
+			}
+
+			if(!skip)
+			{
+				alpha = PassRayThroughSurfaceDynLight(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), alpha);
+				
+				// Stop if there is no light left
+				if (alpha <= 0.0)
+					return 0.0;
+			}
+		#else
+			TraceResult result = TraceFirstHit(origin, tmin, direction, dist);
+
+			// Stop if we hit nothing - the point light is visible.
+			if (result.primitiveIndex == -1)
+				return alpha;
+
+			SurfaceInfo surface = GetSurface(result.primitiveIndex);
 		
-		// Pass through surface texture
-		alpha = PassRayThroughSurfaceDynLight(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), alpha);
-
-		// Stop if there is no light left
-		if (alpha <= 0.0)
-			return 0.0;
+			// Pass through surface texture
+			alpha = PassRayThroughSurfaceDynLight(surface, GetSurfaceUV(result.primitiveIndex, result.primitiveWeights), alpha);
+			
+			// Stop if there is no light left
+			if (alpha <= 0.0)
+				return 0.0;
+		#endif
 
 		// Move to surface hit point
 		origin += direction * result.t;
