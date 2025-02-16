@@ -356,6 +356,10 @@ void HWDrawInfo::SetViewMatrix(const FRotator &angles, float vx, float vy, float
 	VPUniforms.mViewMatrix.rotate(angles.Yaw.Degrees(), 0.0f, mult, 0.0f);
 	VPUniforms.mViewMatrix.translate(vx * mult, -vz * planemult, -vy);
 	VPUniforms.mViewMatrix.scale(-mult, planemult, 1);
+
+	FRotator unfuckedAngles(angles.Pitch, FAngle::fromDeg(90 - angles.Yaw.Degrees()), angles.Roll);
+
+	VPUniforms.mCameraNormal = FVector3(unfuckedAngles).ToXZY();
 }
 
 

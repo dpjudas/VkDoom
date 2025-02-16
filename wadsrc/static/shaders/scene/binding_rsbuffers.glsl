@@ -18,6 +18,8 @@ layout(set = 1, binding = 0, std140) uniform readonly ViewpointUBO
 	float uClipHeightDirection;
 
 	int uLightTilesWidth;	// Levelmesh light tiles
+
+	vec3 uCameraNormal;
 };
 
 layout(set = 1, binding = 1, std140) uniform readonly MatricesUBO
