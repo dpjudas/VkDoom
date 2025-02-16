@@ -40,6 +40,8 @@ struct HWViewpointUniforms
 
 	int mLightTilesWidth = 0;
 
+	FVector3 mCameraNormal;
+
 	void CalcDependencies()
 	{
 		mNormalViewMatrix.computeNormalMatrix(mViewMatrix);

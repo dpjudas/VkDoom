@@ -710,6 +710,13 @@ struct TVector3
 		*this = *this ^ other;
 		return *this;
 	}
+
+
+	// returns a version with swapped Z/Y
+	constexpr const TVector3 ToXZY() const
+	{
+		return {X, Z, Y};
+	}
 };
 
 template<class vec_t>
