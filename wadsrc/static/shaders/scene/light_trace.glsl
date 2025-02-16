@@ -33,9 +33,6 @@ float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 					bool frontFacing = TraceHitIsFacing(origin + direction * frontResult.t, frontSurface);
 					bool backFacing = TraceHitIsFacing(origin + direction * backResult.t, backSurface);
 
-					//bool frontFacing = dot(frontSurface.Normal, uCameraNormal) > 0;
-					//bool backFacing = dot(backSurface.Normal, uCameraNormal) > 0;
-
 					if(frontFacing && frontFacing == backFacing)
 					{
 						skip = false;
@@ -67,13 +64,13 @@ float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 				{
 					result = frontResult;
 					surface = GetSurface(frontResult.primitiveIndex);
-					skip = TraceHitIsFacing(origin + direction * result.t, surface);//dot(surface.Normal, uCameraNormal) < 0;
+					skip = TraceHitIsFacing(origin + direction * result.t, surface);
 				}
 				else if(backResult.primitiveIndex != -1)
 				{
 					result = backResult;
 					surface = GetSurface(backResult.primitiveIndex);
-					skip = TraceHitIsFacing(origin + direction * result.t, surface);//dot(surface.Normal, uCameraNormal) < 0;
+					skip = TraceHitIsFacing(origin + direction * result.t, surface);
 				}
 				else
 				{
