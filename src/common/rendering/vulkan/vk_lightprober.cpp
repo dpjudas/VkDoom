@@ -381,7 +381,7 @@ void VkLightprober::CreatePrefilterMap()
 	{
 		for (int i = 0; i < 6; i++)
 		{
-			int idx = i * prefilterMap.maxlevels + level;
+			int idx = level * 6 + i;
 
 			prefilterMap.images[idx] = ImageBuilder()
 				.Size(128 >> level, 128 >> level)
