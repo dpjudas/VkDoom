@@ -175,6 +175,9 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 
 	// Slot zero always needs to be the null texture
 	AddBindlessTextureIndex(fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
+
+	// And slot 1 is always our BRDF LUT texture
+	AddBindlessTextureIndex(fb->GetTextureManager()->GetBrdfLutTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
 }
 
 void VkDescriptorSetManager::AddMaterial(VkMaterial* texture)

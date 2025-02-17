@@ -40,6 +40,9 @@ public:
 	VulkanImage* GetNullTexture() { return NullTexture.get(); }
 	VulkanImageView* GetNullTextureView() { return NullTextureView.get(); }
 
+	VulkanImage* GetBrdfLutTexture() { return BrdfLutTexture.get(); }
+	VulkanImageView* GetBrdfLutTextureView() { return BrdfLutTextureView.get(); }
+
 	int GetHWTextureCount() { return (int)Textures.size(); }
 
 	VkTextureImage Shadowmap;
@@ -55,6 +58,7 @@ public:
 
 private:
 	void CreateNullTexture();
+	void CreateBrdfLutTexture();
 	void CreateShadowmap();
 	void CreateLightmap();
 	void CreateIrradiancemap();
@@ -69,4 +73,7 @@ private:
 
 	std::unique_ptr<VulkanImage> NullTexture;
 	std::unique_ptr<VulkanImageView> NullTextureView;
+
+	std::unique_ptr<VulkanImage> BrdfLutTexture;
+	std::unique_ptr<VulkanImageView> BrdfLutTextureView;
 };

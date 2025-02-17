@@ -30,6 +30,7 @@
 VkTextureManager::VkTextureManager(VulkanRenderDevice* fb) : fb(fb)
 {
 	CreateNullTexture();
+	CreateBrdfLutTexture();
 	CreateShadowmap();
 	CreateLightmap();
 	CreateIrradiancemap();
@@ -164,6 +165,58 @@ void VkTextureManager::CreateNullTexture()
 	PipelineBarrier()
 		.AddImage(NullTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
 		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
+void VkTextureManager::CreateBrdfLutTexture()
+{
+	const char* lumpname = "bdrf.lut";
+	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
+	if (lump == -1) I_FatalError("Unable to load '%s'", lumpname);
+	auto fd = fileSystem.ReadFile(lump);
+	if (fd.size() != 512 * 512 * 2 * sizeof(uint16_t))
+		I_FatalError("Unexpected file size for '%s'");
+
+	BrdfLutTexture = ImageBuilder()
+		.Format(VK_FORMAT_R16G16_SFLOAT)
+		.Size(512, 512)
+		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.DebugName("VkDescriptorSetManager.BrdfLutTexture")
+		.Create(fb->GetDevice());
+
+	BrdfLutTextureView = ImageViewBuilder()
+		.Image(BrdfLutTexture.get(), VK_FORMAT_R16G16_SFLOAT)
+		.DebugName("VkDescriptorSetManager.BrdfLutTextureView")
+		.Create(fb->GetDevice());
+
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	PipelineBarrier()
+		.AddImage(BrdfLutTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+	auto stagingBuffer = BufferBuilder()
+		.Size(512 * 512 * 2 * sizeof(uint16_t))
+		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.DebugName("VkDescriptorSetManager.BrdfLutTextureStagingBuffer")
+		.Create(fb->GetDevice());
+
+	void* data = stagingBuffer->Map(0, fd.size());
+	memcpy(data, fd.data(), fd.size());
+	stagingBuffer->Unmap();
+
+	VkBufferImageCopy region = {};
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageExtent.depth = 1;
+	region.imageExtent.width = 512;
+	region.imageExtent.height = 512;
+	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, BrdfLutTexture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
+
+	PipelineBarrier()
+		.AddImage(BrdfLutTexture.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void VkTextureManager::CreateShadowmap()

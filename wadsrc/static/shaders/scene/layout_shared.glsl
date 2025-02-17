@@ -24,7 +24,7 @@
 #define glowtexture texture4
 #endif
 
-#define BrdfLUT 0 // the BRDF convoluted texture is always in this texture slot
+#define BrdfLUT 1 // the BRDF convoluted texture is always in this texture slot
 
 #define uObjectColor data[uDataIndex].uObjectColor
 #define uObjectColor2 data[uDataIndex].uObjectColor2
