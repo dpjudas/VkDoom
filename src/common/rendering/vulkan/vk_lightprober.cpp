@@ -285,24 +285,24 @@ TArray<uint16_t> VkLightprober::GenerateIrradianceMap()
 	FVector3 dir[6] = {
 		FVector3( 1.0f,  0.0f,  0.0f),
 		FVector3(-1.0f,  0.0f,  0.0f),
-		FVector3( 0.0f,  1.0f,  0.0f),
 		FVector3( 0.0f, -1.0f,  0.0f),
+		FVector3( 0.0f,  1.0f,  0.0f),
 		FVector3( 0.0f,  0.0f,  1.0f),
 		FVector3( 0.0f,  0.0f, -1.0f)
 	};
 
 	FVector3 up[6] = {
-		FVector3(0.0f, -1.0f,  0.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
+		FVector3(0.0f,  1.0f,  0.0f),
+		FVector3(0.0f,  1.0f,  0.0f),
 		FVector3(0.0f,  0.0f,  1.0f),
 		FVector3(0.0f,  0.0f, -1.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
-		FVector3(0.0f, -1.0f,  0.0f)
+		FVector3(0.0f,  1.0f,  0.0f),
+		FVector3(0.0f,  1.0f,  0.0f)
 	};
 
 	for (int i = 0; i < 6; i++)
 	{
-		FVector3 side = dir[i] ^ up[i];
+		FVector3 side = -(dir[i] ^ up[i]);
 
 		IrradianceMapPushConstants push;
 		push.dir = dir[i];
@@ -427,24 +427,24 @@ TArray<uint16_t> VkLightprober::GeneratePrefilterMap()
 	FVector3 dir[6] = {
 		FVector3( 1.0f,  0.0f,  0.0f),
 		FVector3(-1.0f,  0.0f,  0.0f),
-		FVector3( 0.0f,  1.0f,  0.0f),
 		FVector3( 0.0f, -1.0f,  0.0f),
+		FVector3( 0.0f,  1.0f,  0.0f),
 		FVector3( 0.0f,  0.0f,  1.0f),
 		FVector3( 0.0f,  0.0f, -1.0f)
 	};
 
 	FVector3 up[6] = {
-		FVector3(0.0f, -1.0f,  0.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
+		FVector3(0.0f,  1.0f,  0.0f),
+		FVector3(0.0f,  1.0f,  0.0f),
 		FVector3(0.0f,  0.0f,  1.0f),
 		FVector3(0.0f,  0.0f, -1.0f),
-		FVector3(0.0f, -1.0f,  0.0f),
-		FVector3(0.0f, -1.0f,  0.0f)
+		FVector3(0.0f,  1.0f,  0.0f),
+		FVector3(0.0f,  1.0f,  0.0f)
 	};
 
 	for (int i = 0; i < 6; i++)
 	{
-		FVector3 side = dir[i] ^ up[i];
+		FVector3 side = -(dir[i] ^ up[i]);
 
 		PrefilterMapPushConstants push;
 		push.dir = dir[i];
