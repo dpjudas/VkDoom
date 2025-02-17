@@ -377,11 +377,11 @@ void VkLightprober::CreatePrefilterMap()
 		.MaxSets(6 * prefilterMap.maxlevels)
 		.Create(fb->GetDevice());
 
-	for (int level = 0; level < prefilterMap.maxlevels; level++)
+	for (int i = 0; i < 6; i++)
 	{
-		for (int i = 0; i < 6; i++)
+		for (int level = 0; level < prefilterMap.maxlevels; level++)
 		{
-			int idx = level * 6 + i;
+			int idx = i * prefilterMap.maxlevels + level;
 
 			prefilterMap.images[idx] = ImageBuilder()
 				.Size(128 >> level, 128 >> level)

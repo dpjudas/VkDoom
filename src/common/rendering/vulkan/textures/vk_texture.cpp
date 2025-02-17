@@ -367,22 +367,26 @@ void VkTextureManager::CreatePrefiltermap(int size, int count, TArray<uint16_t>&
 			.Execute(cmdbuffer);
 
 		int offset = 0;
-		for (int level = 0; level < miplevels; level++)
+		for (int i = 0; i < 6; ++i)
 		{
-			int mipwidth = std::max(w >> level, 1);
-			int mipheight = std::max(h >> level, 1);
+			for (int level = 0; level < miplevels; level++)
+			{
+				int mipwidth = std::max(w >> level, 1);
+				int mipheight = std::max(h >> level, 1);
 
-			VkBufferImageCopy region = {};
-			region.bufferOffset = offset;
-			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			region.imageSubresource.layerCount = count;
-			region.imageSubresource.mipLevel = level;
-			region.imageExtent.depth = 1;
-			region.imageExtent.width = mipwidth;
-			region.imageExtent.height = mipheight;
-			cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Prefiltermap.Image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+				VkBufferImageCopy region = {};
+				region.bufferOffset = offset;
+				region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				region.imageSubresource.layerCount = 1;
+				region.imageSubresource.baseArrayLayer = i;
+				region.imageSubresource.mipLevel = level;
+				region.imageExtent.depth = 1;
+				region.imageExtent.width = mipwidth;
+				region.imageExtent.height = mipheight;
+				cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Prefiltermap.Image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-			offset += mipwidth * mipheight * count * pixelsize;
+				offset += mipwidth * mipheight * pixelsize;
+			}
 		}
 
 		fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
