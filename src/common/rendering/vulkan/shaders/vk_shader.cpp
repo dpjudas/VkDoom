@@ -112,6 +112,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key)
 			{ "dithertrans",  "shaders/scene/frag_main.glsl",        "shaders/scene/material_default.glsl", "shaders/scene/mateffect_default.glsl", "shaders/scene/lightmodel_shared.glsl", "shaders/scene/lightmodel_normal.glsl", "#define NO_ALPHATEST\n#define DITHERTRANS\n" },
 		};
 
+		VkShaderKey customKey = key;
+		customKey.AlphaTest = false;
+
 		const auto& desc = effectshaders[key.SpecialEffect];
 		program.vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.defines, key, nullptr);
 		if (!key.NoFragmentShader)
@@ -274,7 +277,7 @@ static void AddBuiltinFields(FString &layoutBlock, int &index, bool is_in, const
 	}
 }
 
-void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader)
+void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
 {
 	bool hasClipDistance = fb->GetDevice()->EnabledFeatures.Features.shaderClipDistance;
 
@@ -293,6 +296,17 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 	}
 	layoutBlock << "    int uBoneIndexBase; // bone animation\n";
 	layoutBlock << "    int uFogballIndex; // fog balls\n";
+	
+	if(isUberShader)
+	{
+		layoutBlock << "    int uShaderKey1;\n";
+		layoutBlock << "    int uShaderKey2;\n";
+	}
+	else
+	{
+		layoutBlock << "    int unused2;\n";
+		layoutBlock << "    int unused3;\n";
+	}
 
 	if(shader && shader->Uniforms.UniformStructSize)
 	{
@@ -326,7 +340,7 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 	}
 }
 
-void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader)
+void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
 {
 	if (fb->IsRayQueryEnabled())
 	{
@@ -352,86 +366,173 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 		definesBlock << "#define NO_CLIPDISTANCE_SUPPORT\n";
 	}
 
-	if (!key.AlphaTest) definesBlock << "#define NO_ALPHATEST\n";
-	if (key.GBufferPass) definesBlock << "#define GBUFFER_PASS\n";
-	if (key.AlphaTestOnly) definesBlock << "#define ALPHATEST_ONLY\n";
-	if (key.Simple) definesBlock << "#define SIMPLE\n";
-	if (key.Simple3D) definesBlock << "#define SIMPLE3D\n";
-
-	switch(key.LightBlendMode)
+	if(isUberShader)
 	{
-	case 0:
-		definesBlock << "#define LIGHT_BLEND_CLAMPED\n";
-		break;
-	case 1:
-		definesBlock << "#define LIGHT_BLEND_COLORED_CLAMP\n";
-		break;
-	case 2:
-		definesBlock << "#define LIGHT_BLEND_UNCLAMPED\n";
-		break;
-	}
+		//ugh EffectState also controls layout, because specular/pbr/etc defines switch texture indices around for normal/specular/etc
 
-	switch(key.LightAttenuationMode)
+		definesBlock << LoadPrivateShaderLump("shaders/shaderkey.glsl").GetChars() << "\n";
+
+		definesBlock << "#define UBERSHADERS\n";
+
+		definesBlock << "#define DO_ALPHATEST ((uShaderKey1 & SK1_ALPHATEST) != 0)\n";
+		
+		//definesBlock << "#define SIMPLE ((uShaderKey1 & SK1_SIMPLE) != 0)\n";
+		//definesBlock << "#define SIMPLE3D ((uShaderKey1 & SK1_SIMPLE3D) != 0)\n";
+		// controls layout
+		if (key.Simple) definesBlock << "#define SIMPLE\n";
+		if (key.Simple3D) definesBlock << "#define SIMPLE3D\n";
+
+		definesBlock << "#define SIMPLE2D ((uShaderKey1 & SK1_SIMPLE2D) != 0)\n";
+
+		definesBlock << "#define TM_STENCIL (SK_GET_TEXTUREMODE() == SK1_TM_STENCIL)\n";
+		definesBlock << "#define TM_OPAQUE (SK_GET_TEXTUREMODE() == SK1_TM_OPAQUE)\n";
+		definesBlock << "#define TM_INVERSE (SK_GET_TEXTUREMODE() == SK1_TM_INVERSE)\n";
+		definesBlock << "#define TM_ALPHATEXTURE (SK_GET_TEXTUREMODE() == SK1_TM_ALPHATEXTURE)\n";
+		definesBlock << "#define TM_CLAMPY (SK_GET_TEXTUREMODE() == SK1_TM_CLAMPY)\n";
+		definesBlock << "#define TM_INVERTOPAQUE (SK_GET_TEXTUREMODE() == SK1_TM_INVERTOPAQUE)\n";
+		definesBlock << "#define TM_FOGLAYER (SK_GET_TEXTUREMODE() == SK1_TM_FOGLAYER)\n";
+
+		definesBlock << "#define TEXF_ClampY ((uShaderKey1 & SK1_TEXF_CLAMPY) != 0)\n";
+		definesBlock << "#define TEXF_Brightmap ((uShaderKey1 & SK1_TEXF_BRIGHTMAP) != 0)\n";
+		definesBlock << "#define TEXF_Detailmap ((uShaderKey1 & SK1_TEXF_DETAILMAP) != 0)\n";
+		definesBlock << "#define TEXF_Glowmap ((uShaderKey1 & SK1_TEXF_GLOWMAP) != 0)\n";
+
+		definesBlock << "#define GBUFFER_PASS ((uShaderKey1 & SK1_GBUFFER_PASS) != 0)\n";
+
+		definesBlock << "#define USE_SHADOWMAP ((uShaderKey1 & SK1_USE_SHADOWMAP) != 0)\n";
+
+		definesBlock << "#define USE_RAYTRACE ((uShaderKey1 & SK1_USE_RAYTRACE) != 0)\n";
+		definesBlock << "#define USE_RAYTRACE_PRECISE ((uShaderKey1 & SK1_USE_RAYTRACE_PRECISE) != 0)\n";
+		definesBlock << "#define PRECISE_MIDTEXTURES ((uShaderKey1 & SK1_PRECISE_MIDTEXTURES) != 0)\n";
+
+		definesBlock << "#define SHADOWMAP_FILTER (SK_GET_SHADOWMAP_FILTER())\n";
+
+		definesBlock << "#define FOG_BEFORE_LIGHTS ((uShaderKey1 & SK1_FOG_BEFORE_LIGHTS) != 0)\n";
+		definesBlock << "#define FOG_AFTER_LIGHTS ((uShaderKey1 & SK1_FOG_AFTER_LIGHTS) != 0)\n";
+		definesBlock << "#define FOG_RADIAL ((uShaderKey1 & SK1_FOG_RADIAL) != 0)\n";
+
+		definesBlock << "#define SWLIGHT_RADIAL ((uShaderKey1 & SK1_SWLIGHT_RADIAL) != 0)\n";
+		definesBlock << "#define SWLIGHT_BANDED ((uShaderKey1 & SK1_SWLIGHT_BANDED) != 0)\n";
+
+		definesBlock << "#define LIGHTMODE_DEFAULT (SK_GET_LIGHTMODE() == SK1_LIGHTMODE_DEFAULT)\n";
+		definesBlock << "#define LIGHTMODE_SOFTWARE (SK_GET_LIGHTMODE() == SK1_LIGHTMODE_SOFTWARE)\n";
+		definesBlock << "#define LIGHTMODE_VANILLA (SK_GET_LIGHTMODE() == SK1_LIGHTMODE_VANILLA)\n";
+		definesBlock << "#define LIGHTMODE_BUILD (SK_GET_LIGHTMODE() == SK1_LIGHTMODE_BUILD)\n";
+
+		definesBlock << "#define LIGHT_BLEND_CLAMPED (SK_GET_LIGHTBLENDMODE() == SK1_LIGHT_BLEND_CLAMPED)\n";
+		definesBlock << "#define LIGHT_BLEND_COLORED_CLAMP (SK_GET_LIGHTBLENDMODE() == SK1_LIGHT_LIGHT_BLEND_COLORED_CLAMP)\n";
+		definesBlock << "#define LIGHT_BLEND_UNCLAMPED (SK_GET_LIGHTBLENDMODE() == SK1_LIGHT_BLEND_UNCLAMPED)\n";
+
+		definesBlock << "#define LIGHT_ATTENUATION_LINEAR ((uShaderKey1 & SK1_TEXTUREMODE) == 0)\n";
+		definesBlock << "#define LIGHT_ATTENUATION_INVERSE_SQUARE ((uShaderKey1 & SK1_TEXTUREMODE) != 0)\n";
+
+		//definesBlock << "#define USE_LEVELMESH (!!(uShaderKey1 & SK1_USE_LEVELMESH))\n";
+		// controls layout
+		if (key.UseLevelMesh) definesBlock << "#define USE_LEVELMESH\n";
+
+		definesBlock << "#define FOGBALLS ((uShaderKey1 & SK1_FOGBALLS) != 0)\n";
+
+		//key.NoFragmentShader not used in defines
+
+		definesBlock << "#define USE_DEPTHFADETHRESHOLD ((uShaderKey2 & SK2_USE_DEPTHFADETHRESHOLD) != 0)\n";
+		definesBlock << "#define NOT_ALPHATEST_ONLY ((uShaderKey2 & SK2_ALPHATEST_ONLY) == 0)\n";
+		
+		//definesBlock << "#define SHADE_VERTEX ((uShaderKey2 & SK2_SHADE_VERTEX) != 0)\n";
+		// controls layout
+		if (key.ShadeVertex) definesBlock << "#define SHADE_VERTEX\n";
+
+		definesBlock << "#define LIGHT_NONORMALS ((uShaderKey2 & SK2_LIGHT_NONORMALS) != 0)\n";
+		definesBlock << "#define USE_SPRITE_CENTER ((uShaderKey2 & SK2_USE_SPRITECENTER) != 0)\n";
+
+		definesBlock << "#define uFogEnabled ((uShaderKey1 & SK1_SIMPLE2D) ? -3 : 0)\n";
+	}
+	else
 	{
-	case 0:
-		definesBlock << "#define LIGHT_ATTENUATION_LINEAR\n";
-		break;
-	case 1:
-		definesBlock << "#define LIGHT_ATTENUATION_INVERSE_SQUARE\n";
-		break;
+		if (key.AlphaTest) definesBlock << "#define DO_ALPHATEST\n";
+		if (key.Simple) definesBlock << "#define SIMPLE\n";
+		if (key.Simple2D) definesBlock << "#define SIMPLE2D\n";
+		if (key.Simple3D) definesBlock << "#define SIMPLE3D\n";
+
+		switch (key.TextureMode)
+		{
+		case TM_STENCIL: definesBlock << "#define TM_STENCIL\n"; break;
+		case TM_OPAQUE: definesBlock << "#define TM_OPAQUE\n"; break;
+		case TM_INVERSE: definesBlock << "#define TM_INVERSE\n"; break;
+		case TM_ALPHATEXTURE: definesBlock << "#define TM_ALPHATEXTURE\n"; break;
+		case TM_CLAMPY: definesBlock << "#define TM_CLAMPY\n"; break;
+		case TM_INVERTOPAQUE: definesBlock << "#define TM_INVERTOPAQUE\n"; break;
+		case TM_FOGLAYER: definesBlock << "#define TM_FOGLAYER\n"; break;
+		}
+
+		if (key.ClampY) definesBlock << "#define TEXF_ClampY\n";
+		if (key.Brightmap) definesBlock << "#define TEXF_Brightmap\n";
+		if (key.Detailmap) definesBlock << "#define TEXF_Detailmap\n";
+		if (key.Glowmap) definesBlock << "#define TEXF_Glowmap\n";
+
+		if (key.GBufferPass) definesBlock << "#define GBUFFER_PASS\n";
+
+		if (key.UseShadowmap) definesBlock << "#define USE_SHADOWMAP\n";
+
+
+		if (key.UseRaytrace) definesBlock << "#define USE_RAYTRACE\n";
+		if (key.UseRaytracePrecise) definesBlock << "#define USE_RAYTRACE_PRECISE\n";
+		if (key.PreciseMidtextureTrace) definesBlock << "#define PRECISE_MIDTEXTURES\n";
+
+		definesBlock << "#define SHADOWMAP_FILTER " << std::to_string(key.ShadowmapFilter).c_str() << "\n";
+
+		if (key.FogBeforeLights) definesBlock << "#define FOG_BEFORE_LIGHTS\n";
+		if (key.FogAfterLights) definesBlock << "#define FOG_AFTER_LIGHTS\n";
+		if (key.FogRadial) definesBlock << "#define FOG_RADIAL\n";
+
+		if (key.SWLightRadial) definesBlock << "#define SWLIGHT_RADIAL\n";
+		if (key.SWLightBanded) definesBlock << "#define SWLIGHT_BANDED\n";
+
+		switch (key.LightMode)
+		{
+		case 0: definesBlock << "#define LIGHTMODE_DEFAULT\n"; break;
+		case 1: definesBlock << "#define LIGHTMODE_SOFTWARE\n"; break;
+		case 2: definesBlock << "#define LIGHTMODE_VANILLA\n"; break;
+		case 3: definesBlock << "#define LIGHTMODE_BUILD\n"; break;
+		}
+
+		switch(key.LightBlendMode)
+		{
+		case 0:
+			definesBlock << "#define LIGHT_BLEND_CLAMPED\n";
+			break;
+		case 1:
+			definesBlock << "#define LIGHT_BLEND_COLORED_CLAMP\n";
+			break;
+		case 2:
+			definesBlock << "#define LIGHT_BLEND_UNCLAMPED\n";
+			break;
+		}
+
+		switch(key.LightAttenuationMode)
+		{
+		case 0:
+			definesBlock << "#define LIGHT_ATTENUATION_LINEAR\n";
+			break;
+		case 1:
+			definesBlock << "#define LIGHT_ATTENUATION_INVERSE_SQUARE\n";
+			break;
+		}
+
+		if (key.UseLevelMesh) definesBlock << "#define USE_LEVELMESH\n";
+		if (key.FogBalls) definesBlock << "#define FOGBALLS\n";
+
+		//key.NoFragmentShader not used in defines
+
+		if (key.DepthFadeThreshold) definesBlock << "#define USE_DEPTHFADETHRESHOLD\n";
+
+		if (!key.AlphaTestOnly) definesBlock << "#define NOT_ALPHATEST_ONLY\n";
+
+		if (key.ShadeVertex) definesBlock << "#define SHADE_VERTEX\n";
+		if (key.LightNoNormals) definesBlock << "#define LIGHT_NONORMALS\n";
+		if (key.UseSpriteCenter) definesBlock << "#define USE_SPRITE_CENTER\n";
+
+		definesBlock << ((key.Simple2D) ? "#define uFogEnabled -3\n" : "#define uFogEnabled 0\n");
 	}
-
-	if (key.DepthFadeThreshold) definesBlock << "#define USE_DEPTHFADETHRESHOLD\n";
-
-	if (key.Simple2D) definesBlock << "#define SIMPLE2D\n";
-	if (key.ClampY) definesBlock << "#define TEXF_ClampY\n";
-	if (key.Brightmap) definesBlock << "#define TEXF_Brightmap\n";
-	if (key.Detailmap) definesBlock << "#define TEXF_Detailmap\n";
-	if (key.Glowmap) definesBlock << "#define TEXF_Glowmap\n";
-
-	if (key.UseRaytrace) definesBlock << "#define USE_RAYTRACE\n";
-	if (key.UseRaytracePrecise) definesBlock << "#define USE_RAYTRACE_PRECISE\n";
-	if (key.PreciseMidtextureTrace) definesBlock << "#define PRECISE_MIDTEXTURES\n";
-
-	definesBlock << "#define SHADOWMAP_FILTER ";
-	definesBlock << std::to_string(key.ShadowmapFilter).c_str();
-	definesBlock << "\n";
-
-	if (key.UseShadowmap) definesBlock << "#define USE_SHADOWMAP\n";
-	if (key.UseLevelMesh) definesBlock << "#define USE_LEVELMESH\n";
-
-	switch (key.TextureMode)
-	{
-	case TM_STENCIL: definesBlock << "#define TM_STENCIL\n"; break;
-	case TM_OPAQUE: definesBlock << "#define TM_OPAQUE\n"; break;
-	case TM_INVERSE: definesBlock << "#define TM_INVERSE\n"; break;
-	case TM_ALPHATEXTURE: definesBlock << "#define TM_ALPHATEXTURE\n"; break;
-	case TM_CLAMPY: definesBlock << "#define TM_CLAMPY\n"; break;
-	case TM_INVERTOPAQUE: definesBlock << "#define TM_INVERTOPAQUE\n"; break;
-	case TM_FOGLAYER: definesBlock << "#define TM_FOGLAYER\n"; break;
-	}
-
-	switch (key.LightMode)
-	{
-	case 0: definesBlock << "#define LIGHTMODE_DEFAULT\n"; break;
-	case 1: definesBlock << "#define LIGHTMODE_SOFTWARE\n"; break;
-	case 2: definesBlock << "#define LIGHTMODE_VANILLA\n"; break;
-	case 3: definesBlock << "#define LIGHTMODE_BUILD\n"; break;
-	}
-
-	if (key.FogBeforeLights) definesBlock << "#define FOG_BEFORE_LIGHTS\n";
-	if (key.FogAfterLights) definesBlock << "#define FOG_AFTER_LIGHTS\n";
-	if (key.FogRadial) definesBlock << "#define FOG_RADIAL\n";
-	if (key.SWLightRadial) definesBlock << "#define SWLIGHT_RADIAL\n";
-	if (key.SWLightBanded) definesBlock << "#define SWLIGHT_BANDED\n";
-	if (key.FogBalls) definesBlock << "#define FOGBALLS\n";
-
-
-	if (key.ShadeVertex) definesBlock << "#define SHADE_VERTEX\n";
-	if (key.LightNoNormals) definesBlock << "#define LIGHT_NONORMALS\n";
-	if (key.UseSpriteCenter) definesBlock << "#define USE_SPRITE_CENTER\n";
-
-	definesBlock << ((key.Simple2D) ? "#define uFogEnabled -3\n" : "#define uFogEnabled 0\n");
 
 	// Setup fake variables for the 'in' attributes that aren't actually available because the garbage shader code thinks they exist
 	// God I hate this engine... :(
@@ -631,19 +732,47 @@ ShaderIncludeResult VkShaderManager::OnInclude(FString headerName, FString inclu
 	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
 }
 
-FString VkShaderManager::LoadPublicShaderLump(const char *lumpname)
+FString VkShaderManager::LoadPublicShaderLump(const char *lumpname, bool isUberShader)
 {
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
+
+	return LoadShaderLump(lump, isUberShader);
 }
 
-FString VkShaderManager::LoadPrivateShaderLump(const char *lumpname)
+FString VkShaderManager::LoadPrivateShaderLump(const char *lumpname, bool isUberShader)
 {
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
+
+	return LoadShaderLump(lump, isUberShader);
+}
+
+FString VkShaderManager::LoadShaderLump(int lumpnum, bool isUberShader)
+{
+	FString str = GetStringFromLump(lumpnum);
+	
+	if(isUberShader)
+	{
+		str.Substitute("#uifdef", "if");
+		str.Substitute("#uelifdef", "else if");
+		str.Substitute("#uif", "if");
+		str.Substitute("#uelif", "else if");
+		str.Substitute("#uelse", "else");
+		str.Substitute("#uendif", "");
+	}
+	else
+	{
+		str.Substitute("#uifdef", "#if defined");
+		str.Substitute("#uelifdef", "#elif defined");
+		str.Substitute("#uif", "#if");
+		str.Substitute("#uelif", "#elif");
+		str.Substitute("#uelse", "#else");
+		str.Substitute("#uendif", "#endif");
+	}
+	
+	return str;
 }
 
 VkPPShader* VkShaderManager::GetVkShader(PPShader* shader)

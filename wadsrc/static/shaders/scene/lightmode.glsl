@@ -22,15 +22,16 @@
 
 vec4 getLightColor(Material material)
 {
-	#if defined(LIGHTMODE_DEFAULT)
-		vec4 color = Lightmode_Default();
-	#elif defined(LIGHTMODE_SOFTWARE)
-		vec4 color = Lightmode_Software();
-	#elif defined(LIGHTMODE_VANILLA)
-		vec4 color = Lightmode_Vanilla();
-	#elif defined(LIGHTMODE_BUILD)
-		vec4 color = Lightmode_Build();
-	#endif
+	vec4 color;
+	#uifdef(LIGHTMODE_DEFAULT)
+		color = Lightmode_Default();
+	#uelifdef(LIGHTMODE_SOFTWARE)
+		color = Lightmode_Software();
+	#uelifdef(LIGHTMODE_VANILLA)
+		color = Lightmode_Vanilla();
+	#uelifdef(LIGHTMODE_BUILD)
+		color = Lightmode_Build();
+	#uendif
 
 	//
 	// handle glowing walls
@@ -74,23 +75,24 @@ vec4 getLightColor(Material material)
 	//
 	// colored fog
 	//
-	#if defined(FOG_AFTER_LIGHTS)
+	#uifdef(FOG_AFTER_LIGHTS)
+		{
+			// calculate fog factor
+			float fogdist;
+			#uifdef(FOG_RADIAL)
+				fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+			#uelse
+				fogdist = max(16.0, pixelpos.w);
+			#uendif
+			float fogfactor = exp2 (uFogDensity * fogdist);
 
-		// calculate fog factor
-		#if defined(FOG_RADIAL)
-			float fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
-		#else
-			float fogdist = max(16.0, pixelpos.w);
-		#endif
-		float fogfactor = exp2 (uFogDensity * fogdist);
+			frag = vec4(mix(uFogColor.rgb, frag.rgb, fogfactor), frag.a);
+		}
+	#uendif
 
-		frag = vec4(mix(uFogColor.rgb, frag.rgb, fogfactor), frag.a);
-
-	#endif
-
-	#if defined(FOGBALLS)
-	frag = ProcessFogBalls(frag);
-	#endif
+	#uifdef(FOGBALLS)
+		frag = ProcessFogBalls(frag);
+	#uendif
 
 	return frag;
 }
@@ -100,54 +102,80 @@ vec4 getLightColor(Material material)
 vec3 AmbientOcclusionColor()
 {
 	// calculate fog factor
-	#if defined(FOG_RADIAL)
-		float fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
-	#else
-		float fogdist = max(16.0, pixelpos.w);
-	#endif
+	float fogdist;
+	#uifdef(FOG_RADIAL)
+		fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+	#uelse
+		fogdist = max(16.0, pixelpos.w);
+	#uendif
 	float fogfactor = exp2 (uFogDensity * fogdist);
 
 	vec4 color = vec4(mix(uFogColor.rgb, vec3(0.0), fogfactor), 0.0);
 
-	#if defined(FOGBALLS)
-	color = ProcessFogBalls(color);
-	#endif
+	#uifdef(FOGBALLS)
+		color = ProcessFogBalls(color);
+	#uendif
 
 	return color.rgb;
 }
 
 vec4 ProcessLightMode(Material material)
 {
-#ifdef SIMPLE2D // uses the fog color to add a color overlay
-	#ifdef TM_FOGLAYER
-		vec4 frag = material.Base;
-		float gray = grayscale(frag);
-		vec4 cm = (uObjectColor + gray * (uAddColor - uObjectColor)) * 2;
-		frag = vec4(clamp(cm.rgb, 0.0, 1.0), frag.a);
-		frag *= vColor;
-		frag.rgb = frag.rgb + uFogColor.rgb;
-		return frag;
-	#else
-		vec4 frag = material.Base * vColor;
-		frag.rgb = frag.rgb + uFogColor.rgb;
-		return frag;
-	#endif
-#else
-	#ifdef TM_FOGLAYER
-		#if defined(FOG_BEFORE_LIGHTS) || defined(FOG_AFTER_LIGHTS)
-			#if defined(FOG_RADIAL)
-				float fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
-			#else
-				float fogdist = max(16.0, pixelpos.w);
-			#endif
-			float fogfactor = exp2 (uFogDensity * fogdist);
+	#uifdef(SIMPLE2D) // uses the fog color to add a color overlay
+	{
+		#uifdef(TM_FOGLAYER)
+		{
+			vec4 frag = material.Base;
+			float gray = grayscale(frag);
+			vec4 cm = (uObjectColor + gray * (uAddColor - uObjectColor)) * 2;
+			frag = vec4(clamp(cm.rgb, 0.0, 1.0), frag.a);
+			frag *= vColor;
+			frag.rgb = frag.rgb + uFogColor.rgb;
+			return frag;
+		}
+		#uelse
+		{
+			vec4 frag = material.Base * vColor;
+			frag.rgb = frag.rgb + uFogColor.rgb;
+			return frag;
+		}
+		#uendif
+	}
+	#uelse
+	{
+		#uifdef(TM_FOGLAYER)
+		{
+			#uifdef(FOG_BEFORE_LIGHTS)
+			{
+				float fogdist;
+				#uifdef(FOG_RADIAL)
+					fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+				#uelse
+					fogdist = max(16.0, pixelpos.w);
+				#uendif
+				float fogfactor = exp2 (uFogDensity * fogdist);
 
-			return vec4(uFogColor.rgb, (1.0 - fogfactor) * material.Base.a * 0.75 * vColor.a);
-		#else
-			return vec4(uFogColor.rgb, material.Base.a * 0.75 * vColor.a);
-		#endif
-	#else
-		return getLightColor(material);
-	#endif
-#endif
+				return vec4(uFogColor.rgb, (1.0 - fogfactor) * material.Base.a * 0.75 * vColor.a);
+			}
+			#uelifdef(FOG_AFTER_LIGHTS)
+			{ // duplicated, TODO figure out how to handle || in uifdef
+				float fogdist;
+				#uifdef(FOG_RADIAL)
+					fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+				#uelse
+					fogdist = max(16.0, pixelpos.w);
+				#uendif
+				float fogfactor = exp2 (uFogDensity * fogdist);
+
+				return vec4(uFogColor.rgb, (1.0 - fogfactor) * material.Base.a * 0.75 * vColor.a);
+			}
+			#uelse
+				return vec4(uFogColor.rgb, material.Base.a * 0.75 * vColor.a);
+			#uendif
+		}
+		#uelse
+			return getLightColor(material);
+		#uendif
+	}
+	#uendif
 }

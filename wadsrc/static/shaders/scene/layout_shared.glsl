@@ -5,23 +5,23 @@
 
 // material types
 #if defined(SPECULAR)
-#define normaltexture texture2
-#define speculartexture texture3
-#define brighttexture texture4
-#define detailtexture texture5
-#define glowtexture texture6
+	#define normaltexture texture2
+	#define speculartexture texture3
+	#define brighttexture texture4
+	#define detailtexture texture5
+	#define glowtexture texture6
 #elif defined(PBR)
-#define normaltexture texture2
-#define metallictexture texture3
-#define roughnesstexture texture4
-#define aotexture texture5
-#define brighttexture texture6
-#define detailtexture texture7
-#define glowtexture texture8
+	#define normaltexture texture2
+	#define metallictexture texture3
+	#define roughnesstexture texture4
+	#define aotexture texture5
+	#define brighttexture texture6
+	#define detailtexture texture7
+	#define glowtexture texture8
 #else
-#define brighttexture texture2
-#define detailtexture texture3
-#define glowtexture texture4
+	#define brighttexture texture2
+	#define detailtexture texture3
+	#define glowtexture texture4
 #endif
 
 #define BrdfLUT 1 // the BRDF convoluted texture is always in this texture slot
@@ -59,14 +59,14 @@
 #define uActorCenter data[uDataIndex].uActorCenter
 
 #if defined(USE_LEVELMESH)
-#define uVertexColor lightdata[uDataIndex].uVertexColor
-#define uDesaturationFactor lightdata[uDataIndex].uDesaturationFactor
-#define uLightLevel lightdata[uDataIndex].uLightLevel
-int uLightIndex;
+	#define uVertexColor lightdata[uDataIndex].uVertexColor
+	#define uDesaturationFactor lightdata[uDataIndex].uDesaturationFactor
+	#define uLightLevel lightdata[uDataIndex].uLightLevel
+	int uLightIndex;
 #else
-#define uVertexColor data[uDataIndex].uVertexColor
-#define uDesaturationFactor data[uDataIndex].uDesaturationFactor
-#define uLightLevel data[uDataIndex].uLightLevel
+	#define uVertexColor data[uDataIndex].uVertexColor
+	#define uDesaturationFactor data[uDataIndex].uDesaturationFactor
+	#define uLightLevel data[uDataIndex].uLightLevel
 #endif
 
 #define VULKAN_COORDINATE_SYSTEM

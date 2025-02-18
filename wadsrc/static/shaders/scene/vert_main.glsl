@@ -34,13 +34,14 @@
 			attenuation *= spotLightAttenuation(light.pos.xyz, light.spotDir.xyz, light.spotInnerAngle, light.spotOuterAngle);
 		}
 		
-		#ifndef LIGHT_NONORMALS
+		#uifdef(LIGHT_NONORMALS)
+		#uelse
 			if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
 			{
 				float dotprod = dot(vWorldNormal.xyz, lightdir);
 				attenuation *= clamp(dotprod, 0.0, 1.0);
 			}
-		#endif
+		#uendif
 		
 		if (attenuation > 0.0) // Skip shadow map test if possible
 		{

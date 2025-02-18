@@ -5,10 +5,11 @@
 
 #if defined(USE_RAYTRACE)
 
-#define shadowAttenuation(lightpos, shadowIndex, softShadowRadius, flags) traceShadow(lightpos, softShadowRadius)
+#define shadowAttenuationRaytrace(lightpos, shadowIndex, softShadowRadius, flags) traceShadow(lightpos, softShadowRadius)
 
-#elif defined(USE_SHADOWMAP)
+#endif
 
+#if defined(USE_SHADOWMAP)
 float shadowDirToU(vec2 dir)
 {
 	if (abs(dir.y) > abs(dir.x))
@@ -124,14 +125,14 @@ float shadowmapAttenuation(vec3 lightpos, float shadowIndex)
 
 	float v = (shadowIndex + 0.5) / 1024.0;
 	
-	#if SHADOWMAP_FILTER == 0
+	#uif(SHADOWMAP_FILTER == 0)
 		return sampleShadowmap(planePoint, v);
-	#else
+	#uelse
 		return sampleShadowmapPCF(planePoint, v);
-	#endif
+	#uendif
 }
 
-float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
+float shadowAttenuationShadowMap(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
 {
 	if((flags & LIGHTINFO_TRACE) > 0)
 	{
@@ -144,9 +145,10 @@ float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, 
 		return shadowmapAttenuation(lightpos, float(shadowIndex));
 	}
 }
-#else
+#endif
 
-float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
+#if !defined(USE_RAYTRACE) && !defined(USE_SHADOWMAP) || defined(UBERSHADERS)
+float shadowAttenuationNoShadow(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
 {
 	if((flags & LIGHTINFO_TRACE) > 0)
 	{
@@ -157,5 +159,33 @@ float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, 
 		return 1.0;
 	}
 }
+#endif
 
+
+#ifdef UBERSHADERS
+
+	float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
+	{
+		if(USE_RAYTRACE)
+		{
+			return shadowAttenuationRaytrace(lightpos, shadowIndex, softShadowRadius, flags);
+		}
+		else if(USE_SHADOWMAP)
+		{
+			return shadowAttenuationShadowMap(lightpos, shadowIndex, softShadowRadius, flags);
+		}
+		else
+		{
+			return shadowAttenuationNoShadow(lightpos, shadowIndex, softShadowRadius, flags);
+		}
+	}
+
+#else
+	#if defined(USE_RAYTRACE)
+		#define shadowAttenuation(lightpos, shadowIndex, softShadowRadius, flags) shadowAttenuationRaytrace(lightpos, shadowIndex, softShadowRadius, flags)
+	#elif defined(USE_SHADOWMAP)
+		#define shadowAttenuation shadowAttenuationShadowMap
+	#else
+		#define shadowAttenuation shadowAttenuationNoShadow
+	#endif
 #endif
