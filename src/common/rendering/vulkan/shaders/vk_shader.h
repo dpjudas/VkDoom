@@ -55,6 +55,7 @@ struct PushConstants
 	int uLightIndex; // dynamic lights
 	int uBoneIndexBase; // bone animation
 	int uFogballIndex; // fog balls
+	uint64_t shaderKey;
 };
 
 struct ZMinMaxPushConstants
@@ -93,25 +94,25 @@ public:
 			uint64_t GBufferPass : 1;   // GBUFFER_PASS
 			uint64_t UseShadowmap : 1;  // USE_SHADOWMAP
 			uint64_t UseRaytrace : 1;   // USE_RAYTRACE
+			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
+			uint64_t PreciseMidtextureTrace : 1; // PRECISE_MIDTEXTURES
+			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
 			uint64_t FogBeforeLights : 1; // FOG_BEFORE_LIGHTS
 			uint64_t FogAfterLights : 1;  // FOG_AFTER_LIGHTS
 			uint64_t FogRadial : 1;       // FOG_RADIAL
 			uint64_t SWLightRadial : 1; // SWLIGHT_RADIAL
 			uint64_t SWLightBanded : 1; // SWLIGHT_BANDED
 			uint64_t LightMode : 2;     // LIGHTMODE_DEFAULT, LIGHTMODE_SOFTWARE, LIGHTMODE_VANILLA, LIGHTMODE_BUILD
+			uint64_t LightBlendMode : 2; // LIGHT_BLEND_CLAMPED , LIGHT_BLEND_COLORED_CLAMP , LIGHT_BLEND_UNCLAMPED
+			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
 			uint64_t UseLevelMesh : 1;  // USE_LEVELMESH
 			uint64_t FogBalls : 1;      // FOGBALLS
 			uint64_t NoFragmentShader : 1;
 			uint64_t DepthFadeThreshold : 1;
 			uint64_t AlphaTestOnly : 1; // ALPHATEST_ONLY
-			uint64_t LightBlendMode : 2; // LIGHT_BLEND_CLAMPED , LIGHT_BLEND_COLORED_CLAMP , LIGHT_BLEND_UNCLAMPED
-			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
-			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
-			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
 			uint64_t ShadeVertex : 1; // SHADE_VERTEX
 			uint64_t LightNoNormals : 1; // LIGHT_NONORMALS
 			uint64_t UseSpriteCenter : 1; // USE_SPRITE_CENTER
-			uint64_t PreciseMidtextureTrace : 1; // PRECISE_MIDTEXTURES
 			uint64_t Unused : 26;
 		};
 		uint64_t AsQWORD = 0;
@@ -166,11 +167,13 @@ private:
 	ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
 
 	FString GetVersionBlock();
-	FString LoadPublicShaderLump(const char *lumpname);
-	FString LoadPrivateShaderLump(const char *lumpname);
+	FString LoadPublicShaderLump(const char *lumpname, bool isUberShader = false);
+	FString LoadPrivateShaderLump(const char *lumpname, bool isUberShader = false);
+
+	FString LoadShaderLump(int lumpnum, bool isUberShader);
 	
-	void BuildLayoutBlock(FString &definesBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader);
-	void BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader);
+	void BuildLayoutBlock(FString &definesBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader = false);
+	void BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader = false);
 
 	VulkanRenderDevice* fb = nullptr;
 

@@ -149,7 +149,7 @@ struct DynLightInfo
 	vec3 color; float padding1;
 	vec3 spotDir; float padding2;
 	float radius;
-	float linarity;
+	float linearity;
 	float softShadowRadius;
 	float strength;
 	float spotInnerAngle;

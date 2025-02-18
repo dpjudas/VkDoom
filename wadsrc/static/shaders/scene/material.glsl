@@ -56,18 +56,22 @@ Material CreateMaterial()
 			
 		// OpenGL doesn't care, but Vulkan pukes all over the place if these texture samplings are included in no-texture shaders, even though never called.
 		#ifndef NO_LAYERS
-			#if defined(TEXF_Brightmap)
+			#uifdef(TEXF_Brightmap)
 				material.Bright = desaturate(texture(brighttexture, texCoord.st));
-			#endif
+			#uendif
 			
-			#if defined(TEXF_Detailmap)
+			#uifdef(TEXF_Detailmap)
+			{
 				vec4 Detail = texture(detailtexture, texCoord.st * uDetailParms.xy) * uDetailParms.z;
 				material.Base.rgb *= Detail.rgb;
-			#endif
+			}
+			#uendif
 			
-			#if defined(TEXF_Glowmap)
+			#uifdef(TEXF_Glowmap)
+			{
 				material.Glow = desaturate(texture(glowtexture, texCoord.st));
-			#endif
+			}
+			#uendif
 			
 			#ifdef PBR
 				material.Metallic = texture(metallictexture, texCoord.st).r;

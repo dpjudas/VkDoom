@@ -3,14 +3,15 @@ vec4 Lightmode_Default()
 {
 	vec4 color = vColor;
 
-	#if defined(FOG_BEFORE_LIGHTS)
-
+	#uifdef(FOG_BEFORE_LIGHTS)
+	{
 		// calculate fog factor
-		#if defined(FOG_RADIAL)
-			float fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
-		#else
-			float fogdist = max(16.0, pixelpos.w);
-		#endif
+		float fogdist;
+		#uifdef(FOG_RADIAL)
+			fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+		#uelse
+			fogdist = max(16.0, pixelpos.w);
+		#uendif
 		float fogfactor = exp2 (uFogDensity * fogdist);
 
 		// brightening around the player for light mode 2
@@ -21,8 +22,8 @@ vec4 Lightmode_Default()
 
 		// apply light diminishing through fog equation
 		color.rgb = mix(vec3(0.0, 0.0, 0.0), color.rgb, fogfactor);
-
-	#endif
+	}
+	#uendif
 
 	return color;
 }

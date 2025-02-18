@@ -42,17 +42,18 @@ float VanillaColormap(float light, float z)
 vec4 Lightmode_Vanilla()
 {
 	// z is the depth in view space, positive going into the screen
-	#if defined(SWLIGHT_RADIAL)
-		float z = distance(pixelpos.xyz, uCameraPos.xyz);
-	#else
-		float z = pixelpos.w;
-	#endif
+	float z;
+	#uifdef(SWLIGHT_RADIAL)
+		z = distance(pixelpos.xyz, uCameraPos.xyz);
+	#uelse
+		z = pixelpos.w;
+	#uendif
 
 	float colormap = VanillaColormap(uLightLevel, z);
 
-	#if defined(SWLIGHT_BANDED)
+	#uifdef(SWLIGHT_BANDED)
 		colormap = floor(colormap) + 0.5;
-	#endif
+	#uendif
 
 	// Result is the normalized colormap index (0 bright .. 1 dark)
 	float newlightlevel = 1.0 - clamp(colormap, 0.0, 31.0) / 32.0;
