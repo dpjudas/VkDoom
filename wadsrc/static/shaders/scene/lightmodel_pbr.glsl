@@ -142,8 +142,6 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 		Lo += (kD * albedo / PI + specular) * radiance;
 	}
 
-	float probeIndex = 0.0; // To do: get this from an uniform
-
 	vec3 F = fresnelSchlickRoughness(clamp(dot(N, V), 0.0, 1.0), F0, roughness);
 
 	vec3 kS = F;
@@ -151,13 +149,13 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 
 	const float environmentScaleFactor = 0.1;
 
-	vec3 irradiance = texture(IrradianceMap, vec4(N, probeIndex)).rgb * environmentScaleFactor;
+	vec3 irradiance = texture(IrradianceMap, vec4(N, uLightProbeIndex)).rgb * environmentScaleFactor;
 	vec3 diffuse = irradiance * albedo;
 
 	kD *= 1.0 - metallic;
 	const float MAX_REFLECTION_LOD = 4.0;
 	vec3 R = reflect(-V, N); 
-	vec3 prefilteredColor = textureLod(PrefilterMap, vec4(R, probeIndex), roughness * MAX_REFLECTION_LOD).rgb * environmentScaleFactor;
+	vec3 prefilteredColor = textureLod(PrefilterMap, vec4(R, uLightProbeIndex), roughness * MAX_REFLECTION_LOD).rgb * environmentScaleFactor;
 	vec2 envBRDF = texture(textures[BrdfLUT], vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
 	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 

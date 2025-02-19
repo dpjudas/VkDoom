@@ -213,6 +213,7 @@ public:
 		mSurfaceUniforms.uFogDensity = 0.0f;
 		mSurfaceUniforms.uLightLevel = -1.0f;
 		mSurfaceUniforms.uDepthFadeThreshold = 0.0f;
+		mSurfaceUniforms.uLightProbeIndex = 0;
 		mSpecialEffect = EFF_NONE;
 		mLightIndex = -1;
 		mBoneIndexBase = -1;
@@ -558,6 +559,11 @@ public:
 	void SetFogballIndex(int index)
 	{
 		mFogballIndex = index;
+	}
+
+	void SetLightProbeIndex(int index)
+	{
+		mSurfaceUniforms.uLightProbeIndex = index;
 	}
 
 	void SetRenderStyle(FRenderStyle rs)
