@@ -44,6 +44,7 @@
 
 #include "hwrenderer/data/buffers.h"
 #include "hwrenderer/data/hw_levelmesh.h"
+#include "hwrenderer/data/hw_lightprobe.h"
 
 // Some more or less basic data types
 // we depend on.
@@ -785,6 +786,8 @@ struct sector_t
 	int	healthceilinggroup;
 	int	health3dgroup;
 
+	LightProbeTarget lightProbe; // TODO split individual flats in the sector including 3d floors
+
 	// Member functions
 
 private:
@@ -1295,6 +1298,7 @@ struct side_t
 	int			UDMFIndex;		// needed to access custom UDMF fields which are stored in loading order.
 	FLightNode * lighthead;		// all dynamic lights that may affect this wall
 	TArrayView<int> LightmapTiles; // all lightmap tiles belonging to this sidedef
+	LightProbeTarget lightProbe; // TODO use different probe per each part (and 3D floors)
 	seg_t **segs;	// all segs belonging to this sidedef in ascending order. Used for precise rendering
 	int numsegs;
 	int sidenum;
