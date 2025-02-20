@@ -147,7 +147,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 	vec3 kS = F;
 	vec3 kD = 1.0 - kS;
 
-	const float environmentScaleFactor = 0.1;
+	const float environmentScaleFactor = 1.0;
 
 	vec3 irradiance = texture(IrradianceMap, vec4(N, uLightProbeIndex)).rgb * environmentScaleFactor;
 	vec3 diffuse = irradiance * albedo;

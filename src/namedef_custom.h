@@ -881,6 +881,9 @@ xx(light_dontlightactors)
 xx(light_dontlightmap)
 xx(light_shadowminquality)
 
+// Light probe
+xx(LightProbe)
+
 xx(skew_bottom_type)
 xx(skew_middle_type)
 xx(skew_top_type)

@@ -420,7 +420,7 @@ void VkTextureManager::CreatePrefiltermap(int size, int count, TArray<uint16_t>&
 			.Execute(cmdbuffer);
 
 		int offset = 0;
-		for (int i = 0; i < 6; ++i)
+		for (int i = 0; i < count; ++i)
 		{
 			for (int level = 0; level < miplevels; level++)
 			{
