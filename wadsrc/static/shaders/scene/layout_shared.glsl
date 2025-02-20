@@ -57,6 +57,7 @@
 #define uTextureIndex data[uDataIndex].uTextureIndex
 #define uDepthFadeThreshold data[uDataIndex].uDepthFadeThreshold
 #define uActorCenter data[uDataIndex].uActorCenter
+#define uLightProbeIndex data[uDataIndex].uLightProbeIndex
 
 #if defined(USE_LEVELMESH)
 	#define uVertexColor lightdata[uDataIndex].uVertexColor
