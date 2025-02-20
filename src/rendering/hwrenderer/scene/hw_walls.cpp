@@ -87,6 +87,7 @@ void HWWall::RenderWall(FRenderState &state, int textured)
 	if (seg->sidedef->Flags & WALLF_DITHERTRANS) state.SetEffect(EFF_DITHERTRANS);
 	assert(vertcount > 0);
 	state.SetLightIndex(dynlightindex);
+	state.SetLightProbeIndex(seg->sidedef->lightProbe.index);
 	state.Draw(DT_TriangleFan, vertindex, vertcount);
 	vertexcount += vertcount;
 	if (seg->sidedef->Flags & WALLF_DITHERTRANS)
