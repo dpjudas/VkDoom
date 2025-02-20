@@ -104,7 +104,8 @@ public:
 
 private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
-	void RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc) override;
+	void RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc, TArray<uint16_t>& irradianceMap, TArray<uint16_t>& prefilterMap) override;
+	void UploadEnvironmentMaps(int cubemapCount, TArray<uint16_t>&& irradianceMaps, TArray<uint16_t>&& prefilterMaps) override;
 	void PrintStartupLog();
 	void CopyScreenToBuffer(int w, int h, uint8_t *data) override;
 

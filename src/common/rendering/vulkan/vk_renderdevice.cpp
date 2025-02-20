@@ -321,13 +321,18 @@ void VulkanRenderDevice::RenderTextureView(FCanvasTexture* tex, std::function<vo
 	tex->SetUpdated(true);
 }
 
-void VulkanRenderDevice::RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc)
+void VulkanRenderDevice::RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc, TArray<uint16_t>& irradianceMap, TArray<uint16_t>& prefilterMap)
 {
 	mLightprober->RenderEnvironmentMap(std::move(renderFunc));
-	TArray<uint16_t> irradianceMap = mLightprober->GenerateIrradianceMap();
-	TArray<uint16_t> prefilterMap = mLightprober->GeneratePrefilterMap();
-	mTextureManager->CreateIrradiancemap(32, 6, std::move(irradianceMap));
-	mTextureManager->CreatePrefiltermap(128, 6, std::move(prefilterMap));
+	irradianceMap = mLightprober->GenerateIrradianceMap();
+	prefilterMap = mLightprober->GeneratePrefilterMap();
+	
+}
+
+void VulkanRenderDevice::UploadEnvironmentMaps(int cubemapCount, TArray<uint16_t>&& irradianceMaps, TArray<uint16_t>&& prefilterMaps)
+{
+	mTextureManager->CreateIrradiancemap(32, 6 * cubemapCount, std::move(irradianceMaps));
+	mTextureManager->CreatePrefiltermap(128, 6 * cubemapCount, std::move(prefilterMaps));
 }
 
 void VulkanRenderDevice::PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D)
