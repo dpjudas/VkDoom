@@ -58,6 +58,8 @@
 #include "doom_levelmesh.h"
 #include "p_visualthinker.h"
 
+#include "common/rendering/hwrenderer/data/hw_lightprobe.h"
+
 //============================================================================
 //
 // This is used to mark processed portals for some collection functions.
@@ -491,6 +493,7 @@ public:
 	EventManager *localEventManager = nullptr;
 	DoomLevelAABBTree* aabbTree = nullptr;
 	DoomLevelMesh* levelMesh = nullptr;
+	TArray<LightProbe> lightProbes;
 
 	// [ZZ] Destructible geometry information
 	TMap<int, FHealthGroup> healthGroups;
