@@ -484,7 +484,6 @@ void LightProbeIncrementalBuilder::Step(const TArray<LightProbe>& probes, std::f
 	if (lastIndex >= probes.size())
 	{
 		lastIndex = 0;
-		collected = 0;
 
 		if (!probes.size())
 		{
@@ -509,6 +508,7 @@ void LightProbeIncrementalBuilder::Step(const TArray<LightProbe>& probes, std::f
 		}
 		this->irradianceMaps.Clear();
 		this->prefilterMaps.Clear();
+		collected = 0;
 	}
 }
 
