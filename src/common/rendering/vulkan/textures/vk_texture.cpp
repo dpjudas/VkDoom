@@ -279,7 +279,7 @@ void VkTextureManager::CreatePrefiltermap()
 	CreatePrefiltermap(size, 6, std::move(data));
 }
 
-void VkTextureManager::CreateIrradiancemap(int size, int count, TArray<uint16_t>&& newPixelData)
+void VkTextureManager::CreateIrradiancemap(int size, int count, const TArray<uint16_t>& newPixelData)
 {
 	if (Irradiancemap.Size == size && Irradiancemap.Count == count && newPixelData.Size() == 0)
 		return;
@@ -346,8 +346,6 @@ void VkTextureManager::CreateIrradiancemap(int size, int count, TArray<uint16_t>
 		cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Irradiancemap.Image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 		fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
-
-		newPixelData.Clear();
 	}
 
 	VkImageTransition()
@@ -355,7 +353,7 @@ void VkTextureManager::CreateIrradiancemap(int size, int count, TArray<uint16_t>
 		.Execute(cmdbuffer);
 }
 
-void VkTextureManager::CreatePrefiltermap(int size, int count, TArray<uint16_t>&& newPixelData)
+void VkTextureManager::CreatePrefiltermap(int size, int count, const TArray<uint16_t>& newPixelData)
 {
 	if (Prefiltermap.Size == size && Prefiltermap.Count == count && newPixelData.Size() == 0)
 		return;
@@ -443,8 +441,6 @@ void VkTextureManager::CreatePrefiltermap(int size, int count, TArray<uint16_t>&
 		}
 
 		fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
-
-		newPixelData.Clear();
 	}
 
 	VkImageTransition()

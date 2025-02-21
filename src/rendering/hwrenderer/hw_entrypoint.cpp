@@ -50,6 +50,8 @@
 #include "hwrenderer/scene/hw_drawcontext.h"
 #include "hw_vrmodes.h"
 
+#include "common/rendering/vulkan/vk_lightprober.h" // to fetch irradiance and prefilter map texel counts
+
 EXTERN_CVAR(Bool, cl_capfps)
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Bool, gl_bandedswlight)
@@ -333,7 +335,7 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 		state.firstFrame = screen->FrameTime - 1;
 }
 
-LightProbeIncrementalBuilder lightProbeBuilder;
+LightProbeIncrementalBuilder lightProbeBuilder(VkLightprober::irrandiaceMapTexelCount, VkLightprober::prefilterMapTexelCount, VkLightprober::irradianceMapChannelCount, VkLightprober::prefilterMapChannelCount);
 
 sector_t* RenderView(player_t* player)
 {
@@ -410,7 +412,7 @@ sector_t* RenderView(player_t* player)
 			AActor* lightprobe = level.GetThinkerIterator<AActor>(NAME_LightProbe, STAT_INFO).Next();
 			if (lightprobe)
 			{
-				auto renderEnvMap = [&](const LightProbe& probe, TArray<uint16_t>& irradianceMap, TArray<uint16_t>& prefilteredMap) {
+				auto renderEnvMap = [&](const LightProbe& probe, TArrayView<uint16_t>& irradianceMap, TArrayView<uint16_t>& prefilteredMap) {
 					lightprobe->SetOrigin(DVector3(probe.position), false); // crime against nature
 
 					// The renderer interpolates camera in its own mechanism that has to be disabled when moving around the single probe
@@ -425,8 +427,8 @@ sector_t* RenderView(player_t* player)
 					r_NoInterpolate = noInterpolate;
 				};
 
-				auto renderEnvScreen = [&](TArray<uint16_t>&& irradianceMaps, TArray<uint16_t>&& prefilteredMaps) {
-					screen->UploadEnvironmentMaps(level.lightProbes.size(), std::move(irradianceMaps), std::move(prefilteredMaps));
+				auto renderEnvScreen = [&](const TArray<uint16_t>& irradianceMaps, const TArray<uint16_t>& prefilteredMaps) {
+					screen->UploadEnvironmentMaps(level.lightProbes.size(), irradianceMaps, prefilteredMaps);
 				};
 
 				lightProbeBuilder.Step(

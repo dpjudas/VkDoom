@@ -256,8 +256,15 @@ void VkLightprober::CreateIrradianceMap()
 	}
 }
 
-TArray<uint16_t> VkLightprober::GenerateIrradianceMap()
+bool VkLightprober::GenerateIrradianceMap(TArrayView<uint16_t>& databuffer)
 {
+	const int texelCount = irrandiaceMapTexelCount;
+
+	if (databuffer.Size() < texelCount)
+	{
+		return false;
+	}
+
 	auto staging = BufferBuilder()
 		.Size(32 * 32 * 8 * 6)
 		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU)
@@ -334,9 +341,7 @@ TArray<uint16_t> VkLightprober::GenerateIrradianceMap()
 	fb->GetCommands()->WaitForCommands(false);
 
 	// Copy while dropping the alpha channel
-	int texelCount = 32 * 32 * 6;
-	TArray<uint16_t> databuffer(texelCount * 3, true);
-	auto dst = databuffer.data();
+	auto dst = databuffer.Data();
 	auto src = (uint16_t*)staging->Map(0, texelCount * 8);
 	for (int i = 0; i < texelCount; i++)
 	{
@@ -346,7 +351,7 @@ TArray<uint16_t> VkLightprober::GenerateIrradianceMap()
 		src++;
 	}
 	staging->Unmap();
-	return databuffer;
+	return true;
 }
 
 void VkLightprober::CreatePrefilterMap()
@@ -398,8 +403,15 @@ void VkLightprober::CreatePrefilterMap()
 	}
 }
 
-TArray<uint16_t> VkLightprober::GeneratePrefilterMap()
+bool VkLightprober::GeneratePrefilterMap(TArrayView<uint16_t>& databuffer)
 {
+	const int texelCount = prefilterMapTexelCount;
+
+	if (databuffer.Size() < texelCount)
+	{
+		return false;
+	}
+
 	auto staging = BufferBuilder()
 		.Size(prefilterMap.levelsSize * 6 * 8)
 		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU)
@@ -484,9 +496,7 @@ TArray<uint16_t> VkLightprober::GeneratePrefilterMap()
 	fb->GetCommands()->WaitForCommands(false);
 
 	// Copy while dropping the alpha channel
-	int texelCount = prefilterMap.levelsSize * 6;
-	TArray<uint16_t> databuffer(texelCount * 3, true);
-	auto dst = databuffer.data();
+	auto dst = databuffer.Data();
 	auto src = (uint16_t*)staging->Map(0, texelCount * 8);
 	for (int i = 0; i < texelCount; i++)
 	{
@@ -496,7 +506,7 @@ TArray<uint16_t> VkLightprober::GeneratePrefilterMap()
 		src++;
 	}
 	staging->Unmap();
-	return databuffer;
+	return true;
 }
 
 std::unique_ptr<VulkanShader> VkLightprober::CompileShader(const std::string& name, const std::string& filename, const char* debugName)
