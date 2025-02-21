@@ -4,6 +4,8 @@
 
 class LightProbe : Actor
 {
+	// note: thinker is set to STAT_INFO
+
 	Default
 	{
 		+NOINTERACTION
