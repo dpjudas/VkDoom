@@ -100,3 +100,29 @@ CCMD(addlightprobe)
 
 	Printf("Spawned probe at %.1f, %.1f, %.1f\n", pos.X, pos.Y, pos.Z);
 }
+
+CCMD(autoaddlightprobes)
+{
+	int probes = 0;
+	for (int i = 0, size = level.sectors.size(); i < size; ++i)
+	{
+		auto& sector = level.sectors[i];
+		const auto origin = FVector3(sector.centerspot.X, sector.centerspot.Y, float(sector.floorplane.ZatPoint(sector.centerspot) + sector.ceilingplane.ZatPoint(sector.centerspot) / 2.f));
+
+		/*if (level.lightProbes.size() > 0)
+		{
+			auto pos = FindClosestProbe(origin);
+			if ((level.lightProbes[pos].position - origin).LengthSquared() < 256 * 256)
+			{
+				continue;
+			}
+		}*/
+
+		probes++;
+		AddLightProbe(origin);
+	}
+
+	RecalculateLightProbeTargets();
+
+	Printf("Spawned %d probes\n", probes);
+}
