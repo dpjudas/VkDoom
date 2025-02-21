@@ -126,3 +126,20 @@ CCMD(autoaddlightprobes)
 
 	Printf("Spawned %d probes\n", probes);
 }
+
+CCMD(setlightlevel)
+{
+	if (argv.argc() < 2)
+	{
+		Printf("Usage: setlightlevel <lightlevel>\n");
+		return;
+	}
+
+	int light = std::atoi(argv[1]);
+
+	for (int i = 0, size = level.sectors.size(); i < size; ++i)
+	{
+		auto& sector = level.sectors[i];
+		sector.SetLightLevel(light);
+	}
+}
