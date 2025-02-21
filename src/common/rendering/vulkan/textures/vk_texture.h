@@ -24,8 +24,8 @@ public:
 	void BeginFrame();
 
 	void CreateLightmap(int size, int count, TArray<uint16_t>&& data);
-	void CreateIrradiancemap(int size, int count, TArray<uint16_t>&& data);
-	void CreatePrefiltermap(int size, int count, TArray<uint16_t>&& data);
+	void CreateIrradiancemap(int size, int count, const TArray<uint16_t>& data);
+	void CreatePrefiltermap(int size, int count, const TArray<uint16_t>& data);
 	void DownloadLightmap(int arrayIndex, uint16_t* buffer);
 
 	VkTextureImage* GetTexture(const PPTextureType& type, PPTexture* tex);
