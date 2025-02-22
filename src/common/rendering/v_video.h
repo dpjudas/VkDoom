@@ -130,6 +130,14 @@ public:
 	int mPipelineNbr = 1;						// Number of HW buffers to pipeline
 	int mPipelineType = 0;
 
+	// Lightprobes
+	constexpr static const int irrandiaceMapTexelCount = 32 * 32 * 6;
+	constexpr static const int prefilterMapLevelsSize = 5;
+	constexpr static const int prefilterMapTexelCount = prefilterMapLevelsSize * 6;
+
+	constexpr static const int irradianceMapChannelCount = 3;
+	constexpr static const int prefilterMapChannelCount = 3;
+
 public:
 	DFrameBuffer (int width=1, int height=1);
 	virtual ~DFrameBuffer();
