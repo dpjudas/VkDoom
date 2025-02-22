@@ -93,7 +93,7 @@ private:
 	{
 		enum
 		{
-			maxlevels = 5,
+			maxlevels = DFrameBuffer::prefilterMapLevelsSize,
 			levelsSize = 128 * 128 + 64 * 64 + 32 * 32 + 16 * 16 + 8 * 8
 		};
 		std::unique_ptr<VulkanShader> shader;
@@ -108,12 +108,4 @@ private:
 	} prefilterMap;
 
 	VulkanRenderDevice* fb = nullptr;
-
-public:
-	// Used to pass buffer sizes
-	constexpr static const int irrandiaceMapTexelCount = 32 * 32 * 6;
-	constexpr static const int prefilterMapTexelCount = PrefilterMap::levelsSize * 6;
-
-	constexpr static const int irradianceMapChannelCount = 3;
-	constexpr static const int prefilterMapChannelCount = 3;
 };

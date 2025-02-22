@@ -50,8 +50,6 @@
 #include "hwrenderer/scene/hw_drawcontext.h"
 #include "hw_vrmodes.h"
 
-#include "common/rendering/vulkan/vk_lightprober.h" // to fetch irradiance and prefilter map texel counts
-
 EXTERN_CVAR(Bool, cl_capfps)
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Bool, gl_bandedswlight)
@@ -335,7 +333,7 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 		state.firstFrame = screen->FrameTime - 1;
 }
 
-LightProbeIncrementalBuilder lightProbeBuilder(VkLightprober::irrandiaceMapTexelCount, VkLightprober::prefilterMapTexelCount, VkLightprober::irradianceMapChannelCount, VkLightprober::prefilterMapChannelCount);
+LightProbeIncrementalBuilder lightProbeBuilder(DFrameBuffer::irrandiaceMapTexelCount, DFrameBuffer::prefilterMapTexelCount, DFrameBuffer::irradianceMapChannelCount, DFrameBuffer::prefilterMapChannelCount);
 
 sector_t* RenderView(player_t* player)
 {

@@ -258,7 +258,7 @@ void VkLightprober::CreateIrradianceMap()
 
 bool VkLightprober::GenerateIrradianceMap(TArrayView<uint16_t>& databuffer)
 {
-	const int texelCount = irrandiaceMapTexelCount;
+	const int texelCount = DFrameBuffer::irrandiaceMapTexelCount;
 
 	if (databuffer.Size() < texelCount)
 	{
@@ -405,7 +405,7 @@ void VkLightprober::CreatePrefilterMap()
 
 bool VkLightprober::GeneratePrefilterMap(TArrayView<uint16_t>& databuffer)
 {
-	const int texelCount = prefilterMapTexelCount;
+	const int texelCount = DFrameBuffer::prefilterMapTexelCount;
 
 	if (databuffer.Size() < texelCount)
 	{
