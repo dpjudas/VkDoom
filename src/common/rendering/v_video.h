@@ -132,7 +132,7 @@ public:
 
 	// Lightprobes
 	constexpr static const int irrandiaceMapTexelCount = 32 * 32 * 6;
-	constexpr static const int prefilterMapLevelsSize = 5;
+	constexpr static const int prefilterMapLevelsSize = 128 * 128 + 64 * 64 + 32 * 32 + 16 * 16 + 8 * 8;
 	constexpr static const int prefilterMapTexelCount = prefilterMapLevelsSize * 6;
 
 	constexpr static const int irradianceMapChannelCount = 3;

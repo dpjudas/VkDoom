@@ -93,8 +93,8 @@ private:
 	{
 		enum
 		{
-			maxlevels = DFrameBuffer::prefilterMapLevelsSize,
-			levelsSize = 128 * 128 + 64 * 64 + 32 * 32 + 16 * 16 + 8 * 8
+			maxlevels = 5,
+			levelsSize = DFrameBuffer::prefilterMapLevelsSize
 		};
 		std::unique_ptr<VulkanShader> shader;
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout;
