@@ -74,7 +74,7 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 		dynlight.rgb = clamp(color + desaturate(dynlight).rgb, 0.0, 1.4);
 		specular.rgb = clamp(desaturate(specular).rgb, 0.0, 1.4);
 	}
-	#elifdef(LIGHT_BLEND_COLORED_CLAMP)
+	#uelifdef(LIGHT_BLEND_COLORED_CLAMP)
 	{
 		dynlight.rgb = color + desaturate(dynlight).rgb;
 		specular.rgb = desaturate(specular).rgb;
