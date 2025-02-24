@@ -11,7 +11,7 @@ VulkanInstance::VulkanInstance(std::vector<uint32_t> apiVersionsToTry, std::set<
 {
 	try
 	{
-		ShaderBuilder::Init();
+		GLSLCompiler::Init();
 		InitVolk();
 		CreateInstance();
 	}

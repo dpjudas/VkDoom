@@ -6,21 +6,17 @@
 #include "glslang/glslang/Public/ResourceLimits.h"
 #include "glslang/spirv/GlslangToSpv.h"
 
-void ShaderBuilder::Init()
+void GLSLCompiler::Init()
 {
 	ShInitialize();
 }
 
-void ShaderBuilder::Deinit()
+void GLSLCompiler::Deinit()
 {
 	ShFinalize();
 }
 
-ShaderBuilder::ShaderBuilder()
-{
-}
-
-ShaderBuilder& ShaderBuilder::Type(ShaderType type)
+GLSLCompiler& GLSLCompiler::Type(ShaderType type)
 {
 	switch (type)
 	{
@@ -34,34 +30,34 @@ ShaderBuilder& ShaderBuilder::Type(ShaderType type)
 	return *this;
 }
 
-ShaderBuilder& ShaderBuilder::AddSource(const std::string& name, const std::string& code)
+GLSLCompiler& GLSLCompiler::AddSource(const std::string& name, const std::string& code)
 {
 	sources.push_back({ name, code });
 	return *this;
 }
 
-ShaderBuilder& ShaderBuilder::OnIncludeSystem(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem)
+GLSLCompiler& GLSLCompiler::OnIncludeSystem(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem)
 {
 	this->onIncludeSystem = std::move(onIncludeSystem);
 	return *this;
 }
 
-ShaderBuilder& ShaderBuilder::OnIncludeLocal(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal)
+GLSLCompiler& GLSLCompiler::OnIncludeLocal(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal)
 {
 	this->onIncludeLocal = std::move(onIncludeLocal);
 	return *this;
 }
 
-class ShaderBuilderIncluderImpl : public glslang::TShader::Includer
+class GLSLCompilerIncluderImpl : public glslang::TShader::Includer
 {
 public:
-	ShaderBuilderIncluderImpl(ShaderBuilder* shaderBuilder) : shaderBuilder(shaderBuilder)
+	GLSLCompilerIncluderImpl(GLSLCompiler* compiler) : compiler(compiler)
 	{
 	}
 
 	IncludeResult* includeSystem(const char* headerName, const char* includerName, size_t inclusionDepth) override
 	{
-		if (!shaderBuilder->onIncludeSystem)
+		if (!compiler->onIncludeSystem)
 		{
 			return nullptr;
 		}
@@ -71,7 +67,7 @@ public:
 			std::unique_ptr<ShaderIncludeResult> result;
 			try
 			{
-				result = std::make_unique<ShaderIncludeResult>(shaderBuilder->onIncludeSystem(headerName, includerName, inclusionDepth));
+				result = std::make_unique<ShaderIncludeResult>(compiler->onIncludeSystem(headerName, includerName, inclusionDepth));
 			}
 			catch (const std::exception& e)
 			{
@@ -95,7 +91,7 @@ public:
 
 	IncludeResult* includeLocal(const char* headerName, const char* includerName, size_t inclusionDepth) override
 	{
-		if (!shaderBuilder->onIncludeLocal)
+		if (!compiler->onIncludeLocal)
 		{
 			return nullptr;
 		}
@@ -105,7 +101,7 @@ public:
 			std::unique_ptr<ShaderIncludeResult> result;
 			try
 			{
-				result = std::make_unique<ShaderIncludeResult>(shaderBuilder->onIncludeLocal(headerName, includerName, inclusionDepth));
+				result = std::make_unique<ShaderIncludeResult>(compiler->onIncludeLocal(headerName, includerName, inclusionDepth));
 			}
 			catch (const std::exception& e)
 			{
@@ -137,10 +133,15 @@ public:
 	}
 
 private:
-	ShaderBuilder* shaderBuilder = nullptr;
+	GLSLCompiler* compiler = nullptr;
 };
 
-std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, VulkanDevice *device)
+std::vector<uint32_t> GLSLCompiler::Compile(VulkanDevice* device)
+{
+	return Compile(device->Instance->ApiVersion);
+}
+
+std::vector<uint32_t> GLSLCompiler::Compile(uint32_t apiVersion)
 {
 	EShLanguage stage = (EShLanguage)this->stage;
 
@@ -156,22 +157,23 @@ std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, Vulk
 	glslang::TShader shader(stage);
 	shader.setStringsWithLengthsAndNames(sourcesC.data(), lengthsC.data(), namesC.data(), (int)sources.size());
 	shader.setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, 100);
-    if (device->Instance->ApiVersion >= VK_API_VERSION_1_2)
-    {
-        shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
-        shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_4);
-    }
-    else
-    {
-        shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
-        shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
-    }
+	if (apiVersion >= VK_API_VERSION_1_2)
+	{
+		shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
+		shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_4);
+	}
+	else
+	{
+		shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
+		shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+	}
 
-	ShaderBuilderIncluderImpl includer(this);
+	GLSLCompilerIncluderImpl includer(this);
 	bool compileSuccess = shader.parse(GetDefaultResources(), 110, false, EShMsgVulkanRules, includer);
 	if (!compileSuccess)
 	{
 		VulkanError((std::string("Shader compile failed: ") + shader.getInfoLog()).c_str());
+		return {};
 	}
 
 	glslang::TProgram program;
@@ -180,12 +182,14 @@ std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, Vulk
 	if (!linkSuccess)
 	{
 		VulkanError((std::string("Shader link failed: ") + program.getInfoLog()).c_str());
+		return {};
 	}
 
-	glslang::TIntermediate *intermediate = program.getIntermediate(stage);
+	glslang::TIntermediate* intermediate = program.getIntermediate(stage);
 	if (!intermediate)
 	{
 		VulkanError("Internal shader compiler error");
+		return {};
 	}
 
 	glslang::SpvOptions spvOptions;
@@ -193,14 +197,20 @@ std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, Vulk
 	spvOptions.disableOptimizer = false;
 	spvOptions.optimizeSize = true;
 
-	std::vector<unsigned int> spirv;
+	std::vector<uint32_t> spirv;
 	spv::SpvBuildLogger logger;
 	glslang::GlslangToSpv(*intermediate, spirv, &logger, &spvOptions);
+	return spirv;
+}
 
+/////////////////////////////////////////////////////////////////////////////
+
+std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, VulkanDevice *device)
+{
 	VkShaderModuleCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = spirv.size() * sizeof(unsigned int);
-	createInfo.pCode = spirv.data();
+	createInfo.codeSize = code.size() * sizeof(uint32_t);
+	createInfo.pCode = code.data();
 
 	VkShaderModule shaderModule;
 	VkResult result = vkCreateShaderModule(device->device, &createInfo, nullptr, &shaderModule);

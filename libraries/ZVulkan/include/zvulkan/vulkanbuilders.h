@@ -218,31 +218,40 @@ public:
 	std::string text; // the file contents - or include error message if name is empty
 };
 
-class ShaderBuilder
+class GLSLCompiler
 {
 public:
-	ShaderBuilder();
-
 	static void Init();
 	static void Deinit();
 
-	ShaderBuilder& Type(ShaderType type);
-	ShaderBuilder& AddSource(const std::string& name, const std::string& code);
+	GLSLCompiler& Type(ShaderType type);
+	GLSLCompiler& AddSource(const std::string& name, const std::string& code);
 
-	ShaderBuilder& OnIncludeSystem(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem);
-	ShaderBuilder& OnIncludeLocal(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal);
+	GLSLCompiler& OnIncludeSystem(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem);
+	GLSLCompiler& OnIncludeLocal(std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal);
 
-	ShaderBuilder& DebugName(const char* name) { debugName = name; return *this; }
-
-	std::unique_ptr<VulkanShader> Create(const char *shadername, VulkanDevice *device);
+	std::vector<uint32_t> Compile(uint32_t apiVersion/* = VK_API_VERSION_1_0*/);
+	std::vector<uint32_t> Compile(VulkanDevice* device);
 
 private:
 	std::vector<std::pair<std::string, std::string>> sources;
 	std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeSystem;
 	std::function<ShaderIncludeResult(std::string headerName, std::string includerName, size_t inclusionDepth)> onIncludeLocal;
 	int stage = 0;
+	friend class GLSLCompilerIncluderImpl;
+};
+
+class ShaderBuilder
+{
+public:
+	ShaderBuilder& Code(std::vector<uint32_t> spirv) { code = std::move(spirv); return *this; }
+	ShaderBuilder& DebugName(const char* name) { debugName = name; return *this; }
+
+	std::unique_ptr<VulkanShader> Create(const char *shadername, VulkanDevice *device);
+
+private:
+	std::vector<uint32_t> code;
 	const char* debugName = nullptr;
-	friend class ShaderBuilderIncluderImpl;
 };
 
 class AccelerationStructureBuilder
