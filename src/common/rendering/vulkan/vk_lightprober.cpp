@@ -519,11 +519,13 @@ std::unique_ptr<VulkanShader> VkLightprober::CompileShader(const std::string& na
 	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
 
 	return ShaderBuilder()
-		.Type(ShaderType::Compute)
-		.AddSource("VersionBlock", prefix)
-		.AddSource(name, LoadPrivateShaderLump(filename.c_str()).GetChars())
-		.OnIncludeLocal(onIncludeLocal)
-		.OnIncludeSystem(onIncludeSystem)
+		.Code(GLSLCompiler()
+			.Type(ShaderType::Compute)
+			.AddSource("VersionBlock", prefix)
+			.AddSource(name, LoadPrivateShaderLump(filename.c_str()).GetChars())
+			.OnIncludeLocal(onIncludeLocal)
+			.OnIncludeSystem(onIncludeSystem)
+			.Compile(fb->GetDevice()))
 		.DebugName(debugName)
 		.Create(debugName, fb->GetDevice());
 }

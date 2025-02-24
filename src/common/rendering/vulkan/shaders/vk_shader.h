@@ -2,22 +2,20 @@
 #pragma once
 
 #include <memory>
-
+#include <list>
+#include <map>
 #include "vectors.h"
 #include "matrix.h"
 #include "name.h"
 #include "hw_renderstate.h"
-#include <list>
-#include <map>
-
 #include "hw_dynlightdata.h"
-
 #include "hwrenderer/postprocessing/hw_useruniforms.h"
 
 class ShaderIncludeResult;
 class VulkanRenderDevice;
 class VulkanDevice;
 class VulkanShader;
+class VkShaderCache;
 class VkPPShader;
 class PPShader;
 
@@ -167,15 +165,17 @@ private:
 	ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
 
 	FString GetVersionBlock();
-	FString LoadPublicShaderLump(const char *lumpname, bool isUberShader = false);
-	FString LoadPrivateShaderLump(const char *lumpname, bool isUberShader = false);
+	FString LoadPublicShaderLump(const char *lumpname);
+	FString LoadPrivateShaderLump(const char *lumpname);
 
-	FString LoadShaderLump(int lumpnum, bool isUberShader);
+	static FString SubstituteDefines(FString code, bool isUberShader);
 	
 	void BuildLayoutBlock(FString &definesBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader = false);
 	void BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader = false);
 
 	VulkanRenderDevice* fb = nullptr;
+
+	std::unique_ptr<VkShaderCache> ShaderCache;
 
 	std::map<VkShaderKey, VkShaderProgram> programs;
 

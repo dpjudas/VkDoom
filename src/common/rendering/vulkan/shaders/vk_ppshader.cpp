@@ -36,18 +36,22 @@ VkPPShader::VkPPShader(VulkanRenderDevice* fb, PPShader *shader) : fb(fb)
 	prolog += shader->Defines;
 
 	VertexShader = ShaderBuilder()
-		.Type(ShaderType::Vertex)
-		.AddSource(shader->VertexShader.GetChars(), LoadShaderCode(shader->VertexShader, "", shader->Version).GetChars())
-		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
-		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
+		.Code(GLSLCompiler()
+			.Type(ShaderType::Vertex)
+			.AddSource(shader->VertexShader.GetChars(), LoadShaderCode(shader->VertexShader, "", shader->Version).GetChars())
+			.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
+			.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
+			.Compile(fb->GetDevice()))
 		.DebugName(shader->VertexShader.GetChars())
 		.Create(shader->VertexShader.GetChars(), fb->GetDevice());
 
 	FragmentShader = ShaderBuilder()
-		.Type(ShaderType::Fragment)
-		.AddSource(shader->FragmentShader.GetChars(), LoadShaderCode(shader->FragmentShader, prolog, shader->Version).GetChars())
-		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
-		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
+		.Code(GLSLCompiler()
+			.Type(ShaderType::Fragment)
+			.AddSource(shader->FragmentShader.GetChars(), LoadShaderCode(shader->FragmentShader, prolog, shader->Version).GetChars())
+			.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
+			.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
+			.Compile(fb->GetDevice()))
 		.DebugName(shader->FragmentShader.GetChars())
 		.Create(shader->FragmentShader.GetChars(), fb->GetDevice());
 

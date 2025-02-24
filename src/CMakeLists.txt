@@ -752,6 +752,7 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/pipelines/vk_pprenderpass.cpp
 	common/rendering/vulkan/shaders/vk_shader.cpp
 	common/rendering/vulkan/shaders/vk_ppshader.cpp
+	common/rendering/vulkan/shaders/vk_shadercache.cpp
 	common/rendering/vulkan/textures/vk_hwtexture.cpp
 	common/rendering/vulkan/textures/vk_pptexture.cpp
 	common/rendering/vulkan/textures/vk_imagetransition.cpp
