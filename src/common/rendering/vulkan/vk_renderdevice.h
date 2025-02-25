@@ -25,6 +25,7 @@ class VkRenderBuffers;
 class VkPostprocess;
 class VkPipelineKey;
 class VkRenderPassSetup;
+class VkShaderCache;
 
 class VulkanRenderDevice : public SystemBaseFrameBuffer
 {
@@ -33,6 +34,7 @@ public:
 	~VulkanRenderDevice();
 
 	VulkanDevice* GetDevice() { return mDevice.get(); }
+	VkShaderCache* GetShaderCache() { return mShaderCache.get(); }
 	VkCommandBufferManager* GetCommands() { return mCommands.get(); }
 	VkShaderManager *GetShaderManager() { return mShaderManager.get(); }
 	VkSamplerManager *GetSamplerManager() { return mSamplerManager.get(); }
@@ -112,6 +114,7 @@ private:
 	bool HasSurface = false;
 
 	std::shared_ptr<VulkanDevice> mDevice;
+	std::unique_ptr<VkShaderCache> mShaderCache;
 	std::unique_ptr<VkCommandBufferManager> mCommands;
 	std::unique_ptr<VkBufferManager> mBufferManager;
 	std::unique_ptr<VkSamplerManager> mSamplerManager;

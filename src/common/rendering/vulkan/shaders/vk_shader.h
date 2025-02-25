@@ -15,7 +15,6 @@ class ShaderIncludeResult;
 class VulkanRenderDevice;
 class VulkanDevice;
 class VulkanShader;
-class VkShaderCache;
 class VkPPShader;
 class PPShader;
 
@@ -162,20 +161,16 @@ private:
 	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader);
 	std::unique_ptr<VulkanShader> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *lightmodel_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader);
 
-	ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
-
 	FString GetVersionBlock();
 	FString LoadPublicShaderLump(const char *lumpname);
 	FString LoadPrivateShaderLump(const char *lumpname);
 
-	static FString SubstituteDefines(FString code, bool isUberShader);
+	static FString SubstituteDefines(FString code, bool isUberShader = false);
 	
 	void BuildLayoutBlock(FString &definesBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader = false);
 	void BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader = false);
 
 	VulkanRenderDevice* fb = nullptr;
-
-	std::unique_ptr<VkShaderCache> ShaderCache;
 
 	std::map<VkShaderKey, VkShaderProgram> programs;
 
