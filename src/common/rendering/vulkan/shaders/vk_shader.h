@@ -53,6 +53,8 @@ struct PushConstants
 	int uBoneIndexBase; // bone animation
 	int uFogballIndex; // fog balls
 	uint64_t shaderKey;
+	int padding0;
+	int padding1;
 };
 
 struct ZMinMaxPushConstants

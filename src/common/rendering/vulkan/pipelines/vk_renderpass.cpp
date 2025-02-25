@@ -133,7 +133,7 @@ VkVertexFormat *VkRenderPassManager::GetVertexFormat(int index)
 
 VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(bool levelmesh, int UserUniformSize)
 {
-	auto &layout = PipelineLayouts[levelmesh];
+	auto &layout = PipelineLayouts[levelmesh][UserUniformSize];
 	if (layout)
 		return layout.get();
 
@@ -143,12 +143,7 @@ VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(bool levelmesh, int
 	builder.AddSetLayout(descriptors->GetFixedLayout());
 	builder.AddSetLayout(levelmesh ? descriptors->GetLevelMeshLayout() : descriptors->GetRSBufferLayout());
 	builder.AddSetLayout(descriptors->GetBindlessLayout());
-	builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants));
-
-	if(UserUniformSize > 0)
-	{
-		builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstants), UserUniformSize);
-	}
+	builder.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants) + UserUniformSize);
 
 	builder.DebugName("VkRenderPassManager.PipelineLayout");
 	layout = builder.Create(fb->GetDevice());

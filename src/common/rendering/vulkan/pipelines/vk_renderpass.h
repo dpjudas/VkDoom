@@ -137,7 +137,7 @@ private:
 	VulkanRenderDevice* fb = nullptr;
 
 	std::map<VkRenderPassKey, std::unique_ptr<VkRenderPassSetup>> RenderPassSetup;
-	std::unique_ptr<VulkanPipelineLayout> PipelineLayouts[2];
+	std::map<int, std::unique_ptr<VulkanPipelineLayout>> PipelineLayouts[2];
 	std::vector<VkVertexFormat> VertexFormats;
 
 	std::map<VkPPRenderPassKey, std::unique_ptr<VkPPRenderPassSetup>> PPRenderPassSetup;

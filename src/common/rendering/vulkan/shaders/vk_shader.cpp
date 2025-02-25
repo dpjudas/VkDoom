@@ -319,6 +319,9 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 		layoutBlock << "    int unused3;\n";
 	}
 
+	layoutBlock << "    int padding0;\n";
+	layoutBlock << "    int padding1;\n";
+
 	if(shader && shader->Uniforms.UniformStructSize)
 	{
 		for(auto &field : shader->Uniforms.Fields)

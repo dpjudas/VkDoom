@@ -469,6 +469,8 @@ void VkRenderState::ApplySurfaceUniforms()
 	}
 }
 
+TArray<char> buffer;
+
 void VkRenderState::ApplyPushConstants()
 {
 	mPushConstants.uDataIndex = mRSBuffers->SurfaceUniformsBuffer->DataIndex();
@@ -476,11 +478,25 @@ void VkRenderState::ApplyPushConstants()
 	mPushConstants.uBoneIndexBase = mBoneIndexBase;
 	mPushConstants.uFogballIndex = mFogballIndex >= 0 ? (mFogballIndex % MAX_FOGBALL_DATA) : -1;
 
-	mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
-
+	
 	if(mUniforms.sz > 0)
 	{
-		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, (uint32_t)sizeof(PushConstants), (uint32_t)mUniforms.sz, mUniforms.addr);
+		//thanks khronos /s
+		size_t sz = sizeof(PushConstants) + mUniforms.sz;
+
+		if(buffer.Size() < sz)
+		{
+			buffer.Resize(sz);
+		}
+
+		memcpy(buffer.Data(), &mPushConstants, sizeof(PushConstants));
+		memcpy(buffer.Data() + sizeof(PushConstants), mUniforms.addr, mUniforms.sz);
+
+		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sz, buffer.Data());
+	}
+	else
+	{
+		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
 	}
 }
 
