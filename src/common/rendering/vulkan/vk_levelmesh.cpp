@@ -26,6 +26,7 @@
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
 #include "vulkan/pipelines/vk_renderpass.h"
+#include "vulkan/shaders/vk_shadercache.h"
 #include "hw_levelmesh.h"
 #include "hw_material.h"
 #include "texturemanager.h"
@@ -603,28 +604,21 @@ void VkLevelMesh::CreateViewerObjects()
 		versionBlock += "#define USE_RAYQUERY\r\n";
 	}
 
-	auto onIncludeLocal = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); };
-	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
-
 	Viewer.VertexShader = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Vertex)
 			.AddSource("versionblock", versionBlock)
 			.AddSource("vert_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_viewer.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("Viewer.VertexShader")
 		.Create("vertex", fb->GetDevice());
 
 	Viewer.FragmentShader = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Fragment)
 			.AddSource("versionblock", versionBlock)
 			.AddSource("frag_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_viewer.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("Viewer.FragmentShader")
 		.Create("vertex", fb->GetDevice());
 
@@ -657,41 +651,12 @@ void VkLevelMesh::CreateViewerObjects()
 
 FString VkLevelMesh::LoadPrivateShaderLump(const char* lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
-	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
+	return fb->GetShaderCache()->GetPrivateFile(lumpname).Code;
 }
 
 FString VkLevelMesh::LoadPublicShaderLump(const char* lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
-	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
-	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
-}
-
-ShaderIncludeResult VkLevelMesh::OnInclude(FString headerName, FString includerName, size_t depth, bool system)
-{
-	if (depth > 8)
-		I_Error("Too much include recursion!");
-
-	FString includeguardname;
-	includeguardname << "_HEADERGUARD_" << headerName.GetChars();
-	includeguardname.ReplaceChars("/\\.", '_');
-
-	FString code;
-	code << "#ifndef " << includeguardname.GetChars() << "\n";
-	code << "#define " << includeguardname.GetChars() << "\n";
-	code << "#line 1\n";
-
-	if (system)
-		code << LoadPrivateShaderLump(headerName.GetChars()).GetChars() << "\n";
-	else
-		code << LoadPublicShaderLump(headerName.GetChars()).GetChars() << "\n";
-
-	code << "#endif\n";
-
-	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
+	return fb->GetShaderCache()->GetPublicFile(lumpname).Code;
 }
 
 /////////////////////////////////////////////////////////////////////////////

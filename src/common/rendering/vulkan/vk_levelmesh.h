@@ -118,9 +118,8 @@ private:
 
 	void CreateViewerObjects();
 
-	static FString LoadPrivateShaderLump(const char* lumpname);
-	static FString LoadPublicShaderLump(const char* lumpname);
-	static ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
+	FString LoadPrivateShaderLump(const char* lumpname);
+	FString LoadPublicShaderLump(const char* lumpname);
 
 	VulkanRenderDevice* fb = nullptr;
 

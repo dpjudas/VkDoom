@@ -4,6 +4,7 @@
 #include "vulkan/textures/vk_texture.h"
 #include "vulkan/commands/vk_commandbuffer.h"
 #include "vulkan/descriptorsets/vk_descriptorset.h"
+#include "vulkan/shaders/vk_shadercache.h"
 #include "vk_levelmesh.h"
 #include "zvulkan/vulkanbuilders.h"
 #include "filesystem.h"
@@ -501,39 +502,30 @@ void VkLightmapper::CreateShaders()
 		traceprefix += "#define USE_RAYQUERY\r\n";
 	}
 
-	auto onIncludeLocal = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); };
-	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
-
 	shaders.vertRaytrace = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Vertex)
 			.AddSource("VersionBlock", prefix)
 			.AddSource("vert_raytrace.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_raytrace.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("VkLightmapper.VertRaytrace")
 		.Create("VkLightmapper.VertRaytrace", fb->GetDevice());
 
 	shaders.vertScreenquad = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Vertex)
 			.AddSource("VersionBlock", prefix)
 			.AddSource("vert_screenquad.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_screenquad.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("VkLightmapper.VertScreenquad")
 		.Create("VkLightmapper.VertScreenquad", fb->GetDevice());
 
 	shaders.vertCopy = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Vertex)
 			.AddSource("VersionBlock", prefix)
 			.AddSource("vert_copy.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_copy.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("VkLightmapper.VertCopy")
 		.Create("VkLightmapper.VertCopy", fb->GetDevice());
 
@@ -550,58 +542,48 @@ void VkLightmapper::CreateShaders()
 			defines += "#define USE_BOUNCE\n";
 
 		shaders.fragRaytrace[i] = ShaderBuilder()
-			.Code(GLSLCompiler()
+			.Code(CachedGLSLCompiler()
 				.Type(ShaderType::Fragment)
 				.AddSource("VersionBlock", defines)
 				.AddSource("frag_raytrace.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_raytrace.glsl").GetChars())
-				.OnIncludeLocal(onIncludeLocal)
-				.OnIncludeSystem(onIncludeSystem)
-				.Compile(fb->GetDevice()))
+				.Compile(fb))
 			.DebugName("VkLightmapper.FragRaytrace")
 			.Create("VkLightmapper.FragRaytrace", fb->GetDevice());
 	}
 
 	shaders.fragResolve = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Fragment)
 			.AddSource("VersionBlock", prefix)
 			.AddSource("frag_resolve.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_resolve.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("VkLightmapper.FragResolve")
 		.Create("VkLightmapper.FragResolve", fb->GetDevice());
 
 	shaders.fragBlur[0] = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Fragment)
 			.AddSource("VersionBlock", prefix + "#define BLUR_HORIZONTAL\r\n")
 			.AddSource("frag_blur.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_blur.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("VkLightmapper.FragBlur")
 		.Create("VkLightmapper.FragBlur", fb->GetDevice());
 
 	shaders.fragBlur[1] = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Fragment)
 			.AddSource("VersionBlock", prefix + "#define BLUR_VERTICAL\r\n")
 			.AddSource("frag_blur.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_blur.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("VkLightmapper.FragBlur")
 		.Create("VkLightmapper.FragBlur", fb->GetDevice());
 
 	shaders.fragCopy = ShaderBuilder()
-		.Code(GLSLCompiler()
+		.Code(CachedGLSLCompiler()
 			.Type(ShaderType::Fragment)
 			.AddSource("VersionBlock", prefix)
 			.AddSource("frag_copy.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_copy.glsl").GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
+			.Compile(fb))
 		.DebugName("VkLightmapper.FragCopy")
 		.Create("VkLightmapper.FragCopy", fb->GetDevice());
 }
@@ -628,41 +610,12 @@ int VkLightmapper::GetRaytracePipelineIndex()
 
 FString VkLightmapper::LoadPrivateShaderLump(const char* lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
-	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
+	return fb->GetShaderCache()->GetPrivateFile(lumpname).Code;
 }
 
 FString VkLightmapper::LoadPublicShaderLump(const char* lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
-	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
-	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
-}
-
-ShaderIncludeResult VkLightmapper::OnInclude(FString headerName, FString includerName, size_t depth, bool system)
-{
-	if (depth > 8)
-		I_Error("Too much include recursion!");
-
-	FString includeguardname;
-	includeguardname << "_HEADERGUARD_" << headerName.GetChars();
-	includeguardname.ReplaceChars("/\\.", '_');
-
-	FString code;
-	code << "#ifndef " << includeguardname.GetChars() << "\n";
-	code << "#define " << includeguardname.GetChars() << "\n";
-	code << "#line 1\n";
-
-	if (system)
-		code << LoadPrivateShaderLump(headerName.GetChars()).GetChars() << "\n";
-	else
-		code << LoadPublicShaderLump(headerName.GetChars()).GetChars() << "\n";
-
-	code << "#endif\n";
-
-	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
+	return fb->GetShaderCache()->GetPublicFile(lumpname).Code;
 }
 
 void VkLightmapper::CreateRaytracePipeline()

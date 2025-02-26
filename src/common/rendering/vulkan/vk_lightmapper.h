@@ -135,9 +135,8 @@ private:
 
 	int GetRaytracePipelineIndex();
 
-	static FString LoadPrivateShaderLump(const char* lumpname);
-	static FString LoadPublicShaderLump(const char* lumpname);
-	static ShaderIncludeResult OnInclude(FString headerName, FString includerName, size_t depth, bool system);
+	FString LoadPrivateShaderLump(const char* lumpname);
+	FString LoadPublicShaderLump(const char* lumpname);
 
 	FVector3 SwapYZ(const FVector3& v) { return FVector3(v.X, v.Z, v.Y); }
 

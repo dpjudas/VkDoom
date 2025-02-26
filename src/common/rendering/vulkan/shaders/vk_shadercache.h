@@ -37,6 +37,7 @@ public:
 class VkCachedCompile
 {
 public:
+	uint64_t LastUsed = 0;
 	std::vector<uint32_t> Code;
 	std::vector<VkCachedInclude> Includes;
 };
@@ -45,6 +46,7 @@ class VkShaderCache
 {
 public:
 	VkShaderCache(VulkanRenderDevice* fb);
+	~VkShaderCache();
 
 	std::vector<uint32_t> Compile(ShaderType type, const TArrayView<VkShaderSource>& sources, const std::function<FString(FString)>& includeFilter = {});
 
@@ -52,6 +54,9 @@ public:
 	const VkCachedShaderLump& GetPrivateFile(const FString& lumpname);
 
 private:
+	void Load();
+	void Save();
+
 	FString CalcSha1(ShaderType type, const TArrayView<VkShaderSource>& sources);
 	FString CalcSha1(const FString& str);
 
@@ -59,6 +64,9 @@ private:
 
 	static FString LoadPublicShaderLump(const char* lumpname);
 	static FString LoadPrivateShaderLump(const char* lumpname);
+
+	FString CacheFilename;
+	uint64_t LaunchTime = 0;
 
 	VulkanRenderDevice* fb = nullptr;
 
