@@ -4,9 +4,28 @@
 #include <string>
 #include <functional>
 #include <cstdint>
+#include <cstdlib>
 #include "../core/rect.h"
 
-class Engine;
+#ifndef VULKAN_H_
+
+#define VK_DEFINE_HANDLE(object) typedef struct object##_T* object;
+
+#if defined(__LP64__) || defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
+#define VK_DEFINE_NON_DISPATCHABLE_HANDLE(object) typedef struct object##_T *object;
+#else
+#define VK_DEFINE_NON_DISPATCHABLE_HANDLE(object) typedef uint64_t object;
+#endif
+
+VK_DEFINE_HANDLE(VkInstance)
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VkSurfaceKHR)
+
+#endif
+
+class Widget;
+class OpenFileDialog;
+class SaveFileDialog;
+class OpenFolderDialog;
 
 enum class StandardCursor
 {
@@ -93,6 +112,17 @@ enum class InputKey : uint32_t
 	NoName, PA1, OEMClear
 };
 
+enum class RenderAPI
+{
+	Unspecified,
+	Bitmap,
+	Vulkan,
+	OpenGL,
+	D3D11,
+	D3D12,
+	Metal
+};
+
 class DisplayWindow;
 
 class DisplayWindowHost
@@ -119,7 +149,7 @@ public:
 class DisplayWindow
 {
 public:
-	static std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost, bool popupWindow, DisplayWindow* owner);
+	static std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost, bool popupWindow, DisplayWindow* owner, RenderAPI renderAPI);
 
 	static void ProcessEvents();
 	static void RunLoop();
@@ -140,6 +170,7 @@ public:
 	virtual void ShowMaximized() = 0;
 	virtual void ShowMinimized() = 0;
 	virtual void ShowNormal() = 0;
+	virtual bool IsWindowFullscreen() = 0;
 	virtual void Hide() = 0;
 	virtual void Activate() = 0;
 	virtual void ShowCursor(bool enable) = 0;
@@ -171,4 +202,42 @@ public:
 	virtual void SetClipboardText(const std::string& text) = 0;
 
 	virtual void* GetNativeHandle() = 0;
+
+	virtual std::vector<std::string> GetVulkanInstanceExtensions() = 0;
+	virtual VkSurfaceKHR CreateVulkanSurface(VkInstance instance) = 0;
+};
+
+class DisplayBackend
+{
+public:
+	static DisplayBackend* Get();
+	static void Set(std::unique_ptr<DisplayBackend> instance);
+
+	static std::unique_ptr<DisplayBackend> TryCreateWin32();
+	static std::unique_ptr<DisplayBackend> TryCreateSDL2();
+	static std::unique_ptr<DisplayBackend> TryCreateX11();
+	static std::unique_ptr<DisplayBackend> TryCreateWayland();
+
+	static std::unique_ptr<DisplayBackend> TryCreateBackend();
+
+	virtual ~DisplayBackend() = default;
+
+	virtual bool IsWin32() { return false; }
+	virtual bool IsSDL2() { return false; }
+	virtual bool IsX11() { return false; }
+	virtual bool IsWayland() { return false; }
+
+	virtual std::unique_ptr<DisplayWindow> Create(DisplayWindowHost* windowHost, bool popupWindow, DisplayWindow* owner, RenderAPI renderAPI) = 0;
+	virtual void ProcessEvents() = 0;
+	virtual void RunLoop() = 0;
+	virtual void ExitLoop() = 0;
+
+	virtual void* StartTimer(int timeoutMilliseconds, std::function<void()> onTimer) = 0;
+	virtual void StopTimer(void* timerID) = 0;
+
+	virtual Size GetScreenSize() = 0;
+
+	virtual std::unique_ptr<OpenFileDialog> CreateOpenFileDialog(DisplayWindow* owner);
+	virtual std::unique_ptr<SaveFileDialog> CreateSaveFileDialog(DisplayWindow* owner);
+	virtual std::unique_ptr<OpenFolderDialog> CreateOpenFolderDialog(DisplayWindow* owner);
 };

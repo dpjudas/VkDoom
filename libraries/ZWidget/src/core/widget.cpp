@@ -7,13 +7,17 @@
 #include <cmath>
 #include <algorithm>
 
-Widget::Widget(Widget* parent, WidgetType type) : Type(type)
+Widget::Widget(Widget* parent, WidgetType type, RenderAPI renderAPI) : Type(type)
 {
 	if (type != WidgetType::Child)
 	{
 		Widget* owner = parent ? parent->Window() : nullptr;
-		DispWindow = DisplayWindow::Create(this, type == WidgetType::Popup, owner ? owner->DispWindow.get() : nullptr);
-		DispCanvas = Canvas::create(DispWindow.get());
+		DispWindow = DisplayWindow::Create(this, type == WidgetType::Popup, owner ? owner->DispWindow.get() : nullptr, renderAPI);
+		if (renderAPI == RenderAPI::Unspecified || renderAPI == RenderAPI::Bitmap)
+		{
+			DispCanvas = Canvas::create();
+			DispCanvas->attach(DispWindow.get());
+		}
 		SetStyleState("root");
 
 		SetWindowBackground(GetStyleColor("window-background"));
@@ -30,6 +34,9 @@ Widget::Widget(Widget* parent, WidgetType type) : Type(type)
 
 Widget::~Widget()
 {
+	if (DispCanvas)
+		DispCanvas->detach();
+
 	while (LastChildObj)
 		delete LastChildObj;
 
@@ -37,6 +44,17 @@ Widget::~Widget()
 		delete FirstTimerObj;
 
 	DetachFromParent();
+}
+
+void Widget::SetCanvas(std::unique_ptr<Canvas> canvas)
+{
+	if (DispWindow)
+	{
+		if (DispCanvas)
+			DispCanvas->detach();
+		DispCanvas = std::move(canvas);
+		DispCanvas->attach(DispWindow.get());
+	}
 }
 
 void Widget::SetParent(Widget* newParent)
@@ -204,6 +222,15 @@ void Widget::ShowFullscreen()
 	}
 }
 
+bool Widget::IsFullscreen()
+{
+	if (Type != WidgetType::Child)
+	{
+		return DispWindow->IsWindowFullscreen();
+	}
+	return false;
+}
+
 void Widget::ShowMaximized()
 {
 	if (Type != WidgetType::Child)
@@ -307,9 +334,12 @@ void Widget::Update()
 void Widget::Repaint()
 {
 	Widget* w = Window();
-	w->DispCanvas->begin(WindowBackground);
-	w->Paint(w->DispCanvas.get());
-	w->DispCanvas->end();
+	if (w->DispCanvas)
+	{
+		w->DispCanvas->begin(WindowBackground);
+		w->Paint(w->DispCanvas.get());
+		w->DispCanvas->end();
+	}
 }
 
 void Widget::Paint(Canvas* canvas)
@@ -429,7 +459,7 @@ void Widget::SetCursor(StandardCursor cursor)
 	}
 }
 
-void Widget::CaptureMouse()
+void Widget::SetPointerCapture()
 {
 	Widget* w = Window();
 	if (w && w->CaptureWidget != this)
@@ -439,13 +469,31 @@ void Widget::CaptureMouse()
 	}
 }
 
-void Widget::ReleaseMouseCapture()
+void Widget::ReleasePointerCapture()
 {
 	Widget* w = Window();
 	if (w && w->CaptureWidget != nullptr)
 	{
 		w->CaptureWidget = nullptr;
 		w->DispWindow->ReleaseMouseCapture();
+	}
+}
+
+void Widget::SetModalCapture()
+{
+	Widget* w = Window();
+	if (w && w->CaptureWidget != this)
+	{
+		w->CaptureWidget = this;
+	}
+}
+
+void Widget::ReleaseModalCapture()
+{
+	Widget* w = Window();
+	if (w && w->CaptureWidget != nullptr)
+	{
+		w->CaptureWidget = nullptr;
 	}
 }
 
@@ -483,6 +531,24 @@ Canvas* Widget::GetCanvas() const
 			return w->DispCanvas.get();
 	}
 	return nullptr;
+}
+
+bool Widget::IsParent(const Widget* w) const
+{
+	while (w)
+	{
+		w = w->Parent();
+		if (w == this)
+			return true;
+	}
+	return false;
+}
+
+bool Widget::IsChild(const Widget* w) const
+{
+	if (!w)
+		return false;
+	return w->IsParent(this);
 }
 
 Widget* Widget::ChildAt(const Point& pos)
@@ -788,6 +854,18 @@ void* Widget::GetNativeHandle()
 {
 	Widget* w = Window();
 	return w ? w->DispWindow->GetNativeHandle() : nullptr;
+}
+
+int Widget::GetNativePixelWidth()
+{
+	Widget* w = Window();
+	return w ? w->DispWindow->GetPixelWidth() : 0;
+}
+
+int Widget::GetNativePixelHeight()
+{
+	Widget* w = Window();
+	return w ? w->DispWindow->GetPixelHeight() : 0;
 }
 
 void Widget::SetStyleClass(const std::string& themeClass)

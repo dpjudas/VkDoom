@@ -1,4 +1,4 @@
-#include <algorithm>
+
 #include "widgets/lineedit/lineedit.h"
 #include "core/utf8reader.h"
 #include "core/colorf.h"
@@ -19,8 +19,6 @@ LineEdit::LineEdit(Widget* parent) : Widget(parent)
 
 LineEdit::~LineEdit()
 {
-	delete timer;
-	delete scroll_timer;
 }
 
 bool LineEdit::IsReadOnly() const
@@ -310,7 +308,7 @@ bool LineEdit::OnMouseDown(const Point& pos, InputKey key)
 	{
 		if (HasFocus())
 		{
-			CaptureMouse();
+			SetPointerCapture();
 			mouse_selecting = true;
 			cursor_pos = GetCharacterIndex(pos.x);
 			SetTextSelection(cursor_pos, 0);
@@ -335,14 +333,14 @@ bool LineEdit::OnMouseUp(const Point& pos, InputKey key)
 	{
 		if (ignore_mouse_events) // This prevents text selection from changing from what was set when focus was gained.
 		{
-			ReleaseMouseCapture();
+			ReleasePointerCapture();
 			ignore_mouse_events = false;
 			mouse_selecting = false;
 		}
 		else
 		{
 			scroll_timer->Stop();
-			ReleaseMouseCapture();
+			ReleasePointerCapture();
 			mouse_selecting = false;
 			int sel_end = GetCharacterIndex(pos.x);
 			SetSelectionLength(sel_end - selection_start);

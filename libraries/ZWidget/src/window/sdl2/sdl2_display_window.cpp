@@ -1,6 +1,7 @@
 
-#include "sdl2displaywindow.h"
+#include "sdl2_display_window.h"
 #include <stdexcept>
+#include <SDL2/SDL_vulkan.h>
 
 Uint32 SDL2DisplayWindow::PaintEventNumber = 0xffffffff;
 bool SDL2DisplayWindow::ExitRunLoop;
@@ -24,23 +25,43 @@ static void CheckInitSDL()
 	static InitSDL initsdl;
 }
 
-SDL2DisplayWindow::SDL2DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, SDL2DisplayWindow* owner) : WindowHost(windowHost)
+SDL2DisplayWindow::SDL2DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, SDL2DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost)
 {
 	CheckInitSDL();
 
 	unsigned int flags = SDL_WINDOW_HIDDEN /*| SDL_WINDOW_ALLOW_HIGHDPI*/;
+	if (renderAPI == RenderAPI::Vulkan)
+		flags |= SDL_WINDOW_VULKAN;
+	else if (renderAPI == RenderAPI::OpenGL)
+		flags |= SDL_WINDOW_OPENGL;
+#if defined(__APPLE__)
+	else if (renderAPI == RenderAPI::Metal)
+		flags |= SDL_WINDOW_METAL;
+#endif
 	if (popupWindow)
 		flags |= SDL_WINDOW_BORDERLESS;
-	int result = SDL_CreateWindowAndRenderer(320, 200, flags, &WindowHandle, &RendererHandle);
-	if (result != 0)
-		throw std::runtime_error(std::string("Unable to create SDL window:") + SDL_GetError());
+
+	if (renderAPI == RenderAPI::Vulkan || renderAPI == RenderAPI::OpenGL || renderAPI == RenderAPI::Metal)
+	{
+		Handle.window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 320, 200, flags);
+		if (!Handle.window)
+			throw std::runtime_error(std::string("Unable to create SDL window:") + SDL_GetError());
+	}
+	else
+	{
+		int result = SDL_CreateWindowAndRenderer(320, 200, flags, &Handle.window, &RendererHandle);
+		if (result != 0)
+			throw std::runtime_error(std::string("Unable to create SDL window:") + SDL_GetError());
+	}
 	
-	WindowList[SDL_GetWindowID(WindowHandle)] = this;
+	WindowList[SDL_GetWindowID(Handle.window)] = this;
 }
 
 SDL2DisplayWindow::~SDL2DisplayWindow()
 {
-	WindowList.erase(WindowList.find(SDL_GetWindowID(WindowHandle)));
+	UnlockCursor();
+
+	WindowList.erase(WindowList.find(SDL_GetWindowID(Handle.window)));
 
 	if (BackBufferTexture)
 	{
@@ -48,15 +69,39 @@ SDL2DisplayWindow::~SDL2DisplayWindow()
 		BackBufferTexture = nullptr;
 	}
 
-	SDL_DestroyRenderer(RendererHandle);
-	SDL_DestroyWindow(WindowHandle);
+	if (RendererHandle)
+		SDL_DestroyRenderer(RendererHandle);
+	SDL_DestroyWindow(Handle.window);
 	RendererHandle = nullptr;
-	WindowHandle = nullptr;
+	Handle.window = nullptr;
+}
+
+std::vector<std::string> SDL2DisplayWindow::GetVulkanInstanceExtensions()
+{
+	unsigned int extCount = 0;
+	SDL_Vulkan_GetInstanceExtensions(Handle.window, &extCount, nullptr);
+	std::vector<const char*> extNames(extCount);
+	SDL_Vulkan_GetInstanceExtensions(Handle.window, &extCount, extNames.data());
+
+	std::vector<std::string> result;
+	result.reserve(extNames.size());
+	for (const char* ext : extNames)
+		result.emplace_back(ext);
+	return result;
+}
+
+VkSurfaceKHR SDL2DisplayWindow::CreateVulkanSurface(VkInstance instance)
+{
+	VkSurfaceKHR surfaceHandle = {};
+	SDL_Vulkan_CreateSurface(Handle.window, instance, &surfaceHandle);
+	if (surfaceHandle)
+		throw std::runtime_error("Could not create vulkan surface");
+	return surfaceHandle;
 }
 
 void SDL2DisplayWindow::SetWindowTitle(const std::string& text)
 {
-	SDL_SetWindowTitle(WindowHandle, text.c_str());
+	SDL_SetWindowTitle(Handle.window, text.c_str());
 }
 
 void SDL2DisplayWindow::SetWindowFrame(const Rect& box)
@@ -76,46 +121,54 @@ void SDL2DisplayWindow::SetClientFrame(const Rect& box)
 	int w = (int)std::round(box.width * uiscale);
 	int h = (int)std::round(box.height * uiscale);
 
-	SDL_SetWindowPosition(WindowHandle, x, y);
-	SDL_SetWindowSize(WindowHandle, w, h);
+	SDL_SetWindowPosition(Handle.window, x, y);
+	SDL_SetWindowSize(Handle.window, w, h);
 }
 
 void SDL2DisplayWindow::Show()
 {
-	SDL_ShowWindow(WindowHandle);
+	SDL_ShowWindow(Handle.window);
 }
 
 void SDL2DisplayWindow::ShowFullscreen()
 {
-	SDL_SetWindowFullscreen(WindowHandle, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	SDL_ShowWindow(Handle.window);
+	SDL_SetWindowFullscreen(Handle.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	isFullscreen = true;
 }
 
 void SDL2DisplayWindow::ShowMaximized()
 {
-	SDL_ShowWindow(WindowHandle);
-	SDL_MaximizeWindow(WindowHandle);
+	SDL_ShowWindow(Handle.window);
+	SDL_MaximizeWindow(Handle.window);
 }
 
 void SDL2DisplayWindow::ShowMinimized()
 {
-	SDL_ShowWindow(WindowHandle);
-	SDL_MinimizeWindow(WindowHandle);
+	SDL_ShowWindow(Handle.window);
+	SDL_MinimizeWindow(Handle.window);
 }
 
 void SDL2DisplayWindow::ShowNormal()
 {
-	SDL_ShowWindow(WindowHandle);
-	SDL_SetWindowFullscreen(WindowHandle, 0);
+	SDL_ShowWindow(Handle.window);
+	SDL_SetWindowFullscreen(Handle.window, 0);
+	isFullscreen = false;
+}
+
+bool SDL2DisplayWindow::IsWindowFullscreen()
+{
+	return isFullscreen;
 }
 
 void SDL2DisplayWindow::Hide()
 {
-	SDL_HideWindow(WindowHandle);
+	SDL_HideWindow(Handle.window);
 }
 
 void SDL2DisplayWindow::Activate()
 {
-	SDL_RaiseWindow(WindowHandle);
+	SDL_RaiseWindow(Handle.window);
 }
 
 void SDL2DisplayWindow::ShowCursor(bool enable)
@@ -125,14 +178,20 @@ void SDL2DisplayWindow::ShowCursor(bool enable)
 
 void SDL2DisplayWindow::LockCursor()
 {
-	SDL_SetWindowGrab(WindowHandle, SDL_TRUE);
-	SDL_ShowCursor(0);
+	if (!CursorLocked)
+	{
+		SDL_SetRelativeMouseMode(SDL_TRUE);
+		CursorLocked = true;
+	}
 }
 
 void SDL2DisplayWindow::UnlockCursor()
 {
-	SDL_SetWindowGrab(WindowHandle, SDL_FALSE);
-	SDL_ShowCursor(1);
+	if (CursorLocked)
+	{
+		SDL_SetRelativeMouseMode(SDL_FALSE);
+		CursorLocked = false;
+	}
 }
 
 void SDL2DisplayWindow::CaptureMouse()
@@ -151,7 +210,7 @@ void SDL2DisplayWindow::Update()
 {
 	SDL_Event event = {};
 	event.type = PaintEventNumber;
-	event.user.windowID = SDL_GetWindowID(WindowHandle);
+	event.user.windowID = SDL_GetWindowID(Handle.window);
 	SDL_PushEvent(&event);
 }
 
@@ -172,8 +231,8 @@ Rect SDL2DisplayWindow::GetWindowFrame() const
 	int w = 0;
 	int h = 0;
 	double uiscale = GetDpiScale();
-	SDL_GetWindowPosition(WindowHandle, &x, &y);
-	SDL_GetWindowSize(WindowHandle, &w, &h);
+	SDL_GetWindowPosition(Handle.window, &x, &y);
+	SDL_GetWindowSize(Handle.window, &w, &h);
 	return Rect::xywh(x / uiscale, y / uiscale, w / uiscale, h / uiscale);
 }
 
@@ -182,7 +241,7 @@ Point SDL2DisplayWindow::MapFromGlobal(const Point& pos) const
 	int x = 0;
 	int y = 0;
 	double uiscale = GetDpiScale();
-	SDL_GetWindowPosition(WindowHandle, &x, &y);
+	SDL_GetWindowPosition(Handle.window, &x, &y);
 	return Point(pos.x - x / uiscale, pos.y - y / uiscale);
 }
 
@@ -191,7 +250,7 @@ Point SDL2DisplayWindow::MapToGlobal(const Point& pos) const
 	int x = 0;
 	int y = 0;
 	double uiscale = GetDpiScale();
-	SDL_GetWindowPosition(WindowHandle, &x, &y);
+	SDL_GetWindowPosition(Handle.window, &x, &y);
 	return Point(pos.x + x / uiscale, pos.y + y / uiscale);
 }
 
@@ -200,7 +259,7 @@ Size SDL2DisplayWindow::GetClientSize() const
 	int w = 0;
 	int h = 0;
 	double uiscale = GetDpiScale();
-	SDL_GetWindowSize(WindowHandle, &w, &h);
+	SDL_GetWindowSize(Handle.window, &w, &h);
 	return Size(w / uiscale, h / uiscale);
 }
 
@@ -208,7 +267,10 @@ int SDL2DisplayWindow::GetPixelWidth() const
 {
 	int w = 0;
 	int h = 0;
-	int result = SDL_GetRendererOutputSize(RendererHandle, &w, &h);
+	if (RendererHandle)
+		SDL_GetRendererOutputSize(RendererHandle, &w, &h);
+	else
+		SDL_GL_GetDrawableSize(Handle.window, &w, &h);
 	return w;
 }
 
@@ -216,7 +278,10 @@ int SDL2DisplayWindow::GetPixelHeight() const
 {
 	int w = 0;
 	int h = 0;
-	int result = SDL_GetRendererOutputSize(RendererHandle, &w, &h);
+	if (RendererHandle)
+		SDL_GetRendererOutputSize(RendererHandle, &w, &h);
+	else
+		SDL_GL_GetDrawableSize(Handle.window, &w, &h);
 	return h;
 }
 
@@ -228,6 +293,9 @@ double SDL2DisplayWindow::GetDpiScale() const
 
 void SDL2DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pixels)
 {
+	if (!RendererHandle)
+		return;
+
 	if (!BackBufferTexture || BackBufferWidth != width || BackBufferHeight != height)
 	{
 		if (BackBufferTexture)
@@ -305,6 +373,7 @@ void SDL2DisplayWindow::RunLoop()
 {
 	CheckInitSDL();
 
+	ExitRunLoop = false;
 	while (!ExitRunLoop)
 	{
 		SDL_Event event = {};
@@ -463,7 +532,14 @@ void SDL2DisplayWindow::OnMouseWheel(const SDL_MouseWheelEvent& event)
 
 void SDL2DisplayWindow::OnMouseMotion(const SDL_MouseMotionEvent& event)
 {
-	WindowHost->OnWindowMouseMove(GetMousePos(event));
+	if (CursorLocked)
+	{
+		WindowHost->OnWindowRawMouseMove(event.xrel, event.yrel);
+	}
+	else
+	{
+		WindowHost->OnWindowMouseMove(GetMousePos(event));
+	}
 }
 
 void SDL2DisplayWindow::OnPaintEvent()

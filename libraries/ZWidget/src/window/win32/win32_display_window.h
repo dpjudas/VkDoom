@@ -1,15 +1,17 @@
 #pragma once
 
+#include "win32_util.h"
+
 #include <list>
 #include <unordered_map>
 #include <zwidget/window/window.h>
-#include <SDL2/SDL.h>
+#include <zwidget/window/win32nativehandle.h>
 
-class SDL2DisplayWindow : public DisplayWindow
+class Win32DisplayWindow : public DisplayWindow
 {
 public:
-	SDL2DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, SDL2DisplayWindow* owner);
-	~SDL2DisplayWindow();
+	Win32DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, Win32DisplayWindow* owner, RenderAPI renderAPI);
+	~Win32DisplayWindow();
 
 	void SetWindowTitle(const std::string& text) override;
 	void SetWindowFrame(const Rect& box) override;
@@ -19,6 +21,7 @@ public:
 	void ShowMaximized() override;
 	void ShowMinimized() override;
 	void ShowNormal() override;
+	bool IsWindowFullscreen() override;
 	void Hide() override;
 	void Activate() override;
 	void ShowCursor(bool enable) override;
@@ -28,7 +31,9 @@ public:
 	void ReleaseMouseCapture() override;
 	void Update() override;
 	bool GetKeyState(InputKey key) override;
+
 	void SetCursor(StandardCursor cursor) override;
+	void UpdateCursor();
 
 	Rect GetWindowFrame() const override;
 	Size GetClientSize() const override;
@@ -48,32 +53,12 @@ public:
 	Point MapFromGlobal(const Point& pos) const override;
 	Point MapToGlobal(const Point& pos) const override;
 
-	void* GetNativeHandle() override { return WindowHandle; }
+	Point GetLParamPos(LPARAM lparam) const;
 
-	static void DispatchEvent(const SDL_Event& event);
-	static SDL2DisplayWindow* FindEventWindow(const SDL_Event& event);
+	void* GetNativeHandle() override { return &WindowHandle; }
 
-	void OnWindowEvent(const SDL_WindowEvent& event);
-	void OnTextInput(const SDL_TextInputEvent& event);
-	void OnKeyUp(const SDL_KeyboardEvent& event);
-	void OnKeyDown(const SDL_KeyboardEvent& event);
-	void OnMouseButtonUp(const SDL_MouseButtonEvent& event);
-	void OnMouseButtonDown(const SDL_MouseButtonEvent& event);
-	void OnMouseWheel(const SDL_MouseWheelEvent& event);
-	void OnMouseMotion(const SDL_MouseMotionEvent& event);
-	void OnPaintEvent();
-
-	InputKey GetMouseButtonKey(const SDL_MouseButtonEvent& event);
-
-	static InputKey ScancodeToInputKey(SDL_Scancode keycode);
-	static SDL_Scancode InputKeyToScancode(InputKey inputkey);
-
-	template<typename T>
-	Point GetMousePos(const T& event)
-	{
-		double uiscale = GetDpiScale();
-		return Point(event.x / uiscale, event.y / uiscale);
-	}
+	std::vector<std::string> GetVulkanInstanceExtensions() override;
+	VkSurfaceKHR CreateVulkanSurface(VkInstance instance) override;
 
 	static void ProcessEvents();
 	static void RunLoop();
@@ -83,14 +68,27 @@ public:
 	static void* StartTimer(int timeoutMilliseconds, std::function<void()> onTimer);
 	static void StopTimer(void* timerID);
 
-	DisplayWindowHost* WindowHost = nullptr;
-	SDL_Window* WindowHandle = nullptr;
-	SDL_Renderer* RendererHandle = nullptr;
-	SDL_Texture* BackBufferTexture = nullptr;
-	int BackBufferWidth = 0;
-	int BackBufferHeight = 0;
-
 	static bool ExitRunLoop;
-	static Uint32 PaintEventNumber;
-	static std::unordered_map<int, SDL2DisplayWindow*> WindowList;
+	static std::list<Win32DisplayWindow*> Windows;
+	std::list<Win32DisplayWindow*>::iterator WindowsIterator;
+
+	static std::unordered_map<UINT_PTR, std::function<void()>> Timers;
+
+	LRESULT OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam);
+	static LRESULT CALLBACK WndProc(HWND windowhandle, UINT msg, WPARAM wparam, LPARAM lparam);
+
+	DisplayWindowHost* WindowHost = nullptr;
+	bool PopupWindow = false;
+
+	Win32NativeHandle WindowHandle;
+	bool Fullscreen = false;
+
+	bool MouseLocked = false;
+	POINT MouseLockPos = {};
+
+	bool TrackMouseActive = false;
+
+	HDC PaintDC = 0;
+
+	StandardCursor CurrentCursor = StandardCursor::arrow;
 };

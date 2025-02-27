@@ -1,5 +1,5 @@
 
-#include "win32displaywindow.h"
+#include "win32_display_window.h"
 #include <windowsx.h>
 #include <stdexcept>
 #include <cmath>
@@ -28,40 +28,12 @@
 #define RIDEV_INPUTSINK	(0x100)
 #endif
 
-static std::string from_utf16(const std::wstring& str)
-{
-	if (str.empty()) return {};
-	int needed = WideCharToMultiByte(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0, nullptr, nullptr);
-	if (needed == 0)
-		throw std::runtime_error("WideCharToMultiByte failed");
-	std::string result;
-	result.resize(needed);
-	needed = WideCharToMultiByte(CP_UTF8, 0, str.data(), (int)str.size(), &result[0], (int)result.size(), nullptr, nullptr);
-	if (needed == 0)
-		throw std::runtime_error("WideCharToMultiByte failed");
-	return result;
-}
-
-static std::wstring to_utf16(const std::string& str)
-{
-	if (str.empty()) return {};
-	int needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
-	if (needed == 0)
-		throw std::runtime_error("MultiByteToWideChar failed");
-	std::wstring result;
-	result.resize(needed);
-	needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), &result[0], (int)result.size());
-	if (needed == 0)
-		throw std::runtime_error("MultiByteToWideChar failed");
-	return result;
-}
-
-Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, Win32DisplayWindow* owner) : WindowHost(windowHost)
+Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, Win32DisplayWindow* owner, RenderAPI renderAPI) : WindowHost(windowHost), PopupWindow(popupWindow)
 {
 	Windows.push_front(this);
 	WindowsIterator = Windows.begin();
 
-	WNDCLASSEXW classdesc = {};
+	WNDCLASSEX classdesc = {};
 	classdesc.cbSize = sizeof(WNDCLASSEX);
 	classdesc.hInstance = GetModuleHandle(0);
 	classdesc.style = CS_VREDRAW | CS_HREDRAW | CS_DBLCLKS;
@@ -78,6 +50,7 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, bool popup
 	DWORD style = 0, exstyle = 0;
 	if (popupWindow)
 	{
+		exstyle = WS_EX_NOACTIVATE;
 		style = WS_POPUP;
 	}
 	else
@@ -85,24 +58,15 @@ Win32DisplayWindow::Win32DisplayWindow(DisplayWindowHost* windowHost, bool popup
 		exstyle = WS_EX_APPWINDOW | WS_EX_DLGMODALFRAME;
 		style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
 	}
-	CreateWindowEx(exstyle, L"ZWidgetWindow", L"", style, 0, 0, 100, 100, owner ? owner->WindowHandle : 0, 0, GetModuleHandle(0), this);
-
-	/*
-	RAWINPUTDEVICE rid;
-	rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
-	rid.usUsage = HID_USAGE_GENERIC_MOUSE;
-	rid.dwFlags = RIDEV_INPUTSINK;
-	rid.hwndTarget = WindowHandle;
-	BOOL result = RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
-	*/
+	CreateWindowEx(exstyle, L"ZWidgetWindow", L"", style, 0, 0, 100, 100, owner ? owner->WindowHandle.hwnd : 0, 0, GetModuleHandle(0), this);
 }
 
 Win32DisplayWindow::~Win32DisplayWindow()
 {
-	if (WindowHandle)
+	if (WindowHandle.hwnd)
 	{
-		DestroyWindow(WindowHandle);
-		WindowHandle = 0;
+		DestroyWindow(WindowHandle.hwnd);
+		WindowHandle.hwnd = 0;
 	}
 
 	Windows.erase(WindowsIterator);
@@ -110,31 +74,31 @@ Win32DisplayWindow::~Win32DisplayWindow()
 
 void Win32DisplayWindow::SetWindowTitle(const std::string& text)
 {
-	SetWindowText(WindowHandle, to_utf16(text).c_str());
+	SetWindowText(WindowHandle.hwnd, to_utf16(text).c_str());
 }
 
 void Win32DisplayWindow::SetBorderColor(uint32_t bgra8)
 {
 	bgra8 = bgra8 & 0x00ffffff;
-	DwmSetWindowAttribute(WindowHandle, 34/*DWMWA_BORDER_COLOR*/, &bgra8, sizeof(uint32_t));
+	DwmSetWindowAttribute(WindowHandle.hwnd, 34/*DWMWA_BORDER_COLOR*/, &bgra8, sizeof(uint32_t));
 }
 
 void Win32DisplayWindow::SetCaptionColor(uint32_t bgra8)
 {
 	bgra8 = bgra8 & 0x00ffffff;
-	DwmSetWindowAttribute(WindowHandle, 35/*DWMWA_CAPTION_COLOR*/, &bgra8, sizeof(uint32_t));
+	DwmSetWindowAttribute(WindowHandle.hwnd, 35/*DWMWA_CAPTION_COLOR*/, &bgra8, sizeof(uint32_t));
 }
 
 void Win32DisplayWindow::SetCaptionTextColor(uint32_t bgra8)
 {
 	bgra8 = bgra8 & 0x00ffffff;
-	DwmSetWindowAttribute(WindowHandle, 36/*DWMWA_TEXT_COLOR*/, &bgra8, sizeof(uint32_t));
+	DwmSetWindowAttribute(WindowHandle.hwnd, 36/*DWMWA_TEXT_COLOR*/, &bgra8, sizeof(uint32_t));
 }
 
 void Win32DisplayWindow::SetWindowFrame(const Rect& box)
 {
 	double dpiscale = GetDpiScale();
-	SetWindowPos(WindowHandle, nullptr, (int)std::round(box.x * dpiscale), (int)std::round(box.y * dpiscale), (int)std::round(box.width * dpiscale), (int)std::round(box.height * dpiscale), SWP_NOACTIVATE | SWP_NOZORDER);
+	SetWindowPos(WindowHandle.hwnd, nullptr, (int)std::round(box.x * dpiscale), (int)std::round(box.y * dpiscale), (int)std::round(box.width * dpiscale), (int)std::round(box.height * dpiscale), SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
 void Win32DisplayWindow::SetClientFrame(const Rect& box)
@@ -147,16 +111,16 @@ void Win32DisplayWindow::SetClientFrame(const Rect& box)
 	rect.right = rect.left + (int)std::round(box.width * dpiscale);
 	rect.bottom = rect.top + (int)std::round(box.height * dpiscale);
 
-	DWORD style = (DWORD)GetWindowLongPtr(WindowHandle, GWL_STYLE);
-	DWORD exstyle = (DWORD)GetWindowLongPtr(WindowHandle, GWL_EXSTYLE);
-	AdjustWindowRectExForDpi(&rect, style, FALSE, exstyle, GetDpiForWindow(WindowHandle));
+	DWORD style = (DWORD)GetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE);
+	DWORD exstyle = (DWORD)GetWindowLongPtr(WindowHandle.hwnd, GWL_EXSTYLE);
+	AdjustWindowRectExForDpi(&rect, style, FALSE, exstyle, GetDpiForWindow(WindowHandle.hwnd));
 
-	SetWindowPos(WindowHandle, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_NOZORDER);
+	SetWindowPos(WindowHandle.hwnd, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
 void Win32DisplayWindow::Show()
 {
-	ShowWindow(WindowHandle, SW_SHOW);
+	ShowWindow(WindowHandle.hwnd, PopupWindow ? SW_SHOWNA : SW_SHOW);
 }
 
 void Win32DisplayWindow::ShowFullscreen()
@@ -165,35 +129,47 @@ void Win32DisplayWindow::ShowFullscreen()
 	int width = GetDeviceCaps(screenDC, HORZRES);
 	int height = GetDeviceCaps(screenDC, VERTRES);
 	ReleaseDC(0, screenDC);
-	SetWindowLongPtr(WindowHandle, GWL_EXSTYLE, WS_EX_APPWINDOW);
-	SetWindowLongPtr(WindowHandle, GWL_STYLE, WS_OVERLAPPED);
-	SetWindowPos(WindowHandle, HWND_TOP, 0, 0, width, height, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+	DWORD dwStyle = GetWindowLong(WindowHandle.hwnd, GWL_STYLE);
+	SetWindowLongPtr(WindowHandle.hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW);
+	SetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE, dwStyle & ~WS_OVERLAPPEDWINDOW);
+	SetWindowPos(WindowHandle.hwnd, HWND_TOP, 0, 0, width, height, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 	Fullscreen = true;
 }
 
 void Win32DisplayWindow::ShowMaximized()
 {
-	ShowWindow(WindowHandle, SW_SHOWMAXIMIZED);
+	ShowWindow(WindowHandle.hwnd, SW_SHOWMAXIMIZED);
 }
 
 void Win32DisplayWindow::ShowMinimized()
 {
-	ShowWindow(WindowHandle, SW_SHOWMINIMIZED);
+	ShowWindow(WindowHandle.hwnd, SW_SHOWMINIMIZED);
 }
 
 void Win32DisplayWindow::ShowNormal()
 {
-	ShowWindow(WindowHandle, SW_NORMAL);
+	if (Fullscreen)
+	{
+		SetWindowLongPtr(WindowHandle.hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+		Fullscreen = false;
+	}
+	ShowWindow(WindowHandle.hwnd, SW_NORMAL);
+}
+
+bool Win32DisplayWindow::IsWindowFullscreen()
+{
+	return Fullscreen;
 }
 
 void Win32DisplayWindow::Hide()
 {
-	ShowWindow(WindowHandle, SW_HIDE);
+	ShowWindow(WindowHandle.hwnd, SW_HIDE);
 }
 
 void Win32DisplayWindow::Activate()
 {
-	SetFocus(WindowHandle);
+	if (!PopupWindow)
+		SetFocus(WindowHandle.hwnd);
 }
 
 void Win32DisplayWindow::ShowCursor(bool enable)
@@ -207,6 +183,13 @@ void Win32DisplayWindow::LockCursor()
 		MouseLocked = true;
 		GetCursorPos(&MouseLockPos);
 		::ShowCursor(FALSE);
+
+		RAWINPUTDEVICE rid = {};
+		rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
+		rid.usUsage = HID_USAGE_GENERIC_MOUSE;
+		rid.dwFlags = RIDEV_INPUTSINK;
+		rid.hwndTarget = WindowHandle.hwnd;
+		RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
 	}
 }
 
@@ -214,6 +197,13 @@ void Win32DisplayWindow::UnlockCursor()
 {
 	if (MouseLocked)
 	{
+		RAWINPUTDEVICE rid = {};
+		rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
+		rid.usUsage = HID_USAGE_GENERIC_MOUSE;
+		rid.dwFlags = RIDEV_REMOVE;
+		rid.hwndTarget = 0;
+		RegisterRawInputDevices(&rid, 1, sizeof(rid));
+
 		MouseLocked = false;
 		SetCursorPos(MouseLockPos.x, MouseLockPos.y);
 		::ShowCursor(TRUE);
@@ -222,7 +212,7 @@ void Win32DisplayWindow::UnlockCursor()
 
 void Win32DisplayWindow::CaptureMouse()
 {
-	SetCapture(WindowHandle);
+	SetCapture(WindowHandle.hwnd);
 }
 
 void Win32DisplayWindow::ReleaseMouseCapture()
@@ -232,7 +222,7 @@ void Win32DisplayWindow::ReleaseMouseCapture()
 
 void Win32DisplayWindow::Update()
 {
-	InvalidateRect(WindowHandle, nullptr, FALSE);
+	InvalidateRect(WindowHandle.hwnd, nullptr, FALSE);
 }
 
 bool Win32DisplayWindow::GetKeyState(InputKey key)
@@ -252,9 +242,9 @@ void Win32DisplayWindow::SetCursor(StandardCursor cursor)
 Rect Win32DisplayWindow::GetWindowFrame() const
 {
 	RECT box = {};
-	GetWindowRect(WindowHandle, &box);
+	GetWindowRect(WindowHandle.hwnd, &box);
 	double dpiscale = GetDpiScale();
-	return Rect(box.left / dpiscale, box.top / dpiscale, box.right / dpiscale, box.bottom / dpiscale);
+	return Rect(box.left / dpiscale, box.top / dpiscale, (box.right - box.left) / dpiscale, (box.bottom - box.top) / dpiscale);
 }
 
 Point Win32DisplayWindow::MapFromGlobal(const Point& pos) const
@@ -263,7 +253,7 @@ Point Win32DisplayWindow::MapFromGlobal(const Point& pos) const
 	POINT point = {};
 	point.x = (LONG)std::round(pos.x / dpiscale);
 	point.y = (LONG)std::round(pos.y / dpiscale);
-	ScreenToClient(WindowHandle, &point);
+	ScreenToClient(WindowHandle.hwnd, &point);
 	return Point(point.x * dpiscale, point.y * dpiscale);
 }
 
@@ -273,14 +263,14 @@ Point Win32DisplayWindow::MapToGlobal(const Point& pos) const
 	POINT point = {};
 	point.x = (LONG)std::round(pos.x * dpiscale);
 	point.y = (LONG)std::round(pos.y * dpiscale);
-	ClientToScreen(WindowHandle, &point);
+	ClientToScreen(WindowHandle.hwnd, &point);
 	return Point(point.x / dpiscale, point.y / dpiscale);
 }
 
 Size Win32DisplayWindow::GetClientSize() const
 {
 	RECT box = {};
-	GetClientRect(WindowHandle, &box);
+	GetClientRect(WindowHandle.hwnd, &box);
 	double dpiscale = GetDpiScale();
 	return Size(box.right / dpiscale, box.bottom / dpiscale);
 }
@@ -288,25 +278,25 @@ Size Win32DisplayWindow::GetClientSize() const
 int Win32DisplayWindow::GetPixelWidth() const
 {
 	RECT box = {};
-	GetClientRect(WindowHandle, &box);
+	GetClientRect(WindowHandle.hwnd, &box);
 	return box.right;
 }
 
 int Win32DisplayWindow::GetPixelHeight() const
 {
 	RECT box = {};
-	GetClientRect(WindowHandle, &box);
+	GetClientRect(WindowHandle.hwnd, &box);
 	return box.bottom;
 }
 
 double Win32DisplayWindow::GetDpiScale() const
 {
-	return GetDpiForWindow(WindowHandle) / 96.0;
+	return GetDpiForWindow(WindowHandle.hwnd) / 96.0;
 }
 
 std::string Win32DisplayWindow::GetClipboardText()
 {
-	BOOL result = OpenClipboard(WindowHandle);
+	BOOL result = OpenClipboard(WindowHandle.hwnd);
 	if (result == FALSE)
 		throw std::runtime_error("Unable to open clipboard");
 
@@ -334,7 +324,7 @@ void Win32DisplayWindow::SetClipboardText(const std::string& text)
 {
 	std::wstring text16 = to_utf16(text);
 
-	BOOL result = OpenClipboard(WindowHandle);
+	BOOL result = OpenClipboard(WindowHandle.hwnd);
 	if (result == FALSE)
 		throw std::runtime_error("Unable to open clipboard");
 
@@ -395,14 +385,14 @@ void Win32DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pi
 	if (dc != 0)
 	{
 		int result = SetDIBitsToDevice(dc, 0, 0, width, height, 0, 0, 0, height, pixels, (const BITMAPINFO*)&header, BI_RGB);
-		ReleaseDC(WindowHandle, dc);
+		ReleaseDC(WindowHandle.hwnd, dc);
 	}
 }
 
 LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	LPARAM result = 0;
-	if (DwmDefWindowProc(WindowHandle, msg, wparam, lparam, &result))
+	if (DwmDefWindowProc(WindowHandle.hwnd, msg, wparam, lparam, &result))
 		return result;
 
 	if (msg == WM_INPUT)
@@ -427,16 +417,16 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 				}
 			}
 		}
-		return DefWindowProc(WindowHandle, msg, wparam, lparam);
+		return DefWindowProc(WindowHandle.hwnd, msg, wparam, lparam);
 	}
 	else if (msg == WM_PAINT)
 	{
 		PAINTSTRUCT paintStruct = {};
-		PaintDC = BeginPaint(WindowHandle, &paintStruct);
+		PaintDC = BeginPaint(WindowHandle.hwnd, &paintStruct);
 		if (PaintDC)
 		{
 			WindowHost->OnWindowPaint();
-			EndPaint(WindowHandle, &paintStruct);
+			EndPaint(WindowHandle.hwnd, &paintStruct);
 			PaintDC = 0;
 		}
 		return 0;
@@ -445,17 +435,23 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 	{
 		WindowHost->OnWindowActivated();
 	}
+	else if (msg == WM_MOUSEACTIVATE)
+	{
+		// We don't want to activate the window on mouse clicks as that changes the focus from the popup owner to the popup itself
+		if (PopupWindow)
+			return MA_NOACTIVATE;
+	}
 	else if (msg == WM_MOUSEMOVE)
 	{
 		if (MouseLocked && GetFocus() != 0)
 		{
 			RECT box = {};
-			GetClientRect(WindowHandle, &box);
+			GetClientRect(WindowHandle.hwnd, &box);
 
 			POINT center = {};
 			center.x = box.right / 2;
 			center.y = box.bottom / 2;
-			ClientToScreen(WindowHandle, &center);
+			ClientToScreen(WindowHandle.hwnd, &center);
 
 			SetCursorPos(center.x, center.y);
 		}
@@ -468,7 +464,7 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		{
 			TRACKMOUSEEVENT eventTrack = {};
 			eventTrack.cbSize = sizeof(TRACKMOUSEEVENT);
-			eventTrack.hwndTrack = WindowHandle;
+			eventTrack.hwndTrack = WindowHandle.hwnd;
 			eventTrack.dwFlags = TME_LEAVE;
 			if (TrackMouseEvent(&eventTrack))
 				TrackMouseActive = true;
@@ -526,7 +522,7 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		POINT pos;
 		pos.x = GET_X_LPARAM(lparam);
 		pos.y = GET_Y_LPARAM(lparam);
-		ScreenToClient(WindowHandle, &pos);
+		ScreenToClient(WindowHandle.hwnd, &pos);
 
 		WindowHost->OnWindowMouseWheel(Point(pos.x / dpiscale, pos.y / dpiscale), delta < 0.0 ? InputKey::MouseWheelDown : InputKey::MouseWheelUp);
 	}
@@ -573,7 +569,7 @@ LRESULT Win32DisplayWindow::OnWindowMessage(UINT msg, WPARAM wparam, LPARAM lpar
 		return WVR_REDRAW;
 	}*/
 
-	return DefWindowProc(WindowHandle, msg, wparam, lparam);
+	return DefWindowProc(WindowHandle.hwnd, msg, wparam, lparam);
 }
 
 void Win32DisplayWindow::UpdateCursor()
@@ -612,7 +608,7 @@ LRESULT Win32DisplayWindow::WndProc(HWND windowhandle, UINT msg, WPARAM wparam, 
 	{
 		CREATESTRUCT* createstruct = (CREATESTRUCT*)lparam;
 		Win32DisplayWindow* viewport = (Win32DisplayWindow*)createstruct->lpCreateParams;
-		viewport->WindowHandle = windowhandle;
+		viewport->WindowHandle.hwnd = windowhandle;
 		SetWindowLongPtr(windowhandle, GWLP_USERDATA, (LONG_PTR)viewport);
 		return viewport->OnWindowMessage(msg, wparam, lparam);
 	}
@@ -625,7 +621,7 @@ LRESULT Win32DisplayWindow::WndProc(HWND windowhandle, UINT msg, WPARAM wparam, 
 			if (msg == WM_DESTROY)
 			{
 				SetWindowLongPtr(windowhandle, GWLP_USERDATA, 0);
-				viewport->WindowHandle = 0;
+				viewport->WindowHandle.hwnd = 0;
 			}
 			return result;
 		}
@@ -675,6 +671,87 @@ Size Win32DisplayWindow::GetScreenSize()
 	ReleaseDC(0, screenDC);
 
 	return Size(screenWidth / dpiScale, screenHeight / dpiScale);
+}
+
+// This is to avoid needing all the Vulkan headers and the volk binding library just for this:
+#ifndef VK_VERSION_1_0
+
+#define VKAPI_CALL __stdcall
+#define VKAPI_PTR VKAPI_CALL
+
+typedef uint32_t VkFlags;
+typedef enum VkStructureType { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR = 1000009000, VK_OBJECT_TYPE_MAX_ENUM = 0x7FFFFFFF } VkStructureType;
+typedef enum VkResult { VK_SUCCESS = 0, VK_RESULT_MAX_ENUM = 0x7FFFFFFF } VkResult;
+typedef struct VkAllocationCallbacks VkAllocationCallbacks;
+
+typedef void (VKAPI_PTR* PFN_vkVoidFunction)(void);
+typedef PFN_vkVoidFunction(VKAPI_PTR* PFN_vkGetInstanceProcAddr)(VkInstance instance, const char* pName);
+
+#ifndef VK_KHR_win32_surface
+
+typedef VkFlags VkWin32SurfaceCreateFlagsKHR;
+typedef struct VkWin32SurfaceCreateInfoKHR
+{
+	VkStructureType                 sType;
+	const void* pNext;
+	VkWin32SurfaceCreateFlagsKHR    flags;
+	HINSTANCE                       hinstance;
+	HWND                            hwnd;
+} VkWin32SurfaceCreateInfoKHR;
+
+typedef VkResult(VKAPI_PTR* PFN_vkCreateWin32SurfaceKHR)(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
+
+#endif
+#endif
+
+class ZWidgetVulkanLoader
+{
+public:
+	ZWidgetVulkanLoader()
+	{
+		module = LoadLibraryA("vulkan-1.dll");
+		if (!module)
+			throw std::runtime_error("Could not load vulkan-1.dll");
+
+		vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)(void(*)(void))GetProcAddress(module, "vkGetInstanceProcAddr");
+		if (!vkGetInstanceProcAddr)
+		{
+			FreeLibrary(module);
+			throw std::runtime_error("vkGetInstanceProcAddr not found in vulkan-1.dll");
+		}
+	}
+
+	~ZWidgetVulkanLoader()
+	{
+		FreeLibrary(module);
+	}
+
+	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
+	HMODULE module = {};
+};
+
+VkSurfaceKHR Win32DisplayWindow::CreateVulkanSurface(VkInstance instance)
+{
+	static ZWidgetVulkanLoader loader;
+
+	auto vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)loader.vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR");
+	if (!vkCreateWin32SurfaceKHR)
+		throw std::runtime_error("Could not create vulkan surface");
+
+	VkWin32SurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+	createInfo.hwnd = WindowHandle.hwnd;
+	createInfo.hinstance = GetModuleHandle(nullptr);
+
+	VkSurfaceKHR surface = {};
+	VkResult result = vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface);
+	if (result != VK_SUCCESS)
+		throw std::runtime_error("Could not create vulkan surface");
+	return surface;
+}
+
+std::vector<std::string> Win32DisplayWindow::GetVulkanInstanceExtensions()
+{
+	return { "VK_KHR_surface", "VK_KHR_win32_surface" };
 }
 
 static void CALLBACK Win32TimerCallback(HWND handle, UINT message, UINT_PTR timerID, DWORD timestamp)
