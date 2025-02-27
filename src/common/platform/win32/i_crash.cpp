@@ -202,7 +202,7 @@ void CrashReporter::create_dump(DumpParams* dump_params, bool launch_uploader)
 			written = tmp;
 			return result == TRUE;
 		};
-	mainwindow.GetLog(writeFile);
+	GetLog(writeFile);
 	CloseHandle(file);
 
 	if (launch_uploader && !uploader_exe.empty())

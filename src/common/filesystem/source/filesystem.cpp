@@ -1440,6 +1440,7 @@ bool FileSystem::CreatePathlessCopy(const char *name, int id, int /*flags*/)
 
 #ifdef _WIN32
 //#define WIN32_LEAN_AND_MEAN
+//#define NOMINMAX
 //#include <windows.h>
 
 extern "C" {

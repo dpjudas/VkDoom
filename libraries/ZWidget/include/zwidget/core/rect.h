@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#undef min
+#undef max
 
 class Point
 {

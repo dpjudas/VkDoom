@@ -257,7 +257,7 @@ int M_MigrateOldConfig()
 	taskDialogConfig.cButtons = countof(buttons);
 	taskDialogConfig.pszWindowTitle = titlestr;
 	taskDialogConfig.pszContent = infostr;
-	taskDialogConfig.hwndParent = mainwindow.GetHandle();
+	taskDialogConfig.hwndParent = mainwindow->GetHandle();
 	taskDialogConfig.dwFlags = TDF_USE_COMMAND_LINKS;
 	TaskDialogIndirect(&taskDialogConfig, &selection, NULL, NULL);
 	if (selection == IDYES || selection == IDNO) return selection;

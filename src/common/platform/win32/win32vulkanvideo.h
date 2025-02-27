@@ -7,7 +7,6 @@
 #include <zvulkan/vulkansurface.h>
 #include <zvulkan/vulkanbuilders.h>
 
-void I_GetVulkanDrawableSize(int* width, int* height);
 bool I_CreateVulkanSurface(VkInstance instance, VkSurfaceKHR* surface);
 bool I_GetVulkanPlatformExtensions(unsigned int* count, const char** names);
 

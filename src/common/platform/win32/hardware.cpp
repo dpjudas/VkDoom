@@ -72,12 +72,12 @@ void I_InitGraphics ()
 {
 	// If the focus window is destroyed, it doesn't go back to the active window.
 	// (e.g. because the net pane was up, and a button on it had focus)
-	if (GetFocus() == NULL && GetActiveWindow() == mainwindow.GetHandle())
+	if (GetFocus() == NULL && GetActiveWindow() == mainwindow->GetHandle())
 	{
 		// Make sure it's in the foreground and focused. (It probably is
 		// already foregrounded but may not be focused.)
-		SetForegroundWindow(mainwindow.GetHandle());
-		SetFocus(mainwindow.GetHandle());
+		SetForegroundWindow(mainwindow->GetHandle());
+		SetFocus(mainwindow->GetHandle());
 		// Note that when I start a 2-player game on the same machine, the
 		// window for the game that isn't focused, active, or foregrounded
 		// still receives a WM_ACTIVATEAPP message telling it that it's the

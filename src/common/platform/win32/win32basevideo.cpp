@@ -32,6 +32,8 @@
 **
 */
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 
 #include "hardware.h"
@@ -59,7 +61,7 @@ CVAR(Int, vid_adapter, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 Win32BaseVideo::Win32BaseVideo()
 {
-	mainwindow.ShowGameView();
+	mainwindow->ShowGameView();
 
 	GetDisplayDeviceName();
 }

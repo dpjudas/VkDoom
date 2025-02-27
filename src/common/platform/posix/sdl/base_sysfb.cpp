@@ -264,12 +264,6 @@ private:
 // CODE --------------------------------------------------------------------
 
 #ifdef HAVE_VULKAN
-void I_GetVulkanDrawableSize(int *width, int *height)
-{
-	assert(Priv::window != nullptr);
-	SDL_Vulkan_GetDrawableSize(Priv::window, width, height);
-}
-
 bool I_GetVulkanPlatformExtensions(unsigned int *count, const char **names)
 {
 	assert(Priv::window != nullptr);

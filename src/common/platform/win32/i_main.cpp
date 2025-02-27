@@ -44,6 +44,8 @@
 #include <shellapi.h>
 #include <VersionHelpers.h>
 
+#include <zwidget/core/theme.h>
+
 #ifdef _MSC_VER
 #pragma warning(disable:4244)
 #endif
@@ -198,7 +200,6 @@ void InitExePath()
 
 int DoMain (HINSTANCE hInstance)
 {
-	LONG WinWidth, WinHeight;
 	int height, width, x, y;
 	RECT cRect;
 	DEVMODE displaysettings;
@@ -271,6 +272,9 @@ int DoMain (HINSTANCE hInstance)
 	InitTimer();
 	InitExePath();
 
+	DisplayBackend::Set(DisplayBackend::TryCreateWin32());
+	WidgetTheme::SetTheme(std::make_unique<DarkWidgetTheme>());
+
 	HDC screenDC = GetDC(0);
 	int dpi = GetDeviceCaps(screenDC, LOGPIXELSX);
 	ReleaseDC(0, screenDC);
@@ -292,16 +296,11 @@ int DoMain (HINSTANCE hInstance)
 
 	/* create window */
 	FStringf caption("" GAMENAME " %s " X64 " (%s)", GetVersionString(), GetGitTime());
-	mainwindow.Create(caption, x, y, width, height);
-
-	GetClientRect (mainwindow.GetHandle(), &cRect);
-
-	WinWidth = cRect.right;
-	WinHeight = cRect.bottom;
+	mainwindow = new MainWindow(caption, x, y, width, height);
 
 	int ret = GameMain ();
 
-	if (mainwindow.CheckForRestart())
+	if (CheckForRestart())
 	{
 		HMODULE hModule = GetModuleHandleW(nullptr);
 		WCHAR path[MAX_PATH];
@@ -319,7 +318,7 @@ int DoMain (HINSTANCE hInstance)
 				DWORD bytes;
 				HANDLE stdinput = GetStdHandle(STD_INPUT_HANDLE);
 
-				ShowWindow(mainwindow.GetHandle(), SW_HIDE);
+				mainwindow->Hide();
 				if (StdOut != nullptr) WriteFile(StdOut, "Press any key to exit...", 24, &bytes, nullptr);
 				FlushConsoleInputBuffer(stdinput);
 				SetConsoleMode(stdinput, 0);
@@ -327,7 +326,7 @@ int DoMain (HINSTANCE hInstance)
 			}
 			else if (StdOut == nullptr)
 			{
-				mainwindow.ShowErrorPane(nullptr);
+				ShowErrorPane(nullptr);
 			}
 		}
 	}
@@ -337,8 +336,8 @@ int DoMain (HINSTANCE hInstance)
 void I_ShowFatalError(const char *msg)
 {
 	I_ShutdownGraphics ();
-	if (!RunningAsTool)
-		mainwindow.RestoreConView();
+	if (mainwindow)
+		mainwindow->RestoreConView();
 	S_StopMusic(true);
 
 	if (CVMAbortException::stacktrace.IsNotEmpty())
@@ -348,7 +347,7 @@ void I_ShowFatalError(const char *msg)
 
 	if (!batchrun && !RunningAsTool)
 	{
-		mainwindow.ShowErrorPane(msg);
+		ShowErrorPane(msg);
 	}
 	else
 	{
@@ -358,7 +357,8 @@ void I_ShowFatalError(const char *msg)
 
 void I_SetWindowTitle(const char* caption)
 {
-	mainwindow.SetWindowTitle(caption);
+	if (mainwindow)
+		mainwindow->SetWindowTitle(caption);
 }
 
 //==========================================================================

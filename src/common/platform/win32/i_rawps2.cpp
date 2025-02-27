@@ -936,7 +936,7 @@ bool FRawPS2Manager::GetDevice()
 	rid.usUsagePage = HID_GENERIC_DESKTOP_PAGE;
 	rid.usUsage = HID_GDP_JOYSTICK;
 	rid.dwFlags = RIDEV_INPUTSINK;
-	rid.hwndTarget = mainwindow.GetHandle();
+	rid.hwndTarget = mainwindow->GetHandle();
 	if (!RegisterRawInputDevices(&rid, 1, sizeof(rid)))
 	{
 		return false;
@@ -1304,7 +1304,7 @@ void FRawPS2Manager::DoRegister()
 		if (!Registered)
 		{
 			rid.dwFlags = RIDEV_INPUTSINK;
-			rid.hwndTarget = mainwindow.GetHandle();
+			rid.hwndTarget = mainwindow->GetHandle();
 			if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
 			{
 				Registered = true;

@@ -332,7 +332,7 @@ static void PrintToStdOut(const char *cpt, HANDLE StdOut)
 
 void I_PrintStr(const char *cp)
 {
-	mainwindow.PrintStr(cp);
+	PrintStr(cp);
 	PrintToStdOut(cp, StdOut);
 }
 
@@ -435,16 +435,16 @@ bool I_SetCursor(FGameTexture *cursorpic)
 		DestroyCustomCursor();
 		cursor = LoadCursor(NULL, IDC_ARROW);
 	}
-	SetClassLongPtr(mainwindow.GetHandle(), GCLP_HCURSOR, (LONG_PTR)cursor);
+	SetClassLongPtr(mainwindow->GetHandle(), GCLP_HCURSOR, (LONG_PTR)cursor);
 	if (NativeMouse)
 	{
 		POINT pt;
 		RECT client;
 
 		// If the mouse pointer is within the window's client rect, set it now.
-		if (GetCursorPos(&pt) && GetClientRect(mainwindow.GetHandle(), &client) &&
-			ClientToScreen(mainwindow.GetHandle(), (LPPOINT)&client.left) &&
-			ClientToScreen(mainwindow.GetHandle(), (LPPOINT)&client.right))
+		if (GetCursorPos(&pt) && GetClientRect(mainwindow->GetHandle(), &client) &&
+			ClientToScreen(mainwindow->GetHandle(), (LPPOINT)&client.left) &&
+			ClientToScreen(mainwindow->GetHandle(), (LPPOINT)&client.right))
 		{
 			if (pt.x >= client.left && pt.x < client.right &&
 				pt.y >= client.top && pt.y < client.bottom)
@@ -665,7 +665,7 @@ bool I_WriteIniFailed(const char* filename)
 	);
 	errortext.Format ("The config file %s could not be written:\n%s", filename, lpMsgBuf);
 	LocalFree (lpMsgBuf);
-	return MessageBoxA(mainwindow.GetHandle(), errortext.GetChars(), GAMENAME " configuration not saved", MB_ICONEXCLAMATION | MB_RETRYCANCEL) == IDRETRY;
+	return MessageBoxA(mainwindow->GetHandle(), errortext.GetChars(), GAMENAME " configuration not saved", MB_ICONEXCLAMATION | MB_RETRYCANCEL) == IDRETRY;
 }
 
 

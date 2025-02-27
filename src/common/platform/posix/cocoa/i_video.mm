@@ -745,24 +745,6 @@ void I_SetWindowTitle(const char* title)
 
 
 #ifdef HAVE_VULKAN
-void I_GetVulkanDrawableSize(int *width, int *height)
-{
-	NSWindow* const window = CocoaVideo::GetWindow();
-	assert(window != nil);
-
-	const NSSize size = I_GetContentViewSize(window);
-
-	if (width != nullptr)
-	{
-		*width = int(size.width);
-	}
-
-	if (height != nullptr)
-	{
-		*height = int(size.height);
-	}
-}
-
 bool I_CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *surface)
 {
 	NSView *const view = CocoaVideo::GetWindow().contentView;

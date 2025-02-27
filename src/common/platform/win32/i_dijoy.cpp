@@ -383,7 +383,7 @@ bool FDInputJoystick::GetDevice()
 		Printf(TEXTCOLOR_ORANGE "Setting data format for %s failed.\n", Name.GetChars());
 		return false;
 	}
-	hr = Device->SetCooperativeLevel(mainwindow.GetHandle(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+	hr = Device->SetCooperativeLevel(mainwindow->GetHandle(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
 	if (FAILED(hr))
 	{
 		Printf(TEXTCOLOR_ORANGE "Setting cooperative level for %s failed.\n", Name.GetChars());

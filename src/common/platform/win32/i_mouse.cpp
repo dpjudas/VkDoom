@@ -194,7 +194,7 @@ static bool mouse_shown = true;
 void SetCursorState(bool visible)
 {
 	CursorState = visible || !m_hidepointer;
-	if (GetForegroundWindow() == mainwindow.GetHandle())
+	if (GetForegroundWindow() == mainwindow->GetHandle())
 	{
 		if (CursorState)
 		{
@@ -228,7 +228,7 @@ static void CenterMouse(int curx, int cury, LONG *centxp, LONG *centyp)
 {
 	RECT rect;
 
-	GetWindowRect(mainwindow.GetHandle(), &rect);
+	GetWindowRect(mainwindow->GetHandle(), &rect);
 
 	int centx = (rect.left + rect.right) >> 1;
 	int centy = (rect.top + rect.bottom) >> 1;
@@ -287,7 +287,7 @@ void I_CheckNativeMouse(bool preferNative, bool eventhandlerresult)
 		want_native = true;
 
 	// The application should *never* grab the mouse cursor if its window doesn't have the focus.
-	if (GetForegroundWindow() != mainwindow.GetHandle())
+	if (GetForegroundWindow() != mainwindow->GetHandle())
 		want_native = true;
 
 	//Printf ("%d %d %d\n", wantNative, preferNative, NativeMouse);
@@ -508,7 +508,7 @@ bool FRawMouse::GetDevice()
 	rid.usUsagePage = HID_GENERIC_DESKTOP_PAGE;
 	rid.usUsage = HID_GDP_MOUSE;
 	rid.dwFlags = 0;
-	rid.hwndTarget = mainwindow.GetHandle();
+	rid.hwndTarget = mainwindow->GetHandle();
 	if (!RegisterRawInputDevices(&rid, 1, sizeof(rid)))
 	{
 		return false;
@@ -534,7 +534,7 @@ void FRawMouse::Grab()
 		rid.usUsagePage = HID_GENERIC_DESKTOP_PAGE;
 		rid.usUsage = HID_GDP_MOUSE;
 		rid.dwFlags = RIDEV_CAPTUREMOUSE | RIDEV_NOLEGACY;
-		rid.hwndTarget = mainwindow.GetHandle();
+		rid.hwndTarget = mainwindow->GetHandle();
 		if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
 		{
 			GetCursorPos(&UngrabbedPointerPos);
@@ -732,7 +732,7 @@ ufailit:
 		return false;
 	}
 
-	hr = Device->SetCooperativeLevel(mainwindow.GetHandle(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+	hr = Device->SetCooperativeLevel(mainwindow->GetHandle(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
 	if (FAILED(hr))
 	{
 		goto ufailit;
@@ -1080,11 +1080,11 @@ void FWin32Mouse::Grab()
 
 	GetCursorPos(&UngrabbedPointerPos);
 	ClipCursor(NULL);		// helps with Win95?
-	GetClientRect(mainwindow.GetHandle(), &rect);
+	GetClientRect(mainwindow->GetHandle(), &rect);
 
 	// Reposition the rect so that it only covers the client area.
-	ClientToScreen(mainwindow.GetHandle(), (LPPOINT)&rect.left);
-	ClientToScreen(mainwindow.GetHandle(), (LPPOINT)&rect.right);
+	ClientToScreen(mainwindow->GetHandle(), (LPPOINT)&rect.left);
+	ClientToScreen(mainwindow->GetHandle(), (LPPOINT)&rect.right);
 
 	ClipCursor(&rect);
 	SetCursorState(false);

@@ -145,7 +145,7 @@ static void I_CheckGUICapture ()
 
 void I_SetMouseCapture()
 {
-	SetCapture(mainwindow.GetHandle());
+	SetCapture(mainwindow->GetHandle());
 }
 
 void I_ReleaseMouseCapture()
@@ -697,7 +697,7 @@ IJoystickConfig *I_UpdateDeviceList()
 
 void I_PutInClipboard (const char *str)
 {
-	if (str == NULL || !OpenClipboard (mainwindow.GetHandle()))
+	if (str == NULL || !OpenClipboard (mainwindow->GetHandle()))
 		return;
 	EmptyClipboard ();
 
@@ -722,7 +722,7 @@ FString I_GetFromClipboard (bool return_nothing)
 	HGLOBAL cliphandle;
 	wchar_t *clipstr;
 
-	if (return_nothing || !IsClipboardFormatAvailable (CF_UNICODETEXT) || !OpenClipboard (mainwindow.GetHandle()))
+	if (return_nothing || !IsClipboardFormatAvailable (CF_UNICODETEXT) || !OpenClipboard (mainwindow->GetHandle()))
 		return retstr;
 
 	cliphandle = GetClipboardData (CF_UNICODETEXT);

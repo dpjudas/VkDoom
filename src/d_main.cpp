@@ -31,6 +31,7 @@
 #ifdef _WIN32
 #include <direct.h>
 #define WIN32_MEAN_AND_LEAN
+#define NOMINMAX
 #include <Windows.h>
 #endif
 
@@ -3901,14 +3902,18 @@ int D_DoomMain_Game()
 
 int GameMain()
 {
-	// On Windows, prefer the native win32 backend.
-	// On other platforms, use SDL until the other backends are more mature.
-	auto zwidget = DisplayBackend::TryCreateWin32();
-	if (!zwidget)
-		zwidget = DisplayBackend::TryCreateSDL2();
-	if (!zwidget)
-		return -1;
-	DisplayBackend::Set(std::move(zwidget));
+	// To do: remove this once MainWindow is used on all platforms
+	if (!DisplayBackend::Get())
+	{
+		// On Windows, prefer the native win32 backend.
+		// On other platforms, use SDL until the other backends are more mature.
+		auto zwidget = DisplayBackend::TryCreateWin32();
+		if (!zwidget)
+			zwidget = DisplayBackend::TryCreateSDL2();
+		if (!zwidget)
+			return -1;
+		DisplayBackend::Set(std::move(zwidget));
+	}
 
 	int ret = 0;
 	GameTicRate = TICRATE;

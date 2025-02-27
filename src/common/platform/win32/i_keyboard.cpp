@@ -342,7 +342,7 @@ ufailit:
 		return false;
 	}
 
-	hr = Device->SetCooperativeLevel(mainwindow.GetHandle(), DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
+	hr = Device->SetCooperativeLevel(mainwindow->GetHandle(), DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 	if (FAILED(hr))
 	{
 		goto ufailit;
@@ -374,7 +374,7 @@ void FDInputKeyboard::ProcessInput()
 	DIDEVICEOBJECTDATA od;
 	DWORD dwElements;
 	HRESULT hr;
-	bool foreground = (GetForegroundWindow() == mainwindow.GetHandle());
+	bool foreground = (GetForegroundWindow() == mainwindow->GetHandle());
 
 	for (;;)
 	{
@@ -443,7 +443,7 @@ bool FRawKeyboard::GetDevice()
 	rid.usUsagePage = HID_GENERIC_DESKTOP_PAGE;
 	rid.usUsage = HID_GDP_KEYBOARD;
 	rid.dwFlags = RIDEV_INPUTSINK;
-	rid.hwndTarget = mainwindow.GetHandle();
+	rid.hwndTarget = mainwindow->GetHandle();
 	if (!RegisterRawInputDevices(&rid, 1, sizeof(rid)))
 	{
 		return false;

@@ -1295,6 +1295,7 @@ void FString::Split(TArray<FString>& tokens, const char *delimiter, EmptyTokenTy
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 
 // Convert from and to Windows wide strings so that we can interface with the Unicode version of the Windows API.

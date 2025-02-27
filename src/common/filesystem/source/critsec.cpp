@@ -35,6 +35,7 @@
 
 #ifndef _WINNT_
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #endif
 

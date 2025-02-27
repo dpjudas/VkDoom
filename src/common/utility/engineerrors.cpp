@@ -38,6 +38,8 @@ bool gameisdead;
 #include <cstdarg>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include "zstring.h"
 void I_DebugPrint(const char *cp)

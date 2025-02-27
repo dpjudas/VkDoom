@@ -2,6 +2,7 @@
 #if defined(WIN32)
 
 #define WIN32_MEAN_AND_LEAN
+#define NOMINMAX
 #include <Windows.h>
 
 int I_ToolMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdShow);

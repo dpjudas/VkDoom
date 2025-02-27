@@ -33,6 +33,7 @@
 */
 
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <GL/gl.h>
 #include "wglext.h"
@@ -73,22 +74,18 @@ EXTERN_CVAR(Int, vid_defheight)
 
  void SystemBaseFrameBuffer::GetCenteredPos(int in_w, int in_h, int &winx, int &winy, int &winw, int &winh, int &scrwidth, int &scrheight)
 {
-	DEVMODE displaysettings;
-	RECT rect;
-	int cx, cy;
-
-	memset(&displaysettings, 0, sizeof(displaysettings));
+	DEVMODE displaysettings = {};
 	displaysettings.dmSize = sizeof(displaysettings);
-	EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &displaysettings);
+	EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &displaysettings);
 	scrwidth = (int)displaysettings.dmPelsWidth;
 	scrheight = (int)displaysettings.dmPelsHeight;
-	GetWindowRect(mainwindow.GetHandle(), &rect);
-	cx = scrwidth / 2;
-	cy = scrheight / 2;
+	
+	int cx = scrwidth / 2;
+	int cy = scrheight / 2;
 	if (in_w > 0) winw = in_w;
-	else winw = rect.right - rect.left;
+	else winw = mainwindow->GetNativePixelWidth();
 	if (in_h > 0) winh = in_h;
-	else winh = rect.bottom - rect.top;
+	else winh = mainwindow->GetNativePixelHeight();
 	winx = cx - winw / 2;
 	winy = cy - winh / 2;
 }
@@ -136,11 +133,11 @@ void SystemBaseFrameBuffer::SaveWindowedPos()
 	}
 	// Make sure we only save the window position if it's not fullscreen.
 	static const int WINDOW_STYLE = WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX;
-	if ((GetWindowLong(mainwindow.GetHandle(), GWL_STYLE) & WINDOW_STYLE) == WINDOW_STYLE)
+	if ((GetWindowLong(mainwindow->GetHandle(), GWL_STYLE) & WINDOW_STYLE) == WINDOW_STYLE)
 	{
 		RECT wrect;
 
-		if (GetWindowRect(mainwindow.GetHandle(), &wrect))
+		if (GetWindowRect(mainwindow->GetHandle(), &wrect))
 		{
 			// If (win_x,win_y) specify to center the window, don't change them
 			// if the window is still centered.
@@ -168,7 +165,7 @@ void SystemBaseFrameBuffer::SaveWindowedPos()
 			win_h = wrect.bottom - wrect.top;
 		}
 
-		win_maximized = IsZoomed(mainwindow.GetHandle()) == TRUE;
+		win_maximized = IsZoomed(mainwindow->GetHandle()) == TRUE;
 	}
 }
 
@@ -201,10 +198,10 @@ void SystemBaseFrameBuffer::RestoreWindowedPos()
 		}
 		KeepWindowOnScreen(winx, winy, winw, winh, scrwidth, scrheight);
 	}
-	SetWindowPos(mainwindow.GetHandle(), nullptr, winx, winy, winw, winh, SWP_NOZORDER | SWP_FRAMECHANGED);
+	SetWindowPos(mainwindow->GetHandle(), nullptr, winx, winy, winw, winh, SWP_NOZORDER | SWP_FRAMECHANGED);
 
 	if (win_maximized && !Args->CheckParm("-0"))
-		ShowWindow(mainwindow.GetHandle(), SW_MAXIMIZE);
+		ShowWindow(mainwindow->GetHandle(), SW_MAXIMIZE);
 }
 
 //==========================================================================
@@ -223,8 +220,8 @@ void SystemBaseFrameBuffer::SetWindowSize(int w, int h)
 	{
 		LONG style = WS_VISIBLE | WS_CLIPSIBLINGS | WS_OVERLAPPEDWINDOW;
 		LONG exStyle = WS_EX_WINDOWEDGE;
-		SetWindowLong(mainwindow.GetHandle(), GWL_STYLE, style);
-		SetWindowLong(mainwindow.GetHandle(), GWL_EXSTYLE, exStyle);
+		SetWindowLong(mainwindow->GetHandle(), GWL_STYLE, style);
+		SetWindowLong(mainwindow->GetHandle(), GWL_EXSTYLE, exStyle);
 
 		int winx, winy, winw, winh, scrwidth, scrheight;
 
@@ -247,8 +244,8 @@ void SystemBaseFrameBuffer::SetWindowSize(int w, int h)
 
 		if (!vid_fullscreen)
 		{
-			ShowWindow(mainwindow.GetHandle(), SW_SHOWNORMAL);
-			SetWindowPos(mainwindow.GetHandle(), nullptr, winx, winy, winw, winh, SWP_NOZORDER | SWP_FRAMECHANGED);
+			ShowWindow(mainwindow->GetHandle(), SW_SHOWNORMAL);
+			SetWindowPos(mainwindow->GetHandle(), nullptr, winx, winy, winw, winh, SWP_NOZORDER | SWP_FRAMECHANGED);
 			win_maximized = false;
 			SetSize(GetClientWidth(), GetClientHeight());
 			SaveWindowedPos();
@@ -299,9 +296,9 @@ void SystemBaseFrameBuffer::PositionWindow(bool fullscreen, bool initialcall)
 		}
 	}
 
-	ShowWindow(mainwindow.GetHandle(), SW_SHOW);
+	ShowWindow(mainwindow->GetHandle(), SW_SHOW);
 
-	GetWindowRect(mainwindow.GetHandle(), &r);
+	GetWindowRect(mainwindow->GetHandle(), &r);
 	style = WS_VISIBLE | WS_CLIPSIBLINGS;
 	exStyle = 0;
 
@@ -313,13 +310,13 @@ void SystemBaseFrameBuffer::PositionWindow(bool fullscreen, bool initialcall)
 		exStyle |= WS_EX_WINDOWEDGE;
 	}
 
-	SetWindowLong(mainwindow.GetHandle(), GWL_STYLE, style);
-	SetWindowLong(mainwindow.GetHandle(), GWL_EXSTYLE, exStyle);
+	SetWindowLong(mainwindow->GetHandle(), GWL_STYLE, style);
+	SetWindowLong(mainwindow->GetHandle(), GWL_EXSTYLE, exStyle);
 
 	if (fullscreen)
 	{
-		SetWindowPos(mainwindow.GetHandle(), 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-		MoveWindow(mainwindow.GetHandle(), monRect.left, monRect.top, monRect.right-monRect.left, monRect.bottom-monRect.top, FALSE);
+		SetWindowPos(mainwindow->GetHandle(), 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+		MoveWindow(mainwindow->GetHandle(), monRect.left, monRect.top, monRect.right-monRect.left, monRect.bottom-monRect.top, FALSE);
 
 		// And now, seriously, it IS in the right place. Promise.
 	}
@@ -349,9 +346,9 @@ SystemBaseFrameBuffer::SystemBaseFrameBuffer(void *hMonitor, bool fullscreen) : 
 	m_displayDeviceName = 0;
 	PositionWindow(fullscreen, true);
 
-	HDC hDC = GetDC(mainwindow.GetHandle());
+	HDC hDC = GetDC(mainwindow->GetHandle());
 
-	ReleaseDC(mainwindow.GetHandle(), hDC);
+	ReleaseDC(mainwindow->GetHandle(), hDC);
 }
 
 //==========================================================================
@@ -364,10 +361,10 @@ SystemBaseFrameBuffer::~SystemBaseFrameBuffer()
 {
 	if (!m_Fullscreen) SaveWindowedPos();
 
-	ShowWindow (mainwindow.GetHandle(), SW_SHOW);
-	SetWindowLong(mainwindow.GetHandle(), GWL_STYLE, WS_VISIBLE | WS_CLIPSIBLINGS | WS_OVERLAPPEDWINDOW);
-	SetWindowLong(mainwindow.GetHandle(), GWL_EXSTYLE, WS_EX_WINDOWEDGE);
-	SetWindowPos(mainwindow.GetHandle(), 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+	ShowWindow (mainwindow->GetHandle(), SW_SHOW);
+	SetWindowLong(mainwindow->GetHandle(), GWL_STYLE, WS_VISIBLE | WS_CLIPSIBLINGS | WS_OVERLAPPEDWINDOW);
+	SetWindowLong(mainwindow->GetHandle(), GWL_EXSTYLE, WS_EX_WINDOWEDGE);
+	SetWindowPos(mainwindow->GetHandle(), 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
 	static_cast<Win32BaseVideo *>(Video)->Shutdown();
 }
@@ -403,14 +400,10 @@ void SystemBaseFrameBuffer::ToggleFullscreen(bool yes)
 
 int SystemBaseFrameBuffer::GetClientWidth()
 {
-	RECT rect = { 0 };
-	GetClientRect(mainwindow.GetHandle(), &rect);
-	return rect.right - rect.left;
+	return mainwindow->GetNativePixelWidth();
 }
 
 int SystemBaseFrameBuffer::GetClientHeight()
 {
-	RECT rect = { 0 };
-	GetClientRect(mainwindow.GetHandle(), &rect);
-	return rect.bottom - rect.top;
+	return mainwindow->GetNativePixelHeight();
 }
