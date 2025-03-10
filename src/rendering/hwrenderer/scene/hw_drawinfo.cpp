@@ -113,6 +113,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		VPUniforms.mProjectionMatrix.loadIdentity();
 		VPUniforms.mViewMatrix.loadIdentity();
 		VPUniforms.mNormalViewMatrix.loadIdentity();
+		ProjectionMatrix2.loadIdentity();
 		VPUniforms.mViewOffsetX = -screen->mSceneViewport.left;
 		VPUniforms.mViewOffsetY = -screen->mSceneViewport.top;
 		VPUniforms.mViewHeight = viewheight;
@@ -926,63 +927,84 @@ static ETraceStatus CheckForViewpointActor(FTraceResults& res, void* userdata)
 
 static ETraceStatus TraceCallbackForDitherTransparency(FTraceResults& res, void* userdata)
 {
-	int* count = (int*)userdata;
+	BitArray* CurMapSections = (BitArray*)userdata;
 	double bf, bc;
-	(*count)++;
+
 	switch(res.HitType)
 	{
 	case TRACE_HitWall:
-		if (!(res.Line->sidedef[res.Side]->Flags & WALLF_DITHERTRANS))
 		{
-			bf = res.Line->sidedef[res.Side]->sector->floorplane.ZatPoint(res.HitPos.XY());
-			bc = res.Line->sidedef[res.Side]->sector->ceilingplane.ZatPoint(res.HitPos.XY());
-			if ((res.HitPos.Z <= bc) && (res.HitPos.Z >= bf))
+			sector_t* linesec = res.Line->sidedef[res.Side]->sector;
+			if (linesec->subsectorcount > 0 && (*CurMapSections)[linesec->subsectors[0]->mapsection])
 			{
-				res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS;
+				bf = res.Line->sidedef[res.Side]->sector->floorplane.ZatPoint(res.HitPos.XY());
+				bc = res.Line->sidedef[res.Side]->sector->ceilingplane.ZatPoint(res.HitPos.XY());
+				if (res.Line->sidedef[!res.Side])
+				{
+					// Two sided line! So let's find out if mid, top, or bottom texture needs dithered transparency
+					bf = max(bf, res.Line->sidedef[!res.Side]->sector->floorplane.ZatPoint(res.HitPos.XY()));
+					bc = min(bc, res.Line->sidedef[!res.Side]->sector->ceilingplane.ZatPoint(res.HitPos.XY()));
+					if (res.HitPos.Z <= bf) res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS_BOTTOM;
+					else if (res.HitPos.Z < bc) res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS_MID;
+					else res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS_TOP;
+
+					res.Line->sidedef[res.Side]->dithertranscount = max<int>(1, res.Line->sidedef[!res.Side]->sector->e->XFloor.ffloors.Size());
+				}
+				else if ((res.HitPos.Z <= bc) && (res.HitPos.Z >= bf))
+				{
+					res.Line->sidedef[res.Side]->Flags |= WALLF_DITHERTRANS_MID;
+					res.Line->sidedef[res.Side]->dithertranscount = 1;
+				}
 			}
-		}
+ 		}
 		break;
 	case TRACE_HitFloor:
-		if (res.HitPos.Z == res.Sector->floorplane.ZatPoint(res.HitPos))
+		if (res.Sector->subsectorcount > 0 && (*CurMapSections)[res.Sector->subsectors[0]->mapsection] && res.HitVector.dot(res.Sector->floorplane.Normal()) < 0.0)
 		{
-			res.Sector->floorplane.dithertransflag = true;
-		}
-		else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
-		{
-			F3DFloor *rover;
-			int kk;
-			for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
+			if (res.HitPos.Z == res.Sector->floorplane.ZatPoint(res.HitPos))
 			{
-				rover = res.Sector->e->XFloor.ffloors[kk];
-				if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
+				res.Sector->floorplane.dithertransflag = true;
+			}
+			else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
+			{
+				F3DFloor *rover;
+				int kk;
+				for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
 				{
-					if (res.HitPos.Z == rover->top.plane->ZatPoint(res.HitPos))
+					rover = res.Sector->e->XFloor.ffloors[kk];
+					if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
 					{
-						rover->top.plane->dithertransflag = true;
-						break; // Out of for loop
+						if (res.HitPos.Z == rover->top.plane->ZatPoint(res.HitPos))
+						{
+							rover->top.plane->dithertransflag = true;
+							break; // Out of for loop
+						}
 					}
 				}
 			}
 		}
 		break;
 	case TRACE_HitCeiling:
-		if (res.HitPos.Z == res.Sector->ceilingplane.ZatPoint(res.HitPos))
+		if (res.Sector->subsectorcount > 0 && (*CurMapSections)[res.Sector->subsectors[0]->mapsection] && res.HitVector.dot(res.Sector->ceilingplane.Normal()) < 0.0)
 		{
-			res.Sector->ceilingplane.dithertransflag = true;
-		}
-		else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
-		{
-			F3DFloor *rover;
-			int kk;
-			for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
+			if (res.HitPos.Z == res.Sector->ceilingplane.ZatPoint(res.HitPos))
 			{
-				rover = res.Sector->e->XFloor.ffloors[kk];
-				if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
+				res.Sector->ceilingplane.dithertransflag = true;
+			}
+			else if (res.Sector->e->XFloor.ffloors.Size()) // Maybe it was 3D floors
+			{
+				F3DFloor *rover;
+				int kk;
+				for (kk = 0; kk < (int)res.Sector->e->XFloor.ffloors.Size(); kk++)
 				{
-					if (res.HitPos.Z == rover->bottom.plane->ZatPoint(res.HitPos))
+					rover = res.Sector->e->XFloor.ffloors[kk];
+					if ((rover->flags&(FF_EXISTS | FF_RENDERPLANES | FF_THISINSIDE)) == (FF_EXISTS | FF_RENDERPLANES))
 					{
-						rover->bottom.plane->dithertransflag = true;
-						break; // Out of for loop
+						if (res.HitPos.Z == rover->bottom.plane->ZatPoint(res.HitPos))
+						{
+							rover->bottom.plane->dithertransflag = true;
+							break; // Out of for loop
+						}
 					}
 				}
 			}
@@ -999,6 +1021,7 @@ static ETraceStatus TraceCallbackForDitherTransparency(FTraceResults& res, void*
 
 void HWDrawInfo::SetDitherTransFlags(AActor* actor)
 {
+	// This should really be moved to a shader and have the GPU do some shape-tracing.
 	if (actor && actor->Sector)
 	{
 		FTraceResults results;
@@ -1008,13 +1031,11 @@ void HWDrawInfo::SetDitherTransFlags(AActor* actor)
 		DVector3 vvec = actorpos - Viewpoint.Pos;
 		if (Viewpoint.IsOrtho())
 		{
-			vvec += Viewpoint.camera->Pos() - actorpos;
-			vvec *= 5.0; // Should be 4.0? (since zNear is behind screen by 3*dist in VREyeInfo::GetProjection())
+			vvec = 5.0 * Viewpoint.camera->ViewPos->Offset.Length() * Viewpoint.ViewVector3D; // Should be 4.0? (since zNear is behind screen by 3*dist in VREyeInfo::GetProjection())
 		}
 		double distance = vvec.Length() - actor->radius;
 		DVector3 campos = actorpos - vvec;
 		sector_t* startsec;
-		int count = 0;
 
 		vvec = vvec.Unit();
 		campos.X -= horix; campos.Y += horiy; campos.Z += actor->Height * 0.25;
@@ -1022,12 +1043,24 @@ void HWDrawInfo::SetDitherTransFlags(AActor* actor)
 		{
 			startsec = Level->PointInRenderSubsector(campos)->sector;
 			Trace(campos, startsec, vvec, distance,
-				  0, 0, actor, results, 0, TraceCallbackForDitherTransparency, &count);
+				  0, 0, actor, results, TRACE_PortalRestrict, TraceCallbackForDitherTransparency, &CurrentMapSections);
 			campos.Z += actor->Height * 0.5;
 			Trace(campos, startsec, vvec, distance,
-				  0, 0, actor, results, 0, TraceCallbackForDitherTransparency, &count);
+				  0, 0, actor, results, TRACE_PortalRestrict, TraceCallbackForDitherTransparency, &CurrentMapSections);
 			campos.Z -= actor->Height * 0.5;
 			campos.X += horix; campos.Y -= horiy;
+		}
+
+		// Tracers don't work on 3D floors when you are starting in the same sector (standing under them, for example)
+		if (actor->Sector->e->XFloor.ffloors.Size()) // 3D floor
+		{
+			F3DFloor *rover;
+			for (int kk = 0; kk < (int)actor->Sector->e->XFloor.ffloors.Size(); kk++)
+			{
+				rover = actor->Sector->e->XFloor.ffloors[kk];
+				rover->top.plane->dithertransflag = true;
+				rover->bottom.plane->dithertransflag = true;
+			}
 		}
 	}
 }
