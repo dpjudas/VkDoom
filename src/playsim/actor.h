@@ -447,6 +447,7 @@ enum ActorFlag9
 	MF9_NOSECTORDAMAGE			= 0x00000020,	// [inkoalawetrust] Actor ignores any sector-based damage (i.e damaging floors, NOT crushers)
 	MF9_ISPUFF					= 0x00000040,	// [AA] Set on actors by P_SpawnPuff
 	MF9_FORCESECTORDAMAGE		= 0x00000080,	// [inkoalawetrust] Actor ALWAYS takes hurt floor damage if there's any. Even if the floor doesn't have SECMF_HURTMONSTERS.
+	MF9_NOAUTOOFFSKULLFLY		= 0x00000100,	// Don't automatically disable MF_SKULLFLY if velocity is 0.
 };
 
 // --- mobj.renderflags ---
@@ -549,6 +550,8 @@ enum ActorBounceFlag
 	BOUNCE_BounceOnUnrips = 1<<16,	// projectile bounces on actors with DONTRIP
 	BOUNCE_NotOnSky = 1<<17,		// Don't bounce on sky floors / ceilings / walls
 	BOUNCE_DEH = 1<<18,				// Flag was set through Dehacked.
+	BOUNCE_KeepAngle = 1<<19,		// Don't change yaw when bouncing off a surface.
+	BOUNCE_ModifyPitch = 1<<20,		// Change pitch when bouncing off a surface.
 
 	BOUNCE_TypeMask = BOUNCE_Walls | BOUNCE_Floors | BOUNCE_Ceilings | BOUNCE_Actors | BOUNCE_AutoOff | BOUNCE_HereticType | BOUNCE_MBF,
 
@@ -864,7 +867,7 @@ public:
 	void Howl ();
 
 	// plays bouncing sound
-	void PlayBounceSound(bool onfloor);
+	void PlayBounceSound(bool onfloor, double volume);
 
 	// plays pushing sound
 	void PlayPushSound();
@@ -889,7 +892,7 @@ public:
 	// Called when bouncing to allow for custom behavior.
 	// Returns -1 for normal behavior, 0 to stop, and 1 to keep going.
 	// (virtual on the script side only)
-	int SpecialBounceHit(AActor* bounceMobj, line_t* bounceLine, secplane_t* bouncePlane);
+	int SpecialBounceHit(AActor* bounceMobj, line_t* bounceLine, secplane_t* bouncePlane, bool is3DFloor);
 
 	// Returns true if it's okay to switch target to "other" after being attacked by it.
 	bool CallOkayToSwitchTarget(AActor *other);

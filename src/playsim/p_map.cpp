@@ -1880,52 +1880,55 @@ bool P_CheckPosition(AActor *thing, const DVector2 &pos, FCheckPosition &tm, boo
 	FBoundingBox box(pos.X, pos.Y, thing->radius);
 
 	FPortalGroupArray pcheck;
-	FMultiBlockThingsIterator it2(pcheck, thing->Level, pos.X, pos.Y, thing->Z(), thing->Height, thing->radius, false, newsec);
-	FMultiBlockThingsIterator::CheckResult tcres;
 
 	if (!(thing->flags2 & MF2_THRUACTORS))
-	while ((it2.Next(&tcres)))
 	{
-		if (!PIT_CheckThing(it2, tcres, it2.Box(), tm))
-		{ // [RH] If a thing can be stepped up on, we need to continue checking
-			// other things in the blocks and see if we hit something that is
-			// definitely blocking. Otherwise, we need to check the lines, or we
-			// could end up stuck inside a wall.
-			AActor *BlockingMobj = thing->BlockingMobj;
+		FMultiBlockThingsIterator it2(pcheck, thing->Level, pos.X, pos.Y, thing->Z(), thing->Height, thing->radius, false, newsec);
+		FMultiBlockThingsIterator::CheckResult tcres;
 
-			// If this blocks through a restricted line portal, it will always completely block.
-			if (BlockingMobj == NULL || (thing->Level->i_compatflags & COMPATF_NO_PASSMOBJ) || (tcres.portalflags & FFCF_RESTRICTEDPORTAL))
-			{ // Thing slammed into something; don't let it move now.
-				thing->Height = realHeight;
-				return false;
-			}
-			else if (!BlockingMobj->player && !(thing->flags & (MF_FLOAT | MF_MISSILE | MF_SKULLFLY)) &&
-				BlockingMobj->Top() - thing->Z() <= thing->MaxStepHeight)
-			{
-				if (thingblocker == NULL ||
-					BlockingMobj->Z() > thingblocker->Z())
-				{
-					thingblocker = BlockingMobj;
-				}
-				thing->BlockingMobj = NULL;
-			}
-			else if (thing->player &&
-				thing->Top() - BlockingMobj->Z() <= thing->MaxStepHeight)
-			{
-				if (thingblocker)
-				{ // There is something to step up on. Return this thing as
-					// the blocker so that we don't step up.
+		while ((it2.Next(&tcres)))
+		{
+			if (!PIT_CheckThing(it2, tcres, it2.Box(), tm))
+			{ // [RH] If a thing can be stepped up on, we need to continue checking
+				// other things in the blocks and see if we hit something that is
+				// definitely blocking. Otherwise, we need to check the lines, or we
+				// could end up stuck inside a wall.
+				AActor* BlockingMobj = thing->BlockingMobj;
+
+				// If this blocks through a restricted line portal, it will always completely block.
+				if (BlockingMobj == NULL || (thing->Level->i_compatflags & COMPATF_NO_PASSMOBJ) || (tcres.portalflags & FFCF_RESTRICTEDPORTAL))
+				{ // Thing slammed into something; don't let it move now.
 					thing->Height = realHeight;
 					return false;
 				}
-				// Nothing is blocking us, but this actor potentially could
-				// if there is something else to step on.
-				thing->BlockingMobj = NULL;
-			}
-			else
-			{ // Definitely blocking
-				thing->Height = realHeight;
-				return false;
+				else if (!BlockingMobj->player && !(thing->flags & (MF_FLOAT | MF_MISSILE | MF_SKULLFLY)) &&
+					BlockingMobj->Top() - thing->Z() <= thing->MaxStepHeight)
+				{
+					if (thingblocker == NULL ||
+						BlockingMobj->Z() > thingblocker->Z())
+					{
+						thingblocker = BlockingMobj;
+					}
+					thing->BlockingMobj = NULL;
+				}
+				else if (thing->player &&
+					thing->Top() - BlockingMobj->Z() <= thing->MaxStepHeight)
+				{
+					if (thingblocker)
+					{ // There is something to step up on. Return this thing as
+						// the blocker so that we don't step up.
+						thing->Height = realHeight;
+						return false;
+					}
+					// Nothing is blocking us, but this actor potentially could
+					// if there is something else to step on.
+					thing->BlockingMobj = NULL;
+				}
+				else
+				{ // Definitely blocking
+					thing->Height = realHeight;
+					return false;
+				}
 			}
 		}
 	}
@@ -3605,7 +3608,7 @@ bool FSlide::BounceWall(AActor *mo)
 
 	if (mo->flags & MF_MISSILE)
 	{
-		switch (mo->SpecialBounceHit(nullptr, line, nullptr))
+		switch (mo->SpecialBounceHit(nullptr, line, nullptr, false))
 		{
 			case 1:		return true;
 			case 0:		return false;
@@ -3650,7 +3653,8 @@ bool FSlide::BounceWall(AActor *mo)
 	}
 	moveangle = mo->Vel.Angle();
 	deltaangle = (lineangle * 2) - moveangle;
-	mo->Angles.Yaw = deltaangle;
+	if (!(mo->BounceFlags & BOUNCE_KeepAngle))
+		mo->Angles.Yaw = deltaangle;
 
 	movelen = mo->Vel.XY().Length() * GetWallBounceFactor(mo);
 
@@ -3704,7 +3708,7 @@ bool P_BounceActor(AActor *mo, AActor *BlockingMobj, bool ontop)
 			default:	break;
 		}
 
-		switch (mo->SpecialBounceHit(BlockingMobj, nullptr, nullptr))
+		switch (mo->SpecialBounceHit(BlockingMobj, nullptr, nullptr, false))
 		{
 			case 1:		return true;
 			case 0:		return false;
@@ -3748,9 +3752,11 @@ bool P_BounceActor(AActor *mo, AActor *BlockingMobj, bool ontop)
 			DAngle angle = BlockingMobj->AngleTo(mo) + DAngle::fromDeg((pr_bounce() % 16) - 8);
 			double speed = mo->VelXYToSpeed() * GetWallBounceFactor(mo); // [GZ] was 0.75, using wallbouncefactor seems more consistent
 			if (fabs(speed) < EQUAL_EPSILON) speed = 0;
-			mo->Angles.Yaw = angle;
-			mo->VelFromAngle(speed);
-			mo->PlayBounceSound(true);
+			if (!(mo->BounceFlags & BOUNCE_KeepAngle))
+				mo->Angles.Yaw = angle;
+			mo->Vel.X = speed * angle.Cos();
+			mo->Vel.Y = speed * angle.Sin();
+			mo->PlayBounceSound(true, 1.0);
 		}
 		else
 		{
@@ -3778,7 +3784,10 @@ bool P_BounceActor(AActor *mo, AActor *BlockingMobj, bool ontop)
 				mo->Vel *= mo->bouncefactor;
 			}
 
-			mo->PlayBounceSound(true);
+			if (mo->BounceFlags & BOUNCE_ModifyPitch)
+				mo->Angles.Pitch = -VecToAngle(mo->Vel.XY().Length(), mo->Vel.Z);
+
+			mo->PlayBounceSound(true, 1.0);
 			if (mo->BounceFlags & BOUNCE_MBF) // Bring it to rest below a certain speed
 			{
 				if (fabs(mo->Vel.Z) < mo->Mass * mo->GetGravity() / 64)
@@ -5702,6 +5711,47 @@ void R_OffsetView(FRenderViewpoint& viewPoint, const DVector3& dir, const double
 //
 //==========================================================================
 
+static int CanTalk(AActor *self)
+{
+	return self->Conversation != nullptr && self->health > 0 && !(self->flags4 & MF4_INCOMBAT);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, CanTalk, CanTalk)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	ACTION_RETURN_BOOL(CanTalk(self));
+}
+
+static int HasConversation(AActor *self)
+{
+	return self->Conversation != nullptr;
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, HasConversation, HasConversation)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	ACTION_RETURN_BOOL(HasConversation(self));
+}
+
+static int NativeStartConversation(AActor *self, AActor *player, bool faceTalker, bool saveAngle)
+{
+	if (!CanTalk(self))
+		return false;
+
+	self->ConversationAnimation(0);
+	P_StartConversation(self, player, faceTalker, saveAngle);
+	return true;
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, StartConversation, NativeStartConversation)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_OBJECT(player, AActor);
+	PARAM_BOOL(faceTalker);
+	PARAM_BOOL(saveAngle);
+	ACTION_RETURN_BOOL(NativeStartConversation(self, player, faceTalker, saveAngle));
+}
+
 bool P_TalkFacing(AActor *player)
 {
 	static const double angleofs[] = { 0, 90./16, -90./16 };
@@ -5710,19 +5760,8 @@ bool P_TalkFacing(AActor *player)
 	for (double angle : angleofs)
 	{
 		P_AimLineAttack(player, player->Angles.Yaw + DAngle::fromDeg(angle), TALKRANGE, &t, DAngle::fromDeg(35.), ALF_FORCENOSMART | ALF_CHECKCONVERSATION | ALF_PORTALRESTRICT);
-		if (t.linetarget != NULL)
-		{
-			if (t.linetarget->health > 0 && // Dead things can't talk.
-				!(t.linetarget->flags4 & MF4_INCOMBAT) && // Fighting things don't talk either.
-				t.linetarget->Conversation != NULL)
-			{
-				// Give the NPC a chance to play a brief animation
-				t.linetarget->ConversationAnimation(0);
-				P_StartConversation(t.linetarget, player, true, true);
-				return true;
-			}
-			return false;
-		}
+		if (t.linetarget != nullptr)
+			return NativeStartConversation(t.linetarget, player, true, true);
 	}
 	return false;
 }
@@ -7222,7 +7261,7 @@ static void SpawnDeepSplash(AActor *t1, const FTraceResults &trace, AActor *puff
 //
 //=============================================================================
 
-bool P_ActivateThingSpecial(AActor * thing, AActor * trigger, bool death)
+int P_ActivateThingSpecial(AActor * thing, AActor * trigger, bool death)
 {
 	bool res = false;
 
@@ -7277,4 +7316,12 @@ bool P_ActivateThingSpecial(AActor * thing, AActor * trigger, bool death)
 
 	// Returns the result
 	return res;
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, ActivateSpecial, P_ActivateThingSpecial)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_OBJECT_NOT_NULL(activator, AActor);
+	PARAM_BOOL(death);
+	ACTION_RETURN_BOOL(P_ActivateThingSpecial(self, activator, death));
 }

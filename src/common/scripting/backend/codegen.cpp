@@ -387,6 +387,30 @@ void FxExpression::EmitCompare(VMFunctionBuilder *build, bool invert, TArray<siz
 	if (op.Konst)
 	{
 		ScriptPosition.Message(MSG_WARNING, "Conditional expression is constant");
+		ExpEmit temp(build, op.RegType);
+		switch (op.RegType)
+		{
+		case REGT_INT:
+			build->Emit(OP_LK, temp.RegNum, op.RegNum);
+			break;
+
+		case REGT_FLOAT:
+			build->Emit(OP_LKF, temp.RegNum, op.RegNum);
+			break;
+
+		case REGT_POINTER:
+			build->Emit(OP_LKP, temp.RegNum, op.RegNum);
+			break;
+
+		case REGT_STRING:
+			build->Emit(OP_LKS, temp.RegNum, op.RegNum);
+			break;
+
+		default:
+			break;
+		}
+		op.Free(build);
+		op = temp;
 	}
 	switch (op.RegType)
 	{
@@ -1840,6 +1864,12 @@ FxExpression *FxTypeCast::Resolve(FCompileContext &ctx)
 	}
 	else if (basex->ValueType == TypeNullPtr && ValueType->isPointer())
 	{
+		goto basereturn;
+	}
+	else if (ctx.Version >= MakeVersion(4, 14, 1) && basex->ValueType == TypeNullPtr && (ValueType == TypeSpriteID || ValueType == TypeTextureID || ValueType == TypeTranslationID))
+	{
+		delete basex;
+		basex = new FxConstant(0, ScriptPosition);
 		goto basereturn;
 	}
 	else if (IsFloat())
@@ -6777,11 +6807,8 @@ FxExpression *FxIdentifier::Resolve(FCompileContext& ctx)
 			{
 				if (sym->mVersion <= ctx.Version)
 				{
-					// Allow use of deprecated symbols in deprecated functions of the internal code. This is meant to allow deprecated code to remain as it was, 
-					// even if it depends on some deprecated symbol. 
-					// The main motivation here is to keep the deprecated static functions accessing the global level variable as they were.
-					// Print these only if debug output is active and at the highest verbosity level.
-					const bool internal = (ctx.Function->Variants[0].Flags & VARF_Deprecated) && fileSystem.GetFileContainer(ctx.Lump) == 0;
+					// Allow use of deprecated symbols in the internal code.
+					const bool internal = fileSystem.GetFileContainer(ctx.Lump) == 0;
 					const FString &deprecationMessage = vsym->DeprecationMessage;
 
 					ScriptPosition.Message(internal ? MSG_DEBUGMSG : MSG_WARNING, 
@@ -6871,8 +6898,12 @@ FxExpression *FxIdentifier::ResolveMember(FCompileContext &ctx, PContainerType *
 			{
 				if (sym->mVersion <= ctx.Version)
 				{
+					// Allow use of deprecated symbols in internal code.
+					const bool internal = fileSystem.GetFileContainer(ctx.Lump) == 0;
 					const FString &deprecationMessage = vsym->DeprecationMessage;
-					ScriptPosition.Message(MSG_WARNING, "Accessing deprecated member variable %s - deprecated since %d.%d.%d%s%s", sym->SymbolName.GetChars(), vsym->mVersion.major, vsym->mVersion.minor, vsym->mVersion.revision,
+
+					ScriptPosition.Message(internal ? MSG_DEBUGMSG : MSG_WARNING,
+						"Accessing deprecated member variable %s - deprecated since %d.%d.%d%s%s", sym->SymbolName.GetChars(), vsym->mVersion.major, vsym->mVersion.minor, vsym->mVersion.revision,
 						deprecationMessage.IsEmpty() ? "" : ", ", deprecationMessage.GetChars());
 				}
 			}
@@ -8511,6 +8542,7 @@ FxExpression *FxFunctionCall::Resolve(FCompileContext& ctx)
 	case NAME_State:
 	case NAME_SpriteID:
 	case NAME_TextureID:
+	case NAME_TranslationID:
 		if (CheckArgSize(MethodName, ArgList, 1, 1, ScriptPosition))
 		{
 			PType *type = 
@@ -8876,7 +8908,24 @@ FxExpression *FxMemberFunctionCall::Resolve(FCompileContext& ctx)
 			return Self;
 		}
 	}
-	else if (Self->ValueType == TypeTextureID)
+	else if (ctx.Version >= MakeVersion(4, 14, 1) && Self->ValueType == TypeSound && MethodName == NAME_IsValid)
+	{
+		if (ArgList.Size() > 0)
+		{
+			ScriptPosition.Message(MSG_ERROR, "Too many parameters in call to %s", MethodName.GetChars());
+			delete this;
+			return nullptr;
+		}
+
+		Self->ValueType = TypeSInt32;	// treat as integer
+		FxExpression *x = new FxCompareRel('>', Self, new FxConstant(0, ScriptPosition));
+		Self = nullptr;
+		SAFE_RESOLVE(x, ctx);
+
+		delete this;
+		return x;
+	}
+	else if (Self->ValueType == TypeTextureID || (ctx.Version >= MakeVersion(4, 14, 1) && (Self->ValueType == TypeTranslationID)))
 	{
 		if (MethodName == NAME_IsValid || MethodName == NAME_IsNull || MethodName == NAME_Exists || MethodName == NAME_SetInvalid || MethodName == NAME_SetNull)
 		{
@@ -8914,6 +8963,67 @@ FxExpression *FxMemberFunctionCall::Resolve(FCompileContext& ctx)
 			Self = nullptr;
 			SAFE_RESOLVE(x, ctx);
 			if (MethodName == NAME_SetInvalid || MethodName == NAME_SetNull) x->ValueType = TypeVoid; // override the default type of the assignment operator.
+			delete this;
+			return x;
+		}
+	}
+
+	else if (ctx.Version >= MakeVersion(4, 14, 1) && Self->ValueType == TypeSpriteID)
+	{
+		if (MethodName == NAME_IsValid || MethodName == NAME_IsEmpty || MethodName == NAME_IsFixed || MethodName == NAME_IsKeep
+			|| MethodName == NAME_Exists
+			|| MethodName == NAME_SetInvalid || MethodName == NAME_SetEmpty || MethodName == NAME_SetFixed || MethodName == NAME_SetKeep)
+		{
+			if (ArgList.Size() > 0)
+			{
+				ScriptPosition.Message(MSG_ERROR, "Too many parameters in call to %s", MethodName.GetChars());
+				delete this;
+				return nullptr;
+			}
+			// No need to create a dedicated node here, all builtins map directly to trivial operations.
+			Self->ValueType = TypeSInt32;	// all builtins treat the texture index as integer.
+			FxExpression *x = nullptr;
+			switch (MethodName.GetIndex())
+			{
+			case NAME_IsValid:
+				x = new FxCompareRel(TK_Geq, Self, new FxConstant(0, ScriptPosition));
+				break;
+
+			case NAME_IsEmpty: // TNT1
+				x = new FxCompareEq(TK_Eq, Self, new FxConstant(0, ScriptPosition));
+				break;
+
+			case NAME_IsFixed: // "----"
+				x = new FxCompareEq(TK_Eq, Self, new FxConstant(1, ScriptPosition));
+				break;
+
+			case NAME_IsKeep: // "####"
+				x = new FxCompareEq(TK_Eq, Self, new FxConstant(2, ScriptPosition));
+				break;
+
+			case NAME_Exists:
+				x = new FxCompareRel(TK_Geq, Self, new FxConstant(3, ScriptPosition));
+				break;
+
+			case NAME_SetInvalid:
+				x = new FxAssign(Self, new FxConstant(-1, ScriptPosition));
+				break;
+
+			case NAME_SetEmpty: // TNT1
+				x = new FxAssign(Self, new FxConstant(0, ScriptPosition));
+				break;
+
+			case NAME_SetFixed: // "----"
+				x = new FxAssign(Self, new FxConstant(1, ScriptPosition));
+				break;
+
+			case NAME_SetKeep: // "####"
+				x = new FxAssign(Self, new FxConstant(2, ScriptPosition));
+				break;
+			}
+			Self = nullptr;
+			SAFE_RESOLVE(x, ctx);
+			if (MethodName == NAME_SetInvalid || MethodName == NAME_SetEmpty || MethodName == NAME_SetFixed || MethodName == NAME_SetKeep) x->ValueType = TypeVoid; // override the default type of the assignment operator.
 			delete this;
 			return x;
 		}
@@ -9576,8 +9686,12 @@ bool FxVMFunctionCall::CheckAccessibility(const VersionInfo &ver)
 	{
 		if (Function->mVersion <= ver)
 		{
+			// Allow use of deprecated symbols in internal code.
+			const bool internal = fileSystem.GetFileContainer(Function->OwningClass->mDefFileNo) == 0;
 			const FString &deprecationMessage = Function->Variants[0].DeprecationMessage;
-			ScriptPosition.Message(MSG_WARNING, "Accessing deprecated function %s - deprecated since %d.%d.%d%s%s", Function->SymbolName.GetChars(), Function->mVersion.major, Function->mVersion.minor, Function->mVersion.revision, 
+
+			ScriptPosition.Message(internal ? MSG_DEBUGMSG : MSG_WARNING,
+				"Accessing deprecated function %s - deprecated since %d.%d.%d%s%s", Function->SymbolName.GetChars(), Function->mVersion.major, Function->mVersion.minor, Function->mVersion.revision, 
 				deprecationMessage.IsEmpty() ? "" : ", ", deprecationMessage.GetChars());
 		}
 	}
@@ -12253,7 +12367,7 @@ static PClass *NativeNameToClass(int _clsname, PClass *desttype)
 	if (clsname != NAME_None)
 	{
 		cls = PClass::FindClass(clsname);
-		if (cls != nullptr && (cls->VMType == nullptr || !cls->IsDescendantOf(desttype)))
+		if (cls != nullptr && (cls->VMType == nullptr || (desttype != nullptr && !cls->IsDescendantOf(desttype))))
 		{
 			// does not match required parameters or is invalid.
 			return nullptr;
