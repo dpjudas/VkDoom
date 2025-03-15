@@ -3038,7 +3038,10 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 	FileReader fr;
 	if (!OpenDecompressor(fr, map->Reader(ML_LIGHTMAP), -1, FileSys::METHOD_ZLIB))
+	{
+		Printf(PRINT_HIGH, "LoadLightmap: unable to open and decompress lightmap lump.\n");
 		return false;
+	}
 
 	int version = fr.ReadInt32();
 	if (version < LIGHTMAPVER)
@@ -3067,7 +3070,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 
 	// Load the tiles we have lightmap data for
 
-	struct TileEntry // V2 entries
+	struct TileEntry
 	{
 		uint32_t type, typeIndex;
 		uint32_t controlSector; // 0xFFFFFFFF is none
@@ -3076,6 +3079,27 @@ bool MapLoader::LoadLightmap(MapData* map)
 		FVector3 translateWorldToLocal;
 		FVector3 projLocalToU;
 		FVector3 projLocalToV;
+
+		inline bool IsValid(const FLevelLocals& level) const
+		{
+			if (width > 0 && height > 0 && type > ST_NONE && type < MAX_SURFACE_TYPES && (controlSector == 0xFFFFFFFF || controlSector < level.subsectors.Size()))
+			{
+				if (type < ST_CEILING)
+				{
+					return typeIndex < level.sides.Size();
+				}
+				else
+				{
+					return typeIndex < level.subsectors.Size();
+				}
+			}
+			return false;
+		}
+
+		inline const char* GetTypeName() const
+		{
+			return GetDoomLevelMeshSurfaceTypeName(static_cast<DoomLevelMeshSurfaceType>(type));
+		}
 	};
 
 	TArray<TileEntry> tileEntries;
@@ -3134,10 +3158,10 @@ bool MapLoader::LoadLightmap(MapData* map)
 			continue;
 		}
 
-		if (entry.width == 0 || entry.height == 0)
+		if (!entry.IsValid(*Level))
 		{
 			if (errors < 100 && developer >= 1)
-				Printf("Invalid lightmap tile found (type = %d, index = %d, control sector = %d)\n", entry.type, entry.typeIndex, entry.controlSector);
+				Printf("LoadLightmap: Invalid lightmap tile found (type = %s = %d, index = %d, control sector = %d, width = %d, height = %d)\n", entry.GetTypeName(), entry.type, entry.typeIndex, entry.controlSector, entry.width, entry.height);
 			errors++;
 			continue;
 		}
@@ -3152,6 +3176,11 @@ bool MapLoader::LoadLightmap(MapData* map)
 		tile->NeedsUpdate = false;
 
 		foundBindings.Push({ &entry, tile });
+	}
+
+	if (errors > 0 && developer >= 1)
+	{
+		Printf("Note: Level contains %d sidedefs and %d subsectors.", Level->sides.Size(), Level->subsectors.Size());
 	}
 
 	// Place all tiles in atlas textures
@@ -3178,7 +3207,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 		{
 			uint16_t* dstline = dst + (destx + (desty + yy) * textureSize) * 3;
 			const uint16_t* srcline = src + yy * (width * 3);
-			memcpy(dstline, srcline, width * 6);
+			memcpy(dstline, srcline, width * 3 * sizeof(uint16_t));
 		}
 
 		tile->NeedsUpdate = false;

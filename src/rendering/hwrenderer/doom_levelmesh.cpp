@@ -1548,6 +1548,28 @@ void DoomLevelMesh::GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfa
 	}
 }
 
+const char* GetDoomLevelMeshSurfaceTypeName(DoomLevelMeshSurfaceType type)
+{
+	switch (type)
+	{
+	case ST_NONE:
+		return "none";
+	case ST_MIDDLESIDE:
+		return "middleside";
+	case ST_UPPERSIDE:
+		return "upperside";
+	case ST_LOWERSIDE:
+		return "lowerside";
+	case ST_CEILING:
+		return "ceiling";
+	case ST_FLOOR:
+		return "floor";
+	default:
+		break;
+	}
+	return "unknown";
+}
+
 void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilename) const
 {
 	auto f = fopen(objFilename.GetChars(), "w");
@@ -1570,31 +1592,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 		fprintf(f, "vt %f %f\n", v.lu, v.lv);
 	}
 
-	auto name = [](DoomLevelMeshSurfaceType type) -> const char* {
-		switch (type)
-		{
-		case ST_CEILING:
-			return "ceiling";
-		case ST_FLOOR:
-			return "floor";
-		case ST_LOWERSIDE:
-			return "lowerside";
-		case ST_UPPERSIDE:
-			return "upperside";
-		case ST_MIDDLESIDE:
-			return "middleside";
-		case ST_NONE:
-			return "none";
-		default:
-			break;
-		}
-		return "error";
-		};
-
-
 	uint32_t lastSurfaceIndex = -1;
-
-
 	bool useErrorMaterial = false;
 	int highestUsedAtlasPage = -1;
 
@@ -1617,7 +1615,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 			{
 				const auto& info = DoomSurfaceInfos[index];
 				const auto& surface = Mesh.Surfaces[index];
-				fprintf(f, "o Surface[%d] %s %d%s\n", index, name(info.Type), info.TypeIndex, surface.IsSky ? " sky" : "");
+				fprintf(f, "o Surface[%d] %s %d%s\n", index, GetDoomLevelMeshSurfaceTypeName(info.Type), info.TypeIndex, surface.IsSky ? " sky" : "");
 
 				if (surface.LightmapTileIndex >= 0)
 				{
@@ -1710,7 +1708,7 @@ void DoomLevelMesh::BuildSectorGroups(const FLevelLocals& doomMap)
 
 	if (developer >= 5)
 	{
-		Printf("DoomLevelMesh::BuildSectorGroups created %d groups.", groupIndex);
+		Printf("DoomLevelMesh::BuildSectorGroups created %d groups.\n", groupIndex);
 	}
 }
 
@@ -1997,8 +1995,7 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 		int version;
 		uint32_t tileCount;
 		uint32_t pixelCount;
-		uint32_t uvCount;
-		SurfaceEntry surfaces[surfaceCount];
+		TileEntry tiles[surfaceCount];
 		uint16_t pixels[pixelCount * 3];
 	};
 
@@ -2008,9 +2005,9 @@ void DoomLevelMesh::SaveLightmapLump(FLevelLocals& doomMap)
 		uint32_t controlSector; // 0xFFFFFFFF is none
 		uint16_t width, height; // in pixels
 		uint32_t pixelsOffset; // offset in pixels array
-		vec3 translateWorldToLocal;
-		vec3 projLocalToU;
-		vec3 projLocalToV;
+		vec3f translateWorldToLocal;
+		vec3f projLocalToU;
+		vec3f projLocalToV;
 	};
 	*/
 
