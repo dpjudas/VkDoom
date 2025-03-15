@@ -74,8 +74,12 @@ enum DoomLevelMeshSurfaceType
 	ST_UPPERSIDE,
 	ST_LOWERSIDE,
 	ST_CEILING,
-	ST_FLOOR
+	ST_FLOOR,
+
+	MAX_SURFACE_TYPES,
 };
+
+const char* GetDoomLevelMeshSurfaceTypeName(DoomLevelMeshSurfaceType type);
 
 //==========================================================================
 //
