@@ -2,9 +2,6 @@
 
 #include "common/rendering/hwrenderer/data/hw_levelmesh.h"
 #include "zvulkan/vulkanobjects.h"
-#include <dp_rect_pack.h>
-
-typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 class VulkanRenderDevice;
 class FString;

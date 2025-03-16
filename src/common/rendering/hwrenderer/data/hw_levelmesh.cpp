@@ -170,17 +170,17 @@ void LevelMesh::PackStaticLightmapAtlas()
 	std::sort(sortedTiles.begin(), sortedTiles.end(), [](LightmapTile* a, LightmapTile* b) { return a->AtlasLocation.Height != b->AtlasLocation.Height ? a->AtlasLocation.Height > b->AtlasLocation.Height : a->AtlasLocation.Width > b->AtlasLocation.Width; });
 
 	// We do not need to add spacing here as this is already built into the tile size itself.
-	RectPacker packer(Lightmap.TextureSize, Lightmap.TextureSize, RectPacker::Spacing(0), RectPacker::Padding(0));
+	RectPacker packer(Lightmap.TextureSize, Lightmap.TextureSize, 0);
 
 	for (LightmapTile* tile : sortedTiles)
 	{
-		auto result = packer.insert(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
-		tile->AtlasLocation.X = result.pos.x;
-		tile->AtlasLocation.Y = result.pos.y;
-		tile->AtlasLocation.ArrayIndex = (int)result.pageIndex;
+		auto result = packer.Alloc(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
+		tile->AtlasLocation.X = result->X;
+		tile->AtlasLocation.Y = result->Y;
+		tile->AtlasLocation.ArrayIndex = (int)result->PageIndex;
 	}
 
-	Lightmap.TextureCount = (int)packer.getNumPages();
+	Lightmap.TextureCount = (int)packer.GetNumPages();
 
 	// Calculate final texture coordinates
 	for (int i = 0, count = Mesh.Surfaces.Size(); i < count; i++)
@@ -225,14 +225,14 @@ void LevelMesh::PackDynamicLightmapAtlas()
 	std::sort(sortedTiles.begin(), sortedTiles.end(), [](LightmapTile* a, LightmapTile* b) { return a->AtlasLocation.Height != b->AtlasLocation.Height ? a->AtlasLocation.Height > b->AtlasLocation.Height : a->AtlasLocation.Width > b->AtlasLocation.Width; });
 
 	// We do not need to add spacing here as this is already built into the tile size itself.
-	RectPacker packer(Lightmap.TextureSize, Lightmap.TextureSize, RectPacker::Spacing(0), RectPacker::Padding(0));
+	RectPacker packer(Lightmap.TextureSize, Lightmap.TextureSize, 0);
 
 	for (LightmapTile* tile : sortedTiles)
 	{
-		auto result = packer.insert(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
-		tile->AtlasLocation.X = result.pos.x;
-		tile->AtlasLocation.Y = result.pos.y;
-		tile->AtlasLocation.ArrayIndex = Lightmap.TextureCount; // (int)result.pageIndex;
+		auto result = packer.Alloc(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
+		tile->AtlasLocation.X = result->X;
+		tile->AtlasLocation.Y = result->Y;
+		tile->AtlasLocation.ArrayIndex = Lightmap.TextureCount; // (int)result->PageIndex;
 	}
 
 	for (int surfIndex : Lightmap.DynamicSurfaces)

@@ -1124,6 +1124,7 @@ set (PCH_SOURCES
 	common/rendering/hwrenderer/data/hw_levelmesh.cpp
 	common/rendering/hwrenderer/data/hw_meshbuilder.cpp
 	common/rendering/hwrenderer/data/hw_lightprobe.cpp
+	common/rendering/hwrenderer/data/hw_rectpacker.cpp
 	common/rendering/hwrenderer/postprocessing/hw_postprocessshader.cpp
 	common/rendering/hwrenderer/postprocessing/hw_postprocess.cpp
 	common/rendering/hwrenderer/postprocessing/hw_postprocess_cvars.cpp
@@ -1311,7 +1312,6 @@ include_directories(
 	../libraries/ZVulkan/include
 	../libraries/ZWidget/include
 	../libraries/webp/include
-	../libraries/dp_rect_pack
 	${SYSTEM_SOURCES_DIR}
 )
 

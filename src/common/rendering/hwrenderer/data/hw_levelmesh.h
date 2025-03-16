@@ -11,12 +11,10 @@
 #include "hw_levelmeshsurface.h"
 #include "hw_materialstate.h"
 #include "hw_surfaceuniforms.h"
+#include "hw_rectpacker.h"
 #include "engineerrors.h"
 #include <memory>
 #include <unordered_map>
-
-#include <dp_rect_pack.h>
-typedef dp::rect_pack::RectPacker<int> RectPacker;
 
 struct LevelMeshTileStats;
 
