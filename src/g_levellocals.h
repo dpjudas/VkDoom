@@ -475,7 +475,7 @@ public:
 	float SunIntensity = 0.f;
 	uint16_t LightmapSampleDistance = 0;
 	bool LightBounce = false;
-	bool AmbientOcclusion = false;
+	bool AmbientOcclusion = true;
 
 	// Portal information.
 	FDisplacementTable Displacements;

@@ -3242,7 +3242,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	Level->SunIntensity = gameinfo.defaultSunIntensity;
 	Level->LightmapSampleDistance = gameinfo.defaultLightmapSampleDistance;
 	Level->lightmaps = gameinfo.forceEnableLightmaps;
-	Level->LightBounce = true;
+	Level->LightBounce = false;
 	Level->AmbientOcclusion = true;
 
 	// note: most of this ordering is important 
