@@ -125,11 +125,10 @@ float shadowmapAttenuation(vec3 lightpos, float shadowIndex)
 
 	float v = (shadowIndex + 0.5) / 1024.0;
 	
-	#uif(SHADOWMAP_FILTER == 0)
+	if (SHADOWMAP_FILTER == 0)
 		return sampleShadowmap(planePoint, v);
-	#uelse
+	else
 		return sampleShadowmapPCF(planePoint, v);
-	#uendif
 }
 
 float shadowAttenuationShadowMap(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)

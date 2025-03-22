@@ -1,3 +1,4 @@
+
 #ifndef SIMPLE3D
 	vec3 lightContribution(DynLightInfo light, vec3 normal)
 	{
@@ -10,13 +11,11 @@
 		
 		float dotprod;
 		
-		#uifdef(LIGHT_NONORMALS)
-		#uelse
+		if (!LIGHT_NONORMALS)
 		{
 			dotprod = dot(normal, lightdir);
 			if (dotprod < -0.0001) return vec3(0.0);	// light hits from the backside. This can happen with full sector light lists and must be rejected for all cases. Note that this can cause precision issues.
 		}
-		#uendif
 		
 		float attenuation = distanceAttenuation(lightdistance, light.radius, light.strength, light.linearity);
 
@@ -25,14 +24,13 @@
 			attenuation *= spotLightAttenuation(light.pos.xyz, light.spotDir.xyz, light.spotInnerAngle, light.spotOuterAngle);
 		}
 		
-		#uifdef(LIGHT_NONORMALS)
-		#uelse
+		if (!LIGHT_NONORMALS)
+		{
 			if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
 			{
 				attenuation *= clamp(dotprod, 0.0, 1.0);
 			}
-		#uendif
-		
+		}
 		
 		if (attenuation > 0.0) // Skip shadow map test if possible
 		{
@@ -84,17 +82,19 @@
 		
 		vec3 frag;
 		
-		#uifdef(LIGHT_BLEND_CLAMPED)
+		if (LIGHT_BLEND_CLAMPED)
+		{
 			frag = material.Base.rgb * clamp(color + desaturate(dynlight).rgb, 0.0, 1.4);
-		#uelifdef(LIGHT_BLEND_COLORED_CLAMP)
-			{
-				frag = color + desaturate(dynlight).rgb;
-				frag = material.Base.rgb * ((frag / max(max(max(frag.r, frag.g), frag.b), 1.4) * 1.4));
-			}
-		#uelse
+		}
+		else if (LIGHT_BLEND_COLORED_CLAMP)
+		{
+			frag = color + desaturate(dynlight).rgb;
+			frag = material.Base.rgb * ((frag / max(max(max(frag.r, frag.g), frag.b), 1.4) * 1.4));
+		}
+		else
+		{
 			frag = material.Base.rgb * (color + desaturate(dynlight).rgb);
-		#uendif
-
+		}
 
 		#ifndef SHADE_VERTEX
 			if (uLightIndex >= 0)

@@ -15,14 +15,14 @@ vec3 rgb2hsv(vec3 c)
 	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
 }
 
+#ifdef SIMPLE3D
 void main()
-{
-#uifdef(SIMPLE3D)
 {
 	Material material = CreateMaterial();
 	FragColor = vec4(material.Base.rgb, 1.0);
 }
-#uelse
+#else
+void main()
 {
 	#ifdef NO_CLIPDISTANCE_SUPPORT
 		if (ClipDistanceA.x < 0 || ClipDistanceA.y < 0 || ClipDistanceA.z < 0 || ClipDistanceA.w < 0 || ClipDistanceB.x < 0) discard;
@@ -35,20 +35,19 @@ void main()
 
 		Material material = CreateMaterial();
 
-	#uifdef(DO_ALPHATEST)
+	#ifdef DO_ALPHATEST
 		if (material.Base.a <= uAlphaThreshold) discard;
-	#uendif
+	#endif
 
-	#uifdef(NOT_ALPHATEST_ONLY)
+	if (NOT_ALPHATEST_ONLY)
 	{
-		#uifdef(USE_DEPTHFADETHRESHOLD)
+		if (USE_DEPTHFADETHRESHOLD)
 		{
 			float behindFragmentDepth = texelFetch(LinearDepth, uViewOffset + ivec2(gl_FragCoord.xy), 0).r;
 			material.Base.a *= clamp((behindFragmentDepth - pixelpos.w) / uDepthFadeThreshold, 0.0, 1.0);
 		}
-		#uendif
 
-			FragColor = ProcessLightMode(material);
+		FragColor = ProcessLightMode(material);
 
 		#ifdef DITHERTRANS
 			int index = (int(pixelpos.x) % 8) * 8 + int(pixelpos.y) % 8;
@@ -70,14 +69,10 @@ void main()
 			else FragColor *= 0.5;
 		#endif
 
-		#uifdef(GBUFFER_PASS)
-		{
+		#if defined(GBUFFER_PASS)
 			FragFog = vec4(AmbientOcclusionColor(), 1.0);
 			FragNormal = vec4(vEyeNormal.xyz * 0.5 + 0.5, 1.0);
-		}
-		#uendif
+		#endif
 	}
-	#uendif
 }
-#uendif
-}
+#endif

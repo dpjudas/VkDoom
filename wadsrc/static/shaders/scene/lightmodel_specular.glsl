@@ -69,12 +69,12 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 		}
 	}
 	
-	#uifdef(LIGHT_BLEND_CLAMPED)
+	if (LIGHT_BLEND_CLAMPED)
 	{
 		dynlight.rgb = clamp(color + desaturate(dynlight).rgb, 0.0, 1.4);
 		specular.rgb = clamp(desaturate(specular).rgb, 0.0, 1.4);
 	}
-	#uelifdef(LIGHT_BLEND_COLORED_CLAMP)
+	else if (LIGHT_BLEND_COLORED_CLAMP)
 	{
 		dynlight.rgb = color + desaturate(dynlight).rgb;
 		specular.rgb = desaturate(specular).rgb;
@@ -82,12 +82,11 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 		dynlight.rgb = ((dynlight.rgb / max(max(max(dynlight.r, dynlight.g), dynlight.b), 1.4) * 1.4));
 		specular.rgb = ((specular.rgb / max(max(max(specular.r, specular.g), specular.b), 1.4) * 1.4));
 	}
-	#uelse
+	else
 	{
 		dynlight.rgb = color + desaturate(dynlight).rgb;
 		specular.rgb = desaturate(specular).rgb;
 	}
-	#uendif
 
 	vec3 frag = material.Base.rgb * dynlight.rgb + material.Specular * specular.rgb;
 

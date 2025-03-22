@@ -12,17 +12,15 @@ vec4 Lightmode_Software()
 {
 	// z is the depth in view space, positive going into the screen
 	float z;
-	#uifdef(SWLIGHT_RADIAL)
+	if (SWLIGHT_RADIAL)
 		z = distance(pixelpos.xyz, uCameraPos.xyz);
-	#uelse
+	else
 		z = pixelpos.w;
-	#uendif
 
 	float colormap = SoftwareColormap(uLightLevel, z);
 
-	#uifdef(SWLIGHT_BANDED)
+	if (SWLIGHT_BANDED)
 		colormap = floor(colormap) + 0.5;
-	#uendif
 
 	// Result is the normalized colormap index (0 bright .. 1 dark)
 	float newlightlevel = 1.0 - clamp(colormap, 0.0, 31.0) / 32.0;

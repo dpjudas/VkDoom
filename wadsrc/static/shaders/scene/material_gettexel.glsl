@@ -10,34 +10,46 @@ vec4 getTexel(vec2 st)
 	vec4 texel = texture(tex, st);
 
 	// Apply texture modes
-	#uifdef(TM_STENCIL)
+	if (TM_STENCIL)
+	{
 		texel.rgb = vec3(1.0,1.0,1.0);
-	#uelifdef(TM_OPAQUE)
+	}
+	else if (TM_OPAQUE)
+	{
 		texel.a = 1.0;
-	#uelifdef(TM_INVERSE)
+	}
+	else if (TM_INVERSE)
+	{
 		texel = vec4(1.0-texel.r, 1.0-texel.b, 1.0-texel.g, texel.a);
-	#uelifdef(TM_ALPHATEXTURE)
+	}
+	else if (TM_ALPHATEXTURE)
 	{
 		float gray = grayscale(texel);
 		texel = vec4(1.0, 1.0, 1.0, gray*texel.a);
 	}
-	#uelifdef(TM_CLAMPY)
+	else if (TM_CLAMPY)
+	{
 		if (st.t < 0.0 || st.t > 1.0)
 		{
 			texel.a = 0.0;
 		}
-	#uelifdef(TM_INVERTOPAQUE)
+	}
+	else if (TM_INVERTOPAQUE)
+	{
 		texel = vec4(1.0-texel.r, 1.0-texel.b, 1.0-texel.g, 1.0);
-	#uelifdef(TM_FOGLAYER)
+	}
+	else if (TM_FOGLAYER)
+	{
 		return texel;
-	#uendif
+	}
 
-	#uifdef(TEXF_ClampY)
+	if (TEXF_ClampY)
+	{
 		if (st.t < 0.0 || st.t > 1.0)
 		{
 			texel.a = 0.0;
 		}
-	#uendif
+	}
 
 	// Apply the texture modification colors.
 	int blendflags = int(uTextureAddColor.a);	// this alpha is unused otherwise

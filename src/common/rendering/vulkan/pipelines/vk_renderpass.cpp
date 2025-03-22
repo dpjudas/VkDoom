@@ -301,8 +301,14 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 
 	VkShaderProgram *program = fb->GetShaderManager()->Get(key.ShaderKey);
 	builder.AddVertexShader(program->vert.get());
+	builder.AddConstant(0, (uint32_t)key.ShaderKey.AsQWORD);
+	builder.AddConstant(1, (uint32_t)(key.ShaderKey.AsQWORD >> 32));
 	if (program->frag)
+	{
 		builder.AddFragmentShader(program->frag.get());
+		builder.AddConstant(0, (uint32_t)key.ShaderKey.AsQWORD);
+		builder.AddConstant(1, (uint32_t)(key.ShaderKey.AsQWORD >> 32));
+	}
 
 	const VkVertexFormat &vfmt = *fb->GetRenderPassManager()->GetVertexFormat(key.ShaderKey.VertexFormat);
 

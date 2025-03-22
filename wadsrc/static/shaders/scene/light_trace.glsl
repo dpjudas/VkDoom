@@ -17,7 +17,7 @@ float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 	{
 		TraceResult result;
 		SurfaceInfo surface;
-		#uifdef(PRECISE_MIDTEXTURES)
+		if (PRECISE_MIDTEXTURES)
 		{
 			bool skip = true;
 
@@ -89,7 +89,7 @@ float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 					return 0.0;
 			}
 		}
-		#uelse
+		else
 		{
 			result = TraceFirstHit(origin, tmin, direction, dist);
 
@@ -106,7 +106,6 @@ float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 			if (alpha <= 0.0)
 				return 0.0;
 		}
-		#uendif
 
 		// Move to surface hit point
 		origin += direction * result.t;
@@ -121,11 +120,10 @@ float TraceDynLightRay(vec3 origin, float tmin, vec3 direction, float dist)
 
 float traceHit(vec3 origin, vec3 direction, float dist)
 {
-	#uifdef(USE_RAYTRACE_PRECISE)
+	if (USE_RAYTRACE_PRECISE)
 		return TraceDynLightRay(origin, 0.01f, direction, dist);
-	#uelse
+	else
 		return TraceAnyHit(origin, 0.01f, direction, dist) ? 0.0 : 1.0;
-	#uendif
 }
 
 float traceShadow(vec3 lightpos, float softShadowRadius)
@@ -133,29 +131,34 @@ float traceShadow(vec3 lightpos, float softShadowRadius)
 	vec3 target = lightpos.xyz + 0.01; // nudge light position slightly as Doom maps tend to have their lights perfectly aligned with planes
 	vec3 origin;
 	vec3 direction;
-	#uifdef(USE_SPRITE_CENTER)
+	if (USE_SPRITE_CENTER)
 	{
 		origin = uActorCenter.xyz;
 		direction = normalize(target - origin);
 	}
-	#uelifdef(LIGHT_NONORMALS)
+	else if (LIGHT_NONORMALS)
 	{
 		origin = pixelpos.xyz;
 		direction = normalize(target - origin);
 		origin -= direction;
 	}
-	#uelse
+	else
 	{
 		origin = pixelpos.xyz + (vWorldNormal.xyz * 0.1);
 		direction = normalize(target - origin);
 	}
-	#uendif
 
 	float dist = distance(origin, target);
 
-	#uif(SHADOWMAP_FILTER == 0)
+#if defined(SHADE_VERTEX)
+	return traceHit(origin, direction, dist);
+#else
+	if(SHADOWMAP_FILTER == 0)
+	{
 		return traceHit(origin, direction, dist);
-	#uelse
+	}
+	else
+	{
 		if (softShadowRadius == 0)
 		{
 			return traceHit(origin, direction, dist);
@@ -176,32 +179,37 @@ float traceShadow(vec3 lightpos, float softShadowRadius)
 			}
 			return (sum / step_count);
 		}
-	#uendif
+	}
+#endif
 }
 
 float traceSun(vec3 SunDir)
 {
 	vec3 origin;
-	#uifdef(USE_SPRITE_CENTER)
+	if (USE_SPRITE_CENTER)
 	{
 		 origin = uActorCenter.xyz;
 	}
-	#uelifdef(LIGHT_NONORMALS)
+	else if (LIGHT_NONORMALS)
 	{
 		origin = pixelpos.xyz;
 		origin -= SunDir;
 	}
-	#uelse
+	else
 	{
 		origin = pixelpos.xyz + (vWorldNormal.xyz * 0.1);
 	}
-	#uendif
 
 	float dist = 65536.0;
 
-	#uif(SHADOWMAP_FILTER == 0)
+#if defined(SHADE_VERTEX)
+	return TraceDynLightRay(origin, 0.01f, SunDir, dist);
+#else
+	if (SHADOWMAP_FILTER == 0)
+	{
 		return TraceDynLightRay(origin, 0.01f, SunDir, dist);
-	#uelse
+	}
+	else
 	{
 		vec3 target = (SunDir * dist) + origin;
 		vec3 v = (abs(SunDir.x) > abs(SunDir.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
@@ -218,5 +226,5 @@ float traceSun(vec3 SunDir)
 		}
 		return (sum / step_count);
 	}
-	#uendif
+#endif
 }

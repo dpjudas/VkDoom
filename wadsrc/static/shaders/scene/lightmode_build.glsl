@@ -3,11 +3,10 @@ vec4 Lightmode_Build()
 {
 	// z is the depth in view space, positive going into the screen
 	float z;
-	#uifdef(SWLIGHT_RADIAL)
+	if (SWLIGHT_RADIAL)
 		z = distance(pixelpos.xyz, uCameraPos.xyz);
-	#uelse
+	else
 		z = pixelpos.w;
-	#uendif
 
 	// This is a lot more primitive than Doom's lighting...
 	float numShades = float(uPalLightLevels & 255);
