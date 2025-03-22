@@ -7559,7 +7559,7 @@ static void ForEachOpaque(const TType& type, const TString& path, Function callb
                 for (size_t dimIndex = 0; dimIndex < indices.size(); ++dimIndex)
                 {
                     ++indices[dimIndex];
-                    if (indices[dimIndex] < type.getArraySizes()->getDimSize(dimIndex))
+                    if (indices[dimIndex] < (int)type.getArraySizes()->getDimSize((int)dimIndex))
                         break;
                     else
                         indices[dimIndex] = 0;

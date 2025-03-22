@@ -4,6 +4,18 @@
 #include "vulkansurface.h"
 #include "vulkanbuilders.h"
 
+#if defined(WIN32)
+#define NOMINMAX
+#define WIN32_MEAN_AND_LEAN
+#include <Windows.h>
+#endif
+
+#if defined(WIN32)
+#define NOMINMAX
+#define WIN32_MEAN_AND_LEAN
+#include <Windows.h>
+#endif
+
 VulkanSwapChain::VulkanSwapChain(VulkanDevice* device) : device(device)
 {
 }
@@ -16,18 +28,12 @@ VulkanSwapChain::~VulkanSwapChain()
 		vkDestroySwapchainKHR(device->device, swapchain, nullptr);
 }
 
-void VulkanSwapChain::Create(int width, int height, int imageCount, bool vsync, bool hdr, bool exclusivefullscreen)
+void VulkanSwapChain::Create(int width, int height, int imageCount, bool vsync, bool hdr)
 {
 	views.clear();
 	images.clear();
 
-	CreateSwapchain(width, height, imageCount, vsync, hdr, exclusivefullscreen);
-
-	if (exclusivefullscreen && lost)
-	{
-		// We could not acquire exclusive fullscreen. Fall back to normal fullsceen instead.
-		CreateSwapchain(width, height, imageCount, vsync, hdr, false);
-	}
+	CreateSwapchain(width, height, imageCount, vsync, hdr);
 
 	if (swapchain)
 	{
@@ -89,18 +95,11 @@ void VulkanSwapChain::SelectFormat(const VulkanSurfaceCapabilities& caps, bool h
 	format = caps.Formats.front();
 }
 
-bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, bool vsync, bool hdr, bool exclusivefullscreen)
+bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, bool vsync, bool hdr)
 {
 	lost = false;
 
-	VulkanSurfaceCapabilities caps = GetSurfaceCapabilities(exclusivefullscreen);
-
-	if (exclusivefullscreen && (caps.PresentModes.empty() || !caps.FullScreenExclusive.fullScreenExclusiveSupported))
-	{
-		// Try again without exclusive full screen.
-		exclusivefullscreen = false;
-		caps = GetSurfaceCapabilities(exclusivefullscreen);
-	}
+	VulkanSurfaceCapabilities caps = GetSurfaceCapabilities();
 
 	if (caps.PresentModes.empty())
 		VulkanError("No surface present modes supported");
@@ -117,20 +116,10 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 	}
 	else
 	{
-		if (exclusivefullscreen) // Exclusive full screen doesn't seem to support mailbox for some reason, even if it is advertised
-		{
-			if (supportsImmediate)
-				presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-			else if (supportsMailbox)
-				presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-		}
-		else
-		{
-			/*if (supportsMailbox)
-				presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			else*/ if (supportsImmediate)
-				presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-		}
+		/*if (supportsMailbox)
+			presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+		else*/ if (supportsImmediate)
+			presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 	}
 
 	SelectFormat(caps, hdr);
@@ -185,16 +174,6 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 	swapChainCreateInfo.clipped = VK_TRUE; // Applications SHOULD set this value to VK_TRUE if they do not expect to read back the content of presentable images before presenting them or after reacquiring them, and if their fragment shaders do not have any side effects that require them to run for all pixels in the presentable image
 	swapChainCreateInfo.oldSwapchain = swapchain;
 
-#ifdef WIN32
-	if (exclusivefullscreen)
-	{
-		swapChainCreateInfo.pNext = &exclusiveInfo;
-		exclusiveInfo.pNext = &exclusiveWin32Info;
-		exclusiveInfo.fullScreenExclusive = VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT;
-		exclusiveWin32Info.hmonitor = MonitorFromWindow(device->Surface->Window, MONITOR_DEFAULTTONEAREST);
-	}
-#endif
-
 	VkResult result = vkCreateSwapchainKHR(device->device, &swapChainCreateInfo, nullptr, &swapchain);
 
 	if (swapChainCreateInfo.oldSwapchain)
@@ -206,17 +185,6 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 		lost = true;
 		return false;
 	}
-
-#ifdef WIN32
-	if (exclusivefullscreen)
-	{
-		result = vkAcquireFullScreenExclusiveModeEXT(device->device, swapchain);
-		if (result != VK_SUCCESS)
-		{
-			lost = true;
-		}
-	}
-#endif
 
 	return true;
 }
@@ -285,7 +253,7 @@ void VulkanSwapChain::QueuePresent(int imageIndex, VulkanSemaphore* semaphore)
 	}
 }
 
-VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities(bool exclusivefullscreen)
+VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities()
 {
 	// They sure made it easy to query something that isn't even time critical. Good job guys!
 
@@ -297,41 +265,14 @@ VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities(bool exclusive
 	VkSurfaceFullScreenExclusiveWin32InfoEXT exclusiveWin32Info = { VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT };
 #endif
 
-#ifdef WIN32
-	if (exclusivefullscreen)
-	{
-		exclusiveInfo.fullScreenExclusive = VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT;
-		exclusiveWin32Info.hmonitor = MonitorFromWindow(device->Surface->Window, MONITOR_DEFAULTTONEAREST);
-	}
-#endif
-
 	surfaceInfo.surface = device->Surface->Surface;
 
 	if (device->SupportsExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
 	{
 		const void** next = &surfaceInfo.pNext;
 
-#ifdef WIN32
-		if (exclusivefullscreen && device->SupportsExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME))
-		{
-			*next = &exclusiveInfo;
-			next = const_cast<const void**>(&exclusiveInfo.pNext);
-
-			*next = &exclusiveWin32Info;
-			next = &exclusiveWin32Info.pNext;
-		}
-#endif
-
 		VkSurfaceCapabilities2KHR caps2 = { VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR };
 		next = const_cast<const void**>(&caps2.pNext);
-
-#ifdef WIN32
-		if (exclusivefullscreen && device->SupportsExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME))
-		{
-			*next = &caps.FullScreenExclusive;
-			next = const_cast<const void**>(&caps.FullScreenExclusive.pNext);
-		}
-#endif
 
 		VkResult result = vkGetPhysicalDeviceSurfaceCapabilities2KHR(device->PhysicalDevice.Device, &surfaceInfo, &caps2);
 		if (result != VK_SUCCESS)
@@ -346,39 +287,17 @@ VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities(bool exclusive
 			VulkanError("vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed");
 	}
 
-#ifdef WIN32
-	if (exclusivefullscreen && device->SupportsExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME))
-	{
-		const void** next = &surfaceInfo.pNext;
+	uint32_t presentModeCount = 0;
+	VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->PhysicalDevice.Device, device->Surface->Surface, &presentModeCount, nullptr);
+	if (result != VK_SUCCESS)
+		VulkanError("vkGetPhysicalDeviceSurfacePresentModesKHR failed");
 
-		uint32_t presentModeCount = 0;
-		VkResult result = vkGetPhysicalDeviceSurfacePresentModes2EXT(device->PhysicalDevice.Device, &surfaceInfo, &presentModeCount, nullptr);
-		if (result != VK_SUCCESS)
-			VulkanError("vkGetPhysicalDeviceSurfacePresentModes2EXT failed");
-
-		if (presentModeCount > 0)
-		{
-			caps.PresentModes.resize(presentModeCount);
-			result = vkGetPhysicalDeviceSurfacePresentModes2EXT(device->PhysicalDevice.Device, &surfaceInfo, &presentModeCount, caps.PresentModes.data());
-			if (result != VK_SUCCESS)
-				VulkanError("vkGetPhysicalDeviceSurfacePresentModes2EXT failed");
-		}
-	}
-	else
-#endif
+	if (presentModeCount > 0)
 	{
-		uint32_t presentModeCount = 0;
-		VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->PhysicalDevice.Device, device->Surface->Surface, &presentModeCount, nullptr);
+		caps.PresentModes.resize(presentModeCount);
+		result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->PhysicalDevice.Device, device->Surface->Surface, &presentModeCount, caps.PresentModes.data());
 		if (result != VK_SUCCESS)
 			VulkanError("vkGetPhysicalDeviceSurfacePresentModesKHR failed");
-
-		if (presentModeCount > 0)
-		{
-			caps.PresentModes.resize(presentModeCount);
-			result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->PhysicalDevice.Device, device->Surface->Surface, &presentModeCount, caps.PresentModes.data());
-			if (result != VK_SUCCESS)
-				VulkanError("vkGetPhysicalDeviceSurfacePresentModesKHR failed");
-		}
 	}
 
 	if (device->SupportsExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))

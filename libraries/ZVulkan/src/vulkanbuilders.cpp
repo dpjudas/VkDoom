@@ -205,7 +205,7 @@ std::vector<uint32_t> GLSLCompiler::Compile(uint32_t apiVersion)
 
 /////////////////////////////////////////////////////////////////////////////
 
-std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char *shadername, VulkanDevice *device)
+std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char* shadername, VulkanDevice* device)
 {
 	VkShaderModuleCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -1107,6 +1107,48 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddFragmentShader(VulkanShader
 	return *this;
 }
 
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddConstant(uint32_t constantID, const void* data, size_t size)
+{
+	VkPipelineShaderStageCreateInfo& stage = shaderStages.back();
+	if (!stage.pSpecializationInfo)
+	{
+		specializations.push_back(std::make_unique<ShaderSpecialization>());
+		stage.pSpecializationInfo = &specializations.back()->info;
+	}
+
+	ShaderSpecialization* s = specializations.back().get();
+
+	VkSpecializationMapEntry entry = {};
+	entry.constantID = constantID;
+	entry.offset = (uint32_t)s->data.size();
+	entry.size = (uint32_t)size;
+
+	s->data.insert(s->data.end(), (uint8_t*)data, (uint8_t*)data + size);
+	s->entries.push_back(entry);
+
+	s->info.mapEntryCount = (uint32_t)s->entries.size();
+	s->info.dataSize = (uint32_t)s->data.size();
+	s->info.pMapEntries = s->entries.data();
+	s->info.pData = s->data.data();
+
+	return *this;
+}
+
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddConstant(uint32_t constantID, uint32_t value)
+{
+	return AddConstant(constantID, &value, sizeof(uint32_t));
+}
+
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddConstant(uint32_t constantID, int32_t value)
+{
+	return AddConstant(constantID, &value, sizeof(int32_t));
+}
+
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddConstant(uint32_t constantID, float value)
+{
+	return AddConstant(constantID, &value, sizeof(float));
+}
+
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddVertexBufferBinding(int index, size_t stride)
 {
 	VkVertexInputBindingDescription desc = {};
@@ -1616,22 +1658,30 @@ VulkanInstanceBuilder& VulkanInstanceBuilder::RequireExtension(const std::string
 	return *this;
 }
 
-VulkanInstanceBuilder& VulkanInstanceBuilder::RequireSurfaceExtensions(bool enable)
+VulkanInstanceBuilder& VulkanInstanceBuilder::RequireExtensions(const std::vector<std::string>& extensions)
 {
-	if (enable)
-	{
-		RequireExtension(VK_KHR_SURFACE_EXTENSION_NAME);
+	for (const auto& ext : extensions)
+		RequireExtension(ext);
+	return *this;
+}
 
-#if defined(VK_USE_PLATFORM_WIN32_KHR)
-		RequireExtension(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_MACOS_MVK)
-		RequireExtension(VK_MVK_MACOS_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_XLIB_KHR)
-		RequireExtension(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
-#endif
+VulkanInstanceBuilder& VulkanInstanceBuilder::RequireExtensions(const std::vector<const char*>& extensions)
+{
+	for (const auto& ext : extensions)
+		RequireExtension(ext);
+	return *this;
+}
 
-		OptionalExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME); // For HDR support
-	}
+VulkanInstanceBuilder& VulkanInstanceBuilder::RequireExtensions(const char** extensions, size_t count)
+{
+	for (size_t i = 0; i < count; i++)
+		RequireExtension(extensions[i]);
+	return *this;
+}
+
+VulkanInstanceBuilder& VulkanInstanceBuilder::OptionalSwapchainColorspace()
+{
+	OptionalExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME); // For HDR support
 	return *this;
 }
 
@@ -1651,27 +1701,6 @@ std::shared_ptr<VulkanInstance> VulkanInstanceBuilder::Create()
 {
 	return std::make_shared<VulkanInstance>(apiVersionsToTry, requiredExtensions, optionalExtensions, debugLayer);
 }
-
-/////////////////////////////////////////////////////////////////////////////
-
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-
-VulkanSurfaceBuilder::VulkanSurfaceBuilder()
-{
-}
-
-VulkanSurfaceBuilder& VulkanSurfaceBuilder::Win32Window(HWND hwnd)
-{
-	this->hwnd = hwnd;
-	return *this;
-}
-
-std::shared_ptr<VulkanSurface> VulkanSurfaceBuilder::Create(std::shared_ptr<VulkanInstance> instance)
-{
-	return std::make_shared<VulkanSurface>(std::move(instance), hwnd);
-}
-
-#endif
 
 /////////////////////////////////////////////////////////////////////////////
 

@@ -84,7 +84,7 @@ std::string to_string(const T& val) {
     #define UINT_PTR uintptr_t
 #endif
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && !defined(strdup)
 #define strdup _strdup
 #endif
 

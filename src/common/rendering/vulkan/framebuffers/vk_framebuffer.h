@@ -32,5 +32,4 @@ private:
 	int CurrentHeight = 0;
 	bool CurrentVSync = false;
 	bool CurrentHdr = false;
-	bool CurrentExclusiveFullscreen = false;
 };
