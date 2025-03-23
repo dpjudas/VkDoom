@@ -8,6 +8,8 @@
 #define LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN (int)4
 #define LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX (int)64
 
+class RectPackerItem;
+
 struct LevelMeshSurface;
 
 struct LightmapTileBinding
@@ -34,6 +36,7 @@ struct LightmapTile
 		int Width = 0;
 		int Height = 0;
 		int ArrayIndex = 0;
+		RectPackerItem* Item = nullptr;
 		uint32_t Area() const { return Width * Height; }
 	} AtlasLocation;
 
@@ -44,6 +47,9 @@ struct LightmapTile
 		FVector3 ProjLocalToU = { 0.0f, 0.0f, 0.0f };
 		FVector3 ProjLocalToV = { 0.0f, 0.0f, 0.0f };
 	} Transform;
+
+	int UseCount = 0;
+	bool AddedThisFrame = false;
 
 	LightmapTileBinding Binding;
 
