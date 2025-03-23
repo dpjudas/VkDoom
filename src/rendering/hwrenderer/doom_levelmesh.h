@@ -186,6 +186,8 @@ private:
 
 	void UploadDynLights(FLevelLocals& doomMap);
 
+	void ReleaseTiles(int surfaceIndex);
+
 	TArray<DoomSurfaceInfo> DoomSurfaceInfos;
 
 	TArray<SideSurfaceBlock> Sides;
@@ -195,6 +197,6 @@ private:
 	TArray<int> SideUpdateList;
 	TArray<int> FlatUpdateList;
 
-	std::map<LightmapTileBinding, int> bindings;
+	std::map<LightmapTileBinding, int> TileBindings;
 	MeshBuilder state;
 };

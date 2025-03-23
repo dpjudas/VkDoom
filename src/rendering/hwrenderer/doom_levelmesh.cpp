@@ -83,7 +83,9 @@ ADD_STAT(lightmap)
 		"Atlas efficiency: %.4f%%\n"
 		"Dynamic BLAS time: %2.3f ms\n"
 		"Level mesh process time: %2.3f ms\n"
-		"Level mesh index buffer: %d K used (%d%%)",
+		"Level mesh index buffer: %d K used (%d%%)\n"
+		"Lightmap tiles in use: %d\n"
+		"Lightmap texture count: %d",
 		stats.tiles.total, stats.tiles.dirty, stats.tiles.dirtyDynamic,
 		stats.pixels.dirty, stats.pixels.dirtyDynamic,
 		stats.pixels.total,
@@ -92,7 +94,9 @@ ADD_STAT(lightmap)
 		DynamicBLASTime.TimeMS(),
 		ProcessLevelMesh.TimeMS(),
 		indexBufferUsed / 1000,
-		indexBufferUsed * 100 / indexBufferTotal);
+		indexBufferUsed * 100 / indexBufferTotal,
+		levelMesh->Lightmap.UsedTiles,
+		levelMesh->Lightmap.TextureCount);
 
 	return out;
 }
@@ -293,7 +297,8 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	r_viewpoint.extralight = 0;
 	r_viewpoint.camera = nullptr;
 
-	ClearDynamicLightmapAtlas();
+	// If something changes we put it into new tiles.
+	TileBindings.clear();
 
 	for (side_t* side : PolySides)
 	{
@@ -328,7 +333,7 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	}
 	FlatUpdateList.Clear();
 
-	PackDynamicLightmapAtlas();
+	PackLightmapAtlas();
 	UpdateWallPortals();
 	UploadDynLights(doomMap);
 
@@ -495,7 +500,6 @@ bool DoomLevelMesh::TraceSky(const FVector3& start, FVector3 direction, float di
 
 void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 {
-	bindings.clear();
 	Sides.clear();
 	Flats.clear();
 	Sides.resize(doomMap.sides.size());
@@ -525,10 +529,36 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 	}
 }
 
+void DoomLevelMesh::ReleaseTiles(int surf)
+{
+	while (surf != -1)
+	{
+		int& tileIndex = Mesh.Surfaces[surf].LightmapTileIndex;
+		if (tileIndex != -1)
+		{
+			LightmapTile& tile = Lightmap.Tiles[tileIndex];
+			tile.UseCount--;
+			if (tile.UseCount == 0) // Nothing is referencing this tile anymore. Release it back to the atlas packer.
+			{
+				if (tile.AtlasLocation.Item)
+				{
+					Lightmap.AtlasPacker->Free(tile.AtlasLocation.Item);
+					tile.AtlasLocation.Item = nullptr;
+				}
+				FreeTile(tileIndex);
+			}
+			tileIndex = -1;
+		}
+		surf = DoomSurfaceInfos[surf].NextSurface;
+	}
+}
+
 void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 {
 	if (sideIndex < 0 || sideIndex >= Sides.Size())
 		return;
+
+	ReleaseTiles(Sides[sideIndex].FirstSurface);
 
 	int surf = Sides[sideIndex].FirstSurface;
 	while (surf != -1)
@@ -561,6 +591,8 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
 	if (sectorIndex < 0 || sectorIndex >= Flats.Size())
 		return;
+
+	ReleaseTiles(Flats[sectorIndex].FirstSurface);
 
 	int surf = Flats[sectorIndex].FirstSurface;
 	while (surf != -1)
@@ -1059,27 +1091,14 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		sinfo.Surface->LightList.Pos = lightlist.Start;
 		sinfo.Surface->LightList.Count = lightlist.Count;
 
-		if (side->Flags & WALLF_POLYOBJ) // Polyobjects gets a new tile every frame
+		if (disp.Level->lightmaps && !sinfo.Surface->IsSky)
 		{
-			LightmapTileBinding binding;
-			binding.Type = info.Type;
-			binding.TypeIndex = info.TypeIndex;
-			binding.ControlSector = info.ControlSector ? info.ControlSector->Index() : (int)0xffffffffUL;
-
-			LightmapTile tile;
-			tile.Binding = binding;
-			tile.Bounds = sinfo.Surface->Bounds;
-			tile.Plane = sinfo.Surface->Plane;
-			tile.SampleDimension = GetSampleDimension(sampleDimension);
-			tile.AlwaysUpdate = 2; // Ignore lm_dynamic
-
-			sinfo.Surface->LightmapTileIndex = Lightmap.Tiles.Size();
-			Lightmap.Tiles.Push(tile);
-			Lightmap.DynamicSurfaces.Push(sinfo.Index);
+			sinfo.Surface->LightmapTileIndex = AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC));
+			Lightmap.AddedSurfaces.Push(sinfo.Index);
 		}
 		else
 		{
-			sinfo.Surface->LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC)) : -1;
+			sinfo.Surface->LightmapTileIndex = -1;
 		}
 		
 		SetSideLightmap(sinfo.Index);
@@ -1171,49 +1190,41 @@ void DoomLevelMesh::SortDrawLists()
 
 int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, uint8_t alwaysUpdate)
 {
-	if (surf.IsSky)
-		return -1;
-
 	LightmapTileBinding binding;
 	binding.Type = info.Type;
 	binding.TypeIndex = info.TypeIndex;
 	binding.ControlSector = info.ControlSector ? info.ControlSector->Index() : (int)0xffffffffUL;
 
-	auto it = bindings.find(binding);
-	if (it != bindings.end())
+	auto it = TileBindings.find(binding);
+	if (it != TileBindings.end())
 	{
 		int index = it->second;
 
-		if (!Lightmap.StaticAtlasPacked)
-		{
-			LightmapTile& tile = Lightmap.Tiles[index];
-			tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
-			tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
-			tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
-			tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
-			tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
-			tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
-			tile.AlwaysUpdate = max<uint8_t>(tile.AlwaysUpdate, alwaysUpdate);
-		}
+		LightmapTile& tile = Lightmap.Tiles[index];
+		tile.Bounds.min.X = std::min(tile.Bounds.min.X, surf.Bounds.min.X);
+		tile.Bounds.min.Y = std::min(tile.Bounds.min.Y, surf.Bounds.min.Y);
+		tile.Bounds.min.Z = std::min(tile.Bounds.min.Z, surf.Bounds.min.Z);
+		tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
+		tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
+		tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
+		tile.AlwaysUpdate = max<uint8_t>(tile.AlwaysUpdate, alwaysUpdate);
+		tile.UseCount++;
 
 		return index;
 	}
 	else
 	{
-		if (Lightmap.StaticAtlasPacked)
-			return -1;
-
-		int index = Lightmap.Tiles.Size();
-
 		LightmapTile tile;
 		tile.Binding = binding;
 		tile.Bounds = surf.Bounds;
 		tile.Plane = surf.Plane;
 		tile.SampleDimension = GetSampleDimension(sampleDimension);
 		tile.AlwaysUpdate = alwaysUpdate;
+		tile.UseCount = 1;
 
-		Lightmap.Tiles.Push(tile);
-		bindings[binding] = index;
+		int index = AllocTile(tile);
+		Lightmap.AddedTiles.Push(index);
+		TileBindings[binding] = index;
 		return index;
 	}
 }
@@ -1414,7 +1425,17 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			surf.MeshLocation.NumVerts = sub->numlines;
 			surf.MeshLocation.NumElements = (sub->numlines - 2) * 3;
 			surf.Bounds = GetBoundsFromSurface(surf);
-			surf.LightmapTileIndex = disp.Level->lightmaps ? AddSurfaceToTile(info, surf, sampleDimension, !!(flatpart.sector->Flags & SECF_LM_DYNAMIC)) : -1;
+
+			if (disp.Level->lightmaps && !surf.IsSky)
+			{
+				surf.LightmapTileIndex = AddSurfaceToTile(info, surf, sampleDimension, !!(flatpart.sector->Flags & SECF_LM_DYNAMIC));
+				Lightmap.AddedSurfaces.Push(sinfo.Index);
+			}
+			else
+			{
+				surf.LightmapTileIndex = -1;
+			}
+
 			surf.LightList.Pos = lightlist.Start;
 			surf.LightList.Count = lightlist.Count;
 

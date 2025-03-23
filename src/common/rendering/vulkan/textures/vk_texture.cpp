@@ -473,7 +473,10 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 		return;
 
 	Lightmap.Size = newLMTextureSize;
-	Lightmap.Count = newLMTextureCount + 1; // the extra texture is for the dynamic lightmap
+
+	// Always create minimum 16 textures with 4 additional than the initial watermark
+	// To do: add support for expanding the texture dynamically instead
+	Lightmap.Count = std::max(newLMTextureCount, 12) + 4;
 	
 	int w = newLMTextureSize;
 	int h = newLMTextureSize;
