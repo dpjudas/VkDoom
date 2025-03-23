@@ -3026,7 +3026,7 @@ void MapLoader::InitLevelMesh(MapData* map)
 	{
 		if (Level->lightmaps)
 		{
-			Level->levelMesh->PackStaticLightmapAtlas();
+			Level->levelMesh->PackLightmapAtlas();
 		}
 	}
 }
@@ -3184,7 +3184,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 	}
 
 	// Place all tiles in atlas textures
-	Level->levelMesh->PackStaticLightmapAtlas();
+	Level->levelMesh->PackLightmapAtlas();
 
 	// Start with empty lightmap textures
 	Level->levelMesh->Lightmap.TextureData.Resize(Level->levelMesh->Lightmap.TextureCount * textureSize * textureSize * 3);
