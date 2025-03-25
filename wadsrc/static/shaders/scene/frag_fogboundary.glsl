@@ -5,11 +5,12 @@ void main()
 	// calculate fog factor
 	//
 	
+	float fogdist;
 	if (FOG_RADIAL)
-		float fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+		fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
 	else
-		float fogdist = max(16.0, pixelpos.w);
-	endif
+		fogdist = max(16.0, pixelpos.w);
+
 	float fogfactor = exp2 (uFogDensity * fogdist);
 	
 	FragColor = vec4(uFogColor.rgb, 1.0 - fogfactor);
