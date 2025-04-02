@@ -214,7 +214,7 @@ void VkShaderCache::Load()
 				return;
 
 			uint32_t version = readUInt32(fr);
-			if (version != 1)
+			if (version != 2)
 				return;
 
 			std::vector<char> strbuffer;
@@ -265,7 +265,7 @@ void VkShaderCache::Save()
 
 		fw->Write("shadercache", 11);
 
-		uint32_t version = 1;
+		uint32_t version = 2;
 		writeUInt32(fw, version);
 
 		writeUInt32(fw, CodeCache.size());

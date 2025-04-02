@@ -47,7 +47,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstdint>
 #include <list>
 #include <map>
 #include <set>
@@ -93,6 +92,11 @@ std::string to_string(const T& val) {
     #pragma warning(disable : 4786) // Don't warn about too long identifiers
     #pragma warning(disable : 4514) // unused inline method
     #pragma warning(disable : 4201) // nameless union
+#endif
+
+// Allow compilation to WASI which does not support threads yet.
+#ifdef __wasi__ 
+#define DISABLE_THREAD_SUPPORT
 #endif
 
 #include "PoolAlloc.h"

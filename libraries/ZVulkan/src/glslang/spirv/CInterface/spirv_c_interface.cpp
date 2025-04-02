@@ -30,11 +30,13 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **/
 
-#include "../../glslang/Include/glslang_c_interface.h"
+#include "glslang/glslang/Include/glslang_c_interface.h"
 
-#include "../GlslangToSpv.h"
-#include "../Logger.h"
-#include "../SpvTools.h"
+#include <cstring>
+#include "glslang/glslang/Public/ShaderLang.h"
+#include "glslang/spirv/GlslangToSpv.h"
+#include "glslang/spirv/Logger.h"
+#include "glslang/spirv/SpvTools.h"
 
 static_assert(sizeof(glslang_spv_options_t) == sizeof(glslang::SpvOptions), "");
 

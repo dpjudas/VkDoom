@@ -30,8 +30,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#include "../Public/resource_limits_c.h"
-#include "../Public/ResourceLimits.h"
+#include "glslang/glslang/Public/resource_limits_c.h"
+#include "glslang/glslang/Public/ResourceLimits.h"
 #include <stdlib.h>
 #include <string.h>
 #include <string>
