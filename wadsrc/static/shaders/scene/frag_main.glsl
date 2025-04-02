@@ -43,7 +43,7 @@ void main()
 	{
 		if (USE_DEPTHFADETHRESHOLD)
 		{
-			float behindFragmentDepth = texelFetch(LinearDepth, uViewOffset + ivec2(gl_FragCoord.xy), 0).r;
+			float behindFragmentDepth = texelFetchSampler2D(LinearDepth, uViewOffset + ivec2(gl_FragCoord.xy), 0).r;
 			material.Base.a *= clamp((behindFragmentDepth - pixelpos.w) / uDepthFadeThreshold, 0.0, 1.0);
 		}
 

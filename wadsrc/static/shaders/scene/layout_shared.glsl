@@ -121,3 +121,8 @@ vec4 texelFetch(int index, ivec2 P, int lod)
 {
 	return texelFetch(textures[nonuniformEXT(uTextureIndex + index)], P, lod);
 }
+
+vec4 texelFetchSampler2D(sampler2D s, ivec2 P, int lod)
+{
+	return texelFetch(s, P, lod);
+}
