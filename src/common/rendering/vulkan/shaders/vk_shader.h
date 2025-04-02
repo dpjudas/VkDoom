@@ -81,16 +81,16 @@ public:
 	{
 		struct
 		{
-			uint64_t AlphaTest : 1;     // !NO_ALPHATEST
-			uint64_t Simple : 1;		// SIMPLE
+			uint64_t Unused0 : 1;
+			uint64_t Unused1 : 1;
 			uint64_t Simple2D : 1;      // SIMPLE2D, uFogEnabled == -3
-			uint64_t Simple3D : 1;		// SIMPLE3D
+			uint64_t Unused2 : 1;
 			uint64_t TextureMode : 3;   // uTextureMode & 0xffff
 			uint64_t ClampY : 1;        // uTextureMode & TEXF_ClampY
 			uint64_t Brightmap : 1;     // uTextureMode & TEXF_Brightmap
 			uint64_t Detailmap : 1;     // uTextureMode & TEXF_Detailmap
 			uint64_t Glowmap : 1;       // uTextureMode & TEXF_Glowmap
-			uint64_t GBufferPass : 1;   // GBUFFER_PASS
+			uint64_t Unused3 : 1;
 			uint64_t UseShadowmap : 1;  // USE_SHADOWMAP
 			uint64_t UseRaytrace : 1;   // USE_RAYTRACE
 			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
@@ -104,12 +104,12 @@ public:
 			uint64_t LightMode : 2;     // LIGHTMODE_DEFAULT, LIGHTMODE_SOFTWARE, LIGHTMODE_VANILLA, LIGHTMODE_BUILD
 			uint64_t LightBlendMode : 2; // LIGHT_BLEND_CLAMPED , LIGHT_BLEND_COLORED_CLAMP , LIGHT_BLEND_UNCLAMPED
 			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
-			uint64_t UseLevelMesh : 1;  // USE_LEVELMESH
+			uint64_t Unused4: 1;
 			uint64_t FogBalls : 1;      // FOGBALLS
 			uint64_t NoFragmentShader : 1;
 			uint64_t DepthFadeThreshold : 1;
 			uint64_t AlphaTestOnly : 1; // ALPHATEST_ONLY
-			uint64_t ShadeVertex : 1; // SHADE_VERTEX
+			uint64_t Unused5 : 1;
 			uint64_t LightNoNormals : 1; // LIGHT_NONORMALS
 			uint64_t UseSpriteCenter : 1; // USE_SPRITE_CENTER
 			uint64_t Unused : 26;
@@ -120,7 +120,21 @@ public:
 	int SpecialEffect = 0;
 	int EffectState = 0;
 	int VertexFormat = 0;
-	int Padding = 0;
+
+	union
+	{
+		struct
+		{
+			uint32_t AlphaTest : 1;     // !NO_ALPHATEST
+			uint32_t Simple : 1;        // SIMPLE
+			uint32_t Simple3D : 1;      // SIMPLE3D
+			uint32_t GBufferPass : 1;   // GBUFFER_PASS
+			uint32_t UseLevelMesh : 1;  // USE_LEVELMESH
+			uint32_t ShadeVertex : 1;   // SHADE_VERTEX
+			uint32_t Unused : 26;
+		};
+		uint32_t AsDWORD = 0;
+	} Layout;
 
 	bool operator<(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) < 0; }
 	bool operator==(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) == 0; }
@@ -146,7 +160,7 @@ public:
 
 	void Deinit();
 
-	VkShaderProgram* Get(const VkShaderKey& key);
+	VkShaderProgram* Get(const VkShaderKey& key, bool isUberShader);
 
 	bool CompileNextShader() { return true; }
 
@@ -160,19 +174,20 @@ public:
 	VulkanShader* GetLightTilesShader() { return LightTiles.get(); }
 
 private:
-	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader);
-	std::unique_ptr<VulkanShader> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *lightmodel_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader);
+	std::unique_ptr<VulkanShader> LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader);
+	std::unique_ptr<VulkanShader> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *lightmodel_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader);
 
 	FString GetVersionBlock();
 	FString LoadPublicShaderLump(const char *lumpname);
 	FString LoadPrivateShaderLump(const char *lumpname);
 
-	void BuildLayoutBlock(FString &definesBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader = false);
+	void BuildLayoutBlock(FString &definesBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader);
 	void BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader);
 
 	VulkanRenderDevice* fb = nullptr;
 
-	std::map<VkShaderKey, VkShaderProgram> programs;
+	std::map<uint32_t, VkShaderProgram> generic;
+	std::map<VkShaderKey, VkShaderProgram> specialized;
 
 	std::list<VkPPShader*> PPShaders;
 

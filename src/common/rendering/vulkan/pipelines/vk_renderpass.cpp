@@ -276,13 +276,20 @@ VulkanRenderPass *VkRenderPassSetup::GetRenderPass(int clearTargets)
 
 VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms)
 {
-	auto item = Pipelines.find(key);
-	if (item == Pipelines.end())
+	// To do:
+	// Build the generalized pipelines in the VkRenderPassSetup constructor
+	// Then build the specialized ones on a worker thread
+
+#if 0 // generalized lookup
+	VkPipelineKey gkey = key;
+	gkey.ShaderKey.AsQWORD = 0;
+
+	auto item = GeneralizedPipelines.find(gkey);
+	if (item == GeneralizedPipelines.end())
 	{
-		Uniforms.Clear();
-		auto pipeline = CreatePipeline(key, Uniforms);
+		auto pipeline = CreatePipeline(gkey, true, Uniforms);
 		auto ptr = pipeline.get();
-		Pipelines.insert(std::pair<VkPipelineKey, PipelineData>{key, PipelineData{std::move(pipeline), Uniforms}});
+		GeneralizedPipelines.insert(std::pair<VkPipelineKey, PipelineData>{gkey, PipelineData{ std::move(pipeline), Uniforms }});
 		return ptr;
 	}
 	else
@@ -290,16 +297,33 @@ VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, Uniform
 		Uniforms = item->second.Uniforms;
 		return item->second.pipeline.get();
 	}
+#else // specialized lookup
+	auto item = SpecializedPipelines.find(key);
+	if (item == SpecializedPipelines.end())
+	{
+		auto pipeline = CreatePipeline(key, false, Uniforms);
+		auto ptr = pipeline.get();
+		SpecializedPipelines.insert(std::pair<VkPipelineKey, PipelineData>{key, PipelineData{std::move(pipeline), Uniforms}});
+		return ptr;
+	}
+	else
+	{
+		Uniforms = item->second.Uniforms;
+		return item->second.pipeline.get();
+	}
+#endif
 }
 
-std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms)
+std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipelineKey &key, bool isUberShader, UniformStructHolder &Uniforms)
 {
+	Uniforms.Clear();
+
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
 
 	builder.PolygonMode(key.DrawLine ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL);
 
-	VkShaderProgram *program = fb->GetShaderManager()->Get(key.ShaderKey);
+	VkShaderProgram *program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
 	builder.AddVertexShader(program->vert.get());
 	builder.AddConstant(0, (uint32_t)key.ShaderKey.AsQWORD);
 	builder.AddConstant(1, (uint32_t)(key.ShaderKey.AsQWORD >> 32));
@@ -374,7 +398,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 
 	builder.RasterizationSamples((VkSampleCountFlagBits)PassKey.Samples);
 
-	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.UseLevelMesh, program->Uniforms.sz));
+	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
 	builder.RenderPass(GetRenderPass(0));
 	builder.DebugName("VkRenderPassSetup.Pipeline");
 

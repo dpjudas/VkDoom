@@ -264,8 +264,8 @@ void VkRenderState::ApplyRenderPass(int dt)
 	{
 		pipelineKey.ShaderKey.SpecialEffect = mSpecialEffect;
 		pipelineKey.ShaderKey.EffectState = 0;
-		pipelineKey.ShaderKey.Simple = (mSpecialEffect == EFF_BURN || mSpecialEffect == EFF_STENCIL || mSpecialEffect == EFF_PORTAL);
-		pipelineKey.ShaderKey.AlphaTest = false;
+		pipelineKey.ShaderKey.Layout.Simple = (mSpecialEffect == EFF_BURN || mSpecialEffect == EFF_STENCIL || mSpecialEffect == EFF_PORTAL);
+		pipelineKey.ShaderKey.Layout.AlphaTest = false;
 	}
 	else
 	{
@@ -274,10 +274,10 @@ void VkRenderState::ApplyRenderPass(int dt)
 		pipelineKey.ShaderKey.EffectState = (mTextureEnabled && !mWireframe) ? effectState : SHADER_NoTexture;
 		if (r_skipmats && pipelineKey.ShaderKey.EffectState >= 3 && pipelineKey.ShaderKey.EffectState <= 4)
 			pipelineKey.ShaderKey.EffectState = 0;
-		pipelineKey.ShaderKey.AlphaTest = mSurfaceUniforms.uAlphaThreshold >= 0.f;
+		pipelineKey.ShaderKey.Layout.AlphaTest = mSurfaceUniforms.uAlphaThreshold >= 0.f;
 
-		pipelineKey.ShaderKey.Simple = mWireframe;
-		pipelineKey.ShaderKey.Simple3D = mWireframe; // simple notexture drawing for wireframe
+		pipelineKey.ShaderKey.Layout.Simple = mWireframe;
+		pipelineKey.ShaderKey.Layout.Simple3D = mWireframe; // simple notexture drawing for wireframe
 	}
 
 	int uTextureMode = GetTextureModeAndFlags((mMaterial.mMaterial && mMaterial.mMaterial->Source()->isHardwareCanvas()) ? TM_OPAQUE : TM_NORMAL);
@@ -329,7 +329,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 			pipelineKey.ShaderKey.LightMode = 1; // Software
 	}
 
-	pipelineKey.ShaderKey.ShadeVertex = mShadeVertex;
+	pipelineKey.ShaderKey.Layout.ShadeVertex = mShadeVertex;
 	pipelineKey.ShaderKey.LightNoNormals = mLightNoNormals;
 	pipelineKey.ShaderKey.UseSpriteCenter = mUseSpriteCenter;
 
@@ -339,7 +339,7 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.PreciseMidtextureTrace = gl_precise_midtextures_trace;
 	pipelineKey.ShaderKey.ShadowmapFilter = std::clamp(int(gl_light_shadow_filter), 0, 15);
 
-	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
+	pipelineKey.ShaderKey.Layout.GBufferPass = mRenderTarget.DrawBuffers > 1;
 
 	pipelineKey.ShaderKey.LightBlendMode = (level.info ? static_cast<int>(level.info->lightblendmode) : 0);
 	pipelineKey.ShaderKey.LightAttenuationMode = (level.info ? static_cast<int>(level.info->lightattenuationmode) : 0);
@@ -492,11 +492,11 @@ void VkRenderState::ApplyPushConstants()
 		memcpy(buffer.Data(), &mPushConstants, sizeof(PushConstants));
 		memcpy(buffer.Data() + sizeof(PushConstants), mUniforms.addr, mUniforms.sz);
 
-		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sz, buffer.Data());
+		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.Layout.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sz, buffer.Data());
 	}
 	else
 	{
-		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
+		mCommandBuffer->pushConstants(fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.Layout.UseLevelMesh, mUniforms.sz), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, (uint32_t)sizeof(PushConstants), &mPushConstants);
 	}
 }
 
@@ -563,7 +563,7 @@ void VkRenderState::ApplyBufferSets()
 	if (mViewpointOffset != mLastViewpointOffset || matrixOffset != mLastMatricesOffset || surfaceUniformsOffset != mLastSurfaceUniformsOffset || lightsOffset != mLastLightsOffset || fogballsOffset != mLastFogballsOffset)
 	{
 		auto descriptors = fb->GetDescriptorSetManager();
-		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz);
+		VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(mPipelineKey.ShaderKey.Layout.UseLevelMesh, mUniforms.sz);
 
 		uint32_t offsets[5] = { mViewpointOffset, matrixOffset, surfaceUniformsOffset, lightsOffset, fogballsOffset };
 		mCommandBuffer->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptors->GetFixedSet());
@@ -1099,7 +1099,7 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 		pipelineKey.ShaderKey.AlphaTestOnly = true;
 	}
 
-	pipelineKey.ShaderKey.ShadeVertex = mShadeVertex;
+	pipelineKey.ShaderKey.Layout.ShadeVertex = mShadeVertex;
 	pipelineKey.ShaderKey.LightNoNormals = mLightNoNormals;
 	pipelineKey.ShaderKey.UseSpriteCenter = mUseSpriteCenter;
 
@@ -1111,7 +1111,7 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	pipelineKey.ShaderKey.PreciseMidtextureTrace = gl_precise_midtextures_trace;
 	pipelineKey.ShaderKey.ShadowmapFilter = std::clamp(int(gl_light_shadow_filter), 0, 15);
 
-	pipelineKey.ShaderKey.GBufferPass = mRenderTarget.DrawBuffers > 1;
+	pipelineKey.ShaderKey.Layout.GBufferPass = mRenderTarget.DrawBuffers > 1;
 
 	// State overridden by the renderstate drawing the mesh
 	pipelineKey.DrawLine = mDrawLine || mWireframe;
@@ -1126,7 +1126,7 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	if (!mTextureEnabled || mWireframe)
 		pipelineKey.ShaderKey.EffectState = SHADER_NoTexture;
 
-	pipelineKey.ShaderKey.Simple3D = mWireframe; // simple notexture drawing for wireframe
+	pipelineKey.ShaderKey.Layout.Simple3D = mWireframe; // simple notexture drawing for wireframe
 
 	mPipelineKey = pipelineKey;
 
@@ -1134,7 +1134,7 @@ void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPip
 	pushConstants.uBoneIndexBase = -1;
 	pushConstants.uFogballIndex = -1;
 
-	VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(pipelineKey.ShaderKey.UseLevelMesh, mUniforms.sz);
+	VulkanPipelineLayout* layout = fb->GetRenderPassManager()->GetPipelineLayout(pipelineKey.ShaderKey.Layout.UseLevelMesh, mUniforms.sz);
 	uint32_t viewpointOffset = mViewpointOffset;
 	uint32_t matrixOffset = mRSBuffers->MatrixBuffer->Offset();
 	uint32_t fogballsOffset = 0;

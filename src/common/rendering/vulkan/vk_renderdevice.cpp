@@ -718,7 +718,7 @@ int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, c
 	{
 		pipelineKey.ShaderKey.SpecialEffect = applyData.SpecialEffect;
 		pipelineKey.ShaderKey.EffectState = 0;
-		pipelineKey.ShaderKey.AlphaTest = false;
+		pipelineKey.ShaderKey.Layout.AlphaTest = false;
 	}
 	else
 	{
@@ -727,7 +727,7 @@ int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, c
 		pipelineKey.ShaderKey.EffectState = applyData.TextureEnabled ? effectState : SHADER_NoTexture;
 		if (r_skipmats && pipelineKey.ShaderKey.EffectState >= 3 && pipelineKey.ShaderKey.EffectState <= 4)
 			pipelineKey.ShaderKey.EffectState = 0;
-		pipelineKey.ShaderKey.AlphaTest = surfaceUniforms.uAlphaThreshold >= 0.f;
+		pipelineKey.ShaderKey.Layout.AlphaTest = surfaceUniforms.uAlphaThreshold >= 0.f;
 	}
 
 	int tempTM = (material.mMaterial && material.mMaterial->Source()->isHardwareCanvas()) ? TM_OPAQUE : TM_NORMAL;
@@ -781,7 +781,7 @@ int VulkanRenderDevice::GetLevelMeshPipelineID(const MeshApplyData& applyData, c
 			pipelineKey.ShaderKey.LightMode = 1; // Software
 	}
 
-	pipelineKey.ShaderKey.UseLevelMesh = true;
+	pipelineKey.ShaderKey.Layout.UseLevelMesh = true;
 
 	for (unsigned int i = 0, count = levelMeshPipelineKeys.Size(); i < count; i++)
 	{

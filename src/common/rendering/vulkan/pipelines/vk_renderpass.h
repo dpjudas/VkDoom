@@ -86,11 +86,12 @@ public:
 
 	VkRenderPassKey PassKey;
 	std::unique_ptr<VulkanRenderPass> RenderPasses[8];
-	std::map<VkPipelineKey, PipelineData> Pipelines;
+	std::map<VkPipelineKey, PipelineData> GeneralizedPipelines;
+	std::map<VkPipelineKey, PipelineData> SpecializedPipelines;
 
 private:
 	std::unique_ptr<VulkanRenderPass> CreateRenderPass(int clearTargets);
-	std::unique_ptr<VulkanPipeline> CreatePipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms);
+	std::unique_ptr<VulkanPipeline> CreatePipeline(const VkPipelineKey &key, bool isUberShader, UniformStructHolder &Uniforms);
 
 	VulkanRenderDevice* fb = nullptr;
 };
