@@ -477,7 +477,7 @@ void VkRenderState::ApplyPushConstants()
 	mPushConstants.uLightIndex = mLightIndex >= 0 ? (mLightIndex % MAX_LIGHT_DATA) : -1;
 	mPushConstants.uBoneIndexBase = mBoneIndexBase;
 	mPushConstants.uFogballIndex = mFogballIndex >= 0 ? (mFogballIndex % MAX_FOGBALL_DATA) : -1;
-
+	mPushConstants.shaderKey = mPipelineKey.ShaderKey.AsQWORD;
 	
 	if(mUniforms.sz > 0)
 	{
