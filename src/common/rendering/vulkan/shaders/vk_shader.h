@@ -136,6 +136,14 @@ public:
 		uint32_t AsDWORD = 0;
 	} Layout;
 
+	inline uint64_t GeneralizedShaderKey() const
+	{
+		return uint64_t(Layout.AsDWORD) |
+			(uint64_t(EffectState) << 32) |
+			((uint64_t(SpecialEffect) & 0xFF) << (32 + 16)) |
+			((uint64_t(VertexFormat) & 0xFF)  << (32 + 16 + 8));
+	}
+
 	bool operator<(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) < 0; }
 	bool operator==(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) == 0; }
 	bool operator!=(const VkShaderKey& other) const { return memcmp(this, &other, sizeof(VkShaderKey)) != 0; }
@@ -186,7 +194,7 @@ private:
 
 	VulkanRenderDevice* fb = nullptr;
 
-	std::map<uint32_t, VkShaderProgram> generic;
+	std::map<uint64_t, VkShaderProgram> generic;
 	std::map<VkShaderKey, VkShaderProgram> specialized;
 
 	std::list<VkPPShader*> PPShaders;
