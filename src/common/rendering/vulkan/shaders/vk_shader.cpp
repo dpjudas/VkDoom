@@ -93,7 +93,7 @@ void VkShaderManager::Deinit()
 
 VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 {
-	VkShaderProgram& program = isUberShader ? generic[key.Layout.AsDWORD] : specialized[key];
+	VkShaderProgram& program = isUberShader ? generic[key.GeneralizedShaderKey()] : specialized[key];
 	if (program.frag)
 		return &program;
 
