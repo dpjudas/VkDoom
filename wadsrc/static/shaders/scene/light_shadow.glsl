@@ -3,13 +3,10 @@
 
 #include <shaders/scene/light_trace.glsl> // needed always to do per-pixel tracing of lightmap lights for sprites
 
-#if defined(USE_RAYTRACE)
 
 #define shadowAttenuationRaytrace(lightpos, shadowIndex, softShadowRadius, flags) traceShadow(lightpos, softShadowRadius)
 
-#endif
 
-#if defined(USE_SHADOWMAP)
 float shadowDirToU(vec2 dir)
 {
 	if (abs(dir.y) > abs(dir.x))
@@ -133,58 +130,23 @@ float shadowmapAttenuation(vec3 lightpos, float shadowIndex)
 
 float shadowAttenuationShadowMap(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
 {
-	if((flags & LIGHTINFO_TRACE) > 0)
-	{
-		return traceShadow(lightpos, softShadowRadius);
-	}
-	else
-	{
-		if (shadowIndex >= 1024)
-			return 1.0; // No shadowmap available for this light
-		return shadowmapAttenuation(lightpos, float(shadowIndex));
-	}
+	if (shadowIndex >= 1024)
+		return 1.0; // No shadowmap available for this light
+	return shadowmapAttenuation(lightpos, float(shadowIndex));
 }
-#endif
 
-#if !defined(USE_RAYTRACE) && !defined(USE_SHADOWMAP) || defined(UBERSHADERS)
-float shadowAttenuationNoShadow(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
+float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
 {
-	if((flags & LIGHTINFO_TRACE) > 0)
+	if(USE_RAYTRACE || (flags & LIGHTINFO_TRACE) > 0)
 	{
-		return traceShadow(lightpos, softShadowRadius);
+		return shadowAttenuationRaytrace(lightpos, shadowIndex, softShadowRadius, flags);
+	}
+	else if(USE_SHADOWMAP)
+	{
+		return shadowAttenuationShadowMap(lightpos, shadowIndex, softShadowRadius, flags);
 	}
 	else
 	{
 		return 1.0;
 	}
 }
-#endif
-
-
-#ifdef UBERSHADERS
-
-	float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags)
-	{
-		if(USE_RAYTRACE)
-		{
-			return shadowAttenuationRaytrace(lightpos, shadowIndex, softShadowRadius, flags);
-		}
-		else if(USE_SHADOWMAP)
-		{
-			return shadowAttenuationShadowMap(lightpos, shadowIndex, softShadowRadius, flags);
-		}
-		else
-		{
-			return shadowAttenuationNoShadow(lightpos, shadowIndex, softShadowRadius, flags);
-		}
-	}
-
-#else
-	#if defined(USE_RAYTRACE)
-		#define shadowAttenuation(lightpos, shadowIndex, softShadowRadius, flags) shadowAttenuationRaytrace(lightpos, shadowIndex, softShadowRadius, flags)
-	#elif defined(USE_SHADOWMAP)
-		#define shadowAttenuation shadowAttenuationShadowMap
-	#else
-		#define shadowAttenuation shadowAttenuationNoShadow
-	#endif
-#endif
