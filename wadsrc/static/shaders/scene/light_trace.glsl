@@ -153,32 +153,38 @@ float traceShadow(vec3 lightpos, float softShadowRadius)
 #if defined(SHADE_VERTEX)
 	return traceHit(origin, direction, dist);
 #else
-	if(SHADOWMAP_FILTER == 0)
+	if(SHADOWMAP_FILTER == 0 || softShadowRadius == 0)
 	{
 		return traceHit(origin, direction, dist);
 	}
 	else
 	{
-		if (softShadowRadius == 0)
-		{
-			return traceHit(origin, direction, dist);
-		}
-		else
-		{
-			vec3 v = (abs(direction.x) > abs(direction.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-			vec3 xdir = normalize(cross(direction, v));
-			vec3 ydir = cross(direction, xdir);
+		vec3 v = (abs(direction.x) > abs(direction.y)) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+		vec3 xdir = normalize(cross(direction, v));
+		vec3 ydir = cross(direction, xdir);
 
-			float sum = 0.0;
-			const int step_count = SHADOWMAP_FILTER * 4;
+		float sum = 0.0;
+		const int step_count = SHADOWMAP_FILTER * 4;
+
+		if(USE_RAYTRACE_PRECISE)
+		{
 			for (int i = 0; i < step_count; i++)
 			{
 				vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * softShadowRadius;
 				vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
-				sum += traceHit(origin, normalize(pos - origin), dist);
+				sum += TraceDynLightRay(origin, 0.01f, normalize(pos - origin), dist);
 			}
-			return (sum / step_count);
 		}
+		else
+		{
+			for (int i = 0; i < step_count; i++)
+			{
+				vec2 gridoffset = getVogelDiskSample(i, step_count, gl_FragCoord.x + gl_FragCoord.y * 13.37) * softShadowRadius;
+				vec3 pos = target + xdir * gridoffset.x + ydir * gridoffset.y;
+				sum += TraceAnyHit(origin, 0.01f, normalize(pos - origin), dist) ? 0.0 : 1.0;
+			}
+		}
+		return (sum / step_count);
 	}
 #endif
 }
