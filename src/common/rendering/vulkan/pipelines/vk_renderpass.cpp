@@ -433,6 +433,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	ct.Unclock();
 	const auto duration = ct.TimeMS();
 	pipeline_time += duration;
+	++pipeline_count;
 
 	if (vk_debug_pipeline_creation)
 	{
