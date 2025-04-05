@@ -16,6 +16,7 @@ class VkPPShader;
 class VkPPRenderPassKey;
 class VkPPRenderPassSetup;
 class ColorBlendAttachmentBuilder;
+class GraphicsPipelineBuilder;
 
 class VkPipelineKey
 {
@@ -84,16 +85,29 @@ public:
 	VulkanRenderPass *GetRenderPass(int clearTargets);
 	VulkanPipeline *GetPipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms);
 
+private:
+	std::unique_ptr<VulkanRenderPass> CreateRenderPass(int clearTargets);
+
+	std::unique_ptr<VulkanPipeline> CreatePipeline(const VkPipelineKey &key, bool isUberShader, UniformStructHolder &Uniforms);
+	std::unique_ptr<VulkanPipeline> LinkPipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms);
+	std::unique_ptr<VulkanPipeline> CreateWithStats(GraphicsPipelineBuilder& builder);
+
+	std::unique_ptr<VulkanPipeline> CreateVertexInputLibrary(int vertexFormat, bool useLevelMesh, int userUniformSize);
+	std::unique_ptr<VulkanPipeline> CreateVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader);
+	std::unique_ptr<VulkanPipeline> CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader);
+	std::unique_ptr<VulkanPipeline> CreateFragmentOutputLibrary(FRenderStyle renderStyle, VkColorComponentFlags colorMask);
+
+	void AddVertexInputInterface(GraphicsPipelineBuilder& builder, int vertexFormat);
+	void AddPreRasterizationShaders(GraphicsPipelineBuilder& builder, const VkPipelineKey& key, VkShaderProgram* program);
+	void AddFragmentShader(GraphicsPipelineBuilder& builder, const VkPipelineKey& key, VkShaderProgram* program);
+	void AddFragmentOutputInterface(GraphicsPipelineBuilder& builder, FRenderStyle renderStyle, VkColorComponentFlags colorMask);
+	void AddDynamicState(GraphicsPipelineBuilder& builder);
+
+	VulkanRenderDevice* fb = nullptr;
 	VkRenderPassKey PassKey;
 	std::unique_ptr<VulkanRenderPass> RenderPasses[8];
 	std::map<VkPipelineKey, PipelineData> GeneralizedPipelines;
 	std::map<VkPipelineKey, PipelineData> SpecializedPipelines;
-
-private:
-	std::unique_ptr<VulkanRenderPass> CreateRenderPass(int clearTargets);
-	std::unique_ptr<VulkanPipeline> CreatePipeline(const VkPipelineKey &key, bool isUberShader, UniformStructHolder &Uniforms);
-
-	VulkanRenderDevice* fb = nullptr;
 };
 
 class VkVertexFormat
