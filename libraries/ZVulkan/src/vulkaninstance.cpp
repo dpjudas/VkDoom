@@ -267,12 +267,18 @@ std::vector<VulkanPhysicalDevice> VulkanInstance::GetPhysicalDevices(VkInstance 
 				*next = &dev.Properties.LayeredDriver;
 				next = &dev.Properties.LayeredDriver.pNext;
 			}
+			if (checkForExtension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
+			{
+				*next = &dev.Properties.GraphicsPipelineLibrary;
+				next = &dev.Properties.GraphicsPipelineLibrary.pNext;
+			}
 
 			vkGetPhysicalDeviceProperties2(dev.Device, &deviceProperties2);
 			dev.Properties.Properties = deviceProperties2.properties;
 			dev.Properties.AccelerationStructure.pNext = nullptr;
 			dev.Properties.DescriptorIndexing.pNext = nullptr;
 			dev.Properties.LayeredDriver.pNext = nullptr;
+			dev.Properties.GraphicsPipelineLibrary.pNext = nullptr;
 
 			VkPhysicalDeviceFeatures2 deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 
@@ -302,6 +308,11 @@ std::vector<VulkanPhysicalDevice> VulkanInstance::GetPhysicalDevices(VkInstance 
 				*next = &dev.Features.Fault;
 				next = &dev.Features.Fault.pNext;
 			}
+			if (checkForExtension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
+			{
+				*next = &dev.Features.GraphicsPipelineLibrary;
+				next = &dev.Features.GraphicsPipelineLibrary.pNext;
+			}
 
 			vkGetPhysicalDeviceFeatures2(dev.Device, &deviceFeatures2);
 			dev.Features.Features = deviceFeatures2.features;
@@ -310,6 +321,7 @@ std::vector<VulkanPhysicalDevice> VulkanInstance::GetPhysicalDevices(VkInstance 
 			dev.Features.RayQuery.pNext = nullptr;
 			dev.Features.DescriptorIndexing.pNext = nullptr;
 			dev.Features.Fault.pNext = nullptr;
+			dev.Features.GraphicsPipelineLibrary.pNext = nullptr;
 		}
 		else
 		{

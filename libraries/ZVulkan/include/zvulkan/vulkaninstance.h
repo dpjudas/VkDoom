@@ -29,6 +29,7 @@ public:
 	VkPhysicalDeviceRayQueryFeaturesKHR RayQuery = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR };
 	VkPhysicalDeviceDescriptorIndexingFeatures DescriptorIndexing = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT };
 	VkPhysicalDeviceFaultFeaturesEXT Fault = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_EXT };
+	VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT GraphicsPipelineLibrary = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT };
 };
 
 class VulkanDeviceProperties
@@ -39,6 +40,7 @@ public:
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR AccelerationStructure = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
 	VkPhysicalDeviceDescriptorIndexingProperties DescriptorIndexing = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES_EXT };
 	VkPhysicalDeviceLayeredDriverPropertiesMSFT LayeredDriver = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LAYERED_DRIVER_PROPERTIES_MSFT };
+	VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT GraphicsPipelineLibrary = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
 };
 
 class VulkanPhysicalDevice

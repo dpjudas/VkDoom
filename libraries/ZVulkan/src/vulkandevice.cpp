@@ -141,6 +141,11 @@ void VulkanDevice::CreateDevice()
 		*next = &EnabledFeatures.Fault;
 		next = &EnabledFeatures.Fault.pNext;
 	}
+	if (SupportsExtension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
+	{
+		*next = &EnabledFeatures.GraphicsPipelineLibrary;
+		next = &EnabledFeatures.GraphicsPipelineLibrary.pNext;
+	}
 
 	VkResult result = vkCreateDevice(PhysicalDevice.Device, &deviceCreateInfo, nullptr, &device);
 	CheckVulkanError(result, "Could not create vulkan device");

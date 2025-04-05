@@ -401,28 +401,36 @@ public:
 
 	GraphicsPipelineBuilder& PolygonMode(VkPolygonMode mode) {rasterizer.polygonMode = mode; return *this;};
 
+	GraphicsPipelineBuilder& Flags(VkPipelineCreateFlags flags);
+	GraphicsPipelineBuilder& LibraryFlags(VkGraphicsPipelineLibraryFlagsEXT flags);
+	GraphicsPipelineBuilder& AddLibrary(VulkanPipeline* pipeline);
+
 	GraphicsPipelineBuilder& DebugName(const char* name) { debugName = name; return *this; }
 
 	std::unique_ptr<VulkanPipeline> Create(VulkanDevice *device);
 
 private:
-	VkGraphicsPipelineCreateInfo pipelineInfo = { };
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = { };
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { };
+	VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	VkViewport viewport = { };
 	VkRect2D scissor = { };
-	VkPipelineViewportStateCreateInfo viewportState = { };
-	VkPipelineRasterizationStateCreateInfo rasterizer = { };
-	VkPipelineMultisampleStateCreateInfo multisampling = { };
-	VkPipelineColorBlendStateCreateInfo colorBlending = { };
-	VkPipelineDepthStencilStateCreateInfo depthStencil = { };
-	VkPipelineDynamicStateCreateInfo dynamicState = {};
+	VkPipelineViewportStateCreateInfo viewportState = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
+	VkPipelineRasterizationStateCreateInfo rasterizer = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
+	VkPipelineMultisampleStateCreateInfo multisampling = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
+	VkPipelineColorBlendStateCreateInfo colorBlending = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
+	VkPipelineDepthStencilStateCreateInfo depthStencil = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
+	VkPipelineDynamicStateCreateInfo dynamicState = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
+
+	VkPipelineLibraryCreateInfoKHR libraryCreate = { VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR };
+	VkGraphicsPipelineLibraryCreateInfoEXT pipelineLibrary = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT };
 
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
 	std::vector<VkVertexInputBindingDescription> vertexInputBindings;
 	std::vector<VkVertexInputAttributeDescription> vertexInputAttributes;
 	std::vector<VkDynamicState> dynamicStates;
+	std::vector<VkPipeline> libraries;
 
 	struct ShaderSpecialization
 	{
