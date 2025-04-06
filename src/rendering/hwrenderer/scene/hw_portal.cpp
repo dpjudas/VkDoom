@@ -284,7 +284,7 @@ void HWPortal::SetupStencil(HWDrawInfo *di, FRenderState &state, bool usestencil
 			// set normal drawing mode
 			state.EnableTexture(true);
 			state.SetDepthRange(0, 1);
-			state.SetDepthFunc(DF_Less);
+			state.SetDepthFunc(DF_LEqual);
 			state.SetColorMask(true);
 			state.SetEffect(EFF_NONE);
 		}
@@ -298,6 +298,7 @@ void HWPortal::SetupStencil(HWDrawInfo *di, FRenderState &state, bool usestencil
 			state.SetStencil(1, SOP_Keep); // draw sky into stencil. This stage doesn't modify the stencil.
 			state.EnableTexture(true);
 			state.SetColorMask(true);
+			state.SetDepthFunc(DF_LEqual);
 			state.SetEffect(EFF_NONE);
 			state.EnableDepthTest(false);
 			state.SetDepthMask(false);							// don't write to Z-buffer!
@@ -359,9 +360,8 @@ void HWPortal::RemoveStencil(HWDrawInfo *di, FRenderState &state, bool usestenci
 		state.SetDepthRange(0, 1);
 		state.SetStencil(0, SOP_Decrement);
 		DrawPortalStencil(state, STP_DepthRestore);
-		state.SetDepthFunc(DF_Less);
 		
-		
+		state.SetDepthFunc(DF_LEqual);
 		state.EnableTexture(true);
 		state.SetEffect(EFF_NONE);
 		state.SetColorMask(true);
@@ -396,7 +396,6 @@ void HWPortal::RemoveStencil(HWDrawInfo *di, FRenderState &state, bool usestenci
 		state.SetEffect(EFF_NONE);
 		state.EnableTexture(true);
 		state.SetColorMask(true);
-		state.SetDepthFunc(DF_Less);
 	}
 }
 

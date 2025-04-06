@@ -56,7 +56,6 @@ VSMatrix FHWModelRenderer::GetViewToWorldMatrix()
 
 void FHWModelRenderer::BeginDrawModel(FRenderStyle style, int smf_flags, const VSMatrix &objectToWorldMatrix, bool mirrored)
 {
-	state.SetDepthFunc(DF_LEqual);
 	state.EnableTexture(true);
 
 	if (!gl_texture)
@@ -83,14 +82,12 @@ void FHWModelRenderer::EndDrawModel(FRenderStyle style, int smf_flags)
 {
 	state.SetBoneIndexBase(-1);
 	state.SetModelMatrix(VSMatrix::identity(), VSMatrix::identity());
-	state.SetDepthFunc(DF_Less);
 	if ((smf_flags & MDL_FORCECULLBACKFACES) || (!(style == DefaultRenderStyle()) && !(smf_flags & MDL_DONTCULLBACKFACES)))
 		state.SetCulling(Cull_None);
 }
 
 void FHWModelRenderer::BeginDrawHUDModel(FRenderStyle style, const VSMatrix &objectToWorldMatrix, bool mirrored, int smf_flags)
 {
-	state.SetDepthFunc(DF_LEqual);
 	state.SetDepthClamp(true);
 
 	state.EnableTexture(true);
@@ -119,7 +116,6 @@ void FHWModelRenderer::EndDrawHUDModel(FRenderStyle style, int smf_flags)
 	state.SetBoneIndexBase(-1);
 	state.SetModelMatrix(VSMatrix::identity(), VSMatrix::identity());
 
-	state.SetDepthFunc(DF_Less);
 	if (!(style == DefaultRenderStyle()) || (smf_flags & MDL_FORCECULLBACKFACES))
 		state.SetCulling(Cull_None);
 }

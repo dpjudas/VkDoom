@@ -146,8 +146,6 @@ void HWWall::RenderMirrorSurface(HWWallDispatcher*di, FRenderState &state)
 {
 	if (!TexMan.mirrorTexture.isValid()) return;
 
-	state.SetDepthFunc(DF_LEqual);
-
 	// Use sphere mapping for this
 	state.SetEffect(EFF_SPHEREMAP);
 	SetColor(state, di->Level, di->lightmode, lightlevel, 0, di->isFullbrightScene(), Colormap, 0.1f);
@@ -164,8 +162,6 @@ void HWWall::RenderMirrorSurface(HWWallDispatcher*di, FRenderState &state)
 	state.SetTextureMatrix(VSMatrix::identity());
 	state.SetEffect(EFF_NONE);
 	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
-
-	state.SetDepthFunc(DF_Less);
 
 	// This is drawn in the translucent pass which is done after the decal pass
 	// As a result the decals have to be drawn here, right after the wall they are on,

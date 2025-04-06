@@ -754,7 +754,7 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	}
 
 	// Part 1: solid geometry. This is set up so that there are no transparent parts
-	state.SetDepthFunc(DF_Less);
+	state.SetDepthFunc(DF_LEqual);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	state.ClearDepthBias();
 
