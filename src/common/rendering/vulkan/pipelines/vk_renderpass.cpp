@@ -489,7 +489,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int 
 	builder.DebugName("VkRenderPassSetup.VertexInputLibrary");
 	AddVertexInputInterface(builder, vertexFormat, drawType);
 	AddDynamicState(builder);
-	return builder.Create(fb->GetDevice());
+	return CreateWithStats(builder);
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader)
@@ -504,7 +504,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(con
 	builder.DebugName("VkRenderPassSetup.VertexShaderLibrary");
 	AddPreRasterizationShaders(builder, key, program);
 	AddDynamicState(builder);
-	return builder.Create(fb->GetDevice());
+	return CreateWithStats(builder);
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
@@ -519,7 +519,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentShaderLibrary(c
 	builder.DebugName("VkRenderPassSetup.FragmentShaderLibrary");
 	AddFragmentShader(builder, key, program);
 	AddDynamicState(builder);
-	return builder.Create(fb->GetDevice());
+	return CreateWithStats(builder);
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentOutputLibrary(FRenderStyle renderStyle, VkColorComponentFlags colorMask)
@@ -532,7 +532,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentOutputLibrary(F
 	builder.DebugName("VkRenderPassSetup.FragmentOutputLibrary");
 	AddFragmentOutputInterface(builder, renderStyle, colorMask);
 	AddDynamicState(builder);
-	return builder.Create(fb->GetDevice());
+	return CreateWithStats(builder);
 }
 
 void VkRenderPassSetup::AddVertexInputInterface(GraphicsPipelineBuilder& builder, int vertexFormat, int drawType)
