@@ -290,7 +290,7 @@ VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, Uniform
 		auto item = GeneralizedPipelines.find(gkey);
 		if (item == GeneralizedPipelines.end())
 		{
-			auto pipeline = CreatePipeline(gkey, true, Uniforms);
+			auto pipeline = LinkPipeline(gkey, true, Uniforms);
 			auto ptr = pipeline.get();
 			GeneralizedPipelines.insert(std::pair<VkPipelineKey, PipelineData>{gkey, PipelineData{ std::move(pipeline), Uniforms }});
 			return ptr;
@@ -367,7 +367,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	builder.RenderPass(GetRenderPass(0));
 	builder.DebugName("VkRenderPassSetup.Pipeline");
 
-	AddVertexInputInterface(builder, key.ShaderKey.VertexFormat);
+	AddVertexInputInterface(builder, key.ShaderKey.VertexFormat, key.DrawType);
 	AddPreRasterizationShaders(builder, key, program);
 	AddFragmentShader(builder, key, program);
 	AddFragmentOutputInterface(builder, key.RenderStyle, (VkColorComponentFlags)key.ColorMask);
@@ -376,16 +376,17 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	return CreateWithStats(builder);
 }
 
-VulkanPipeline* VkRenderPassSetup::GetVertexInputLibrary(int vertexFormat, bool useLevelMesh, int userUniformSize)
+VulkanPipeline* VkRenderPassSetup::GetVertexInputLibrary(int vertexFormat, int drawType, bool useLevelMesh, int userUniformSize)
 {
 	uint64_t key =
 		(static_cast<uint64_t>(vertexFormat)) |
+		(static_cast<uint64_t>(drawType) << 16) |
 		(static_cast<uint64_t>(useLevelMesh) << 31) |
 		(static_cast<uint64_t>(userUniformSize) << 32);
 
 	auto& pipeline = Libraries.VertexInput[key];
 	if (!pipeline)
-		pipeline = CreateVertexInputLibrary(vertexFormat, useLevelMesh, userUniformSize);
+		pipeline = CreateVertexInputLibrary(vertexFormat, drawType, useLevelMesh, userUniformSize);
 	return pipeline.get();
 }
 
@@ -400,14 +401,65 @@ VulkanPipeline* VkRenderPassSetup::GetFragmentOutputLibrary(FRenderStyle renderS
 
 VulkanPipeline* VkRenderPassSetup::GetVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader)
 {
-	// To do: look up pipeline
-	return nullptr;
+	VkPipelineKey vkey = key;
+	vkey.IsGeneralized = isUberShader;
+	vkey.DrawType = 0;
+	vkey.ColorMask = 0;
+	vkey.DepthWrite = 0;
+	vkey.DepthTest = 0;
+	vkey.DepthFunc = 0;
+	vkey.StencilTest = 0;
+	vkey.StencilPassOp = 0;
+	vkey.RenderStyle.AsDWORD = 0;
+	if (isUberShader)
+	{
+		vkey.AsQWORD = 0;
+	}
+	else
+	{
+		vkey.ShaderKey.TextureMode = 0;
+		vkey.ShaderKey.ClampY = 0;
+		vkey.ShaderKey.Brightmap = 0;
+		vkey.ShaderKey.Detailmap = 0;
+		vkey.ShaderKey.Glowmap = 0;
+		vkey.ShaderKey.FogBeforeLights = 0;
+		vkey.ShaderKey.FogAfterLights = 0;
+		vkey.ShaderKey.FogRadial = 0;
+		vkey.ShaderKey.SWLightRadial = 0;
+		vkey.ShaderKey.SWLightBanded = 0;
+		vkey.ShaderKey.LightMode = 0;
+		vkey.ShaderKey.LightBlendMode = 0;
+		vkey.ShaderKey.LightAttenuationMode = 0;
+		vkey.ShaderKey.FogBalls = 0;
+		vkey.ShaderKey.NoFragmentShader = 0;
+		vkey.ShaderKey.DepthFadeThreshold = 0;
+		vkey.ShaderKey.AlphaTestOnly = 0;
+		vkey.ShaderKey.UseSpriteCenter = 0;
+	}
+	auto& pipeline = Libraries.VertexShader[vkey];
+	if (!pipeline)
+		pipeline = CreateVertexShaderLibrary(key, isUberShader);
+	return pipeline.get();
 }
 
 VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
 {
-	// To do: look up pipeline
-	return nullptr;
+	VkPipelineKey fkey = key;
+	fkey.IsGeneralized = isUberShader;
+	fkey.DrawLine = 0;
+	fkey.DrawType = 0;
+	fkey.CullMode = 0;
+	fkey.ColorMask = 0;
+	fkey.DepthClamp = 0;
+	fkey.DepthBias = 0;
+	fkey.RenderStyle.AsDWORD = 0;
+	fkey.ShaderKey.VertexFormat = 0;
+	if (isUberShader)
+		fkey.AsQWORD = 0;
+	auto& pipeline = Libraries.FragmentShader[fkey];
+	if (!pipeline)
+		pipeline = CreateFragmentShaderLibrary(key, isUberShader);
+	return pipeline.get();
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
@@ -419,14 +471,14 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipeline
 
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
-	builder.AddLibrary(GetVertexInputLibrary(key.ShaderKey.VertexFormat, key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
+	builder.AddLibrary(GetVertexInputLibrary(key.ShaderKey.VertexFormat, key.DrawType, key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
 	builder.AddLibrary(GetVertexShaderLibrary(key, isUberShader));
 	builder.AddLibrary(GetFragmentShaderLibrary(key, isUberShader));
 	builder.AddLibrary(GetFragmentOutputLibrary(key.RenderStyle, (VkColorComponentFlags)key.ColorMask));
 	return CreateWithStats(builder);
 }
 
-std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int vertexFormat, bool useLevelMesh, int userUniformSize)
+std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int vertexFormat, int drawType, bool useLevelMesh, int userUniformSize)
 {
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
@@ -435,7 +487,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int 
 	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(useLevelMesh, userUniformSize));
 	builder.RenderPass(GetRenderPass(0));
 	builder.DebugName("VkRenderPassSetup.VertexInputLibrary");
-	AddVertexInputInterface(builder, vertexFormat);
+	AddVertexInputInterface(builder, vertexFormat, drawType);
 	AddDynamicState(builder);
 	return builder.Create(fb->GetDevice());
 }
@@ -483,7 +535,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentOutputLibrary(F
 	return builder.Create(fb->GetDevice());
 }
 
-void VkRenderPassSetup::AddVertexInputInterface(GraphicsPipelineBuilder& builder, int vertexFormat)
+void VkRenderPassSetup::AddVertexInputInterface(GraphicsPipelineBuilder& builder, int vertexFormat, int drawType)
 {
 	const VkVertexFormat& vfmt = *fb->GetRenderPassManager()->GetVertexFormat(vertexFormat);
 
@@ -506,6 +558,15 @@ void VkRenderPassSetup::AddVertexInputInterface(GraphicsPipelineBuilder& builder
 		const auto& attr = vfmt.Attrs[i];
 		builder.AddVertexAttribute(attr.location, attr.binding, vkfmts[attr.format], attr.offset);
 	}
+
+	static const VkPrimitiveTopology vktopology[] = {
+		VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
+		VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP
+	};
+	builder.Topology(vktopology[drawType]);
 }
 
 void VkRenderPassSetup::AddPreRasterizationShaders(GraphicsPipelineBuilder& builder, const VkPipelineKey& key, VkShaderProgram* program)
@@ -515,18 +576,13 @@ void VkRenderPassSetup::AddPreRasterizationShaders(GraphicsPipelineBuilder& buil
 	builder.AddConstant(0, (uint32_t)key.ShaderKey.AsQWORD);
 	builder.AddConstant(1, (uint32_t)(key.ShaderKey.AsQWORD >> 32));
 
-	static const VkPrimitiveTopology vktopology[] = {
-		VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-		VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP
-	};
-	builder.Topology(vktopology[key.DrawType]);
-
 	// Note: CCW and CW is intentionally swapped here because the vulkan and opengl coordinate systems differ.
 	// main.vp addresses this by patching up gl_Position.z, which has the side effect of flipping the sign of the front face calculations.
 	builder.Cull(key.CullMode == Cull_None ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT, key.CullMode == Cull_CW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE);
+
+	if (fb->GetDevice()->EnabledFeatures.Features.depthClamp)
+		builder.DepthClampEnable(key.DepthClamp);
+	builder.DepthBias(key.DepthBias, 0.0f, 0.0f, 0.0f);
 }
 
 void VkRenderPassSetup::AddFragmentShader(GraphicsPipelineBuilder& builder, const VkPipelineKey& key, VkShaderProgram* program)
@@ -543,10 +599,6 @@ void VkRenderPassSetup::AddFragmentShader(GraphicsPipelineBuilder& builder, cons
 
 	builder.DepthStencilEnable(key.DepthTest, key.DepthWrite, key.StencilTest);
 	builder.DepthFunc(depthfunc2vk[key.DepthFunc]);
-	if (fb->GetDevice()->EnabledFeatures.Features.depthClamp)
-		builder.DepthClampEnable(key.DepthClamp);
-	builder.DepthBias(key.DepthBias, 0.0f, 0.0f, 0.0f);
-
 	builder.Stencil(VK_STENCIL_OP_KEEP, op2vk[key.StencilPassOp], VK_STENCIL_OP_KEEP, VK_COMPARE_OP_EQUAL, 0xffffffff, 0xffffffff, 0);
 }
 
