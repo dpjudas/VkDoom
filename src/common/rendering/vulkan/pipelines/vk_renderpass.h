@@ -92,6 +92,11 @@ private:
 	std::unique_ptr<VulkanPipeline> LinkPipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms);
 	std::unique_ptr<VulkanPipeline> CreateWithStats(GraphicsPipelineBuilder& builder);
 
+	VulkanPipeline* GetVertexInputLibrary(int vertexFormat, bool useLevelMesh, int userUniformSize);
+	VulkanPipeline* GetVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader);
+	VulkanPipeline* GetFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader);
+	VulkanPipeline* GetFragmentOutputLibrary(FRenderStyle renderStyle, VkColorComponentFlags colorMask);
+
 	std::unique_ptr<VulkanPipeline> CreateVertexInputLibrary(int vertexFormat, bool useLevelMesh, int userUniformSize);
 	std::unique_ptr<VulkanPipeline> CreateVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader);
 	std::unique_ptr<VulkanPipeline> CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader);
@@ -108,6 +113,14 @@ private:
 	std::unique_ptr<VulkanRenderPass> RenderPasses[8];
 	std::map<VkPipelineKey, PipelineData> GeneralizedPipelines;
 	std::map<VkPipelineKey, PipelineData> SpecializedPipelines;
+
+	struct
+	{
+		std::map<uint64_t, std::unique_ptr<VulkanPipeline>> VertexInput;
+		std::map<uint64_t, std::unique_ptr<VulkanPipeline>> VertexShader;
+		std::map<uint64_t, std::unique_ptr<VulkanPipeline>> FragmentShader;
+		std::map<uint64_t, std::unique_ptr<VulkanPipeline>> FragmentOutput;
+	} Libraries;
 };
 
 class VkVertexFormat

@@ -376,6 +376,40 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipeli
 	return CreateWithStats(builder);
 }
 
+VulkanPipeline* VkRenderPassSetup::GetVertexInputLibrary(int vertexFormat, bool useLevelMesh, int userUniformSize)
+{
+	uint64_t key =
+		(static_cast<uint64_t>(vertexFormat)) |
+		(static_cast<uint64_t>(useLevelMesh) << 31) |
+		(static_cast<uint64_t>(userUniformSize) << 32);
+
+	auto& pipeline = Libraries.VertexInput[key];
+	if (!pipeline)
+		pipeline = CreateVertexInputLibrary(vertexFormat, useLevelMesh, userUniformSize);
+	return pipeline.get();
+}
+
+VulkanPipeline* VkRenderPassSetup::GetFragmentOutputLibrary(FRenderStyle renderStyle, VkColorComponentFlags colorMask)
+{
+	uint64_t key = static_cast<uint64_t>(renderStyle.AsDWORD) | (static_cast<uint64_t>(colorMask) << 32);
+	auto& pipeline = Libraries.FragmentOutput[key];
+	if (!pipeline)
+		pipeline = CreateFragmentOutputLibrary(renderStyle, colorMask);
+	return pipeline.get();
+}
+
+VulkanPipeline* VkRenderPassSetup::GetVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader)
+{
+	// To do: look up pipeline
+	return nullptr;
+}
+
+VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
+{
+	// To do: look up pipeline
+	return nullptr;
+}
+
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
 {
 	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
@@ -383,15 +417,12 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipeline
 	Uniforms.Clear();
 	Uniforms = program->Uniforms;
 
-	// To do: look up these
-	std::unique_ptr<VulkanPipeline> vertexInput, vertexShader, fragmentShader, fragmentOutput;
-
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
-	builder.AddLibrary(vertexInput.get());
-	builder.AddLibrary(vertexShader.get());
-	builder.AddLibrary(fragmentShader.get());
-	builder.AddLibrary(fragmentOutput.get());
+	builder.AddLibrary(GetVertexInputLibrary(key.ShaderKey.VertexFormat, key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
+	builder.AddLibrary(GetVertexShaderLibrary(key, isUberShader));
+	builder.AddLibrary(GetFragmentShaderLibrary(key, isUberShader));
+	builder.AddLibrary(GetFragmentOutputLibrary(key.RenderStyle, (VkColorComponentFlags)key.ColorMask));
 	return CreateWithStats(builder);
 }
 
