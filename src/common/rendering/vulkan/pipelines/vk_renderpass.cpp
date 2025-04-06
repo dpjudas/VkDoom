@@ -413,7 +413,7 @@ VulkanPipeline* VkRenderPassSetup::GetVertexShaderLibrary(const VkPipelineKey& k
 	vkey.RenderStyle.AsDWORD = 0;
 	if (isUberShader)
 	{
-		vkey.AsQWORD = 0;
+		vkey.ShaderKey.AsQWORD = 0;
 	}
 	else
 	{
@@ -455,7 +455,7 @@ VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey&
 	fkey.RenderStyle.AsDWORD = 0;
 	fkey.ShaderKey.VertexFormat = 0;
 	if (isUberShader)
-		fkey.AsQWORD = 0;
+		fkey.ShaderKey.AsQWORD = 0;
 	auto& pipeline = Libraries.FragmentShader[fkey];
 	if (!pipeline)
 		pipeline = CreateFragmentShaderLibrary(key, isUberShader);
