@@ -213,6 +213,35 @@ void VkRenderPassManager::CreateZMinMaxPipeline()
 
 VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassKey &key) : PassKey(key), fb(fb)
 {
+	// To do: don't do it here as that will block the main thread.
+
+	// Precompile material fragment shaders:
+/*
+	VkPipelineKey fkey;
+	fkey.IsGeneralized = true;
+	fkey.DepthFunc = DF_LEqual;
+	fkey.StencilTest = true;
+	fkey.StencilPassOp = SOP_Keep;
+	fkey.ShaderKey.Layout.Simple = 0;
+	fkey.ShaderKey.Layout.Simple3D = 0;
+	fkey.ShaderKey.Layout.GBufferPass = gl_ssao != 0;
+	fkey.ShaderKey.Layout.UseLevelMesh = 0;
+
+	int count = NUM_BUILTIN_SHADERS + usershaders.Size();
+	for (int i = 0; i < count; i++)
+	{
+		fkey.ShaderKey.SpecialEffect = EFF_NONE;
+		fkey.ShaderKey.EffectState = i;
+		for (int j = 0; j < 16; j++)
+		{
+			fkey.DepthWrite = (j & 1) != 0;
+			fkey.DepthTest = (j & 2) != 0;
+			fkey.ShaderKey.Layout.AlphaTest = (j & 4) != 0;
+			fkey.ShaderKey.Layout.ShadeVertex = (j & 8) != 0;
+			GetFragmentShaderLibrary(fkey, true);
+		}
+	}
+*/
 }
 
 std::unique_ptr<VulkanRenderPass> VkRenderPassSetup::CreateRenderPass(int clearTargets)
