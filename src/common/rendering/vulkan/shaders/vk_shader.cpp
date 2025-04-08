@@ -441,8 +441,8 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 	definesBlock << "#define LIGHT_BLEND_COLORED_CLAMP (SK_GET_LIGHTBLENDMODE() == SK1_LIGHT_LIGHT_BLEND_COLORED_CLAMP)\n";
 	definesBlock << "#define LIGHT_BLEND_UNCLAMPED (SK_GET_LIGHTBLENDMODE() == SK1_LIGHT_BLEND_UNCLAMPED)\n";
 
-	definesBlock << "#define LIGHT_ATTENUATION_LINEAR ((uShaderKey1 & SK1_TEXTUREMODE) == 0)\n";
-	definesBlock << "#define LIGHT_ATTENUATION_INVERSE_SQUARE ((uShaderKey1 & SK1_TEXTUREMODE) != 0)\n";
+	definesBlock << "#define LIGHT_ATTENUATION_LINEAR ((uShaderKey1 & SK1_LIGHTATTENUATIONMODE) == 0)\n";
+	definesBlock << "#define LIGHT_ATTENUATION_INVERSE_SQUARE ((uShaderKey1 & SK1_LIGHTATTENUATIONMODE) != 0)\n";
 
 	definesBlock << "#define FOGBALLS ((uShaderKey1 & SK1_FOGBALLS) != 0)\n";
 
