@@ -151,10 +151,13 @@ void VkRenderPassManager::ProcessMainThreadTasks()
 	}
 }
 
-void VkRenderPassManager::RunOnWorkerThread(std::function<void()> task)
+void VkRenderPassManager::RunOnWorkerThread(std::function<void()> task, bool precache)
 {
 	std::unique_lock lock(Worker.Mutex);
-	Worker.WorkerTasks.push_back(std::move(task));
+	if (precache)
+		Worker.PrecacheTasks.push_back(std::move(task));
+	else
+		Worker.PriorityTasks.push_back(std::move(task));
 	lock.unlock();
 	Worker.CondVar.notify_one();
 }
@@ -177,7 +180,8 @@ void VkRenderPassManager::StopWorkerThreads()
 	}
 	lock.lock();
 	Worker.Threads.clear();
-	Worker.WorkerTasks.clear();
+	Worker.PrecacheTasks.clear();
+	Worker.PriorityTasks.clear();
 	Worker.StopFlag = false;
 }
 
@@ -186,32 +190,39 @@ void VkRenderPassManager::WorkerThreadMain()
 	std::unique_lock lock(Worker.Mutex);
 	while (true)
 	{
-		Worker.CondVar.wait(lock, [&] { return Worker.StopFlag || !Worker.WorkerTasks.empty(); });
+		Worker.CondVar.wait(lock, [&] { return Worker.StopFlag || !Worker.PrecacheTasks.empty() || !Worker.PriorityTasks.empty(); });
 		if (Worker.StopFlag)
 			break;
 
-		std::vector<std::function<void()>> tasks;
-		tasks.swap(Worker.WorkerTasks);
-		lock.unlock();
+		std::function<void()> task;
 
-		try
+		if (!Worker.PriorityTasks.empty())
 		{
-			for (auto& task : tasks)
+			task = std::move(Worker.PriorityTasks.front());
+			Worker.PriorityTasks.pop_front();
+		}
+		else if (!Worker.PrecacheTasks.empty())
+		{
+			task = std::move(Worker.PrecacheTasks.front());
+			Worker.PrecacheTasks.pop_front();
+		}
+
+		if (task)
+		{
+			lock.unlock();
+
+			try
 			{
-				lock.lock();
-				if (Worker.StopFlag)
-					return;
-				lock.unlock();
 				task();
 			}
-		}
-		catch (...)
-		{
-			auto exception = std::current_exception();
-			RunOnMainThread([=]() { std::rethrow_exception(exception); });
-		}
+			catch (...)
+			{
+				auto exception = std::current_exception();
+				RunOnMainThread([=]() { std::rethrow_exception(exception); });
+			}
 
-		lock.lock();
+			lock.lock();
+		}
 	}
 }
 
@@ -545,7 +556,7 @@ PipelineData* VkRenderPassSetup::GetSpecializedPipeline(const VkPipelineKey& key
 					Printf(">>> Pipeline created in %.3fms (Specialized worker)\n", duration);
 				}
 				});
-			});
+			}, false);
 
 		return nullptr;
 	}
@@ -736,7 +747,7 @@ void VkRenderPassSetup::PrecompileFragmentShaderLibrary(const VkPipelineKey& key
 						Printf(">>> Pipeline created in %.3fms (FragmentShaderLibrary worker)\n", duration);
 					}
 				});
-			});
+			}, true);
 	}
 }
 

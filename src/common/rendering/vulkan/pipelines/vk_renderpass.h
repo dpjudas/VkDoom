@@ -169,7 +169,7 @@ public:
 	VulkanPipeline* GetZMinMaxPipeline1() { return ZMinMax.Pipeline[2].get(); }
 
 	void ProcessMainThreadTasks();
-	void RunOnWorkerThread(std::function<void()> task);
+	void RunOnWorkerThread(std::function<void()> task, bool precache);
 	void RunOnMainThread(std::function<void()> task);
 
 private:
@@ -210,7 +210,8 @@ private:
 		std::mutex Mutex;
 		std::condition_variable CondVar;
 		bool StopFlag = false;
-		std::vector<std::function<void()>> WorkerTasks;
+		std::list<std::function<void()>> PrecacheTasks;
+		std::list<std::function<void()>> PriorityTasks;
 		std::vector<std::function<void()>> MainTasks;
 	} Worker;
 };
