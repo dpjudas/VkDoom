@@ -360,7 +360,7 @@ void VkShaderManager::BuildLayoutBlock(FString &layoutBlock, bool isFrag, const 
 	}
 }
 
-void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader)
+void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
 {
 	if (fb->IsRayQueryEnabled())
 	{
@@ -388,8 +388,8 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 
 	definesBlock << LoadPrivateShaderLump("shaders/shaderkey.glsl").GetChars() << "\n";
 
-	// What is this define about? Why is it needed?
-	definesBlock << "#define UBERSHADERS\n";
+	if (isUberShader)
+		definesBlock << "#define UBERSHADER\n";
 
 	// Controls layout and has to be defines:
 
@@ -471,7 +471,7 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
 {
 	FString definesBlock;
-	BuildDefinesBlock(definesBlock, defines, false, key, shader);
+	BuildDefinesBlock(definesBlock, defines, false, key, shader, isUberShader);
 
 	FString layoutBlock;
 	BuildLayoutBlock(layoutBlock, false, key, shader, isUberShader);
@@ -504,7 +504,7 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
 {
 	FString definesBlock;
-	BuildDefinesBlock(definesBlock, defines, true, key, shader);
+	BuildDefinesBlock(definesBlock, defines, true, key, shader, isUberShader);
 
 	FString layoutBlock;
 	BuildLayoutBlock(layoutBlock, true, key, shader, isUberShader);

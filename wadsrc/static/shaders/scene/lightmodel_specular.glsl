@@ -44,6 +44,7 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 	vec3 normal = material.Normal;
 	vec3 viewdir = normalize(uCameraPos.xyz - pixelpos.xyz);
 
+#ifndef UBERSHADER
 	if (uLightIndex >= 0)
 	{
 		ivec4 lightRange = getLightRange();
@@ -68,6 +69,7 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 			}
 		}
 	}
+#endif
 	
 	if (LIGHT_BLEND_CLAMPED)
 	{
@@ -90,6 +92,7 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 
 	vec3 frag = material.Base.rgb * dynlight.rgb + material.Specular * specular.rgb;
 
+#ifndef UBERSHADER
 	if (uLightIndex >= 0)
 	{
 		ivec4 lightRange = getLightRange();
@@ -108,6 +111,7 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 			frag = clamp(frag + desaturate(addlight).rgb, 0.0, 1.0);
 		}
 	}
+#endif
 
 	return frag;
 }

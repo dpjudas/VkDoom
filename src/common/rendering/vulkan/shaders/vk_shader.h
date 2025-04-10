@@ -190,7 +190,7 @@ private:
 	FString LoadPrivateShaderLump(const char *lumpname);
 
 	void BuildLayoutBlock(FString &definesBlock, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader);
-	void BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader);
+	void BuildDefinesBlock(FString &definesBlock, const char *defines, bool isFrag, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader);
 
 	VulkanRenderDevice* fb = nullptr;
 

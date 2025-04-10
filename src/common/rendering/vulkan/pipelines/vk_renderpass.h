@@ -89,9 +89,15 @@ public:
 private:
 	std::unique_ptr<VulkanRenderPass> CreateRenderPass(int clearTargets);
 
-	std::unique_ptr<VulkanPipeline> CreatePipeline(const VkPipelineKey &key, bool isUberShader, UniformStructHolder &Uniforms);
+	std::unique_ptr<GraphicsPipelineBuilder> CreatePipeline(const VkPipelineKey &key, bool isUberShader, UniformStructHolder &Uniforms);
 	std::unique_ptr<VulkanPipeline> LinkPipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms);
-	std::unique_ptr<VulkanPipeline> CreateWithStats(GraphicsPipelineBuilder& builder);
+	std::unique_ptr<VulkanPipeline> CreateWithStats(GraphicsPipelineBuilder& builder, const char* type);
+
+	PipelineData* GetSpecializedPipeline(const VkPipelineKey& key);
+	PipelineData* GetGeneralizedPipeline(const VkPipelineKey& key);
+
+	VkPipelineKey GetFragmentShaderKey(const VkPipelineKey& key, bool isUberShader);
+	void PrecompileFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader);
 
 	VulkanPipeline* GetVertexInputLibrary(int vertexFormat, int drawType, bool useLevelMesh, int userUniformSize);
 	VulkanPipeline* GetVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader);
@@ -100,7 +106,7 @@ private:
 
 	std::unique_ptr<VulkanPipeline> CreateVertexInputLibrary(int vertexFormat, int drawType, bool useLevelMesh, int userUniformSize);
 	std::unique_ptr<VulkanPipeline> CreateVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader);
-	std::unique_ptr<VulkanPipeline> CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader);
+	std::unique_ptr<GraphicsPipelineBuilder> CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader);
 	std::unique_ptr<VulkanPipeline> CreateFragmentOutputLibrary(FRenderStyle renderStyle, VkColorComponentFlags colorMask);
 
 	void AddVertexInputInterface(GraphicsPipelineBuilder& builder, int vertexFormat, int drawType);
@@ -112,6 +118,7 @@ private:
 	VulkanRenderDevice* fb = nullptr;
 	VkRenderPassKey PassKey;
 	std::unique_ptr<VulkanRenderPass> RenderPasses[8];
+
 	std::map<VkPipelineKey, PipelineData> GeneralizedPipelines;
 	std::map<VkPipelineKey, PipelineData> SpecializedPipelines;
 
@@ -159,9 +166,16 @@ public:
 	VulkanPipeline* GetZMinMaxPipeline0(VkSampleCountFlagBits samples) { return ZMinMax.Pipeline[samples > 1 ? 1 : 0].get(); }
 	VulkanPipeline* GetZMinMaxPipeline1() { return ZMinMax.Pipeline[2].get(); }
 
+	void ProcessMainThreadTasks();
+	void RunOnWorkerThread(std::function<void()> task);
+	void RunOnMainThread(std::function<void()> task);
+
 private:
 	void CreateLightTilesPipeline();
 	void CreateZMinMaxPipeline();
+
+	void StopWorkerThread();
+	void WorkerThreadMain();
 
 	VulkanRenderDevice* fb = nullptr;
 
@@ -186,4 +200,14 @@ private:
 
 	FString CacheFilename;
 	std::unique_ptr<VulkanPipelineCache> PipelineCache;
+
+	struct
+	{
+		std::thread Thread;
+		std::mutex Mutex;
+		std::condition_variable CondVar;
+		bool StopFlag = false;
+		std::vector<std::function<void()>> WorkerTasks;
+		std::vector<std::function<void()>> MainTasks;
+	} Worker;
 };

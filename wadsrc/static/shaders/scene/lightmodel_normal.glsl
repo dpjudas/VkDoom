@@ -55,6 +55,8 @@
 	{
 		vec4 dynlight = uDynLightColor;
 		vec3 normal = material.Normal;
+
+		#ifndef UBERSHADER
 		
 		#ifdef SHADE_VERTEX
 			dynlight.rgb += vLightColor;
@@ -79,6 +81,8 @@
 				}
 			}
 		#endif
+
+		#endif
 		
 		vec3 frag;
 		
@@ -96,6 +100,7 @@
 			frag = material.Base.rgb * (color + desaturate(dynlight).rgb);
 		}
 
+		#ifndef UBERSHADER
 		#ifndef SHADE_VERTEX
 			if (uLightIndex >= 0)
 			{
@@ -113,6 +118,7 @@
 					frag = clamp(frag + desaturate(addlight).rgb, 0.0, 1.0);
 				}
 			}
+		#endif
 		#endif
 
 		return frag;

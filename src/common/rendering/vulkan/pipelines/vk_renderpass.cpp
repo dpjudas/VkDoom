@@ -37,6 +37,24 @@
 #include "i_specialpaths.h"
 #include "cmdlib.h"
 
+CVAR(Bool, gl_ubershaders, true, 0);
+CVAR(Bool, vk_debug_pipeline_creation, true, 0);
+
+// Pipeline creation tracking and printing
+int Printf(const char* fmt, ...);
+static double pipeline_time;
+static int pipeline_count;
+ADD_STAT(pipelines)
+{
+	FString out;
+	out.Format(
+		"Pipelines created: %d\n"
+		"Pipeline time: %.3f\n"
+		"Pipeline average: %.3f",
+		pipeline_count, pipeline_time, pipeline_time / pipeline_count);
+	return out;
+}
+
 VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 {
 	FString path = M_GetCachePath(true);
@@ -65,12 +83,16 @@ VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 
 	PipelineCache = builder.Create(fb->GetDevice());
 
+	Worker.Thread = std::thread([this]() { WorkerThreadMain(); });
+
 	CreateLightTilesPipeline();
 	CreateZMinMaxPipeline();
 }
 
 VkRenderPassManager::~VkRenderPassManager()
 {
+	StopWorkerThread();
+
 	try
 	{
 		auto data = PipelineCache->GetCacheData();
@@ -80,6 +102,80 @@ VkRenderPassManager::~VkRenderPassManager()
 	}
 	catch (...)
 	{
+	}
+}
+
+void VkRenderPassManager::ProcessMainThreadTasks()
+{
+	std::unique_lock lock(Worker.Mutex);
+	std::vector<std::function<void()>> tasks;
+	tasks.swap(Worker.MainTasks);
+	lock.unlock();
+
+	for (auto& task : tasks)
+	{
+		task();
+	}
+}
+
+void VkRenderPassManager::RunOnWorkerThread(std::function<void()> task)
+{
+	std::unique_lock lock(Worker.Mutex);
+	Worker.WorkerTasks.push_back(std::move(task));
+	lock.unlock();
+	Worker.CondVar.notify_one();
+}
+
+void VkRenderPassManager::RunOnMainThread(std::function<void()> task)
+{
+	std::unique_lock lock(Worker.Mutex);
+	Worker.MainTasks.push_back(std::move(task));
+}
+
+void VkRenderPassManager::StopWorkerThread()
+{
+	std::unique_lock lock(Worker.Mutex);
+	Worker.StopFlag = true;
+	lock.unlock();
+	Worker.CondVar.notify_all();
+	Worker.Thread.join();
+	lock.lock();
+	Worker.MainTasks.clear();
+	Worker.WorkerTasks.clear();
+	Worker.StopFlag = false;
+}
+
+void VkRenderPassManager::WorkerThreadMain()
+{
+	std::unique_lock lock(Worker.Mutex);
+	while (true)
+	{
+		Worker.CondVar.wait(lock, [&] { return Worker.StopFlag || !Worker.WorkerTasks.empty(); });
+		if (Worker.StopFlag)
+			break;
+
+		std::vector<std::function<void()>> tasks;
+		tasks.swap(Worker.WorkerTasks);
+		lock.unlock();
+
+		try
+		{
+			for (auto& task : tasks)
+			{
+				lock.lock();
+				if (Worker.StopFlag)
+					return;
+				lock.unlock();
+				task();
+			}
+		}
+		catch (...)
+		{
+			auto exception = std::current_exception();
+			RunOnMainThread([=]() { std::rethrow_exception(exception); });
+		}
+
+		lock.lock();
 	}
 }
 
@@ -213,35 +309,44 @@ void VkRenderPassManager::CreateZMinMaxPipeline()
 
 VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassKey &key) : PassKey(key), fb(fb)
 {
-	// To do: don't do it here as that will block the main thread.
-
 	// Precompile material fragment shaders:
-/*
-	VkPipelineKey fkey;
-	fkey.IsGeneralized = true;
-	fkey.DepthFunc = DF_LEqual;
-	fkey.StencilTest = true;
-	fkey.StencilPassOp = SOP_Keep;
-	fkey.ShaderKey.Layout.Simple = 0;
-	fkey.ShaderKey.Layout.Simple3D = 0;
-	fkey.ShaderKey.Layout.GBufferPass = gl_ssao != 0;
-	fkey.ShaderKey.Layout.UseLevelMesh = 0;
-
-	int count = NUM_BUILTIN_SHADERS + usershaders.Size();
-	for (int i = 0; i < count; i++)
+	if (gl_ubershaders)
 	{
-		fkey.ShaderKey.SpecialEffect = EFF_NONE;
-		fkey.ShaderKey.EffectState = i;
-		for (int j = 0; j < 16; j++)
+		VkPipelineKey fkey;
+		fkey.IsGeneralized = true;
+		fkey.DepthFunc = DF_LEqual;
+		fkey.StencilTest = true;
+		fkey.StencilPassOp = SOP_Keep;
+		fkey.ShaderKey.Layout.Simple = 0;
+		fkey.ShaderKey.Layout.Simple3D = 0;
+		fkey.ShaderKey.Layout.GBufferPass = gl_ssao != 0;
+		fkey.ShaderKey.Layout.UseLevelMesh = 0;
+
+		// Ignore these. They all look horrible. We should delete them.
+		bool skip[NUM_BUILTIN_SHADERS] = {};
+		skip[SHADER_BasicFuzz] = true;
+		skip[SHADER_SmoothFuzz] = true;
+		skip[SHADER_SwirlyFuzz] = true;
+		skip[SHADER_TranslucentFuzz] = true;
+		skip[SHADER_JaggedFuzz] = true;
+		skip[SHADER_NoiseFuzz] = true;
+		skip[SHADER_SmoothNoiseFuzz] = true;
+
+		int count = NUM_BUILTIN_SHADERS + usershaders.Size();
+		for (int i = 0; i < count; i++)
 		{
-			fkey.DepthWrite = (j & 1) != 0;
-			fkey.DepthTest = (j & 2) != 0;
-			fkey.ShaderKey.Layout.AlphaTest = (j & 4) != 0;
-			fkey.ShaderKey.Layout.ShadeVertex = (j & 8) != 0;
-			GetFragmentShaderLibrary(fkey, true);
+			fkey.ShaderKey.SpecialEffect = EFF_NONE;
+			fkey.ShaderKey.EffectState = i;
+			for (int j = 0; j < 16; j++)
+			{
+				fkey.DepthWrite = (j & 1) != 0;
+				fkey.DepthTest = (j & 2) != 0;
+				fkey.ShaderKey.Layout.AlphaTest = (j & 4) != 0;
+				fkey.ShaderKey.Layout.ShadeVertex = (j & 8) != 0;
+				PrecompileFragmentShaderLibrary(fkey, true);
+			}
 		}
 	}
-*/
 }
 
 std::unique_ptr<VulkanRenderPass> VkRenderPassSetup::CreateRenderPass(int clearTargets)
@@ -303,39 +408,22 @@ VulkanRenderPass *VkRenderPassSetup::GetRenderPass(int clearTargets)
 	return RenderPasses[clearTargets].get();
 }
 
-CVAR(Bool, gl_ubershaders, false, 0); // development variable
-
 VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms)
 {
-	// To do:
-	// Build the generalized pipelines in the VkRenderPassSetup constructor
-	// Then build the specialized ones on a worker thread
-
 	if (gl_ubershaders)
 	{
-		VkPipelineKey gkey = key;
-		gkey.ShaderKey.AsQWORD = 0;
-
-		auto item = GeneralizedPipelines.find(gkey);
-		if (item == GeneralizedPipelines.end())
-		{
-			auto pipeline = LinkPipeline(gkey, true, Uniforms);
-			auto ptr = pipeline.get();
-			GeneralizedPipelines.insert(std::pair<VkPipelineKey, PipelineData>{gkey, PipelineData{ std::move(pipeline), Uniforms }});
-			return ptr;
-		}
-		else
-		{
-			Uniforms = item->second.Uniforms;
-			return item->second.pipeline.get();
-		}
+		auto data = GetSpecializedPipeline(key);
+		if (!data)
+			data = GetGeneralizedPipeline(key);
+		Uniforms = data->Uniforms;
+		return data->pipeline.get();
 	}
 	else
 	{
 		auto item = SpecializedPipelines.find(key);
 		if (item == SpecializedPipelines.end())
 		{
-			auto pipeline = CreatePipeline(key, false, Uniforms);
+			auto pipeline = CreateWithStats(*CreatePipeline(key, false, Uniforms), "Specialized");
 			auto ptr = pipeline.get();
 			SpecializedPipelines.insert(std::pair<VkPipelineKey, PipelineData>{key, PipelineData{std::move(pipeline), Uniforms}});
 			return ptr;
@@ -348,23 +436,91 @@ VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, Uniform
 	}
 }
 
-// Pipeline creation tracking and printing
-int Printf(const char* fmt, ...);
-CVAR(Bool, vk_debug_pipeline_creation, false, 0);
-static double pipeline_time;
-static int pipeline_count;
-ADD_STAT(pipelines)
+PipelineData* VkRenderPassSetup::GetSpecializedPipeline(const VkPipelineKey& key)
 {
-	FString out;
-	out.Format(
-		"Pipelines created: %d\n"
-		"Pipeline time: %.3f\n"
-		"Pipeline average: %.3f",
-		pipeline_count, pipeline_time, pipeline_time / pipeline_count);
-	return out;
+	// Have we seen this before?
+	auto it = SpecializedPipelines.find(key);
+	if (it != SpecializedPipelines.end())
+	{
+		// Yes. Do we have the pipeline yet?
+		if (it->second.pipeline)
+		{
+			// Yes.
+			return &it->second;
+		}
+		// No, it is still building.
+		return nullptr;
+	}
+	else
+	{
+		// We haven't seen this before. Build it on the worker thread.
+
+		struct TaskData
+		{
+			std::unique_ptr<GraphicsPipelineBuilder> builder;
+			std::unique_ptr<VulkanPipeline> pipeline;
+		};
+
+		auto data = std::make_shared<TaskData>();
+
+		// Compile the GLSL on the main thread (mainly due to the resource system)
+		UniformStructHolder uniforms;
+		data->builder = CreatePipeline(key, false, uniforms);
+		SpecializedPipelines[key].Uniforms = uniforms;
+
+		// Schedule the pipeline building on a worker thread
+		VkPipelineKey k = key;
+		auto passManager = fb->GetRenderPassManager();
+		passManager->RunOnWorkerThread([=]() {
+
+			cycle_t ct;
+			ct.ResetAndClock();
+			data->pipeline = data->builder->Create(fb->GetDevice());
+			ct.Unclock();
+			const auto duration = ct.TimeMS();
+
+			passManager->RunOnMainThread([=]() {
+				auto& slot = SpecializedPipelines[k];
+				if (!slot.pipeline)
+					slot.pipeline = std::move(data->pipeline);
+
+				pipeline_time += duration;
+				++pipeline_count;
+
+				if (vk_debug_pipeline_creation)
+				{
+					Printf(">>> Pipeline created in %.3fms (Specialized worker)\n", duration);
+				}
+				});
+			});
+
+		return nullptr;
+	}
 }
 
-std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateWithStats(GraphicsPipelineBuilder& builder)
+PipelineData* VkRenderPassSetup::GetGeneralizedPipeline(const VkPipelineKey& key)
+{
+	VkPipelineKey gkey = key;
+	gkey.ShaderKey.AsQWORD = 0;
+
+	auto item = GeneralizedPipelines.find(gkey);
+	if (item == GeneralizedPipelines.end())
+	{
+		UniformStructHolder uniforms;
+		auto pipeline = LinkPipeline(gkey, true, uniforms);
+		auto ptr = pipeline.get();
+		auto& value = GeneralizedPipelines[gkey];
+		value.pipeline = std::move(pipeline);
+		value.Uniforms = uniforms;
+		return &value;
+	}
+	else
+	{
+		return &item->second;
+	}
+}
+
+std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateWithStats(GraphicsPipelineBuilder& builder, const char* type)
 {
 	cycle_t ct;
 	ct.ResetAndClock();
@@ -378,31 +534,31 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateWithStats(GraphicsPipel
 
 	if (vk_debug_pipeline_creation)
 	{
-		Printf(">>> Pipeline created in %.3fms\n", duration);
+		Printf(">>> Pipeline created in %.3fms (%s)\n", duration, type);
 	}
 	return pipeline;
 }
 
-std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreatePipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
+std::unique_ptr<GraphicsPipelineBuilder> VkRenderPassSetup::CreatePipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
 {
 	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
 
 	Uniforms.Clear();
 	Uniforms = program->Uniforms;
 
-	GraphicsPipelineBuilder builder;
-	builder.Cache(fb->GetRenderPassManager()->GetCache());
-	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
-	builder.RenderPass(GetRenderPass(0));
-	builder.DebugName("VkRenderPassSetup.Pipeline");
+	auto builder = std::make_unique<GraphicsPipelineBuilder>();
+	builder->Cache(fb->GetRenderPassManager()->GetCache());
+	builder->Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
+	builder->RenderPass(GetRenderPass(0));
+	builder->DebugName("VkRenderPassSetup.Pipeline");
 
-	AddVertexInputInterface(builder, key.ShaderKey.VertexFormat, key.DrawType);
-	AddPreRasterizationShaders(builder, key, program);
-	AddFragmentShader(builder, key, program);
-	AddFragmentOutputInterface(builder, key.RenderStyle, (VkColorComponentFlags)key.ColorMask);
-	AddDynamicState(builder);
+	AddVertexInputInterface(*builder, key.ShaderKey.VertexFormat, key.DrawType);
+	AddPreRasterizationShaders(*builder, key, program);
+	AddFragmentShader(*builder, key, program);
+	AddFragmentOutputInterface(*builder, key.RenderStyle, (VkColorComponentFlags)key.ColorMask);
+	AddDynamicState(*builder);
 
-	return CreateWithStats(builder);
+	return builder;
 }
 
 VulkanPipeline* VkRenderPassSetup::GetVertexInputLibrary(int vertexFormat, int drawType, bool useLevelMesh, int userUniformSize)
@@ -471,7 +627,7 @@ VulkanPipeline* VkRenderPassSetup::GetVertexShaderLibrary(const VkPipelineKey& k
 	return pipeline.get();
 }
 
-VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
+VkPipelineKey VkRenderPassSetup::GetFragmentShaderKey(const VkPipelineKey& key, bool isUberShader)
 {
 	VkPipelineKey fkey = key;
 	fkey.IsGeneralized = isUberShader;
@@ -485,9 +641,58 @@ VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey&
 	fkey.ShaderKey.VertexFormat = 0;
 	if (isUberShader)
 		fkey.ShaderKey.AsQWORD = 0;
+	return fkey;
+}
+
+void VkRenderPassSetup::PrecompileFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
+{
+	VkPipelineKey fkey = GetFragmentShaderKey(key, isUberShader);
+	auto it = Libraries.FragmentShader.find(fkey);
+	if (it == Libraries.FragmentShader.end())
+	{
+		Libraries.FragmentShader[fkey] = nullptr;
+
+		struct TaskData
+		{
+			std::unique_ptr<GraphicsPipelineBuilder> builder;
+			std::unique_ptr<VulkanPipeline> pipeline;
+		};
+
+		auto data = std::make_shared<TaskData>();
+		data->builder = CreateFragmentShaderLibrary(key, isUberShader);
+
+		auto passManager = fb->GetRenderPassManager();
+		passManager->RunOnWorkerThread([=]() {
+
+			cycle_t ct;
+			ct.ResetAndClock();
+			data->pipeline = data->builder->Create(fb->GetDevice());
+			ct.Unclock();
+			const auto duration = ct.TimeMS();
+
+			passManager->RunOnMainThread([=]() {
+				auto& slot = Libraries.FragmentShader[fkey];
+				if (!slot)
+					slot = std::move(data->pipeline);
+
+					pipeline_time += duration;
+					++pipeline_count;
+
+					if (vk_debug_pipeline_creation)
+					{
+						Printf(">>> Pipeline created in %.3fms (FragmentShaderLibrary worker)\n", duration);
+					}
+				});
+			});
+	}
+}
+
+VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
+{
+	VkPipelineKey fkey = GetFragmentShaderKey(key, isUberShader);
 	auto& pipeline = Libraries.FragmentShader[fkey];
 	if (!pipeline)
-		pipeline = CreateFragmentShaderLibrary(key, isUberShader);
+		pipeline = CreateWithStats(*CreateFragmentShaderLibrary(key, isUberShader), "FragmentShaderLibrary");
 	return pipeline.get();
 }
 
@@ -504,7 +709,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipeline
 	builder.AddLibrary(GetVertexShaderLibrary(key, isUberShader));
 	builder.AddLibrary(GetFragmentShaderLibrary(key, isUberShader));
 	builder.AddLibrary(GetFragmentOutputLibrary(key.RenderStyle, (VkColorComponentFlags)key.ColorMask));
-	return CreateWithStats(builder);
+	return CreateWithStats(builder, "Generalized");
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int vertexFormat, int drawType, bool useLevelMesh, int userUniformSize)
@@ -518,7 +723,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int 
 	builder.DebugName("VkRenderPassSetup.VertexInputLibrary");
 	AddVertexInputInterface(builder, vertexFormat, drawType);
 	AddDynamicState(builder);
-	return CreateWithStats(builder);
+	return CreateWithStats(builder, "VertexInputLibrary");
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader)
@@ -533,22 +738,22 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(con
 	builder.DebugName("VkRenderPassSetup.VertexShaderLibrary");
 	AddPreRasterizationShaders(builder, key, program);
 	AddDynamicState(builder);
-	return CreateWithStats(builder);
+	return CreateWithStats(builder, "VertexShaderLibrary");
 }
 
-std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
+std::unique_ptr<GraphicsPipelineBuilder> VkRenderPassSetup::CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
 {
 	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
-	GraphicsPipelineBuilder builder;
-	builder.Cache(fb->GetRenderPassManager()->GetCache());
-	builder.Flags(VK_PIPELINE_CREATE_LIBRARY_BIT_KHR);
-	builder.LibraryFlags(VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT);
-	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
-	builder.RenderPass(GetRenderPass(0));
-	builder.DebugName("VkRenderPassSetup.FragmentShaderLibrary");
-	AddFragmentShader(builder, key, program);
-	AddDynamicState(builder);
-	return CreateWithStats(builder);
+	auto builder = std::make_unique<GraphicsPipelineBuilder>();
+	builder->Cache(fb->GetRenderPassManager()->GetCache());
+	builder->Flags(VK_PIPELINE_CREATE_LIBRARY_BIT_KHR);
+	builder->LibraryFlags(VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT);
+	builder->Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
+	builder->RenderPass(GetRenderPass(0));
+	builder->DebugName("VkRenderPassSetup.FragmentShaderLibrary");
+	AddFragmentShader(*builder, key, program);
+	AddDynamicState(*builder);
+	return builder;
 }
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentOutputLibrary(FRenderStyle renderStyle, VkColorComponentFlags colorMask)
@@ -561,7 +766,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateFragmentOutputLibrary(F
 	builder.DebugName("VkRenderPassSetup.FragmentOutputLibrary");
 	AddFragmentOutputInterface(builder, renderStyle, colorMask);
 	AddDynamicState(builder);
-	return CreateWithStats(builder);
+	return CreateWithStats(builder, "FragmentOutputLibrary");
 }
 
 void VkRenderPassSetup::AddVertexInputInterface(GraphicsPipelineBuilder& builder, int vertexFormat, int drawType)

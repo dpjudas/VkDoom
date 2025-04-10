@@ -104,6 +104,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 
 	vec3 Lo = uDynLightColor.rgb;
 
+#ifndef UBERSHADER
 	if (uLightIndex >= 0)
 	{
 		ivec4 lightRange = getLightRange();
@@ -125,6 +126,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 			}
 		}
 	}
+#endif
 
 	// Treat the ambient sector light as if it is a light source next to the wall
 	{
