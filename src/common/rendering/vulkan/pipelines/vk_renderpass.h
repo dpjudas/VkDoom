@@ -9,6 +9,8 @@
 #include "common/rendering/vulkan/shaders/vk_shader.h"
 #include <string.h>
 #include <map>
+#include <thread>
+#include <condition_variable>
 
 class VulkanRenderDevice;
 class ColorBlendAttachmentBuilder;
