@@ -421,7 +421,7 @@ VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, Uniform
 	else
 	{
 		auto item = SpecializedPipelines.find(key);
-		if (item == SpecializedPipelines.end())
+		if (item == SpecializedPipelines.end() || item->second.pipeline == nullptr)
 		{
 			auto pipeline = CreateWithStats(*CreatePipeline(key, false, Uniforms), "Specialized");
 			auto ptr = pipeline.get();
