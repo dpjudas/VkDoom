@@ -39,6 +39,11 @@
 
 CVAR(Bool, gl_ubershaders, true, 0);
 CVAR(Bool, vk_debug_pipeline_creation, true, 0);
+EXTERN_CVAR(Bool, gl_multithread);
+CUSTOM_CVAR(Int, vk_pipeline_threads, 0, 0) // Todo: archive?
+{
+	if (self < 0) self = 0;
+}
 
 // Pipeline creation tracking and printing
 int Printf(const char* fmt, ...);
@@ -53,6 +58,29 @@ ADD_STAT(pipelines)
 		"Pipeline average: %.3f",
 		pipeline_count, pipeline_time, pipeline_time / pipeline_count);
 	return out;
+}
+
+static unsigned MaxPipelineThreads()
+{
+	unsigned usedThreads = 2; // this thread + one extra
+	unsigned hwLimit = std::thread::hardware_concurrency();
+
+	if (gl_multithread)
+		usedThreads++;
+
+	return (usedThreads >= hwLimit) ? 1u : hwLimit - usedThreads; // max(1, hwLimit - usedThreads)
+}
+
+static unsigned CalculatePipelineThreadCountTarget()
+{
+	unsigned requested = static_cast<unsigned>(vk_pipeline_threads);
+
+	if (requested <= 0)
+	{
+		requested = std::thread::hardware_concurrency() / 2;
+	}
+
+	return clamp(requested, 1u, MaxPipelineThreads());
 }
 
 VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
@@ -83,15 +111,14 @@ VkRenderPassManager::VkRenderPassManager(VulkanRenderDevice* fb) : fb(fb)
 
 	PipelineCache = builder.Create(fb->GetDevice());
 
-	Worker.Thread = std::thread([this]() { WorkerThreadMain(); });
-
+	CreatePipelineWorkThreads();
 	CreateLightTilesPipeline();
 	CreateZMinMaxPipeline();
 }
 
 VkRenderPassManager::~VkRenderPassManager()
 {
-	StopWorkerThread();
+	StopWorkerThreads();
 
 	try
 	{
@@ -107,6 +134,12 @@ VkRenderPassManager::~VkRenderPassManager()
 
 void VkRenderPassManager::ProcessMainThreadTasks()
 {
+	if (CalculatePipelineThreadCountTarget() != Worker.Threads.size())
+	{
+		StopWorkerThreads();
+		CreatePipelineWorkThreads();
+	}
+
 	std::unique_lock lock(Worker.Mutex);
 	std::vector<std::function<void()>> tasks;
 	tasks.swap(Worker.MainTasks);
@@ -132,15 +165,18 @@ void VkRenderPassManager::RunOnMainThread(std::function<void()> task)
 	Worker.MainTasks.push_back(std::move(task));
 }
 
-void VkRenderPassManager::StopWorkerThread()
+void VkRenderPassManager::StopWorkerThreads()
 {
 	std::unique_lock lock(Worker.Mutex);
 	Worker.StopFlag = true;
 	lock.unlock();
 	Worker.CondVar.notify_all();
-	Worker.Thread.join();
+	for (auto& thread : Worker.Threads)
+	{
+		thread->join();
+	}
 	lock.lock();
-	Worker.MainTasks.clear();
+	Worker.Threads.clear();
 	Worker.WorkerTasks.clear();
 	Worker.StopFlag = false;
 }
@@ -252,6 +288,23 @@ VkPPRenderPassSetup* VkRenderPassManager::GetPPRenderPass(const VkPPRenderPassKe
 	if (!passSetup)
 		passSetup.reset(new VkPPRenderPassSetup(fb, key));
 	return passSetup.get();
+}
+
+void VkRenderPassManager::CreatePipelineWorkThreads()
+{
+	unsigned threadCount = CalculatePipelineThreadCountTarget();
+
+	Worker.Threads.reserve(threadCount);
+
+	for (unsigned i = 0; i < threadCount; ++i)
+	{
+		Worker.Threads.emplace_back(new std::thread([this]() { WorkerThreadMain(); }));
+	}
+
+	if (vk_debug_pipeline_creation)
+	{
+		Printf("VkRenderPassManager: Created %d worker threads\n", threadCount);
+	}
 }
 
 void VkRenderPassManager::CreateLightTilesPipeline()
