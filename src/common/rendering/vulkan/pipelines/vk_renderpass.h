@@ -171,10 +171,11 @@ public:
 	void RunOnMainThread(std::function<void()> task);
 
 private:
+	void CreatePipelineWorkThreads();
 	void CreateLightTilesPipeline();
 	void CreateZMinMaxPipeline();
 
-	void StopWorkerThread();
+	void StopWorkerThreads();
 	void WorkerThreadMain();
 
 	VulkanRenderDevice* fb = nullptr;
@@ -203,7 +204,7 @@ private:
 
 	struct
 	{
-		std::thread Thread;
+		std::vector<std::unique_ptr<std::thread>> Threads;
 		std::mutex Mutex;
 		std::condition_variable CondVar;
 		bool StopFlag = false;
