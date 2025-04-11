@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <memory>
 #include "tarray.h"
 #include "bitmap.h"
 #include "memarena.h"
@@ -63,7 +64,7 @@ class FImageSource
 	friend class FBrightmapTexture;
 protected:
 
-	static TArray<FImageSource *>ImageForLump;
+	static TArray<std::unique_ptr<FImageSource>> ImageForLump;
 	static int NextID;
 
 	int SourceLump;

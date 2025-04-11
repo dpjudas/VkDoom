@@ -42,7 +42,7 @@
 #include "palettecontainer.h"
 
 FMemArena ImageArena(32768);
-TArray<FImageSource *>FImageSource::ImageForLump;
+TArray<std::unique_ptr<FImageSource>>FImageSource::ImageForLump;
 int FImageSource::NextID;
 static PrecacheInfo precacheInfo;
 
@@ -373,7 +373,7 @@ FImageSource * FImageSource::GetImage(int lumpnum, bool isflat)
 		for (; size < ImageForLump.Size(); size++) ImageForLump[size] = nullptr;
 	}
 	// An image for this lump already exists. We do not need another one.
-	if (ImageForLump[lumpnum] != nullptr) return ImageForLump[lumpnum];
+	if (ImageForLump[lumpnum] != nullptr) return ImageForLump[lumpnum].get();
 
 	auto data = fileSystem.OpenFileReader(lumpnum);
 	if (!data.isOpen()) 
@@ -386,7 +386,7 @@ FImageSource * FImageSource::GetImage(int lumpnum, bool isflat)
 			auto image = CreateInfo[i].TryCreate(data, lumpnum);
 			if (image != nullptr)
 			{
-				ImageForLump[lumpnum] = image;
+				ImageForLump[lumpnum].reset(image);
 				return image;
 			}
 		}
