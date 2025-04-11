@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <atomic>
 // Simple lightweight reference counting pointer alternative for std::shared_ptr which stores the reference counter in the handled object itself.
 
 // Base class for handled objects
@@ -12,6 +14,17 @@ private:
 	int refCount = 0;
 protected:
 	virtual ~RefCountedBase() = default;
+};
+
+class AtomicRefCountedBase
+{
+public:
+    void IncRef() { atomic_fetch_add(&refCount, 1); }
+    void DecRef() { if (atomic_fetch_sub(&refCount, 1) <= 1) delete this; } // compares to 1 instead of 0 because atomic_fetch_sub returns the _previous_ value
+private:
+    std::atomic<int> refCount = 0;
+protected:
+    virtual ~AtomicRefCountedBase() = default;
 };
 
 // The actual pointer object
