@@ -276,6 +276,7 @@ VkVertexFormat *VkRenderPassManager::GetVertexFormat(int index)
 
 VulkanPipelineLayout* VkRenderPassManager::GetPipelineLayout(bool levelmesh, int UserUniformSize)
 {
+	std::unique_lock lock(PipelineLayoutsMutex);
 	auto &layout = PipelineLayouts[levelmesh][UserUniformSize];
 	if (layout)
 		return layout.get();

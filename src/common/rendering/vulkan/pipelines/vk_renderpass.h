@@ -11,6 +11,7 @@
 #include <map>
 #include <thread>
 #include <condition_variable>
+#include <mutex>
 
 class VulkanRenderDevice;
 class ColorBlendAttachmentBuilder;
@@ -183,6 +184,7 @@ private:
 	VulkanRenderDevice* fb = nullptr;
 
 	std::map<VkRenderPassKey, std::unique_ptr<VkRenderPassSetup>> RenderPassSetup;
+	std::mutex PipelineLayoutsMutex;
 	std::map<int, std::unique_ptr<VulkanPipelineLayout>> PipelineLayouts[2];
 	std::vector<VkVertexFormat> VertexFormats;
 
