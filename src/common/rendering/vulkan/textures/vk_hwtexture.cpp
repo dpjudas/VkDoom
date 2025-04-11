@@ -37,6 +37,8 @@
 #include "vulkan/shaders/vk_shader.h"
 #include "vk_hwtexture.h"
 
+CVAR(Bool, gl_async_textures, false, 0);
+
 VkHardwareTexture::VkHardwareTexture(VulkanRenderDevice* fb, int numchannels) : fb(fb)
 {
 	mTexelsize = numchannels;
@@ -107,9 +109,39 @@ void VkHardwareTexture::CreateImage(FTexture *tex, int translation, int flags)
 {
 	if (!tex->isHardwareCanvas())
 	{
-		FTextureBuffer texbuffer = tex->CreateTexBuffer(translation, flags | CTF_ProcessData);
-		bool indexed = flags & CTF_Indexed;
-		CreateTexture(texbuffer.mWidth, texbuffer.mHeight,indexed? 1 : 4, indexed? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, texbuffer.mBuffer, !indexed);
+		if (gl_async_textures && tex->GetImage())
+		{
+			// Create the texture now as that's easier to deal with elsewhere.
+
+			FTextureBuffer texbuffer = tex->CreateTexBuffer(translation, flags | CTF_CheckOnly);
+			bool indexed = flags & CTF_Indexed;
+			CreateTexture(texbuffer.mWidth, texbuffer.mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, texbuffer.mBuffer, !indexed);
+
+			auto textureManager = fb->GetTextureManager();
+			
+			int uploadID = textureManager->CreateUploadID(this);
+			textureManager->RunOnWorkerThread([=]() {
+
+				// Load the texture on the worker thread
+				auto imagedata = std::make_shared<FTextureBuffer>(tex->CreateTexBuffer(translation, flags | CTF_ProcessData));
+
+				textureManager->RunOnMainThread([=]() {
+
+					// Upload the texture on the main thread, as long as the hwrenderer didn't destroy this hwtexture already.
+					if (textureManager->CheckUploadID(uploadID))
+					{
+						UploadTexture(imagedata->mWidth, imagedata->mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, imagedata->mBuffer, !indexed);
+					}
+
+					});
+			});
+		}
+		else
+		{
+			FTextureBuffer texbuffer = tex->CreateTexBuffer(translation, flags | CTF_ProcessData);
+			bool indexed = flags & CTF_Indexed;
+			CreateTexture(texbuffer.mWidth, texbuffer.mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, texbuffer.mBuffer, !indexed);
+		}
 	}
 	else
 	{
@@ -149,7 +181,12 @@ void VkHardwareTexture::CreateTexture(int w, int h, int pixelsize, VkFormat form
 		.Create(fb->GetDevice());
 
 	uint8_t *data = (uint8_t*)stagingBuffer->Map(0, totalSize);
-	memcpy(data, pixels, totalSize);
+
+	if (pixels)
+		memcpy(data, pixels, totalSize);
+	else
+		memset(data, 0, totalSize);
+
 	stagingBuffer->Unmap();
 
 	mImage.Image = ImageBuilder()
@@ -163,6 +200,45 @@ void VkHardwareTexture::CreateTexture(int w, int h, int pixelsize, VkFormat form
 		.Image(mImage.Image.get(), format)
 		.DebugName("VkHardwareTexture.mImageView")
 		.Create(fb->GetDevice());
+
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	VkImageTransition()
+		.AddImage(&mImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true)
+		.Execute(cmdbuffer);
+
+	VkBufferImageCopy region = {};
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageExtent.depth = 1;
+	region.imageExtent.width = w;
+	region.imageExtent.height = h;
+	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, mImage.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	if (mipmap) mImage.GenerateMipmaps(cmdbuffer);
+
+	// If we queued more than 64 MB of data already: wait until the uploads finish before continuing
+	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
+	if (fb->GetCommands()->TransferDeleteList->TotalSize > 64 * 1024 * 1024)
+		fb->GetCommands()->WaitForCommands(false, true);
+}
+
+void VkHardwareTexture::UploadTexture(int w, int h, int pixelsize, VkFormat format, const void* pixels, bool mipmap)
+{
+	if (w <= 0 || h <= 0)
+		throw CVulkanError("Trying to create zero size texture");
+
+	int totalSize = w * h * pixelsize;
+
+	auto stagingBuffer = BufferBuilder()
+		.Size(totalSize)
+		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.DebugName("VkHardwareTexture.mStagingBuffer")
+		.Create(fb->GetDevice());
+
+	uint8_t* data = (uint8_t*)stagingBuffer->Map(0, totalSize);
+	memcpy(data, pixels, totalSize);
+	stagingBuffer->Unmap();
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 

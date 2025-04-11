@@ -51,6 +51,7 @@
 #include "imagehelpers.h"
 #include "v_video.h"
 #include "v_font.h"
+#include <mutex>
 
 // Wrappers to keep the definitions of these classes out of here.
 IHardwareTexture* CreateHardwareTexture(int numchannels);
@@ -325,6 +326,11 @@ bool FTexture::ProcessData(unsigned char* buffer, int w, int h, bool ispatch)
 
 FTextureBuffer FTexture::CreateTexBuffer(int translation, int flags)
 {
+	// Textures may be loaded on the main thread or on a worker thread.
+	// To keep things simple, make sure only one of the threads is doing this at any given time.
+	static std::mutex mutex;
+	std::unique_lock lock(mutex);
+
 	FTextureBuffer result;
 	if (flags & CTF_Indexed)
 	{

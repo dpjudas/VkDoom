@@ -539,6 +539,7 @@ void VulkanRenderDevice::BeginFrame()
 	hwtexturecount = mTextureManager->GetHWTextureCount();
 
 	GetRenderPassManager()->ProcessMainThreadTasks();
+	GetTextureManager()->ProcessMainThreadTasks();
 
 	if (levelMeshChanged)
 	{

@@ -49,6 +49,7 @@ private:
 	void CreateImage(FTexture *tex, int translation, int flags);
 
 	void CreateTexture(int w, int h, int pixelsize, VkFormat format, const void *pixels, bool mipmap);
+	void UploadTexture(int w, int h, int pixelsize, VkFormat format, const void* pixels, bool mipmap);
 	static int GetMipLevels(int w, int h);
 
 	VkTextureImage mImage;

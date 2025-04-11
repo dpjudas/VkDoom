@@ -35,10 +35,12 @@ VkTextureManager::VkTextureManager(VulkanRenderDevice* fb) : fb(fb)
 	CreateLightmap();
 	CreateIrradiancemap();
 	CreatePrefiltermap();
+	StartWorkerThread();
 }
 
 VkTextureManager::~VkTextureManager()
 {
+	StopWorkerThread();
 	while (!Textures.empty())
 		RemoveTexture(Textures.back());
 	while (!PPTextures.empty())
@@ -72,6 +74,16 @@ void VkTextureManager::RemoveTexture(VkHardwareTexture* texture)
 	texture->Reset();
 	texture->fb = nullptr;
 	Textures.erase(texture->it);
+
+	// Make sure no pending uploads access the texture after it has been destroyed by the hwrenderer
+	for (auto it = PendingUploads.begin(); it != PendingUploads.end(); ++it)
+	{
+		if (it->second == texture)
+		{
+			PendingUploads.erase(it);
+			break;
+		}
+	}
 }
 
 void VkTextureManager::AddPPTexture(VkPPTexture* texture)
@@ -566,4 +578,101 @@ void VkTextureManager::DownloadLightmap(int arrayIndex, uint16_t* buffer)
 	uint16_t* srcdata = (uint16_t*)stagingBuffer->Map(0, totalSize * sizeof(uint16_t));
 	memcpy(buffer, srcdata, totalSize * sizeof(uint16_t));
 	stagingBuffer->Unmap();
+}
+
+int VkTextureManager::CreateUploadID(VkHardwareTexture* tex)
+{
+	int id = NextUploadID++;
+	PendingUploads[id] = tex;
+	return id;
+}
+
+bool VkTextureManager::CheckUploadID(int id)
+{
+	auto it = PendingUploads.find(id);
+	if (it == PendingUploads.end())
+		return false;
+	PendingUploads.erase(it);
+	return true;
+}
+
+void VkTextureManager::RunOnWorkerThread(std::function<void()> task)
+{
+	std::unique_lock lock(Worker.Mutex);
+	Worker.WorkerTasks.push_back(std::move(task));
+	lock.unlock();
+	Worker.CondVar.notify_one();
+}
+
+void VkTextureManager::RunOnMainThread(std::function<void()> task)
+{
+	std::unique_lock lock(Worker.Mutex);
+	Worker.MainTasks.push_back(std::move(task));
+}
+
+void VkTextureManager::StartWorkerThread()
+{
+	Worker.Thread = std::thread([this]() { WorkerThreadMain(); });
+}
+
+void VkTextureManager::StopWorkerThread()
+{
+	std::unique_lock lock(Worker.Mutex);
+	Worker.StopFlag = true;
+	lock.unlock();
+	Worker.CondVar.notify_all();
+	Worker.Thread.join();
+	lock.lock();
+	Worker.WorkerTasks.clear();
+	Worker.MainTasks.clear();
+	Worker.StopFlag = false;
+}
+
+void VkTextureManager::ProcessMainThreadTasks()
+{
+	std::unique_lock lock(Worker.Mutex);
+	std::vector<std::function<void()>> tasks;
+	tasks.swap(Worker.MainTasks);
+	lock.unlock();
+
+	for (auto& task : tasks)
+	{
+		task();
+	}
+}
+
+void VkTextureManager::WorkerThreadMain()
+{
+	std::unique_lock lock(Worker.Mutex);
+	while (true)
+	{
+		Worker.CondVar.wait(lock, [&] { return Worker.StopFlag || !Worker.WorkerTasks.empty(); });
+		if (Worker.StopFlag)
+			break;
+
+		std::function<void()> task;
+
+		if (!Worker.WorkerTasks.empty())
+		{
+			task = std::move(Worker.WorkerTasks.front());
+			Worker.WorkerTasks.pop_front();
+		}
+
+		if (task)
+		{
+			lock.unlock();
+
+			try
+			{
+				task();
+			}
+			catch (...)
+			{
+				auto exception = std::current_exception();
+				RunOnMainThread([=]() { std::rethrow_exception(exception); });
+			}
+
+			lock.lock();
+		}
+	}
 }

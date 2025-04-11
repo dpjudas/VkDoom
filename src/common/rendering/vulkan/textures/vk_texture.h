@@ -4,6 +4,10 @@
 #include <zvulkan/vulkanobjects.h>
 #include "vulkan/textures/vk_imagetransition.h"
 #include <list>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <unordered_map>
 
 class VulkanRenderDevice;
 class VkHardwareTexture;
@@ -56,6 +60,13 @@ public:
 
 	static const int MAX_REFLECTION_LOD = 4; // Note: must match what lightmodel_pbr.glsl expects
 
+	void ProcessMainThreadTasks();
+	void RunOnWorkerThread(std::function<void()> task);
+	void RunOnMainThread(std::function<void()> task);
+
+	int CreateUploadID(VkHardwareTexture* tex);
+	bool CheckUploadID(int id);
+
 private:
 	void CreateNullTexture();
 	void CreateBrdfLutTexture();
@@ -63,6 +74,10 @@ private:
 	void CreateLightmap();
 	void CreateIrradiancemap();
 	void CreatePrefiltermap();
+
+	void StartWorkerThread();
+	void StopWorkerThread();
+	void WorkerThreadMain();
 
 	VkPPTexture* GetVkTexture(PPTexture* texture);
 
@@ -76,4 +91,17 @@ private:
 
 	std::unique_ptr<VulkanImage> BrdfLutTexture;
 	std::unique_ptr<VulkanImageView> BrdfLutTextureView;
+
+	int NextUploadID = 1;
+	std::unordered_map<int, VkHardwareTexture*> PendingUploads;
+
+	struct
+	{
+		std::thread Thread;
+		std::mutex Mutex;
+		std::condition_variable CondVar;
+		bool StopFlag = false;
+		std::list<std::function<void()>> WorkerTasks;
+		std::vector<std::function<void()>> MainTasks;
+	} Worker;
 };
