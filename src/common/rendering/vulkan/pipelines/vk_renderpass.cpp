@@ -38,7 +38,7 @@
 #include "cmdlib.h"
 
 CVAR(Bool, gl_ubershaders, true, 0);
-CVAR(Bool, vk_debug_pipeline_creation, true, 0);
+CVAR(Bool, vk_debug_pipeline_creation, false, 0);
 EXTERN_CVAR(Bool, gl_multithread);
 CUSTOM_CVAR(Int, vk_pipeline_threads, 0, 0) // Todo: archive?
 {
