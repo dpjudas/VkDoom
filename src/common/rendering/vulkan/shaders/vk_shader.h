@@ -4,6 +4,7 @@
 #include <memory>
 #include <list>
 #include <map>
+#include <mutex>
 #include "vectors.h"
 #include "matrix.h"
 #include "name.h"
@@ -168,7 +169,7 @@ public:
 
 	void Deinit();
 
-	VkShaderProgram* Get(const VkShaderKey& key, bool isUberShader);
+	VkShaderProgram* GetGameShader(const VkShaderKey& key, bool isUberShader);
 
 	bool CompileNextShader() { return true; }
 
@@ -194,8 +195,12 @@ private:
 
 	VulkanRenderDevice* fb = nullptr;
 
-	std::map<uint64_t, VkShaderProgram> generic;
-	std::map<VkShaderKey, VkShaderProgram> specialized;
+	struct
+	{
+		std::mutex Mutex;
+		std::map<uint64_t, std::unique_ptr<VkShaderProgram>> Generic;
+		std::map<VkShaderKey, std::unique_ptr<VkShaderProgram>> Specialized;
+	} GameShaders;
 
 	std::list<VkPPShader*> PPShaders;
 

@@ -91,11 +91,15 @@ void VkShaderManager::Deinit()
 		RemoveVkPPShader(PPShaders.back());
 }
 
-VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
+VkShaderProgram* VkShaderManager::GetGameShader(const VkShaderKey& key, bool isUberShader)
 {
-	VkShaderProgram& program = isUberShader ? generic[key.GeneralizedShaderKey()] : specialized[key];
-	if (program.frag)
-		return &program;
+	std::unique_lock lock(GameShaders.Mutex);
+
+	std::unique_ptr<VkShaderProgram>& program = isUberShader ? GameShaders.Generic[key.GeneralizedShaderKey()] : GameShaders.Specialized[key];
+	if (program)
+		return program.get();
+
+	program = std::make_unique<VkShaderProgram>();
 
 	const char* mainvp = "shaders/scene/vert_main.glsl";
 	const char* mainfp = "shaders/scene/frag_main.glsl";
@@ -127,9 +131,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 		customKey.Layout.AlphaTest = false;
 
 		const auto& desc = effectshaders[key.SpecialEffect];
-		program.vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.defines, key, nullptr, isUberShader);
+		program->vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.defines, key, nullptr, isUberShader);
 		if (!key.NoFragmentShader)
-			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key, nullptr, isUberShader);
+			program->frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key, nullptr, isUberShader);
 	}
 	else
 	{
@@ -167,9 +171,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 		if (key.EffectState < FIRST_USER_SHADER)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
-			program.vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.Defines, key, nullptr, isUberShader);
+			program->vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.Defines, key, nullptr, isUberShader);
 			if (!key.NoFragmentShader)
-				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key, nullptr, isUberShader);
+				program->frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key, nullptr, isUberShader);
 		}
 		else
 		{
@@ -177,14 +181,14 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? nullptr : desc.vertshader.GetChars(), defines.GetChars(), key, &desc, isUberShader);
+			program->vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? nullptr : desc.vertshader.GetChars(), defines.GetChars(), key, &desc, isUberShader);
 			if (!key.NoFragmentShader)
-				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc, isUberShader);
+				program->frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc, isUberShader);
 
-			desc.Uniforms.WriteUniforms(program.Uniforms);
+			desc.Uniforms.WriteUniforms(program->Uniforms);
 		}
 	}
-	return &program;
+	return program.get();
 }
 
 enum class FieldCondition
@@ -630,12 +634,12 @@ FString VkShaderManager::GetVersionBlock()
 
 FString VkShaderManager::LoadPublicShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPublicFile(lumpname).Code;
+	return fb->GetShaderCache()->GetPublicFile(lumpname)->Code;
 }
 
 FString VkShaderManager::LoadPrivateShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPrivateFile(lumpname).Code;
+	return fb->GetShaderCache()->GetPrivateFile(lumpname)->Code;
 }
 
 VkPPShader* VkShaderManager::GetVkShader(PPShader* shader)

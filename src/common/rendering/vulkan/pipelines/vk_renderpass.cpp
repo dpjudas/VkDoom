@@ -519,34 +519,38 @@ PipelineData* VkRenderPassSetup::GetSpecializedPipeline(const VkPipelineKey& key
 	{
 		// We haven't seen this before. Build it on the worker thread.
 
+		SpecializedPipelines[key] = {}; // Mark as seen
+
 		struct TaskData
 		{
-			std::unique_ptr<GraphicsPipelineBuilder> builder;
+			VkPipelineKey key;
 			std::unique_ptr<VulkanPipeline> pipeline;
+			UniformStructHolder uniforms;
 		};
 
 		auto data = std::make_shared<TaskData>();
-
-		// Compile the GLSL on the main thread (mainly due to the resource system)
-		UniformStructHolder uniforms;
-		data->builder = CreatePipeline(key, false, uniforms);
-		SpecializedPipelines[key].Uniforms = uniforms;
+		data->key = key;
 
 		// Schedule the pipeline building on a worker thread
 		VkPipelineKey k = key;
 		auto passManager = fb->GetRenderPassManager();
 		passManager->RunOnWorkerThread([=]() {
 
+			auto builder = CreatePipeline(data->key, false, data->uniforms);
+
 			cycle_t ct;
 			ct.ResetAndClock();
-			data->pipeline = data->builder->Create(fb->GetDevice());
+			data->pipeline = builder->Create(fb->GetDevice());
 			ct.Unclock();
 			const auto duration = ct.TimeMS();
 
 			passManager->RunOnMainThread([=]() {
 				auto& slot = SpecializedPipelines[k];
 				if (!slot.pipeline)
+				{
 					slot.pipeline = std::move(data->pipeline);
+					slot.Uniforms = std::move(data->uniforms);
+				}
 
 				pipeline_time += duration;
 				++pipeline_count;
@@ -605,7 +609,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateWithStats(GraphicsPipel
 
 std::unique_ptr<GraphicsPipelineBuilder> VkRenderPassSetup::CreatePipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetGameShader(key.ShaderKey, isUberShader);
 
 	Uniforms.Clear();
 	Uniforms = program->Uniforms;
@@ -718,19 +722,19 @@ void VkRenderPassSetup::PrecompileFragmentShaderLibrary(const VkPipelineKey& key
 
 		struct TaskData
 		{
-			std::unique_ptr<GraphicsPipelineBuilder> builder;
+			VkPipelineKey key;
 			std::unique_ptr<VulkanPipeline> pipeline;
 		};
 
 		auto data = std::make_shared<TaskData>();
-		data->builder = CreateFragmentShaderLibrary(key, isUberShader);
+		data->key = key;
 
 		auto passManager = fb->GetRenderPassManager();
 		passManager->RunOnWorkerThread([=]() {
 
 			cycle_t ct;
 			ct.ResetAndClock();
-			data->pipeline = data->builder->Create(fb->GetDevice());
+			data->pipeline = CreateFragmentShaderLibrary(data->key, isUberShader)->Create(fb->GetDevice());
 			ct.Unclock();
 			const auto duration = ct.TimeMS();
 
@@ -762,7 +766,7 @@ VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey&
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetGameShader(key.ShaderKey, isUberShader);
 
 	Uniforms.Clear();
 	Uniforms = program->Uniforms;
@@ -792,7 +796,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int 
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetGameShader(key.ShaderKey, isUberShader);
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
 	builder.Flags(VK_PIPELINE_CREATE_LIBRARY_BIT_KHR);
@@ -807,7 +811,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(con
 
 std::unique_ptr<GraphicsPipelineBuilder> VkRenderPassSetup::CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetGameShader(key.ShaderKey, isUberShader);
 	auto builder = std::make_unique<GraphicsPipelineBuilder>();
 	builder->Cache(fb->GetRenderPassManager()->GetCache());
 	builder->Flags(VK_PIPELINE_CREATE_LIBRARY_BIT_KHR);

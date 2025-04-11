@@ -30,6 +30,8 @@ std::vector<uint32_t> VkShaderCache::Compile(ShaderType type, const TArrayView<V
 {
 	// Is this something we already compiled before?
 
+	std::unique_lock lock(CacheMutex);
+
 	FString checksum = CalcSha1(type, sources);
 	auto it = CodeCache.find(checksum);
 	if (it != CodeCache.end())
@@ -43,8 +45,8 @@ std::vector<uint32_t> VkShaderCache::Compile(ShaderType type, const TArrayView<V
 			bool foundChanges = false;
 			for (const VkCachedInclude& includeinfo : cacheinfo.Includes)
 			{
-				const VkCachedShaderLump& lumpinfo = includeinfo.PrivateLump ? GetPrivateFile(includeinfo.LumpName) : GetPublicFile(includeinfo.LumpName);
-				if (lumpinfo.Checksum != includeinfo.Checksum)
+				const VkCachedShaderLump* lumpinfo = includeinfo.PrivateLump ? GetPrivateFile(includeinfo.LumpName) : GetPublicFile(includeinfo.LumpName);
+				if (lumpinfo->Checksum != includeinfo.Checksum)
 				{
 					foundChanges = true;
 					break;
@@ -63,6 +65,8 @@ std::vector<uint32_t> VkShaderCache::Compile(ShaderType type, const TArrayView<V
 		}
 	}
 
+	lock.unlock();
+
 	// No match or out of date
 	// Compile it and store the dependencies:
 
@@ -78,6 +82,8 @@ std::vector<uint32_t> VkShaderCache::Compile(ShaderType type, const TArrayView<V
 	cachedCompile.Code = compiler.Compile(fb->GetDevice());
 	cachedCompile.LastUsed = LaunchTime;
 
+	lock.lock();
+
 	auto& c = CodeCache[checksum];
 	c = std::move(cachedCompile);
 	return c.Code;
@@ -88,12 +94,12 @@ ShaderIncludeResult VkShaderCache::OnInclude(VkCachedCompile& cachedCompile, FSt
 	if (depth > 8)
 		I_Error("Too much include recursion!");
 
-	const VkCachedShaderLump& file = system ? GetPrivateFile(headerName) : GetPublicFile(headerName);
+	const VkCachedShaderLump* file = system ? GetPrivateFile(headerName) : GetPublicFile(headerName);
 
 	VkCachedInclude cacheinfo;
 	cacheinfo.LumpName = headerName;
 	cacheinfo.PrivateLump = system;
-	cacheinfo.Checksum = file.Checksum;
+	cacheinfo.Checksum = file->Checksum;
 	cachedCompile.Includes.push_back(std::move(cacheinfo));
 
 	FString includeguardname;
@@ -104,7 +110,7 @@ ShaderIncludeResult VkShaderCache::OnInclude(VkCachedCompile& cachedCompile, FSt
 	code << "#ifndef " << includeguardname.GetChars() << "\n";
 	code << "#define " << includeguardname.GetChars() << "\n";
 	code << "#line 1\n";
-	code << includeFilter(file.Code.GetChars()) << "\n";
+	code << includeFilter(file->Code.GetChars()) << "\n";
 	code << "#endif\n";
 
 	return ShaderIncludeResult(headerName.GetChars(), code.GetChars());
@@ -129,34 +135,52 @@ FString VkShaderCache::CalcSha1(const FString& str)
 	return sha1.final();
 }
 
-const VkCachedShaderLump& VkShaderCache::GetPublicFile(const FString& lumpname)
+const VkCachedShaderLump* VkShaderCache::GetPublicFile(const FString& lumpname)
 {
+	std::unique_lock lock(FileMutex);
+
 	auto it = PublicFiles.find(lumpname);
 	if (it != PublicFiles.end())
-		return it->second;
+		return it->second.get();
 
-	VkCachedShaderLump cacheinfo;
-	cacheinfo.Code = LoadPublicShaderLump(lumpname.GetChars());
-	cacheinfo.Checksum = CalcSha1(cacheinfo.Code);
+	auto cacheinfo = std::make_unique<VkCachedShaderLump>();
+	cacheinfo->Code = LoadPublicShaderLump(lumpname.GetChars());
+	cacheinfo->Checksum = CalcSha1(cacheinfo->Code);
 
 	auto& result = PublicFiles[lumpname];
 	result = std::move(cacheinfo);
-	return result;
+	return result.get();
 }
 
-const VkCachedShaderLump& VkShaderCache::GetPrivateFile(const FString& lumpname)
+const VkCachedShaderLump* VkShaderCache::GetPrivateFile(const FString& lumpname)
 {
+	std::unique_lock lock(FileMutex);
+
 	auto it = PrivateFiles.find(lumpname);
 	if (it != PrivateFiles.end())
-		return it->second;
+		return it->second.get();
 
-	VkCachedShaderLump cacheinfo;
-	cacheinfo.Code = LoadPrivateShaderLump(lumpname.GetChars());
-	cacheinfo.Checksum = CalcSha1(cacheinfo.Code);
+	auto cacheinfo = std::make_unique<VkCachedShaderLump>();
+	cacheinfo->Code = LoadPrivateShaderLump(lumpname.GetChars());
+	cacheinfo->Checksum = CalcSha1(cacheinfo->Code);
 
 	auto& result = PrivateFiles[lumpname];
 	result = std::move(cacheinfo);
-	return result;
+	return result.get();
+}
+
+FString GetStringFromLumpThreadsafe(int lump)
+{
+	auto reader = fileSystem.OpenFileReader(lump, FileSys::READER_NEW, FileSys::READERFLAG_SEEKABLE);
+	if (reader.GetBuffer())
+	{
+		return FString(reader.GetBuffer(), reader.GetLength());
+	}
+	else
+	{
+		auto data = reader.Read();
+		return FString(static_cast<const char*>(data.data()), data.size());
+	}
 }
 
 FString VkShaderCache::LoadPublicShaderLump(const char* lumpname)
@@ -164,14 +188,14 @@ FString VkShaderCache::LoadPublicShaderLump(const char* lumpname)
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
+	return GetStringFromLumpThreadsafe(lump);
 }
 
 FString VkShaderCache::LoadPrivateShaderLump(const char* lumpname)
 {
 	int lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
-	return GetStringFromLump(lump);
+	return GetStringFromLumpThreadsafe(lump);
 }
 
 static uint8_t readUInt8(FileReader& fr) { uint8_t v = 0; fr.Read(&v, 1); return v; }
