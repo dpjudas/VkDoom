@@ -118,6 +118,7 @@ private:
 	void AddFragmentOutputInterface(GraphicsPipelineBuilder& builder, FRenderStyle renderStyle, VkColorComponentFlags colorMask);
 	void AddDynamicState(GraphicsPipelineBuilder& builder);
 
+	bool UsePipelineLibrary = false;
 	VulkanRenderDevice* fb = nullptr;
 	VkRenderPassKey PassKey;
 	std::unique_ptr<VulkanRenderPass> RenderPasses[8];

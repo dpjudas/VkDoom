@@ -374,6 +374,11 @@ void VkRenderPassManager::CreateZMinMaxPipeline()
 
 VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassKey &key) : PassKey(key), fb(fb)
 {
+	const auto device = fb->GetDevice();
+	
+	UsePipelineLibrary = device->SupportsExtension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME) // Is this supported?
+		&& device->EnabledFeatures.GraphicsPipelineLibrary.graphicsPipelineLibrary; // Well yes, but actually no.
+
 	// Precompile material fragment shaders:
 	if (gl_ubershaders)
 	{
@@ -576,7 +581,7 @@ PipelineData* VkRenderPassSetup::GetGeneralizedPipeline(const VkPipelineKey& key
 	if (item == GeneralizedPipelines.end())
 	{
 		UniformStructHolder uniforms;
-		auto pipeline = LinkPipeline(gkey, true, uniforms);
+		auto pipeline = UsePipelineLibrary ? LinkPipeline(gkey, true, uniforms) : CreateWithStats(*CreatePipeline(gkey, true, uniforms), "Generalized (no pipeline library)");
 		auto ptr = pipeline.get();
 		auto& value = GeneralizedPipelines[gkey];
 		value.pipeline = std::move(pipeline);
