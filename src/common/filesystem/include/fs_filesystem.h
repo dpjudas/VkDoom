@@ -10,6 +10,7 @@
 
 #include "fs_files.h"
 #include "resourcefile.h"
+#include <mutex>
 
 namespace FileSys {
 	
@@ -146,9 +147,11 @@ public:
 	FileReader* GetFileReader(int wadnum);	// Gets a FileReader object to the entire WAD
 	void InitHashChains();
 
-protected:
+private:
 
 	struct LumpRecord;
+
+	mutable std::recursive_mutex Mutex;
 
 	std::vector<FResourceFile *> Files;
 	std::vector<LumpRecord> FileInfo;
@@ -174,7 +177,6 @@ protected:
 
 	StringPool* stringpool = nullptr;
 
-private:
 	void DeleteAll();
 	void MoveLumpsInFolder(const char *);
 

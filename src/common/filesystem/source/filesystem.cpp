@@ -208,6 +208,8 @@ FileSystem::~FileSystem ()
 
 void FileSystem::DeleteAll ()
 {
+	std::unique_lock lock(Mutex);
+
 	Hashes.clear();
 	NumEntries = 0;
 
@@ -234,12 +236,14 @@ void FileSystem::DeleteAll ()
 
 bool FileSystem::InitSingleFile(const char* filename, FileSystemMessageFunc Printf)
 {
+	std::unique_lock lock(Mutex);
 	std::vector<std::string> filenames = { filename };
 	return InitMultipleFiles(filenames, nullptr, Printf);
 }
 
 bool FileSystem::InitMultipleFiles (std::vector<std::string>& filenames, LumpFilterInfo* filter, FileSystemMessageFunc Printf, bool allowduplicates)
 {
+	std::unique_lock lock(Mutex);
 	int numfiles;
 
 	// the first call here will designate a main thread which may use shared file readers. All other thewads have to open new file handles.
@@ -299,6 +303,7 @@ bool FileSystem::InitMultipleFiles (std::vector<std::string>& filenames, LumpFil
 
 int FileSystem::AddFromBuffer(const char* name, char* data, int size, int id, int flags)
 {
+	std::unique_lock lock(Mutex);
 	FileReader fr;
 	FileData blob(data, size);
 	fr.OpenMemoryArray(blob);
@@ -329,6 +334,7 @@ int FileSystem::AddFromBuffer(const char* name, char* data, int size, int id, in
 
 void FileSystem::AddFile (const char *filename, FileReader *filer, LumpFilterInfo* filter, FileSystemMessageFunc Printf)
 {
+	std::unique_lock lock(Mutex);
 	int startlump;
 	bool isdir = false;
 	FileReader filereader;
@@ -417,6 +423,7 @@ void FileSystem::AddFile (const char *filename, FileReader *filer, LumpFilterInf
 
 int FileSystem::CheckIfResourceFileLoaded (const char *name) noexcept
 {
+	std::unique_lock lock(Mutex);
 	unsigned int i;
 
 	if (strrchr (name, '/') != NULL)
@@ -456,6 +463,7 @@ int FileSystem::CheckIfResourceFileLoaded (const char *name) noexcept
 
 int FileSystem::CheckNumForName (const char *name, int space) const
 {
+	std::unique_lock lock(Mutex);
 	union
 	{
 		char uname[8];
@@ -502,6 +510,7 @@ int FileSystem::CheckNumForName (const char *name, int space) const
 
 int FileSystem::CheckNumForName (const char *name, int space, int rfnum, bool exact) const
 {
+	std::unique_lock lock(Mutex);
 	union
 	{
 		char uname[8];
@@ -540,6 +549,7 @@ int FileSystem::CheckNumForName (const char *name, int space, int rfnum, bool ex
 
 int FileSystem::GetNumForName (const char *name, int space) const
 {
+	std::unique_lock lock(Mutex);
 	int	i;
 
 	i = CheckNumForName (name, space);
@@ -563,6 +573,7 @@ int FileSystem::GetNumForName (const char *name, int space) const
 
 int FileSystem::CheckNumForFullName (const char *name, bool trynormal, int namespc, bool ignoreext) const
 {
+	std::unique_lock lock(Mutex);
 	uint32_t i;
 
 	if (name == NULL)
@@ -596,6 +607,7 @@ int FileSystem::CheckNumForFullName (const char *name, bool trynormal, int names
 
 int FileSystem::CheckNumForFullName (const char *name, int rfnum) const
 {
+	std::unique_lock lock(Mutex);
 	uint32_t i;
 
 	if (rfnum < 0)
@@ -624,6 +636,7 @@ int FileSystem::CheckNumForFullName (const char *name, int rfnum) const
 
 int FileSystem::GetNumForFullName (const char *name) const
 {
+	std::unique_lock lock(Mutex);
 	int	i;
 
 	i = CheckNumForFullName (name);
@@ -644,6 +657,7 @@ int FileSystem::GetNumForFullName (const char *name) const
 
 int FileSystem::FindFileWithExtensions(const char* name, const char *const *exts, int count) const
 {
+	std::unique_lock lock(Mutex);
 	uint32_t i;
 
 	if (name == NULL)
@@ -682,6 +696,7 @@ int FileSystem::FindFileWithExtensions(const char* name, const char *const *exts
 
 int FileSystem::FindResource (int resid, const char *type, int filenum) const noexcept
 {
+	std::unique_lock lock(Mutex);
 	uint32_t i;
 
 	if (type == NULL || resid < 0)
@@ -713,6 +728,7 @@ int FileSystem::FindResource (int resid, const char *type, int filenum) const no
 
 int FileSystem::GetResource (int resid, const char *type, int filenum) const
 {
+	std::unique_lock lock(Mutex);
 	int	i;
 
 	i = FindResource (resid, type, filenum);
@@ -734,6 +750,7 @@ int FileSystem::GetResource (int resid, const char *type, int filenum) const
 
 ptrdiff_t FileSystem::FileLength (int lump) const
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 	{
 		return -1;
@@ -750,6 +767,7 @@ ptrdiff_t FileSystem::FileLength (int lump) const
 
 int FileSystem::GetFileFlags (int lump)
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 	{
 		return 0;
@@ -770,6 +788,7 @@ int FileSystem::GetFileFlags (int lump)
 
 void FileSystem::InitHashChains (void)
 {
+	std::unique_lock lock(Mutex);
 	unsigned int i, j;
 
 	NumEntries = (uint32_t)FileInfo.size();
@@ -834,6 +853,7 @@ LumpShortName& FileSystem::GetShortName(int i)
 
 void FileSystem::RenameFile(int num, const char* newfn)
 {
+	std::unique_lock lock(Mutex);
 	if ((unsigned)num >= NumEntries) throw FileSystemException("RenameFile: Invalid index");
 	FileInfo[num].LongName = stringpool->Strdup(newfn);
 	// This does not alter the short name - call GetShortname to do that!
@@ -854,6 +874,7 @@ void FileSystem::RenameFile(int num, const char* newfn)
 
 void FileSystem::MoveLumpsInFolder(const char *path)
 {
+	std::unique_lock lock(Mutex);
 	if (FileInfo.size() == 0)
 	{
 		return;
@@ -890,6 +911,7 @@ void FileSystem::MoveLumpsInFolder(const char *path)
 
 int FileSystem::FindLump (const char *name, int *lastlump, bool anyns)
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)*lastlump >= FileInfo.size()) return -1;
 	union
 	{
@@ -931,6 +953,7 @@ int FileSystem::FindLump (const char *name, int *lastlump, bool anyns)
 
 int FileSystem::FindLumpMulti (const char **names, int *lastlump, bool anyns, int *nameindex)
 {
+	std::unique_lock lock(Mutex);
 	assert(lastlump != NULL && *lastlump >= 0);
 
 	const LumpRecord * last = FileInfo.data() + FileInfo.size();
@@ -971,6 +994,7 @@ int FileSystem::FindLumpMulti (const char **names, int *lastlump, bool anyns, in
 
 int FileSystem::FindLumpFullName(const char* name, int* lastlump, bool noext)
 {
+	std::unique_lock lock(Mutex);
 	assert(lastlump != NULL && *lastlump >= 0);
 
 	const LumpRecord * last = FileInfo.data() + FileInfo.size();
@@ -1023,6 +1047,7 @@ int FileSystem::FindLumpFullName(const char* name, int* lastlump, bool noext)
 
 bool FileSystem::CheckFileName (int lump, const char *name)
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 		return false;
 
@@ -1037,6 +1062,7 @@ bool FileSystem::CheckFileName (int lump, const char *name)
 
 const char* FileSystem::GetFileShortName(int lump) const
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 		return nullptr;
 	else
@@ -1053,6 +1079,7 @@ const char* FileSystem::GetFileShortName(int lump) const
 
 const char *FileSystem::GetFileFullName (int lump, bool returnshort) const
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 		return NULL;
 	else if (FileInfo[lump].LongName[0] != 0)
@@ -1072,6 +1099,7 @@ const char *FileSystem::GetFileFullName (int lump, bool returnshort) const
 
 std::string FileSystem::GetFileFullPath(int lump) const
 {
+	std::unique_lock lock(Mutex);
 	std::string foo;
 
 	if ((size_t) lump <  NumEntries)
@@ -1091,6 +1119,7 @@ std::string FileSystem::GetFileFullPath(int lump) const
 
 int FileSystem::GetFileNamespace (int lump) const
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 		return ns_global;
 	else
@@ -1099,6 +1128,7 @@ int FileSystem::GetFileNamespace (int lump) const
 
 void FileSystem::SetFileNamespace(int lump, int ns)
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump < NumEntries) FileInfo[lump].Namespace = ns;
 }
 
@@ -1114,6 +1144,7 @@ void FileSystem::SetFileNamespace(int lump, int ns)
 
 int FileSystem::GetResourceId(int lump) const
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 		return -1;
 	else
@@ -1130,6 +1161,7 @@ int FileSystem::GetResourceId(int lump) const
 
 const char *FileSystem::GetResourceType(int lump) const
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= NumEntries)
 		return nullptr;
 	else
@@ -1149,6 +1181,7 @@ const char *FileSystem::GetResourceType(int lump) const
 
 int FileSystem::GetFileContainer (int lump) const
 {
+	std::unique_lock lock(Mutex);
 	if ((size_t)lump >= FileInfo.size())
 		return -1;
 	return FileInfo[lump].rfnum;
@@ -1179,6 +1212,7 @@ static int folderentrycmp(const void *a, const void *b)
 
 unsigned FileSystem::GetFilesInFolder(const char *inpath, std::vector<FolderEntry> &result, bool atomic) const
 {
+	std::unique_lock lock(Mutex);
 	std::string path = inpath;
 	FixPathSeparator(&path.front());
 	for (auto& c : path) c = tolower(c);
@@ -1228,6 +1262,7 @@ unsigned FileSystem::GetFilesInFolder(const char *inpath, std::vector<FolderEntr
 
 void FileSystem::ReadFile (int lump, void *dest)
 {
+	std::unique_lock lock(Mutex);
 	auto lumpr = OpenFileReader (lump);
 	auto size = lumpr.GetLength ();
 	auto numread = lumpr.Read (dest, size);
@@ -1250,6 +1285,7 @@ void FileSystem::ReadFile (int lump, void *dest)
 
 FileData FileSystem::ReadFile (int lump)
 {
+	std::unique_lock lock(Mutex);
 	if ((unsigned)lump >= (unsigned)FileInfo.size())
 	{
 		throw FileSystemException("ReadFile: %u >= NumEntries", lump);
@@ -1268,6 +1304,7 @@ FileData FileSystem::ReadFile (int lump)
 
 FileReader FileSystem::OpenFileReader(int lump, int readertype, int readerflags)
 {
+	std::unique_lock lock(Mutex);
 	if ((unsigned)lump >= (unsigned)FileInfo.size())
 	{
 		throw FileSystemException("OpenFileReader: %u >= NumEntries", lump);
@@ -1279,6 +1316,7 @@ FileReader FileSystem::OpenFileReader(int lump, int readertype, int readerflags)
 
 FileReader FileSystem::OpenFileReader(const char* name)
 {
+	std::unique_lock lock(Mutex);
 	FileReader fr;
 	auto lump = CheckNumForFullName(name);
 	if (lump >= 0) fr = OpenFileReader(lump);
@@ -1287,6 +1325,7 @@ FileReader FileSystem::OpenFileReader(const char* name)
 
 FileReader FileSystem::ReopenFileReader(const char* name, bool alwayscache)
 {
+	std::unique_lock lock(Mutex);
 	FileReader fr;
 	auto lump = CheckNumForFullName(name);
 	if (lump >= 0) fr = ReopenFileReader(lump, alwayscache);
@@ -1304,6 +1343,7 @@ FileReader FileSystem::ReopenFileReader(const char* name, bool alwayscache)
 
 FileReader *FileSystem::GetFileReader(int rfnum)
 {
+	std::unique_lock lock(Mutex);
 	if ((uint32_t)rfnum >= Files.size())
 	{
 		return NULL;
@@ -1322,6 +1362,7 @@ FileReader *FileSystem::GetFileReader(int rfnum)
 
 const char *FileSystem::GetResourceFileName (int rfnum) const noexcept
 {
+	std::unique_lock lock(Mutex);
 	const char *name, *slash;
 
 	if ((uint32_t)rfnum >= Files.size())
@@ -1341,6 +1382,7 @@ const char *FileSystem::GetResourceFileName (int rfnum) const noexcept
 
 int FileSystem::GetFirstEntry (int rfnum) const noexcept
 {
+	std::unique_lock lock(Mutex);
 	if ((uint32_t)rfnum >= Files.size())
 	{
 		return 0;
@@ -1356,6 +1398,7 @@ int FileSystem::GetFirstEntry (int rfnum) const noexcept
 
 int FileSystem::GetLastEntry (int rfnum) const noexcept
 {
+	std::unique_lock lock(Mutex);
 	if ((uint32_t)rfnum >= Files.size())
 	{
 		return 0;
@@ -1371,6 +1414,7 @@ int FileSystem::GetLastEntry (int rfnum) const noexcept
 
 int FileSystem::GetEntryCount (int rfnum) const noexcept
 {
+	std::unique_lock lock(Mutex);
 	if ((uint32_t)rfnum >= Files.size())
 	{
 		return 0;
@@ -1390,6 +1434,7 @@ int FileSystem::GetEntryCount (int rfnum) const noexcept
 
 const char *FileSystem::GetResourceFileFullName (int rfnum) const noexcept
 {
+	std::unique_lock lock(Mutex);
 	if ((unsigned int)rfnum >= Files.size())
 	{
 		return nullptr;
@@ -1407,6 +1452,7 @@ const char *FileSystem::GetResourceFileFullName (int rfnum) const noexcept
 
 bool FileSystem::CreatePathlessCopy(const char *name, int id, int /*flags*/)
 {
+	std::unique_lock lock(Mutex);
 	std::string name2 = name, type2, path;
 
 	// The old code said 'filename' and ignored the path, this looked like a bug.
