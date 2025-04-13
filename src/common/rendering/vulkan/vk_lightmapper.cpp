@@ -610,12 +610,12 @@ int VkLightmapper::GetRaytracePipelineIndex()
 
 FString VkLightmapper::LoadPrivateShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPrivateFile(lumpname)->Code;
+	return fb->GetShaderCache()->GetPrivateFile(lumpname).Code;
 }
 
 FString VkLightmapper::LoadPublicShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPublicFile(lumpname)->Code;
+	return fb->GetShaderCache()->GetPublicFile(lumpname).Code;
 }
 
 void VkLightmapper::CreateRaytracePipeline()

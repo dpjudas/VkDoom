@@ -50,8 +50,8 @@ public:
 
 	std::vector<uint32_t> Compile(ShaderType type, const TArrayView<VkShaderSource>& sources, const std::function<FString(FString)>& includeFilter = {});
 
-	const VkCachedShaderLump* GetPublicFile(const FString& lumpname);
-	const VkCachedShaderLump* GetPrivateFile(const FString& lumpname);
+	const VkCachedShaderLump& GetPublicFile(const FString& lumpname);
+	const VkCachedShaderLump& GetPrivateFile(const FString& lumpname);
 
 private:
 	void Load();
@@ -70,12 +70,9 @@ private:
 
 	VulkanRenderDevice* fb = nullptr;
 
-	std::mutex CacheMutex;
+	std::map<FString, VkCachedShaderLump> PublicFiles;
+	std::map<FString, VkCachedShaderLump> PrivateFiles;
 	std::map<FString, VkCachedCompile> CodeCache;
-
-	std::mutex FileMutex;
-	std::map<FString, std::unique_ptr<VkCachedShaderLump>> PublicFiles;
-	std::map<FString, std::unique_ptr<VkCachedShaderLump>> PrivateFiles;
 };
 
 class CachedGLSLCompiler
