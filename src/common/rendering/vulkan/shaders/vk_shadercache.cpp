@@ -171,16 +171,9 @@ const VkCachedShaderLump* VkShaderCache::GetPrivateFile(const FString& lumpname)
 
 FString GetStringFromLumpThreadsafe(int lump)
 {
-	auto reader = fileSystem.OpenFileReader(lump, FileSys::READER_NEW, FileSys::READERFLAG_SEEKABLE);
-	if (reader.GetBuffer())
-	{
-		return FString(reader.GetBuffer(), reader.GetLength());
-	}
-	else
-	{
-		auto data = reader.Read();
-		return FString(static_cast<const char*>(data.data()), data.size());
-	}
+	auto reader = fileSystem.OpenFileReader(lump, FileSys::READER_NEW, 0);
+	auto data = reader.Read();
+	return FString(static_cast<const char*>(data.data()), data.size());
 }
 
 FString VkShaderCache::LoadPublicShaderLump(const char* lumpname)
