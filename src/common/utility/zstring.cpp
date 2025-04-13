@@ -33,6 +33,8 @@
 */
 
 #include <stdlib.h>
+#include <cstdlib>
+#include <algorithm>
 #include <ctype.h>
 #include <string.h>
 #include <new>		// for bad_alloc
@@ -1290,10 +1292,8 @@ void FString::Split(TArray<FString>& tokens, const char *delimiter, EmptyTokenTy
 	}
 }
 
-// Under Windows, use the system heap functions for managing string memory.
-// Under other OSs, use ordinary memory management instead.
-
 #ifdef _WIN32
+#define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -1332,35 +1332,31 @@ FString &FString::operator=(const wchar_t *copyStr)
 	return *this;
 }
 
-static HANDLE StringHeap;
-const SIZE_T STRING_HEAP_SIZE = 64*1024;
 #endif
+
+// std::aligned_alloc is not supported under Windows, we have to use _aligned_malloc/_aligned_free instead
 
 FStringData *FStringData::Alloc (size_t strlen)
 {
-	strlen += 1 + sizeof(FStringData);	// Add space for header and terminating null
-	strlen = (strlen + 7) & ~7;			// Pad length up
+	size_t memsize = sizeof(FStringData) + strlen + 1; // Add space for header and terminating null
+
+	size_t alignment = std::alignment_of<FStringData>::value;
+	memsize = (memsize + alignment - 1) / alignment * alignment; // std::aligned_alloc requires aligned allocations
+
+	if (memsize < strlen) // Security check to handle the case where memsize overflowed
+		throw std::bad_alloc();
 
 #ifdef _WIN32
-	if (StringHeap == NULL)
-	{
-		StringHeap = HeapCreate (0, STRING_HEAP_SIZE, 0);
-		if (StringHeap == NULL)
-		{
-			throw std::bad_alloc();
-		}
-	}
-
-	FStringData *block = (FStringData *)HeapAlloc (StringHeap, 0, strlen);
+	void* ptr = _aligned_malloc(memsize, alignment);
 #else
-	FStringData *block = (FStringData *)malloc (strlen);
+	void* ptr = std::aligned_alloc(alignment, memsize);
 #endif
-	if (block == NULL)
-	{
+	if (!ptr)
 		throw std::bad_alloc();
-	}
+
+	FStringData* block = new (ptr) FStringData();
 	block->Len = 0;
-	block->AllocLen = (unsigned int)strlen - sizeof(FStringData) - 1;
+	block->AllocLen = (unsigned int)(memsize - sizeof(FStringData) - 1);
 	block->RefCount = 1;
 	return block;
 }
@@ -1369,30 +1365,29 @@ FStringData *FStringData::Realloc (size_t newstrlen)
 {
 	assert (RefCount <= 1);
 
-	newstrlen += 1 + sizeof(FStringData);	// Add space for header and terminating null
-	newstrlen = (newstrlen + 7) & ~7;		// Pad length up
+	// Double the allocation to build up some reserve. Might been better if FString handled this.
+	// The old implementation relied heavily on std::realloc providing that support.
+	size_t reserve = std::max(newstrlen * 2, (size_t)16);
+	reserve = std::max(reserve, newstrlen); // Overflow protection
 
-#ifdef _WIN32
-	FStringData *block = (FStringData *)HeapReAlloc (StringHeap, 0, this, newstrlen);
-#else
-	FStringData *block = (FStringData *)realloc (this, newstrlen);
-#endif
-	if (block == NULL)
-	{
-		throw std::bad_alloc();
-	}
-	block->AllocLen = (unsigned int)newstrlen - sizeof(FStringData) - 1;
-	return block;
+	FStringData* newblock = Alloc(reserve);
+	newblock->Len = Len;
+	newblock->RefCount = static_cast<int>(RefCount);
+	memcpy(newblock->Chars(), Chars(), Len + 1);
+	Release();
+	return newblock;
 }
 
 void FStringData::Dealloc ()
 {
 	assert (RefCount <= 0);
 
+	this->~FStringData();
+
 #ifdef _WIN32
-	HeapFree (StringHeap, 0, this);
+	_aligned_free(this);
 #else
-	free (this);
+	std::free(this);
 #endif
 }
 

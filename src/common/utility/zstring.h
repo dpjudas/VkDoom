@@ -38,6 +38,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <string>
+#include <atomic>
 #include "tarray.h"
 #include "utf8.h"
 #include "filesystem.h"
@@ -63,7 +64,7 @@ struct FStringData
 {
 	unsigned int Len;		// Length of string, excluding terminating null
 	unsigned int AllocLen;	// Amount of memory allocated for string
-	int RefCount;			// < 0 means it's locked
+	std::atomic<int> RefCount;			// < 0 means it's locked
 	// char StrData[xxx];
 
 	char *Chars()
@@ -110,7 +111,7 @@ struct FNullStringData
 {
 	unsigned int Len;
 	unsigned int AllocLen;
-	int RefCount;
+	std::atomic<int> RefCount;
 	char Nothing[2];
 };
 
