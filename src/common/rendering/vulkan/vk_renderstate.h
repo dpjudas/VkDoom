@@ -152,6 +152,8 @@ protected:
 		VkFormat Format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		VkSampleCountFlagBits Samples = VK_SAMPLE_COUNT_1_BIT;
 		int DrawBuffers = 1;
+		VkFormat NormalFormat = VK_FORMAT_UNDEFINED;
+		VkFormat DepthStencilFormat = VK_FORMAT_UNDEFINED;
 	} mRenderTarget;
 
 	TArray<uint32_t> mQueryResultsBuffer;

@@ -228,7 +228,6 @@ void VkRenderPassManager::WorkerThreadMain()
 
 void VkRenderPassManager::RenderBuffersReset()
 {
-	RenderPassSetup.clear();
 	PPRenderPassSetup.clear();
 }
 
@@ -396,7 +395,7 @@ VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassK
 		skip[SHADER_BasicFuzz] = true;
 		skip[SHADER_SmoothFuzz] = true;
 		skip[SHADER_SwirlyFuzz] = true;
-		skip[SHADER_TranslucentFuzz] = true;
+		//skip[SHADER_TranslucentFuzz] = true;
 		skip[SHADER_JaggedFuzz] = true;
 		skip[SHADER_NoiseFuzz] = true;
 		skip[SHADER_SmoothNoiseFuzz] = true;
@@ -404,6 +403,9 @@ VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassK
 		int count = NUM_BUILTIN_SHADERS + usershaders.Size();
 		for (int i = 0; i < count; i++)
 		{
+			if (i < NUM_BUILTIN_SHADERS && skip[i])
+				continue;
+
 			fkey.ShaderKey.SpecialEffect = EFF_NONE;
 			fkey.ShaderKey.EffectState = i;
 			for (int j = 0; j < 16; j++)
@@ -420,9 +422,7 @@ VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassK
 
 std::unique_ptr<VulkanRenderPass> VkRenderPassSetup::CreateRenderPass(int clearTargets)
 {
-	auto buffers = fb->GetBuffers();
-
-	VkFormat drawBufferFormats[] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM, buffers->SceneNormalFormat };
+	VkFormat drawBufferFormats[] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM, PassKey.NormalFormat };
 
 	RenderPassBuilder builder;
 
@@ -441,7 +441,7 @@ std::unique_ptr<VulkanRenderPass> VkRenderPassSetup::CreateRenderPass(int clearT
 	if (PassKey.DepthStencil)
 	{
 		builder.AddDepthStencilAttachment(
-			buffers->SceneDepthStencilFormat, (VkSampleCountFlagBits)PassKey.Samples,
+			PassKey.DepthStencilFormat, (VkSampleCountFlagBits)PassKey.Samples,
 			(clearTargets & CT_Depth) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			(clearTargets & CT_Stencil) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);

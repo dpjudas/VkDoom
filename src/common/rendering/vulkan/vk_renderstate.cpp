@@ -818,12 +818,16 @@ void VkRenderState::SetRenderTarget(VkTextureImage *image, VulkanImageView *dept
 {
 	EndRenderPass();
 
+	auto buffers = fb->GetBuffers();
+
 	mRenderTarget.Image = image;
 	mRenderTarget.DepthStencil = depthStencilView;
 	mRenderTarget.Width = width;
 	mRenderTarget.Height = height;
 	mRenderTarget.Format = format;
 	mRenderTarget.Samples = samples;
+	mRenderTarget.NormalFormat = buffers->SceneNormalFormat;
+	mRenderTarget.DepthStencilFormat = buffers->SceneDepthStencilFormat;
 }
 
 void VkRenderState::BeginRenderPass(VulkanCommandBuffer *cmdbuffer)
@@ -833,6 +837,8 @@ void VkRenderState::BeginRenderPass(VulkanCommandBuffer *cmdbuffer)
 	key.Samples = mRenderTarget.Samples;
 	key.DrawBuffers = mRenderTarget.DrawBuffers;
 	key.DepthStencil = !!mRenderTarget.DepthStencil;
+	key.NormalFormat = mRenderTarget.NormalFormat;
+	key.DepthStencilFormat = mRenderTarget.DepthStencilFormat;
 
 	mPassSetup = fb->GetRenderPassManager()->GetRenderPass(key);
 
@@ -889,6 +895,8 @@ void VkRenderState::RaytraceScene(const FVector3& cameraPos, const VSMatrix& vie
 	key.Samples = mRenderTarget.Samples;
 	key.DrawBuffers = mRenderTarget.DrawBuffers;
 	key.DepthStencil = !!mRenderTarget.DepthStencil;
+	key.NormalFormat = mRenderTarget.NormalFormat;
+	key.DepthStencilFormat = mRenderTarget.DepthStencilFormat;
 	fb->GetLevelMesh()->RaytraceScene(key, mCommandBuffer, cameraPos, viewToWorld, fovy, aspect);
 }
 
