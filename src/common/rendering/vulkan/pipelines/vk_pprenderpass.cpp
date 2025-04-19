@@ -64,8 +64,8 @@ void VkPPRenderPassSetup::CreatePipeline(const VkPPRenderPassKey& key)
 {
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
-	builder.AddVertexShader(key.Shader->VertexShader.get());
-	builder.AddFragmentShader(key.Shader->FragmentShader.get());
+	builder.AddVertexShader(key.Shader->VertexShader);
+	builder.AddFragmentShader(key.Shader->FragmentShader);
 
 	builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
 	builder.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR);

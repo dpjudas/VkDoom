@@ -160,8 +160,8 @@ private:
 		std::unique_ptr<VulkanDescriptorSetLayout> DescriptorSetLayout;
 		std::unique_ptr<VulkanDescriptorPool> DescriptorPool;
 		std::unique_ptr<VulkanDescriptorSet> DescriptorSet;
-		std::unique_ptr<VulkanShader> VertexShader;
-		std::unique_ptr<VulkanShader> FragmentShader;
+		std::vector<uint32_t> VertexShader;
+		std::vector<uint32_t> FragmentShader;
 		//std::unique_ptr<VulkanRenderPass> RenderPass;
 		std::unique_ptr<VulkanPipelineLayout> PipelineLayout;
 		std::map<VkRenderPassKey, std::unique_ptr<VulkanPipeline>> Pipeline;

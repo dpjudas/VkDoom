@@ -35,25 +35,19 @@ VkPPShader::VkPPShader(VulkanRenderDevice* fb, PPShader *shader) : fb(fb)
 		prolog = CreateUniformBlockDecl("Uniforms", shader->Uniforms, -1);
 	prolog += shader->Defines;
 
-	VertexShader = ShaderBuilder()
-		.Code(GLSLCompiler()
-			.Type(ShaderType::Vertex)
-			.AddSource(shader->VertexShader.GetChars(), LoadShaderCode(shader->VertexShader, "", shader->Version).GetChars())
-			.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
-			.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
-			.Compile(fb->GetDevice()))
-		.DebugName(shader->VertexShader.GetChars())
-		.Create(shader->VertexShader.GetChars(), fb->GetDevice());
+	VertexShader = GLSLCompiler()
+		.Type(ShaderType::Vertex)
+		.AddSource(shader->VertexShader.GetChars(), LoadShaderCode(shader->VertexShader, "", shader->Version).GetChars())
+		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
+		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
+		.Compile(fb->GetDevice());
 
-	FragmentShader = ShaderBuilder()
-		.Code(GLSLCompiler()
-			.Type(ShaderType::Fragment)
-			.AddSource(shader->FragmentShader.GetChars(), LoadShaderCode(shader->FragmentShader, prolog, shader->Version).GetChars())
-			.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
-			.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
-			.Compile(fb->GetDevice()))
-		.DebugName(shader->FragmentShader.GetChars())
-		.Create(shader->FragmentShader.GetChars(), fb->GetDevice());
+	FragmentShader = GLSLCompiler()
+		.Type(ShaderType::Fragment)
+		.AddSource(shader->FragmentShader.GetChars(), LoadShaderCode(shader->FragmentShader, prolog, shader->Version).GetChars())
+		.OnIncludeLocal([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); })
+		.OnIncludeSystem([=](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); })
+		.Compile(fb->GetDevice());
 
 	fb->GetShaderManager()->AddVkPPShader(this);
 }
@@ -62,15 +56,6 @@ VkPPShader::~VkPPShader()
 {
 	if (fb)
 		fb->GetShaderManager()->RemoveVkPPShader(this);
-}
-
-void VkPPShader::Reset()
-{
-	if (fb)
-	{
-		fb->GetCommands()->DrawDeleteList->Add(std::move(VertexShader));
-		fb->GetCommands()->DrawDeleteList->Add(std::move(FragmentShader));
-	}
 }
 
 ShaderIncludeResult VkPPShader::OnInclude(FString headerName, FString includerName, size_t depth, bool system)

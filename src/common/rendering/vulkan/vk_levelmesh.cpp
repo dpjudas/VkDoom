@@ -504,8 +504,8 @@ void VkLevelMesh::RaytraceScene(const VkRenderPassKey& renderPassKey, VulkanComm
 		builder.RenderPass(fb->GetRenderPassManager()->GetRenderPass(renderPassKey)->GetRenderPass(0));
 		builder.Layout(Viewer.PipelineLayout.get());
 		builder.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
-		builder.AddVertexShader(Viewer.VertexShader.get());
-		builder.AddFragmentShader(Viewer.FragmentShader.get());
+		builder.AddVertexShader(Viewer.VertexShader);
+		builder.AddFragmentShader(Viewer.FragmentShader);
 		builder.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
 		builder.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR);
 		builder.RasterizationSamples((VkSampleCountFlagBits)renderPassKey.Samples);
@@ -604,23 +604,17 @@ void VkLevelMesh::CreateViewerObjects()
 		versionBlock += "#define USE_RAYQUERY\r\n";
 	}
 
-	Viewer.VertexShader = ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Vertex)
-			.AddSource("versionblock", versionBlock)
-			.AddSource("vert_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_viewer.glsl").GetChars())
-			.Compile(fb))
-		.DebugName("Viewer.VertexShader")
-		.Create("vertex", fb->GetDevice());
+	Viewer.VertexShader = CachedGLSLCompiler()
+		.Type(ShaderType::Vertex)
+		.AddSource("versionblock", versionBlock)
+		.AddSource("vert_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/vert_viewer.glsl").GetChars())
+		.Compile(fb);
 
-	Viewer.FragmentShader = ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Fragment)
-			.AddSource("versionblock", versionBlock)
-			.AddSource("frag_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_viewer.glsl").GetChars())
-			.Compile(fb))
-		.DebugName("Viewer.FragmentShader")
-		.Create("vertex", fb->GetDevice());
+	Viewer.FragmentShader = CachedGLSLCompiler()
+		.Type(ShaderType::Fragment)
+		.AddSource("versionblock", versionBlock)
+		.AddSource("frag_viewer.glsl", LoadPrivateShaderLump("shaders/lightmap/frag_viewer.glsl").GetChars())
+		.Compile(fb);
 
 	Viewer.PipelineLayout = PipelineLayoutBuilder()
 		.AddSetLayout(Viewer.DescriptorSetLayout.get())

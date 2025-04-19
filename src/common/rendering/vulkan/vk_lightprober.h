@@ -45,7 +45,7 @@ private:
 	void CreatePrefilterMap();
 	void GenerateBrdfLut();
 
-	std::unique_ptr<VulkanShader> CompileShader(const std::string& name, const std::string& filename, const char* debugName);
+	std::vector<uint32_t> CompileShader(const std::string& filename);
 
 	static FString LoadPrivateShaderLump(const char* lumpname);
 	static FString LoadPublicShaderLump(const char* lumpname);
@@ -53,7 +53,6 @@ private:
 
 	struct
 	{
-		std::unique_ptr<VulkanShader> shader;
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool;
 		std::unique_ptr<VulkanDescriptorSet> descriptorSet;
@@ -78,7 +77,6 @@ private:
 
 	struct
 	{
-		std::unique_ptr<VulkanShader> shader;
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool;
 		std::unique_ptr<VulkanDescriptorSet> descriptorSets[6];
@@ -96,7 +94,6 @@ private:
 			maxlevels = 5,
 			levelsSize = DFrameBuffer::prefilterMapLevelsSize
 		};
-		std::unique_ptr<VulkanShader> shader;
 		std::unique_ptr<VulkanDescriptorSetLayout> descriptorSetLayout;
 		std::unique_ptr<VulkanDescriptorPool> descriptorPool;
 		std::unique_ptr<VulkanDescriptorSet> descriptorSets[6 * maxlevels];

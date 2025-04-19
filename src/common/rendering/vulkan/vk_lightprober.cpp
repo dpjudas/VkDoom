@@ -23,8 +23,6 @@ VkLightprober::~VkLightprober()
 
 void VkLightprober::CreateBrdfLutResources()
 {
-	brdfLut.shader = CompileShader("comp_brdf_convolute.glsl", "shaders/lightprobe/comp_brdf_convolute.glsl", "VkLightprober.BrdfLut");
-
 	brdfLut.descriptorSetLayout = DescriptorSetLayoutBuilder()
 		.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT)
 		.Create(fb->GetDevice());
@@ -34,7 +32,7 @@ void VkLightprober::CreateBrdfLutResources()
 		.Create(fb->GetDevice());
 
 	brdfLut.pipeline = ComputePipelineBuilder()
-		.ComputeShader(brdfLut.shader.get())
+		.ComputeShader(CompileShader("shaders/lightprobe/comp_brdf_convolute.glsl"))
 		.Layout(brdfLut.pipelineLayout.get())
 		.Create(fb->GetDevice());
 
@@ -209,8 +207,6 @@ void VkLightprober::RenderEnvironmentMap(std::function<void(IntRect&, int)> rend
 
 void VkLightprober::CreateIrradianceMap()
 {
-	irradianceMap.shader = CompileShader("comp_irradiance_convolute.glsl", "shaders/lightprobe/comp_irradiance_convolute.glsl", "VkLightprober.IrradianceMap");
-
 	irradianceMap.descriptorSetLayout = DescriptorSetLayoutBuilder()
 		.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT)
 		.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -227,7 +223,7 @@ void VkLightprober::CreateIrradianceMap()
 		.Create(fb->GetDevice());
 
 	irradianceMap.pipeline = ComputePipelineBuilder()
-		.ComputeShader(irradianceMap.shader.get())
+		.ComputeShader(CompileShader("shaders/lightprobe/comp_irradiance_convolute.glsl"))
 		.Layout(irradianceMap.pipelineLayout.get())
 		.Create(fb->GetDevice());
 
@@ -356,8 +352,6 @@ bool VkLightprober::GenerateIrradianceMap(TArrayView<uint16_t>& databuffer)
 
 void VkLightprober::CreatePrefilterMap()
 {
-	prefilterMap.shader = CompileShader("comp_prefilter_convolute.glsl", "shaders/lightprobe/comp_prefilter_convolute.glsl", "VkLightprober.PrefilterMap");
-
 	prefilterMap.descriptorSetLayout = DescriptorSetLayoutBuilder()
 		.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT)
 		.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -369,7 +363,7 @@ void VkLightprober::CreatePrefilterMap()
 		.Create(fb->GetDevice());
 
 	prefilterMap.pipeline = ComputePipelineBuilder()
-		.ComputeShader(prefilterMap.shader.get())
+		.ComputeShader(CompileShader("shaders/lightprobe/comp_prefilter_convolute.glsl"))
 		.Layout(prefilterMap.pipelineLayout.get())
 		.Create(fb->GetDevice());
 
@@ -509,7 +503,7 @@ bool VkLightprober::GeneratePrefilterMap(TArrayView<uint16_t>& databuffer)
 	return true;
 }
 
-std::unique_ptr<VulkanShader> VkLightprober::CompileShader(const std::string& name, const std::string& filename, const char* debugName)
+std::vector<uint32_t> VkLightprober::CompileShader(const std::string& filename)
 {
 	std::string prefix = "#version 460\r\n";
 	prefix += "#extension GL_GOOGLE_include_directive : enable\n";
@@ -518,16 +512,13 @@ std::unique_ptr<VulkanShader> VkLightprober::CompileShader(const std::string& na
 	auto onIncludeLocal = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, false); };
 	auto onIncludeSystem = [](std::string headerName, std::string includerName, size_t depth) { return OnInclude(headerName.c_str(), includerName.c_str(), depth, true); };
 
-	return ShaderBuilder()
-		.Code(GLSLCompiler()
-			.Type(ShaderType::Compute)
-			.AddSource("VersionBlock", prefix)
-			.AddSource(name, LoadPrivateShaderLump(filename.c_str()).GetChars())
-			.OnIncludeLocal(onIncludeLocal)
-			.OnIncludeSystem(onIncludeSystem)
-			.Compile(fb->GetDevice()))
-		.DebugName(debugName)
-		.Create(debugName, fb->GetDevice());
+	return GLSLCompiler()
+		.Type(ShaderType::Compute)
+		.AddSource("VersionBlock", prefix)
+		.AddSource(filename, LoadPrivateShaderLump(filename.c_str()).GetChars())
+		.OnIncludeLocal(onIncludeLocal)
+		.OnIncludeSystem(onIncludeSystem)
+		.Compile(fb->GetDevice());
 }
 
 FString VkLightprober::LoadPrivateShaderLump(const char* lumpname)

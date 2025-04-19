@@ -227,19 +227,6 @@ private:
 	friend class GLSLCompilerIncluderImpl;
 };
 
-class ShaderBuilder
-{
-public:
-	ShaderBuilder& Code(std::vector<uint32_t> spirv) { code = std::move(spirv); return *this; }
-	ShaderBuilder& DebugName(const char* name) { debugName = name; return *this; }
-
-	std::unique_ptr<VulkanShader> Create(const char* shadername, VulkanDevice* device);
-
-private:
-	std::vector<uint32_t> code;
-	const char* debugName = nullptr;
-};
-
 class AccelerationStructureBuilder
 {
 public:
@@ -264,7 +251,7 @@ public:
 
 	ComputePipelineBuilder& Cache(VulkanPipelineCache* cache);
 	ComputePipelineBuilder& Layout(VulkanPipelineLayout *layout);
-	ComputePipelineBuilder& ComputeShader(VulkanShader *shader);
+	ComputePipelineBuilder& ComputeShader(std::vector<uint32_t> spirv) { computeShader = std::move(spirv); return *this; }
 	ComputePipelineBuilder& DebugName(const char* name) { debugName = name; return *this; }
 
 	std::unique_ptr<VulkanPipeline> Create(VulkanDevice *device);
@@ -272,6 +259,7 @@ public:
 private:
 	VkComputePipelineCreateInfo pipelineInfo = {};
 	VkPipelineShaderStageCreateInfo stageInfo = {};
+	std::vector<uint32_t> computeShader;
 	VulkanPipelineCache* cache = nullptr;
 	const char* debugName = nullptr;
 };
@@ -386,8 +374,8 @@ public:
 
 	GraphicsPipelineBuilder& AddColorBlendAttachment(VkPipelineColorBlendAttachmentState state);
 
-	GraphicsPipelineBuilder& AddVertexShader(VulkanShader *shader);
-	GraphicsPipelineBuilder& AddFragmentShader(VulkanShader *shader);
+	GraphicsPipelineBuilder& AddVertexShader(std::vector<uint32_t> spirv);
+	GraphicsPipelineBuilder& AddFragmentShader(std::vector<uint32_t> spirv);
 
 	GraphicsPipelineBuilder& AddConstant(uint32_t constantID, const void* data, size_t size);
 	GraphicsPipelineBuilder& AddConstant(uint32_t constantID, uint32_t value);
@@ -431,6 +419,7 @@ private:
 	std::vector<VkVertexInputAttributeDescription> vertexInputAttributes;
 	std::vector<VkDynamicState> dynamicStates;
 	std::vector<VkPipeline> libraries;
+	std::vector<std::vector<uint32_t>> shaderCode;
 
 	struct ShaderSpecialization
 	{

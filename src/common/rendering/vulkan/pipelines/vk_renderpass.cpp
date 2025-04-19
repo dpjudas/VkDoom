@@ -875,7 +875,7 @@ void VkRenderPassSetup::AddVertexInputInterface(GraphicsPipelineBuilder& builder
 void VkRenderPassSetup::AddPreRasterizationShaders(GraphicsPipelineBuilder& builder, const VkPipelineKey& key, VkShaderProgram* program)
 {
 	builder.PolygonMode(key.DrawLine ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL);
-	builder.AddVertexShader(program->vert.get());
+	builder.AddVertexShader(program->vert);
 	builder.AddConstant(0, (uint32_t)key.ShaderKey.AsQWORD);
 	builder.AddConstant(1, (uint32_t)(key.ShaderKey.AsQWORD >> 32));
 
@@ -890,9 +890,9 @@ void VkRenderPassSetup::AddPreRasterizationShaders(GraphicsPipelineBuilder& buil
 
 void VkRenderPassSetup::AddFragmentShader(GraphicsPipelineBuilder& builder, const VkPipelineKey& key, VkShaderProgram* program)
 {
-	if (program->frag)
+	if (!program->frag.empty())
 	{
-		builder.AddFragmentShader(program->frag.get());
+		builder.AddFragmentShader(program->frag);
 		builder.AddConstant(0, (uint32_t)key.ShaderKey.AsQWORD);
 		builder.AddConstant(1, (uint32_t)(key.ShaderKey.AsQWORD >> 32));
 	}

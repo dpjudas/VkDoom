@@ -34,51 +34,36 @@
 
 VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 {
-	ZMinMax.vert = ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Vertex)
-			.AddSource("VersionBlock", GetVersionBlock().GetChars())
-			.AddSource("shaders/scene/vert_zminmax.glsl", LoadPrivateShaderLump("shaders/scene/vert_zminmax.glsl").GetChars())
-			.Compile(fb))
-		.DebugName("ZMinMax.vert")
-		.Create("ZMinMax.vert", fb->GetDevice());
+	ZMinMax.vert = CachedGLSLCompiler()
+		.Type(ShaderType::Vertex)
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("shaders/scene/vert_zminmax.glsl", LoadPrivateShaderLump("shaders/scene/vert_zminmax.glsl").GetChars())
+		.Compile(fb);
 
-	ZMinMax.frag[0] = ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Fragment)
-			.AddSource("VersionBlock", GetVersionBlock().GetChars())
-			.AddSource("shaders/scene/frag_zminmax0.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax0.glsl").GetChars())
-			.Compile(fb))
-		.DebugName("ZMinMax0.frag")
-		.Create("ZMinMax0.frag", fb->GetDevice());
+	ZMinMax.frag[0] = CachedGLSLCompiler()
+		.Type(ShaderType::Fragment)
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("shaders/scene/frag_zminmax0.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax0.glsl").GetChars())
+		.Compile(fb);
 
-	ZMinMax.frag[1] = ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Fragment)
-			.AddSource("VersionBlock", GetVersionBlock().GetChars())
-			.AddSource("DefinesBlock", "#define MULTISAMPLE\n")
-			.AddSource("shaders/scene/frag_zminmax0.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax0.glsl").GetChars())
-			.Compile(fb))
-		.DebugName("ZMinMax0.frag")
-		.Create("ZMinMax0.frag", fb->GetDevice());
+	ZMinMax.frag[1] = CachedGLSLCompiler()
+		.Type(ShaderType::Fragment)
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("DefinesBlock", "#define MULTISAMPLE\n")
+		.AddSource("shaders/scene/frag_zminmax0.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax0.glsl").GetChars())
+		.Compile(fb);
 
-	ZMinMax.frag[2] = ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Fragment)
-			.AddSource("VersionBlock", GetVersionBlock().GetChars())
-			.AddSource("shaders/scene/frag_zminmax1.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax1.glsl").GetChars())
-			.Compile(fb))
-		.DebugName("ZMinMax1.frag")
-		.Create("ZMinMax1.frag", fb->GetDevice());
+	ZMinMax.frag[2] = CachedGLSLCompiler()
+		.Type(ShaderType::Fragment)
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("shaders/scene/frag_zminmax1.glsl", LoadPrivateShaderLump("shaders/scene/frag_zminmax1.glsl").GetChars())
+		.Compile(fb);
 
-	LightTiles = ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Compute)
-			.AddSource("VersionBlock", GetVersionBlock().GetChars())
-			.AddSource("shaders/scene/comp_lighttiles.glsl", LoadPrivateShaderLump("shaders/scene/comp_lighttiles.glsl").GetChars())
-			.Compile(fb))
-		.DebugName("LightTiles.comp")
-		.Create("LightTiles.comp", fb->GetDevice());
+	LightTiles = CachedGLSLCompiler()
+		.Type(ShaderType::Compute)
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("shaders/scene/comp_lighttiles.glsl", LoadPrivateShaderLump("shaders/scene/comp_lighttiles.glsl").GetChars())
+		.Compile(fb);
 }
 
 VkShaderManager::~VkShaderManager()
@@ -94,7 +79,7 @@ void VkShaderManager::Deinit()
 VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 {
 	VkShaderProgram& program = isUberShader ? generic[key.GeneralizedShaderKey()] : specialized[key];
-	if (program.frag)
+	if (!program.frag.empty())
 		return &program;
 
 	const char* mainvp = "shaders/scene/vert_main.glsl";
@@ -468,7 +453,7 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 	}
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
+std::vector<uint32_t> VkShaderManager::LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
 {
 	FString definesBlock;
 	BuildDefinesBlock(definesBlock, defines, false, key, shader, isUberShader);
@@ -488,20 +473,17 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadVertShader(FString shadername
 		codeBlock << LoadPrivateShaderLump("shaders/scene/vert_nocustom.glsl").GetChars() << "\n";
 	}
 
-	return ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Vertex)
-			.AddSource("VersionBlock", GetVersionBlock().GetChars())
-			.AddSource("DefinesBlock", definesBlock.GetChars())
-			.AddSource("LayoutBlock", layoutBlock.GetChars())
-			.AddSource("shaders/scene/layout_shared.glsl", LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars())
-			.AddSource(vert_lump_custom ? vert_lump_custom : vert_lump, codeBlock.GetChars())
-			.Compile(fb))
-		.DebugName(shadername.GetChars())
-		.Create(shadername.GetChars(), fb->GetDevice());
+	return CachedGLSLCompiler()
+		.Type(ShaderType::Vertex)
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("DefinesBlock", definesBlock.GetChars())
+		.AddSource("LayoutBlock", layoutBlock.GetChars())
+		.AddSource("shaders/scene/layout_shared.glsl", LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars())
+		.AddSource(vert_lump_custom ? vert_lump_custom : vert_lump, codeBlock.GetChars())
+		.Compile(fb);
 }
 
-std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
+std::vector<uint32_t> VkShaderManager::LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *light_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader)
 {
 	FString definesBlock;
 	BuildDefinesBlock(definesBlock, defines, true, key, shader, isUberShader);
@@ -587,21 +569,18 @@ std::unique_ptr<VulkanShader> VkShaderManager::LoadFragShader(FString shadername
 		mateffectBlock << LoadPrivateShaderLump(mateffect_lump).GetChars();
 	}
 
-	return ShaderBuilder()
-		.Code(CachedGLSLCompiler()
-			.Type(ShaderType::Fragment)
-			.AddSource("VersionBlock", GetVersionBlock().GetChars())
-			.AddSource("DefinesBlock", definesBlock.GetChars())
-			.AddSource("LayoutBlock", layoutBlock.GetChars())
-			.AddSource("shaders/scene/layout_shared.glsl", LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars())
-			.AddSource("shaders/scene/includes.glsl", LoadPrivateShaderLump("shaders/scene/includes.glsl").GetChars())
-			.AddSource(mateffectname.GetChars(), mateffectBlock.GetChars())
-			.AddSource(materialname.GetChars(), materialBlock.GetChars())
-			.AddSource(lightname.GetChars(), lightBlock.GetChars())
-			.AddSource(frag_lump, codeBlock.GetChars())
-			.Compile(fb))
-		.DebugName(shadername.GetChars())
-		.Create(shadername.GetChars(), fb->GetDevice());
+	return CachedGLSLCompiler()
+		.Type(ShaderType::Fragment)
+		.AddSource("VersionBlock", GetVersionBlock().GetChars())
+		.AddSource("DefinesBlock", definesBlock.GetChars())
+		.AddSource("LayoutBlock", layoutBlock.GetChars())
+		.AddSource("shaders/scene/layout_shared.glsl", LoadPrivateShaderLump("shaders/scene/layout_shared.glsl").GetChars())
+		.AddSource("shaders/scene/includes.glsl", LoadPrivateShaderLump("shaders/scene/includes.glsl").GetChars())
+		.AddSource(mateffectname.GetChars(), mateffectBlock.GetChars())
+		.AddSource(materialname.GetChars(), materialBlock.GetChars())
+		.AddSource(lightname.GetChars(), lightBlock.GetChars())
+		.AddSource(frag_lump, codeBlock.GetChars())
+		.Compile(fb);
 }
 
 FString VkShaderManager::GetVersionBlock()
@@ -652,7 +631,6 @@ void VkShaderManager::AddVkPPShader(VkPPShader* shader)
 
 void VkShaderManager::RemoveVkPPShader(VkPPShader* shader)
 {
-	shader->Reset();
 	shader->fb = nullptr;
 	PPShaders.erase(shader->it);
 }

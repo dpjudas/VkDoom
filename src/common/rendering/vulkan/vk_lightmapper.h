@@ -177,13 +177,13 @@ private:
 
 	struct
 	{
-		std::unique_ptr<VulkanShader> vertRaytrace;
-		std::unique_ptr<VulkanShader> vertScreenquad;
-		std::unique_ptr<VulkanShader> vertCopy;
-		std::unique_ptr<VulkanShader> fragRaytrace[16];
-		std::unique_ptr<VulkanShader> fragResolve;
-		std::unique_ptr<VulkanShader> fragBlur[2];
-		std::unique_ptr<VulkanShader> fragCopy;
+		std::vector<uint32_t> vertRaytrace;
+		std::vector<uint32_t> vertScreenquad;
+		std::vector<uint32_t> vertCopy;
+		std::vector<uint32_t> fragRaytrace[16];
+		std::vector<uint32_t> fragResolve;
+		std::vector<uint32_t> fragBlur[2];
+		std::vector<uint32_t> fragCopy;
 	} shaders;
 
 	struct

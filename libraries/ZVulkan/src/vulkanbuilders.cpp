@@ -205,26 +205,6 @@ std::vector<uint32_t> GLSLCompiler::Compile(uint32_t apiVersion)
 
 /////////////////////////////////////////////////////////////////////////////
 
-std::unique_ptr<VulkanShader> ShaderBuilder::Create(const char* shadername, VulkanDevice* device)
-{
-	VkShaderModuleCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size() * sizeof(uint32_t);
-	createInfo.pCode = code.data();
-
-	VkShaderModule shaderModule;
-	VkResult result = vkCreateShaderModule(device->device, &createInfo, nullptr, &shaderModule);
-	if (result != VK_SUCCESS)
-		VulkanError("Could not create vulkan shader module");
-
-	auto obj = std::make_unique<VulkanShader>(device, shaderModule);
-	if (debugName)
-		obj->SetDebugName(debugName);
-	return obj;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
 CommandPoolBuilder::CommandPoolBuilder()
 {
 }
@@ -627,6 +607,31 @@ std::unique_ptr<VulkanAccelerationStructure> AccelerationStructureBuilder::Creat
 
 /////////////////////////////////////////////////////////////////////////////
 
+static std::unique_ptr<VulkanShader> CreateShaderModule(VulkanDevice* device, const char* debugName, const uint32_t* code, size_t size)
+{
+	// To do:
+	// If we have VK_KHR_maintenance5 enabled or Vulkan 1.4 we can chain
+	// VkShaderModuleCreateInfo to VkPipelineShaderStageCreateInfo instead of
+	// creating this pointless object.
+
+	VkShaderModuleCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = size * sizeof(uint32_t);
+	createInfo.pCode = code;
+
+	VkShaderModule shaderModule;
+	VkResult result = vkCreateShaderModule(device->device, &createInfo, nullptr, &shaderModule);
+	if (result != VK_SUCCESS)
+		VulkanError("Could not create vulkan shader module");
+
+	auto obj = std::make_unique<VulkanShader>(device, shaderModule);
+	if (debugName)
+		obj->SetDebugName(debugName);
+	return obj;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 ComputePipelineBuilder::ComputePipelineBuilder()
 {
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -645,18 +650,14 @@ ComputePipelineBuilder& ComputePipelineBuilder::Layout(VulkanPipelineLayout* lay
 	return *this;
 }
 
-ComputePipelineBuilder& ComputePipelineBuilder::ComputeShader(VulkanShader* shader)
+std::unique_ptr<VulkanPipeline> ComputePipelineBuilder::Create(VulkanDevice* device)
 {
+	auto shader = CreateShaderModule(device, debugName, computeShader.data(), computeShader.size());
 	stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 	stageInfo.module = shader->module;
 	stageInfo.pName = "main";
-
 	pipelineInfo.stage = stageInfo;
-	return *this;
-}
 
-std::unique_ptr<VulkanPipeline> ComputePipelineBuilder::Create(VulkanDevice* device)
-{
 	VkPipeline pipeline;
 	vkCreateComputePipelines(device->device, cache ? cache->cache : VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
 	auto obj = std::make_unique<VulkanPipeline>(device, pipeline);
@@ -1087,31 +1088,25 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddColorBlendAttachment(VkPipe
 	return *this;
 }
 
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddVertexShader(VulkanShader* shader)
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddVertexShader(std::vector<uint32_t> spirv)
 {
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertShaderStageInfo.module = shader->module;
 	vertShaderStageInfo.pName = "main";
 	shaderStages.push_back(vertShaderStageInfo);
-
-	pipelineInfo.stageCount = (uint32_t)shaderStages.size();
-	pipelineInfo.pStages = shaderStages.data();
+	shaderCode.push_back(std::move(spirv));
 	return *this;
 }
 
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddFragmentShader(VulkanShader* shader)
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddFragmentShader(std::vector<uint32_t> spirv)
 {
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
 	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragShaderStageInfo.module = shader->module;
 	fragShaderStageInfo.pName = "main";
 	shaderStages.push_back(fragShaderStageInfo);
-
-	pipelineInfo.stageCount = (uint32_t)shaderStages.size();
-	pipelineInfo.pStages = shaderStages.data();
+	shaderCode.push_back(std::move(spirv));
 	return *this;
 }
 
@@ -1207,6 +1202,17 @@ std::unique_ptr<VulkanPipeline> GraphicsPipelineBuilder::Create(VulkanDevice* de
 		libraryCreate.libraryCount = (uint32_t)libraries.size();
 		libraryCreate.pLibraries = libraries.data();
 	}
+
+	std::vector<std::unique_ptr<VulkanShader>> shaders;
+	shaders.reserve(shaderStages.size());
+	for (size_t i = 0; i < shaderStages.size(); i++)
+	{
+		auto shader = CreateShaderModule(device, debugName, shaderCode[i].data(), shaderCode[i].size());
+		shaderStages[i].module = shader->module;
+		shaders.push_back(std::move(shader));
+	}
+	pipelineInfo.stageCount = (uint32_t)shaderStages.size();
+	pipelineInfo.pStages = shaderStages.data();
 
 	const void** ppNext = &pipelineInfo.pNext;
 
