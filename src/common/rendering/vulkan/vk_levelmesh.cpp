@@ -645,12 +645,12 @@ void VkLevelMesh::CreateViewerObjects()
 
 FString VkLevelMesh::LoadPrivateShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPrivateFile(lumpname).Code;
+	return fb->GetShaderCache()->GetPrivateFileText(lumpname);
 }
 
 FString VkLevelMesh::LoadPublicShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPublicFile(lumpname).Code;
+	return fb->GetShaderCache()->GetPublicFileText(lumpname);
 }
 
 /////////////////////////////////////////////////////////////////////////////

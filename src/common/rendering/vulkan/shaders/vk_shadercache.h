@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include <mutex>
 #include <zvulkan/vulkanbuilders.h>
 
 class VulkanRenderDevice;
@@ -50,17 +51,23 @@ public:
 
 	std::vector<uint32_t> Compile(ShaderType type, const TArrayView<VkShaderSource>& sources, const std::function<FString(FString)>& includeFilter = {});
 
-	const VkCachedShaderLump& GetPublicFile(const FString& lumpname);
-	const VkCachedShaderLump& GetPrivateFile(const FString& lumpname);
+	FString GetPublicFileText(const FString& lumpname);
+	FString GetPrivateFileText(const FString& lumpname);
 
 private:
 	void Load();
 	void Save();
 
+	std::vector<uint32_t> GetFromCache(const FString& key);
+	std::vector<uint32_t> AddToCache(const FString& key, VkCachedCompile cachedCompile);
+
 	FString CalcSha1(ShaderType type, const TArrayView<VkShaderSource>& sources);
 	FString CalcSha1(const FString& str);
 
 	ShaderIncludeResult OnInclude(VkCachedCompile& cachedCompile, FString headerName, FString includerName, size_t depth, bool system, const std::function<FString(FString)>& includeFilter);
+
+	const VkCachedShaderLump& GetPublicFile(const FString& lumpname);
+	const VkCachedShaderLump& GetPrivateFile(const FString& lumpname);
 
 	static FString LoadPublicShaderLump(const char* lumpname);
 	static FString LoadPrivateShaderLump(const char* lumpname);
@@ -70,6 +77,7 @@ private:
 
 	VulkanRenderDevice* fb = nullptr;
 
+	std::mutex Mutex;
 	std::map<FString, VkCachedShaderLump> PublicFiles;
 	std::map<FString, VkCachedShaderLump> PrivateFiles;
 	std::map<FString, VkCachedCompile> CodeCache;

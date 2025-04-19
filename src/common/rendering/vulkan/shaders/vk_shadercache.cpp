@@ -26,42 +26,24 @@ VkShaderCache::~VkShaderCache()
 	Save();
 }
 
+FString VkShaderCache::GetPublicFileText(const FString& lumpname)
+{
+	std::unique_lock lock(Mutex);
+	return GetPublicFile(lumpname).Code;
+}
+
+FString VkShaderCache::GetPrivateFileText(const FString& lumpname)
+{
+	std::unique_lock lock(Mutex);
+	return GetPrivateFile(lumpname).Code;
+}
+
 std::vector<uint32_t> VkShaderCache::Compile(ShaderType type, const TArrayView<VkShaderSource>& sources, const std::function<FString(FString)>& includeFilter)
 {
-	// Is this something we already compiled before?
-
-	FString checksum = CalcSha1(type, sources);
-	auto it = CodeCache.find(checksum);
-	if (it != CodeCache.end())
-	{
-		// OK we found a match. Did any of the include files change?
-
-		try
-		{
-			VkCachedCompile& cacheinfo = it->second;
-
-			bool foundChanges = false;
-			for (const VkCachedInclude& includeinfo : cacheinfo.Includes)
-			{
-				const VkCachedShaderLump& lumpinfo = includeinfo.PrivateLump ? GetPrivateFile(includeinfo.LumpName) : GetPublicFile(includeinfo.LumpName);
-				if (lumpinfo.Checksum != includeinfo.Checksum)
-				{
-					foundChanges = true;
-					break;
-				}
-			}
-
-			if (!foundChanges)
-			{
-				cacheinfo.LastUsed = LaunchTime;
-				return cacheinfo.Code;
-			}
-		}
-		catch (...)
-		{
-			// If GetPrivateFile or GetPublicFile is unable to find the file anymore it must be out of date.
-		}
-	}
+	FString key = CalcSha1(type, sources);
+	std::vector<uint32_t> code = GetFromCache(key);
+	if (!code.empty())
+		return code;
 
 	// No match or out of date
 	// Compile it and store the dependencies:
@@ -77,8 +59,50 @@ std::vector<uint32_t> VkShaderCache::Compile(ShaderType type, const TArrayView<V
 		compiler.AddSource(source.Name, source.Code);
 	cachedCompile.Code = compiler.Compile(fb->GetDevice());
 	cachedCompile.LastUsed = LaunchTime;
+	return AddToCache(key, std::move(cachedCompile));
+}
 
-	auto& c = CodeCache[checksum];
+std::vector<uint32_t> VkShaderCache::GetFromCache(const FString& key)
+{
+	std::unique_lock lock(Mutex);
+
+	auto it = CodeCache.find(key);
+	if (it == CodeCache.end())
+		return {};
+
+	VkCachedCompile& cacheinfo = it->second;
+
+	try
+	{
+		// Did any of the include files change?
+		bool foundChanges = false;
+		for (const VkCachedInclude& includeinfo : cacheinfo.Includes)
+		{
+			const VkCachedShaderLump& lumpinfo = includeinfo.PrivateLump ? GetPrivateFile(includeinfo.LumpName) : GetPublicFile(includeinfo.LumpName);
+			if (lumpinfo.Checksum != includeinfo.Checksum)
+			{
+				foundChanges = true;
+				break;
+			}
+		}
+
+		if (foundChanges)
+			return {};
+
+		cacheinfo.LastUsed = LaunchTime;
+		return cacheinfo.Code;
+	}
+	catch (...)
+	{
+		// If GetPrivateFile or GetPublicFile is unable to find the file anymore it must be out of date.
+		return {};
+	}
+}
+
+std::vector<uint32_t> VkShaderCache::AddToCache(const FString& key, VkCachedCompile cachedCompile)
+{
+	std::unique_lock lock(Mutex);
+	auto& c = CodeCache[key];
 	c = std::move(cachedCompile);
 	return c.Code;
 }
@@ -87,6 +111,8 @@ ShaderIncludeResult VkShaderCache::OnInclude(VkCachedCompile& cachedCompile, FSt
 {
 	if (depth > 8)
 		I_Error("Too much include recursion!");
+
+	std::unique_lock lock(Mutex);
 
 	const VkCachedShaderLump& file = system ? GetPrivateFile(headerName) : GetPublicFile(headerName);
 

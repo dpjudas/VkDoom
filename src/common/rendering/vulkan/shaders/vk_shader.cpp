@@ -644,12 +644,12 @@ FString VkShaderManager::GetVersionBlock()
 
 FString VkShaderManager::LoadPublicShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPublicFile(lumpname).Code;
+	return fb->GetShaderCache()->GetPublicFileText(lumpname);
 }
 
 FString VkShaderManager::LoadPrivateShaderLump(const char* lumpname)
 {
-	return fb->GetShaderCache()->GetPrivateFile(lumpname).Code;
+	return fb->GetShaderCache()->GetPrivateFileText(lumpname);
 }
 
 VkPPShader* VkShaderManager::GetVkShader(PPShader* shader)
