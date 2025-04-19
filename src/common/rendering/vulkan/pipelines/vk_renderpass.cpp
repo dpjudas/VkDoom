@@ -610,7 +610,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateWithStats(GraphicsPipel
 
 std::unique_ptr<GraphicsPipelineBuilder> VkRenderPassSetup::CreatePipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetProgram(key.ShaderKey, isUberShader);
 
 	Uniforms.Clear();
 	Uniforms = program->Uniforms;
@@ -767,7 +767,7 @@ VulkanPipeline* VkRenderPassSetup::GetFragmentShaderLibrary(const VkPipelineKey&
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipelineKey& key, bool isUberShader, UniformStructHolder& Uniforms)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetProgram(key.ShaderKey, isUberShader);
 
 	Uniforms.Clear();
 	Uniforms = program->Uniforms;
@@ -797,7 +797,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexInputLibrary(int 
 
 std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(const VkPipelineKey& key, bool isUberShader)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetProgram(key.ShaderKey, isUberShader);
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
 	builder.Flags(VK_PIPELINE_CREATE_LIBRARY_BIT_KHR);
@@ -812,7 +812,7 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::CreateVertexShaderLibrary(con
 
 std::unique_ptr<GraphicsPipelineBuilder> VkRenderPassSetup::CreateFragmentShaderLibrary(const VkPipelineKey& key, bool isUberShader)
 {
-	VkShaderProgram* program = fb->GetShaderManager()->Get(key.ShaderKey, isUberShader);
+	VkShaderProgram* program = fb->GetShaderManager()->GetProgram(key.ShaderKey, isUberShader);
 	auto builder = std::make_unique<GraphicsPipelineBuilder>();
 	builder->Cache(fb->GetRenderPassManager()->GetCache());
 	builder->Flags(VK_PIPELINE_CREATE_LIBRARY_BIT_KHR);

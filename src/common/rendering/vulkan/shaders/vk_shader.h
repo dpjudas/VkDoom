@@ -4,6 +4,7 @@
 #include <memory>
 #include <list>
 #include <map>
+#include <mutex>
 #include "vectors.h"
 #include "matrix.h"
 #include "name.h"
@@ -168,7 +169,7 @@ public:
 
 	void Deinit();
 
-	VkShaderProgram* Get(const VkShaderKey& key, bool isUberShader);
+	VkShaderProgram* GetProgram(const VkShaderKey& key, bool isUberShader);
 
 	bool CompileNextShader() { return true; }
 
@@ -182,6 +183,10 @@ public:
 	const std::vector<uint32_t>& GetLightTilesShader() const { return LightTiles; }
 
 private:
+	VkShaderProgram* GetFromCache(const VkShaderKey& key, bool isUberShader);
+	VkShaderProgram* AddToCache(const VkShaderKey& key, bool isUberShader, std::unique_ptr<VkShaderProgram> program);
+	std::unique_ptr<VkShaderProgram> CompileProgram(const VkShaderKey& key, bool isUberShader);
+
 	std::vector<uint32_t> LoadVertShader(FString shadername, const char *vert_lump, const char *vert_lump_custom, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader);
 	std::vector<uint32_t> LoadFragShader(FString shadername, const char *frag_lump, const char *material_lump, const char* mateffect_lump, const char *light_lump_shared, const char *lightmodel_lump, const char *defines, const VkShaderKey& key, const UserShaderDesc *shader, bool isUberShader);
 
@@ -194,8 +199,9 @@ private:
 
 	VulkanRenderDevice* fb = nullptr;
 
-	std::map<uint64_t, VkShaderProgram> generic;
-	std::map<VkShaderKey, VkShaderProgram> specialized;
+	std::mutex mutex;
+	std::map<uint64_t, std::unique_ptr<VkShaderProgram>> generic;
+	std::map<VkShaderKey, std::unique_ptr<VkShaderProgram>> specialized;
 
 	std::list<VkPPShader*> PPShaders;
 

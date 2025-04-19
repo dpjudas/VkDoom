@@ -76,11 +76,46 @@ void VkShaderManager::Deinit()
 		RemoveVkPPShader(PPShaders.back());
 }
 
-VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
+VkShaderProgram* VkShaderManager::GetProgram(const VkShaderKey& key, bool isUberShader)
 {
-	VkShaderProgram& program = isUberShader ? generic[key.GeneralizedShaderKey()] : specialized[key];
-	if (!program.frag.empty())
-		return &program;
+	VkShaderProgram* program = GetFromCache(key, isUberShader);
+	if (program)
+		return program;
+	return AddToCache(key, isUberShader, CompileProgram(key, isUberShader));
+}
+
+VkShaderProgram* VkShaderManager::GetFromCache(const VkShaderKey& key, bool isUberShader)
+{
+	std::unique_lock lock(mutex);
+	if (isUberShader)
+	{
+		auto it = generic.find(key.GeneralizedShaderKey());
+		if (it != generic.end())
+			return it->second.get();
+	}
+	else
+	{
+		auto it = specialized.find(key);
+		if (it != specialized.end())
+			return it->second.get();
+	}
+	return nullptr;
+}
+
+VkShaderProgram* VkShaderManager::AddToCache(const VkShaderKey& key, bool isUberShader, std::unique_ptr<VkShaderProgram> program)
+{
+	// Multiple threads may be compiling the program (we don't block the cache).
+	// If someone beat us to it, use their copy instead.
+	std::unique_lock lock(mutex);
+	auto& entry = isUberShader ? generic[key.GeneralizedShaderKey()] : specialized[key];
+	if (!entry)
+		entry = std::move(program);
+	return entry.get();
+}
+
+std::unique_ptr<VkShaderProgram> VkShaderManager::CompileProgram(const VkShaderKey& key, bool isUberShader)
+{
+	auto program = std::make_unique<VkShaderProgram>();
 
 	const char* mainvp = "shaders/scene/vert_main.glsl";
 	const char* mainfp = "shaders/scene/frag_main.glsl";
@@ -112,9 +147,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 		customKey.Layout.AlphaTest = false;
 
 		const auto& desc = effectshaders[key.SpecialEffect];
-		program.vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.defines, key, nullptr, isUberShader);
+		program->vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.defines, key, nullptr, isUberShader);
 		if (!key.NoFragmentShader)
-			program.frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key, nullptr, isUberShader);
+			program->frag = LoadFragShader(desc.ShaderName, desc.fp1, desc.fp2, desc.fp3, desc.fp4, desc.fp5, desc.defines, key, nullptr, isUberShader);
 	}
 	else
 	{
@@ -152,9 +187,9 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 		if (key.EffectState < FIRST_USER_SHADER)
 		{
 			const auto& desc = defaultshaders[key.EffectState];
-			program.vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.Defines, key, nullptr, isUberShader);
+			program->vert = LoadVertShader(desc.ShaderName, mainvp, nullptr, desc.Defines, key, nullptr, isUberShader);
 			if (!key.NoFragmentShader)
-				program.frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key, nullptr, isUberShader);
+				program->frag = LoadFragShader(desc.ShaderName, mainfp, desc.material_lump, desc.mateffect_lump, desc.lightmodel_lump_shared, desc.lightmodel_lump, desc.Defines, key, nullptr, isUberShader);
 		}
 		else
 		{
@@ -162,14 +197,14 @@ VkShaderProgram* VkShaderManager::Get(const VkShaderKey& key, bool isUberShader)
 			const FString& name = ExtractFileBase(desc.shader.GetChars());
 			FString defines = defaultshaders[desc.shaderType].Defines + desc.defines;
 
-			program.vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? nullptr : desc.vertshader.GetChars(), defines.GetChars(), key, &desc, isUberShader);
+			program->vert = LoadVertShader(name, mainvp, desc.vertshader.IsEmpty() ? nullptr : desc.vertshader.GetChars(), defines.GetChars(), key, &desc, isUberShader);
 			if (!key.NoFragmentShader)
-				program.frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc, isUberShader);
+				program->frag = LoadFragShader(name, mainfp, desc.shader.GetChars(), defaultshaders[desc.shaderType].mateffect_lump, defaultshaders[desc.shaderType].lightmodel_lump_shared, defaultshaders[desc.shaderType].lightmodel_lump, defines.GetChars(), key, &desc, isUberShader);
 
-			desc.Uniforms.WriteUniforms(program.Uniforms);
+			desc.Uniforms.WriteUniforms(program->Uniforms);
 		}
 	}
-	return &program;
+	return program;
 }
 
 enum class FieldCondition
