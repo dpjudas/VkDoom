@@ -370,7 +370,7 @@ void VkRenderPassManager::CreateZMinMaxPipeline()
 
 /////////////////////////////////////////////////////////////////////////////
 
-VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassKey &key) : PassKey(key), fb(fb)
+VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassKey &key) : fb(fb), PassKey(key)
 {
 	const auto device = fb->GetDevice();
 	
@@ -744,13 +744,13 @@ void VkRenderPassSetup::PrecompileFragmentShaderLibrary(const VkPipelineKey& key
 				if (!slot)
 					slot = std::move(data->pipeline);
 
-					pipeline_time += duration;
-					++pipeline_count;
+				pipeline_time += duration;
+				++pipeline_count;
 
-					if (vk_debug_pipeline_creation)
-					{
-						Printf(">>> Pipeline created in %.3fms (FragmentShaderLibrary worker)\n", duration);
-					}
+				if (vk_debug_pipeline_creation)
+				{
+					Printf(">>> Pipeline created in %.3fms (FragmentShaderLibrary worker)\n", duration);
+				}
 				});
 			}, true);
 	}
@@ -844,7 +844,7 @@ void VkRenderPassSetup::AddVertexInputInterface(GraphicsPipelineBuilder& builder
 {
 	const VkVertexFormat& vfmt = *fb->GetRenderPassManager()->GetVertexFormat(vertexFormat);
 
-	for (int i = 0; i < vfmt.BufferStrides.size(); i++)
+	for (int i = 0; i < (int)vfmt.BufferStrides.size(); i++)
 		builder.AddVertexBufferBinding(i, vfmt.BufferStrides[i]);
 
 	const static VkFormat vkfmts[] = {
