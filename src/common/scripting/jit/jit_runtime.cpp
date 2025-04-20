@@ -913,10 +913,23 @@ public:
 		char *new_function = abi::__cxa_demangle(function, nullptr, nullptr, &status);
 		if (new_function)	// Was correctly decoded
 		{
+			// Remove the function arguments
+			for (int i = 0; new_function[i] != 0; i++)
+			{
+				if (new_function[i] == '(')
+				{
+					new_function[i] = 0;
+					break;
+				}
+			}
+
 			function = new_function;
 		}
 
-		s.Format("Called from %s at %s\n", function, filename);
+		if (strlen(function) != 0)
+			s.Format("Called from %s at %s\n", function, filename);
+		else
+			s.Format("Called from %s\n", strings[0]);
 
 		if (new_function)
 		{
@@ -974,6 +987,10 @@ FString JitCaptureStackTrace(int framesToSkip, bool includeNativeFrames, int max
 	std::unique_ptr<NativeSymbolResolver> nativeSymbols;
 	if (includeNativeFrames)
 		nativeSymbols.reset(new NativeSymbolResolver());
+
+#if !defined(WIN32)
+	framesToSkip += 2;
+#endif
 
 	int total = 0;
 	FString s;

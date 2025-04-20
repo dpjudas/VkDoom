@@ -66,6 +66,7 @@
 #include "c_commandbuffer.h"
 #include "vm.h"
 #include "common/widgets/errorwindow.h"
+#include <algorithm>
 
 #define LEFTMARGIN 8
 #define RIGHTMARGIN 8
@@ -425,7 +426,7 @@ void GetLog(std::function<bool(const void* data, uint32_t size, uint32_t& writte
 		size_t len = line.Len();
 		while (pos < len)
 		{
-			uint32_t size = (uint32_t)std::min(len - pos, 0x0fffffffULL);
+			uint32_t size = (uint32_t)std::min(len - pos, (size_t)0x0fffffffULL);
 			uint32_t written = 0;
 			if (!writeData(&line[pos], size, written))
 				return;

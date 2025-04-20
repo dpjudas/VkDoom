@@ -1461,6 +1461,10 @@ if( APPLE )
 	# Dymanic libraries like libvulkan.dylib or libMoltenVK.dylib will be loaded by dlopen()
 	# if placed in the directory with the main executable
 	set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rpath @executable_path" )
+elseif(UNIX)
+	# backtrace wants -rdynamic to print friendly names.
+	# We should consider switching to libbacktrace as it reads DWARF debug info instead of staying with the API from 1865...
+	set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic" )
 endif()
 
 if( WIN32 )
