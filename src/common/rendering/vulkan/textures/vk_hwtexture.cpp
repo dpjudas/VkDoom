@@ -79,7 +79,7 @@ VkTextureImage *VkHardwareTexture::GetDepthStencil(FTexture *tex)
 {
 	if (!mDepthStencil.View)
 	{
-		VkFormat format = fb->GetBuffers()->SceneDepthStencilFormat;
+		VkFormat format = fb->DepthStencilFormat;
 		int w = tex->GetWidth();
 		int h = tex->GetHeight();
 

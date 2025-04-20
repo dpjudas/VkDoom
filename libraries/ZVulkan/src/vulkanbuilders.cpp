@@ -1196,9 +1196,15 @@ std::unique_ptr<VulkanPipeline> GraphicsPipelineBuilder::Create(VulkanDevice* de
 
 	if (!libraries.empty())
 	{
+		auto subpass = pipelineInfo.subpass;
+		auto layout = pipelineInfo.layout;
+		auto renderpass = pipelineInfo.renderPass;
 		auto flags = pipelineInfo.flags;
 		pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 		pipelineInfo.flags = flags;
+		pipelineInfo.subpass = subpass;
+		pipelineInfo.layout = layout;
+		pipelineInfo.renderPass = renderpass;
 		libraryCreate.libraryCount = (uint32_t)libraries.size();
 		libraryCreate.pLibraries = libraries.data();
 	}

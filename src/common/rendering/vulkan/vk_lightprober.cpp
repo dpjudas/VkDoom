@@ -114,7 +114,7 @@ void VkLightprober::CreateEnvironmentMap()
 		.DebugName("VkLightprober.environmentMap.cubeview")
 		.Create(fb->GetDevice());
 
-	VkFormat format = fb->GetBuffers()->SceneDepthStencilFormat;
+	VkFormat format = fb->DepthStencilFormat;
 
 	environmentMap.zbuffer = ImageBuilder()
 		.Size(environmentMap.textureSize, environmentMap.textureSize)

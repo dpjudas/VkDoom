@@ -199,15 +199,50 @@ VulkanRenderDevice::~VulkanRenderDevice()
 
 	if (mDescriptorSetManager)
 		mDescriptorSetManager->Deinit();
-	mCommands->DeleteFrameObjects();
+	if (mCommands)
+		mCommands->DeleteFrameObjects();
 	if (mTextureManager)
 		mTextureManager->Deinit();
 	if (mBufferManager)
 		mBufferManager->Deinit();
 	if (mShaderManager)
 		mShaderManager->Deinit();
+	if (mCommands)
+		mCommands->DeleteFrameObjects();
+}
 
-	mCommands->DeleteFrameObjects();
+bool VulkanRenderDevice::SupportsRenderTargetFormat(VkFormat format)
+{
+	if (ImageBuilder()
+		.Size(1024, 1024)
+		.Format(format)
+		.Usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+		.IsFormatSupported(GetDevice()))
+		return true;
+
+	return ImageBuilder()
+		.Size(1024, 1024)
+		.Format(format)
+		.Samples(VK_SAMPLE_COUNT_4_BIT)
+		.Usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+		.IsFormatSupported(GetDevice());
+}
+
+bool VulkanRenderDevice::SupportsNormalGBufferFormat(VkFormat format)
+{
+	if (ImageBuilder()
+		.Size(1024, 1024)
+		.Format(format)
+		.Usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+		.IsFormatSupported(GetDevice()))
+		return true;
+
+	return ImageBuilder()
+		.Size(1024, 1024)
+		.Format(format)
+		.Samples(VK_SAMPLE_COUNT_4_BIT)
+		.Usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+		.IsFormatSupported(GetDevice());
 }
 
 void VulkanRenderDevice::InitializeState()
@@ -230,6 +265,32 @@ void VulkanRenderDevice::InitializeState()
 
 	uniformblockalignment = (unsigned int)mDevice->PhysicalDevice.Properties.Properties.limits.minUniformBufferOffsetAlignment;
 	maxuniformblock = std::min(mDevice->PhysicalDevice.Properties.Properties.limits.maxUniformBufferRange, (uint32_t)1024 * 1024);
+
+	if (SupportsRenderTargetFormat(VK_FORMAT_D24_UNORM_S8_UINT))
+	{
+		DepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+	}
+	else if (SupportsRenderTargetFormat(VK_FORMAT_D32_SFLOAT_S8_UINT))
+	{
+		DepthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	}
+	else
+	{
+		I_FatalError("This device does not support any of the required depth stencil image formats.");
+	}
+
+	if (SupportsNormalGBufferFormat(VK_FORMAT_A2R10G10B10_UNORM_PACK32))
+	{
+		NormalFormat = VK_FORMAT_A2R10G10B10_UNORM_PACK32;
+	}
+	else if (SupportsNormalGBufferFormat(VK_FORMAT_R8G8B8A8_UNORM))
+	{
+		NormalFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	}
+	else
+	{
+		I_FatalError("This device does not support any of the required normal buffer image formats.");
+	}
 
 	NullMesh.reset(new LevelMesh());
 	levelMesh = NullMesh.get();

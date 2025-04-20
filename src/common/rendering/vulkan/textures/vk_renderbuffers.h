@@ -40,10 +40,6 @@ public:
 	VkTextureImage SceneZMinMax[6];
 	std::unique_ptr<VulkanBuffer> SceneLightTiles;
 
-	VkFormat PipelineDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
-	VkFormat SceneDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
-	VkFormat SceneNormalFormat = VK_FORMAT_A2R10G10B10_UNORM_PACK32;
-
 	static const int NumPipelineImages = 2;
 	VkTextureImage PipelineDepthStencil;
 	VkTextureImage PipelineImage[NumPipelineImages];

@@ -68,8 +68,6 @@ public:
 	int Samples = 0;
 	int DrawBuffers = 0;
 	VkFormat DrawBufferFormat = VK_FORMAT_UNDEFINED;
-	VkFormat NormalFormat = VK_FORMAT_UNDEFINED;
-	VkFormat DepthStencilFormat = VK_FORMAT_UNDEFINED;
 
 	bool operator<(const VkRenderPassKey &other) const { return memcmp(this, &other, sizeof(VkRenderPassKey)) < 0; }
 	bool operator==(const VkRenderPassKey &other) const { return memcmp(this, &other, sizeof(VkRenderPassKey)) == 0; }

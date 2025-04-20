@@ -422,7 +422,7 @@ VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassK
 
 std::unique_ptr<VulkanRenderPass> VkRenderPassSetup::CreateRenderPass(int clearTargets)
 {
-	VkFormat drawBufferFormats[] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM, PassKey.NormalFormat };
+	VkFormat drawBufferFormats[] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM, fb->NormalFormat };
 
 	RenderPassBuilder builder;
 
@@ -441,7 +441,7 @@ std::unique_ptr<VulkanRenderPass> VkRenderPassSetup::CreateRenderPass(int clearT
 	if (PassKey.DepthStencil)
 	{
 		builder.AddDepthStencilAttachment(
-			PassKey.DepthStencilFormat, (VkSampleCountFlagBits)PassKey.Samples,
+			fb->DepthStencilFormat, (VkSampleCountFlagBits)PassKey.Samples,
 			(clearTargets & CT_Depth) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			(clearTargets & CT_Stencil) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -774,6 +774,8 @@ std::unique_ptr<VulkanPipeline> VkRenderPassSetup::LinkPipeline(const VkPipeline
 
 	GraphicsPipelineBuilder builder;
 	builder.Cache(fb->GetRenderPassManager()->GetCache());
+	builder.Layout(fb->GetRenderPassManager()->GetPipelineLayout(key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
+	builder.RenderPass(GetRenderPass(0));
 	builder.AddLibrary(GetVertexInputLibrary(key.ShaderKey.VertexFormat, key.DrawType, key.ShaderKey.Layout.UseLevelMesh, program->Uniforms.sz));
 	builder.AddLibrary(GetVertexShaderLibrary(key, isUberShader));
 	builder.AddLibrary(GetFragmentShaderLibrary(key, isUberShader));

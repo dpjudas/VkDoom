@@ -101,7 +101,7 @@ void VkPPRenderPassSetup::CreateRenderPass(const VkPPRenderPassKey& key)
 	if (key.StencilTest == WhichDepthStencil::Scene)
 	{
 		builder.AddDepthStencilAttachment(
-			fb->GetBuffers()->SceneDepthStencilFormat, key.Samples,
+			fb->DepthStencilFormat, key.Samples,
 			VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -109,7 +109,7 @@ void VkPPRenderPassSetup::CreateRenderPass(const VkPPRenderPassKey& key)
 	if (key.StencilTest == WhichDepthStencil::Pipeline)
 	{
 		builder.AddDepthStencilAttachment(
-			fb->GetBuffers()->PipelineDepthStencilFormat, key.Samples,
+			fb->DepthStencilFormat, key.Samples,
 			VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
