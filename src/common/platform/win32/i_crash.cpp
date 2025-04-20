@@ -27,6 +27,7 @@
 #include <thread>
 #include "i_mainwindow.h"
 #include "version.h"
+#include "c_console.h"
 
 #ifdef _MSC_VER
 #include <dbghelp.h>
@@ -227,7 +228,7 @@ void CrashReporter::create_dump(DumpParams* dump_params, bool launch_uploader)
 			written = tmp;
 			return result == TRUE;
 		};
-	mainwindow.GetLog(writeFile);
+	GetLog(writeFile);
 	CloseHandle(file);
 
 	if (launch_uploader && !uploader_exe.empty())

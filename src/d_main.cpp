@@ -3936,9 +3936,10 @@ int GameMain()
 	}
 	catch (const std::exception &error)
 	{
-		I_ShowFatalError(error.what());
+		ShowFatalError(error.what());
 		ret = -1;
 	}
+
 	// Unless something really bad happened, the game should only exit through this single point in the code.
 	// No more 'exit', please.
 	D_Cleanup();

@@ -20,8 +20,6 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
-bool IsZWidgetAvailable();
-
 MainWindow mainwindow;
 
 void MainWindow::Create(const FString& caption, int x, int y, int width, int height)
@@ -88,79 +86,10 @@ void MainWindow::ShowGameView()
 	}
 }
 
-// Returns the main window to its startup state.
-void MainWindow::RestoreConView()
-{
-	I_ShutdownInput();		// Make sure the mouse pointer is available.
-	ShowWindow(Window, SW_HIDE);
-
-	// Make sure the progress bar isn't visible.
-	DeleteStartupScreen();
-}
-
-// Shows an error message, preferably in the main window, but it can use a normal message box too.
-void MainWindow::ShowErrorPane(const char* text)
-{
-	if (StartWindow)	// Ensure that the network pane is hidden.
-	{
-		I_NetDone();
-	}
-
-	// PrintStr(text);
-
-	size_t totalsize = 0;
-	for (const FString& line : bufferedConsoleStuff)
-		totalsize += line.Len();
-
-	std::string alltext;
-	alltext.reserve(totalsize);
-	for (const FString& line : bufferedConsoleStuff)
-		alltext.append(line.GetChars(), line.Len());
-
-	if (IsZWidgetAvailable())
-	{
-		restartrequest = ErrorWindow::ExecModal(text, alltext);
-	}
-	else // We are aborting before we even got to load zdoom.pk3
-	{
-		MessageBoxA(0, text, "Fatal Error", MB_OK | MB_ICONERROR);
-		restartrequest = false;
-	}
-}
-
-bool MainWindow::CheckForRestart()
-{
-	bool result = restartrequest;
-	restartrequest = false;
-	return result;
-}
-
 // The main window's WndProc during startup. During gameplay, the WndProc in i_input.cpp is used instead.
 LRESULT MainWindow::LConProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	return DefWindowProc(hWnd, msg, wParam, lParam);
-}
-
-void MainWindow::PrintStr(const char* cp)
-{
-	bufferedConsoleStuff.Push(cp);
-}
-
-void MainWindow::GetLog(std::function<bool(const void* data, uint32_t size, uint32_t& written)> writeData)
-{
-	for (const FString& line : bufferedConsoleStuff)
-	{
-		size_t pos = 0;
-		size_t len = line.Len();
-		while (pos < len)
-		{
-			uint32_t size = (uint32_t)std::min(len - pos, 0x0fffffffULL);
-			uint32_t written = 0;
-			if (!writeData(&line[pos], size, written))
-				return;
-			pos += written;
-		}
-	}
 }
 
 // each platform has its own specific version of this function.

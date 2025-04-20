@@ -52,7 +52,6 @@
 
 IVideo *Video;
 
-void I_RestartRenderer();
 int currentcanvas = -1;
 bool changerenderer;
 

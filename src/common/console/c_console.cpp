@@ -65,6 +65,7 @@
 #include "g_input.h"
 #include "c_commandbuffer.h"
 #include "vm.h"
+#include "common/widgets/errorwindow.h"
 
 #define LEFTMARGIN 8
 #define RIGHTMARGIN 8
@@ -411,6 +412,76 @@ void WriteLineToLog(FILE *LogFile, const char *outline)
 bool DisableLogging;
 extern bool gameisdead;
 
+bool IsZWidgetAvailable();
+
+TArray<FString> bufferedConsoleStuff;
+bool restartrequest = false;
+
+void GetLog(std::function<bool(const void* data, uint32_t size, uint32_t& written)> writeData)
+{
+	for (const FString& line : bufferedConsoleStuff)
+	{
+		size_t pos = 0;
+		size_t len = line.Len();
+		while (pos < len)
+		{
+			uint32_t size = (uint32_t)std::min(len - pos, 0x0fffffffULL);
+			uint32_t written = 0;
+			if (!writeData(&line[pos], size, written))
+				return;
+			pos += written;
+		}
+	}
+}
+
+void DeleteStartupScreen();
+void S_StopMusic(bool);
+void I_CloseMainWindow();
+
+void ShowFatalError(const char* text)
+{
+	DeleteStartupScreen();
+	S_StopMusic(true);
+	I_CloseMainWindow();
+
+	if (batchrun || RunningAsTool)
+	{
+		Printf(TEXTCOLOR_ORANGE "%s\n", text);
+		return;
+	}
+
+	if (CVMAbortException::stacktrace.IsNotEmpty())
+	{
+		Printf("%s", CVMAbortException::stacktrace.GetChars());
+	}
+
+	if (!batchrun && !RunningAsTool)
+	{
+		size_t totalsize = 0;
+		for (const FString& line : bufferedConsoleStuff)
+			totalsize += line.Len();
+
+		std::string alltext;
+		alltext.reserve(totalsize);
+		for (const FString& line : bufferedConsoleStuff)
+			alltext.append(line.GetChars(), line.Len());
+
+		if (IsZWidgetAvailable())
+		{
+			restartrequest = ErrorWindow::ExecModal(text, alltext);
+		}
+		else // We are aborting before we even got to load zdoom.pk3
+		{
+			I_ShowFatalError(text);
+			restartrequest = false;
+		}
+	}
+	else
+	{
+		Printf(TEXTCOLOR_ORANGE "%s\n", text);
+	}
+}
+
 int PrintString (int iprintlevel, const char *outline)
 {
 	if ((!RunningAsTool && gameisdead) || DisableLogging)
@@ -430,6 +501,7 @@ int PrintString (int iprintlevel, const char *outline)
 
 		if (printlevel != PRINT_LOG)
 		{
+			bufferedConsoleStuff.Push(outline);
 			I_PrintStr(outline);
 
 			conbuffer->AddText(printlevel, outline);

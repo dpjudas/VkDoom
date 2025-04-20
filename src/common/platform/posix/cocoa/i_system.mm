@@ -122,6 +122,11 @@ void I_ShowFatalError(const char *message)
 	Mac_I_FatalError(message);
 }
 
+void I_CloseMainWindow()
+{
+	I_SetMainWindowVisible(false);
+}
+
 
 int I_PickIWad(WadStuff* const wads, const int numwads, const bool showwin, const int defaultiwad, int&, FString&)
 {

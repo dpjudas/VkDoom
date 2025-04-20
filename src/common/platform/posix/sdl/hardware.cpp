@@ -45,7 +45,6 @@
 
 IVideo *Video;
 
-void I_RestartRenderer();
 
 
 void I_ShutdownGraphics ()

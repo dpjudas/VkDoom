@@ -66,8 +66,10 @@ void C_Ticker (void);
 
 void AddToConsole (int printlevel, const char *string);
 int PrintString (int printlevel, const char *string);
-int PrintStringHigh (const char *string);
 int VPrintf (int printlevel, const char *format, va_list parms) GCCFORMAT(2);
+
+void GetLog(std::function<bool(const void* data, uint32_t size, uint32_t& written)> writeFile);
+void ShowFatalError(const char* msg);
 
 void C_DrawConsole ();
 void C_ToggleConsole (void);

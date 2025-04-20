@@ -196,6 +196,8 @@ void InitExePath()
 
 //==========================================================================
 
+extern bool restartrequest;
+
 int DoMain (HINSTANCE hInstance)
 {
 	LONG WinWidth, WinHeight;
@@ -301,7 +303,7 @@ int DoMain (HINSTANCE hInstance)
 
 	int ret = GameMain ();
 
-	if (mainwindow.CheckForRestart())
+	if (restartrequest)
 	{
 		HMODULE hModule = GetModuleHandleW(nullptr);
 		WCHAR path[MAX_PATH];
@@ -325,10 +327,6 @@ int DoMain (HINSTANCE hInstance)
 				SetConsoleMode(stdinput, 0);
 				ReadConsole(stdinput, &bytes, 1, &bytes, nullptr);
 			}
-			else if (StdOut == nullptr)
-			{
-				mainwindow.ShowErrorPane(nullptr);
-			}
 		}
 	}
 	return ret;
@@ -336,24 +334,15 @@ int DoMain (HINSTANCE hInstance)
 
 void I_ShowFatalError(const char *msg)
 {
-	I_ShutdownGraphics ();
-	if (!RunningAsTool)
-		mainwindow.RestoreConView();
-	S_StopMusic(true);
+	MessageBoxA(0, msg, "Fatal Error", MB_OK | MB_ICONERROR);
+}
 
-	if (CVMAbortException::stacktrace.IsNotEmpty())
-	{
-		Printf("%s", CVMAbortException::stacktrace.GetChars());
-	}
-
-	if (!batchrun && !RunningAsTool)
-	{
-		mainwindow.ShowErrorPane(msg);
-	}
-	else
-	{
-		Printf(TEXTCOLOR_ORANGE "%s\n", msg);
-	}
+void I_CloseMainWindow()
+{
+	I_ShutdownGraphics();
+	I_ShutdownInput();
+	if (mainwindow.GetHandle())
+		ShowWindow(mainwindow.GetHandle(), SW_HIDE);
 }
 
 void I_SetWindowTitle(const char* caption)

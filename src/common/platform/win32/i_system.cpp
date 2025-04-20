@@ -335,7 +335,6 @@ static void PrintToStdOut(const char *cpt, HANDLE StdOut)
 
 void I_PrintStr(const char *cp)
 {
-	mainwindow.PrintStr(cp);
 	PrintToStdOut(cp, StdOut);
 }
 
