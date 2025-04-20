@@ -67,6 +67,10 @@
 #include "printf.h"
 #include "launcherwindow.h"
 
+#include "common/widgets/errorwindow.h"
+
+bool IsZWidgetAvailable();
+
 #ifndef NO_GTK
 bool I_GtkAvailable ();
 void I_ShowFatalError_Gtk(const char* errortext);
@@ -142,13 +146,20 @@ void Unix_I_FatalError(const char* errortext)
 
 void I_ShowFatalError(const char *message)
 {
+	if (IsZWidgetAvailable())
+	{
+		// To do: move the console buffer stuff out of the win32 specific stuff so we can use it here...
+		
+		ErrorWindow::ExecModal(message, message);
+	}
+	else
+	{
 #ifdef __APPLE__
-	Mac_I_FatalError(message);
-#elif defined __unix__
-	Unix_I_FatalError(message);
+		Mac_I_FatalError(message);
 #else
-	// ???
+		Unix_I_FatalError(message);
 #endif
+	}
 }
 
 bool PerfAvailable;
