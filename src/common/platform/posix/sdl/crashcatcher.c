@@ -119,6 +119,7 @@ static void gdb_info(pid_t pid)
 	strcpy(respfile, "gdb-respfile-XXXXXX");
 	if((fd=mkstemp(respfile)) >= 0 && (f=fdopen(fd, "w")) != NULL)
 	{
+#ifdef WHY_IS_EVERYTHING_ON_LINUX_ALWAYS_SPAMMING_THE_POOR_USER_WITH_GARBAGE
 		fprintf(f, "attach %d\n"
 		           "shell echo \"\"\n"
 		           "shell echo \"* Loaded Libraries\"\n"
@@ -137,11 +138,19 @@ static void gdb_info(pid_t pid)
 		           "thread apply all backtrace full\n"
 		           "detach\n"
 		           "quit\n", pid);
+#else
+		fprintf(f, "attach %d\n"
+				   "bt\n"
+		           "detach\n"
+		           "quit\n", pid);
+#endif
 		fclose(f);
 
 		/* Run gdb and print process info. */
 		snprintf(cmd_buf, sizeof(cmd_buf), "gdb --quiet --batch --command=%s", respfile);
+#ifdef WHY_IS_EVERYTHING_ON_LINUX_ALWAYS_SPAMMING_THE_POOR_USER_WITH_GARBAGE
 		printf("Executing: %s\n", cmd_buf);
+#endif
 		fflush(stdout);
 
 		system(cmd_buf);
@@ -258,9 +267,12 @@ static void crash_catcher(int signum, siginfo_t *siginfo, void *context)
 	}
 }
 
+const char *M_GetGameExe();
+
 static void crash_handler(const char *logfile)
 {
 	const char *sigdesc = "";
+	const char *dumpfile = "";
 	int i;
 
 	if(fread(&crash_info, sizeof(crash_info), 1, stdin) != 1)
@@ -367,7 +379,9 @@ static void crash_handler(const char *logfile)
 	{
 		char buf[512];
 
-		if(I_FileAvailable("kdialog"))
+		if(I_FileAvailable(M_GetGameExe()))
+			snprintf(buf, sizeof(buf), "%s -showcrashreport \"%s\" \"%s\"", M_GetGameExe(), dumpfile, logfile);
+		else if(I_FileAvailable("kdialog"))
 			snprintf(buf, sizeof(buf), "kdialog --title \"Very Fatal Error\" --textbox \"%s\" 800 600", logfile);
 		else if(I_FileAvailable("gxmessage"))
 			snprintf(buf, sizeof(buf), "gxmessage -buttons \"Okay:0\" -geometry 800x600 -title \"Very Fatal Error\" -center -file \"%s\"", logfile);

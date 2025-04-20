@@ -238,3 +238,120 @@ FString M_GetNormalizedPath(const char* path)
 	return fullpath;
 }
 
+//===========================================================================
+//
+// Crashcatcher is a C file. Thanks a lot for that! Really appreciate the
+// quality work. Here's some more that fits so nicely into the codebase...
+//
+//===========================================================================
+
+#include <libgen.h>
+#include <unistd.h>
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+#ifdef EXTERN___PROGNAME
+extern const char *__progname;
+#endif
+
+std::string exe_path()
+{
+	char exe_file[PATH_MAX];
+#ifdef __APPLE__
+	CFBundleRef mainBundle = CFBundleGetMainBundle();
+	if (mainBundle) 
+	{
+		CFURLRef mainURL = CFBundleCopyBundleURL(mainBundle);
+		
+		if (mainURL) 
+		{
+			int ok = CFURLGetFileSystemRepresentation (
+				mainURL, (Boolean) true, (UInt8*)exe_file, PATH_MAX 
+			);
+			
+			if (ok)
+			{
+				return std::string(exe_file) + "/";
+			}
+		}
+	}
+	
+	throw Exception("get_exe_path failed");
+
+#else
+#ifndef PROC_EXE_PATH
+#define PROC_EXE_PATH "/proc/self/exe"
+#endif
+	int size;
+	struct stat sb;
+	if (lstat(PROC_EXE_PATH, &sb) < 0)
+	{
+#ifdef EXTERN___PROGNAME
+		char *pathenv, *name, *end;
+		char fname[PATH_MAX];
+		char cwd[PATH_MAX];
+		struct stat sba;
+
+		exe_file[0] = '\0';
+		if ((pathenv = getenv("PATH")) != nullptr)
+		{
+			for (name = pathenv; name; name = end)
+			{
+				if ((end = strchr(name, ':')))
+					*end++ = '\0';
+				snprintf(fname, sizeof(fname),
+					"%s/%s", name, (char *)__progname);
+				if (stat(fname, &sba) == 0) {
+					snprintf(exe_file, sizeof(exe_file),
+						"%s/", name);
+					break;
+				}
+			}
+		}
+		// if getenv failed or path still not found
+		// try current directory as last resort
+		if (!exe_file[0])
+		{
+			if (getcwd(cwd, sizeof(cwd)) != nullptr)
+			{
+				snprintf(fname, sizeof(fname),
+					"%s/%s", cwd, (char *)__progname);
+				if (stat(fname, &sba) == 0)
+					snprintf(exe_file, sizeof(exe_file),
+						"%s/", cwd);
+			}
+		}
+		if (!exe_file[0])
+			return "";
+		else
+			return std::string(exe_file);
+#else
+		return "";
+#endif
+	}
+	else
+	{
+		size = readlink(PROC_EXE_PATH, exe_file, PATH_MAX);
+		if (size < 0)
+		{
+			return strerror(errno);
+		}
+		else
+		{
+			exe_file[size] = '\0';
+			return std::string(dirname(exe_file)) + "/";
+		}
+	}
+#endif
+	
+}
+
+extern "C"
+{
+	const char *M_GetGameExe()
+	{
+		static FString s = (exe_path() + GAMENAMELOWERCASE).c_str();
+		return s.GetChars();
+	}
+}
