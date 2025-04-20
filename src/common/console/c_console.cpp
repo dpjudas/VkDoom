@@ -66,6 +66,7 @@
 #include "c_commandbuffer.h"
 #include "vm.h"
 #include "common/widgets/errorwindow.h"
+#include "st_start.h"
 #include <algorithm>
 
 #define LEFTMARGIN 8
@@ -435,7 +436,6 @@ void GetLog(std::function<bool(const void* data, uint32_t size, uint32_t& writte
 	}
 }
 
-void DeleteStartupScreen();
 void S_StopMusic(bool);
 void I_CloseMainWindow();
 
