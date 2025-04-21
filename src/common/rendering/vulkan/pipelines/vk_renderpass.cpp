@@ -377,8 +377,11 @@ VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassK
 	UsePipelineLibrary = device->SupportsExtension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME) // Is this supported?
 		&& device->EnabledFeatures.GraphicsPipelineLibrary.graphicsPipelineLibrary; // Well yes, but actually no.
 
+	if (!gl_ubershaders)
+		UsePipelineLibrary = false;
+
 	// Precompile material fragment shaders:
-	if (gl_ubershaders)
+	if (UsePipelineLibrary)
 	{
 		VkPipelineKey fkey;
 		fkey.IsGeneralized = true;
@@ -479,7 +482,7 @@ VulkanRenderPass *VkRenderPassSetup::GetRenderPass(int clearTargets)
 
 VulkanPipeline *VkRenderPassSetup::GetPipeline(const VkPipelineKey &key, UniformStructHolder &Uniforms)
 {
-	if (gl_ubershaders)
+	if (UsePipelineLibrary)
 	{
 		auto data = GetSpecializedPipeline(key);
 		if (!data)

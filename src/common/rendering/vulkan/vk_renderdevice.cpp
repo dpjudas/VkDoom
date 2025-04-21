@@ -114,7 +114,7 @@ CCMD(vk_membudget)
 		if (membudgets[i].budget != 0)
 		{
 			Printf("#%d%s - %d MB used out of %d MB estimated budget (%d%%)\n",
-				i, memheapnames[i].GetChars(),
+				(int)i, memheapnames[i].GetChars(),
 				(int)(membudgets[i].usage / (1024 * 1024)),
 				(int)(membudgets[i].budget / (1024 * 1024)),
 				(int)(membudgets[i].usage * 100 / membudgets[i].budget));
@@ -122,7 +122,7 @@ CCMD(vk_membudget)
 		else
 		{
 			Printf("#%d %s - %d MB used\n",
-				i, memheapnames[i].GetChars(),
+				(int)i, memheapnames[i].GetChars(),
 				(int)(membudgets[i].usage / (1024 * 1024)));
 		}
 	}
@@ -186,6 +186,11 @@ VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::sha
 	}
 
 	mUseRayQuery = vk_rayquery && mDevice->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && mDevice->PhysicalDevice.Features.RayQuery.rayQuery;
+
+	// Creating pipelines with rayquery currently crashes the AMD driver
+	// To do: try turn this on once in a while to see if they fixed it as we don't want to permanently gimp AMD card performance
+	if (mDevice->PhysicalDevice.Properties.Properties.vendorID == 0x1002)
+		mUseRayQuery = false;
 
 	mShaderCache = std::make_unique<VkShaderCache>(this);
 }
