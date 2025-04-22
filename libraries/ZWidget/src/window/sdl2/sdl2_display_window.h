@@ -9,7 +9,7 @@
 class SDL2DisplayWindow : public DisplayWindow
 {
 public:
-	SDL2DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, SDL2DisplayWindow* owner, RenderAPI renderAPI);
+	SDL2DisplayWindow(DisplayWindowHost* windowHost, bool popupWindow, SDL2DisplayWindow* owner, RenderAPI renderAPI, double uiscale);
 	~SDL2DisplayWindow();
 
 	void SetWindowTitle(const std::string& text) override;
@@ -83,7 +83,6 @@ public:
 	static void ProcessEvents();
 	static void RunLoop();
 	static void ExitLoop();
-	static Size GetScreenSize();
 
 	static void* StartTimer(int timeoutMilliseconds, std::function<void()> onTimer);
 	static void StopTimer(void* timerID);
@@ -94,6 +93,8 @@ public:
 	SDL_Texture* BackBufferTexture = nullptr;
 	int BackBufferWidth = 0;
 	int BackBufferHeight = 0;
+
+	double UIScale = 1.0;
 
 	bool CursorLocked = false;
 	bool isFullscreen = false;
