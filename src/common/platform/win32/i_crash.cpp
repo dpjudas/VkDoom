@@ -85,7 +85,7 @@ private:
 	static void on_se_unhandled_exception(unsigned int exception_code, PEXCEPTION_POINTERS exception_pointers);
 	static LONG WINAPI on_win32_unhandled_exception(PEXCEPTION_POINTERS exception_pointers);
 
-	static int CaptureStackTrace(int max_frames, void** out_frames);
+	static int CaptureStackTrace(PCONTEXT context, int max_frames, void** out_frames);
 
 	typedef BOOL(WINAPI* MiniDumpWriteDumpPointer)(HANDLE, DWORD, HANDLE, MINIDUMP_TYPE, CONST PMINIDUMP_EXCEPTION_INFORMATION, CONST PMINIDUMP_USER_STREAM_INFORMATION, CONST PMINIDUMP_CALLBACK_INFORMATION);
 	HMODULE module_dbghlp;
@@ -291,7 +291,7 @@ void CrashReporter::on_sigabort(int)
 	invoke();
 }
 
-int CrashReporter::CaptureStackTrace(int max_frames, void** out_frames)
+int CrashReporter::CaptureStackTrace(PCONTEXT initcontext, int max_frames, void** out_frames)
 {
 	memset(out_frames, 0, sizeof(void*) * max_frames);
 
@@ -299,7 +299,10 @@ int CrashReporter::CaptureStackTrace(int max_frames, void** out_frames)
 	// RtlCaptureStackBackTrace doesn't support RtlAddFunctionTable..
 
 	CONTEXT context;
-	RtlCaptureContext(&context);
+	if (initcontext)
+		memcpy(&context, initcontext, sizeof(CONTEXT));
+	else
+		RtlCaptureContext(&context);
 
 	UNWIND_HISTORY_TABLE history;
 	memset(&history, 0, sizeof(UNWIND_HISTORY_TABLE));
@@ -307,8 +310,14 @@ int CrashReporter::CaptureStackTrace(int max_frames, void** out_frames)
 	ULONG64 establisherframe = 0;
 	PVOID handlerdata = nullptr;
 
-	int frame;
-	for (frame = 0; frame < max_frames; frame++)
+	int frame = 0;
+
+	// If the context came from an exception then we want its location included too
+	// Otherwise first frame is the call to this function which we never want to see
+	if (initcontext && frame < max_frames)
+		out_frames[frame++] = (void*)context.Rip;
+
+	while (frame < max_frames)
 	{
 		ULONG64 imagebase;
 		PRUNTIME_FUNCTION rtfunc = RtlLookupFunctionEntry(context.Rip, &imagebase, &history);
@@ -330,14 +339,11 @@ int CrashReporter::CaptureStackTrace(int max_frames, void** out_frames)
 			break;
 
 		out_frames[frame] = (void*)context.Rip;
+		frame++;
 	}
 	return frame;
-
-#elif defined(WIN32)
-	// JIT isn't supported here, so just do nothing.
-	return 0;//return RtlCaptureStackBackTrace(0, min(max_frames, 32), out_frames, nullptr);
 #else
-	return backtrace(out_frames, max_frames);
+	return 0;
 #endif
 }
 
@@ -352,7 +358,7 @@ void CrashReporter::on_se_unhandled_exception(unsigned int exception_code, PEXCE
 	dump_params.thread_id = GetCurrentThreadId();
 	dump_params.exception_pointers = exception_pointers;
 	dump_params.exception_code = exception_code;
-	dump_params.stack_frames.frame_count = CaptureStackTrace(StackFrameList::max_frames, dump_params.stack_frames.frames);
+	dump_params.stack_frames.frame_count = CaptureStackTrace(exception_pointers->ContextRecord, StackFrameList::max_frames, dump_params.stack_frames.frames);
 
 	// Ensure we only get a dump of the first thread crashing - let other threads block here.
 	std::unique_lock<std::recursive_mutex> mutex_lock(mutex);
@@ -373,7 +379,7 @@ LONG CrashReporter::on_win32_unhandled_exception(PEXCEPTION_POINTERS exception_p
 	dump_params.thread_id = GetCurrentThreadId();
 	dump_params.exception_pointers = exception_pointers;
 	dump_params.exception_code = 0;
-	dump_params.stack_frames.frame_count = CaptureStackTrace(StackFrameList::max_frames, dump_params.stack_frames.frames);
+	dump_params.stack_frames.frame_count = CaptureStackTrace(exception_pointers->ContextRecord, StackFrameList::max_frames, dump_params.stack_frames.frames);
 
 	// Ensure we only get a dump of the first thread crashing - let other threads block here.
 	std::unique_lock<std::recursive_mutex> mutex_lock(mutex);
@@ -1004,7 +1010,7 @@ void I_AddMinidumpCallstack(const FString& minidumpFilename, FString& text, FStr
 
 		FString lastExternalCode;
 		const StackFrameList& callstack = debugger.GetStackFrameList();
-		for (int i = 1; i < callstack.frame_count; i++)
+		for (int i = 0; i < callstack.frame_count; i++)
 		{
 			FString text = debugger.GetCalledFromText(callstack.frames[i]);
 			if (!text.IsEmpty())
