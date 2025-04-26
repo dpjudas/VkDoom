@@ -345,6 +345,9 @@ void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
 	lightdata.Clear();
 	for (auto light = doomMap.lights; light; light = light->next)
 	{
+		if (!light->IsActive())
+			continue;
+
 		if (light->Trace() || lm_dynlights)
 		{
 			UpdateLight(light);
