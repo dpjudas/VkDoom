@@ -864,6 +864,20 @@ public:
 
 	FString GetExceptionText()
 	{
+		if (ExceptionInfo.Record.ExceptionCode == EXCEPTION_ACCESS_VIOLATION && ExceptionInfo.Record.NumberParameters >= 2)
+		{
+			ULONG64 readWriteFlag = ExceptionInfo.Record.ExceptionInformation[0];
+			ULONG64 addr = ExceptionInfo.Record.ExceptionInformation[1];
+
+			FString addressValue;
+			addressValue.Format("0x%04x%04x%04x%04x", (int)((addr >> 48) & 0xffff), (int)((addr >> 32) & 0xffff), (int)((addr >> 16) & 0xffff), (int)(addr & 0xffff));
+
+			if (readWriteFlag == 0)
+				return "Access violation reading from " + addressValue;
+			else if (readWriteFlag == 1)
+				return "Access violation writing to " + addressValue;
+		}
+
 		switch (ExceptionInfo.Record.ExceptionCode)
 		{
 		case EXCEPTION_ACCESS_VIOLATION: return "Access violation";
