@@ -64,9 +64,6 @@ VkShaderManager::VkShaderManager(VulkanRenderDevice* fb) : fb(fb)
 		.AddSource("VersionBlock", GetVersionBlock().GetChars())
 		.AddSource("shaders/scene/comp_lighttiles.glsl", LoadPrivateShaderLump("shaders/scene/comp_lighttiles.glsl").GetChars())
 		.Compile(fb);
-
-	int* bull = (int*)0xbeefb00bdeadbabeULL;
-	*bull = 0xb00bbabe;
 }
 
 VkShaderManager::~VkShaderManager()
