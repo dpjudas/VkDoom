@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories=Game
+Comment=Modern, Vulkan-based Doom source port
+Exec=vkdoom
+Icon=org.vkdoom.vkdoom
+Keywords=doom;retro
+Name=VkDoom
+StartupNotify=true
+Terminal=false
+Type=Application

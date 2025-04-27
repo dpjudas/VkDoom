@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component type="desktop-application">
+  <id>org.vkdoom.vkdoom</id>
+  <name>VkDoom</name>
+  <developer id="org.vkdoom.vkdoom">
+    <name>VkDoom contributors</name>
+    <url>https://github.com/dpjudas/VkDoom/graphs/contributors</url>
+  </developer>
+  <summary>Modern Doom source port</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0</project_license>
+  <launchable type="desktop-id">org.vkdoom.vkdoom.desktop</launchable>
+  <url type="homepage">https://vkdoom.org</url>
+  <branding>
+    <color type="primary" scheme_preference="light">#e08462</color>
+    <color type="primary" scheme_preference="dark">#444444</color>
+  </branding>
+  <description>
+    <p>VKDoom is a modern Doom source port based on GZDoom. Add never-before-seen lighting effects to your maps thanks to ray-traced graphics and up your project's immersion using new features such as save and automap control, all while enjoying higher performance from new graphics optimizations.</p>
+  </description>
+  <screenshots>
+    <screenshot type="default">
+      <image type="source">https://vkdoom.org/assets/disdain-openarea-high-c96ca3fd.webp</image>
+      <caption>VKDoom is currently developed primarily for Disdain, which uses lightmaps to great effect.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source">https://vkdoom.org/assets/elementalism-blue-high-fb142bf1.webp</image>
+      <caption>A scene from Elementalism with soft ray-traced shadowing turned on, courtesy of Bauul.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source">https://vkdoom.org/assets/exl-high-afb9b95e.webp</image>
+      <caption>A map by Exl which uses lightmaps, for example to provide further depth to outdoor areas.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source">https://vkdoom.org/assets/velvetic-high-03626036.webp</image>
+      <caption>A map from BREAK//POINT by Velvetic — VKDoom works well even with more vanilla textures.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source">https://vkdoom.org/assets/guardsoul-high-d8051dae.webp</image>
+      <caption>A test map by Guardsoul, using high contrast layered shadows with lots of 3D geometry.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source">https://vkdoom.org/assets/remmirath-high-2a97982f.webp</image>
+      <caption>A map by Remmirath, creating an imposing fortress, impossible to shadow similarly without lightmaps.</caption>
+    </screenshot>
+  </screenshots>
+  <supports>
+    <control>gamepad</control>
+  </supports>
+  <recommends>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </recommends>
+  <provides>
+    <binary>vkdoom</binary>
+  </provides>
+  <keywords>
+    <keyword>retro</keyword>
+    <keyword>fps</keyword>
+    <keyword>vulkan</keyword>
+    <keyword>shooter</keyword>
+    <keyword>sourceport</keyword>
+    <keyword>doom</keyword>
+  </keywords>
+  <categories>
+    <category>Game</category>
+  </categories>
+  <releases>
+    <release version="nightly" date="2025-02-15" />
+  </releases>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-fantasy">intense</content_attribute>
+    <content_attribute id="violence-bloodshed">intense</content_attribute>
+    <content_attribute id="violence-desecration">moderate</content_attribute>
+  </content_rating>
+</component>
