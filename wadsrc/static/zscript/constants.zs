@@ -1533,3 +1533,10 @@ enum EVisualThinkerFlags
 	VTF_DontInterpolate	= 1 << 4, // disable all interpolation
 	VTF_AddLightLevel	= 1 << 5, // adds sector light level to 'LightLevel'
 };
+
+enum ESetBoneMode
+{
+	SB_CLEAR = 0,
+	SB_ADD = 1,
+	SB_REPLACE = 2,
+};
