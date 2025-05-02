@@ -876,7 +876,7 @@ void HWSprite::Process(HWDrawInfo *di, FRenderState& state, AActor* thing, secto
 
 	if (thing->IsKindOf(NAME_Corona))
 	{
-		Coronas.Push(thing);
+		Coronas.SortedInsertUnique(thing);
 		return;
 	}
 

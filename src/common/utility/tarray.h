@@ -664,6 +664,15 @@ public:
 		Insert (SortedFind (item, std::forward<Func>(lt), false), item);
 	}
 
+	void SortedInsertUnique(const T &item)
+	{
+		int foundIndex = SortedFind (item, false);
+		if (foundIndex >= Count || Array[foundIndex] != item)
+		{
+			Insert (foundIndex, item);
+		}
+	}
+
 	void ShrinkToFit ()
 	{
 		if (Most > Count)
