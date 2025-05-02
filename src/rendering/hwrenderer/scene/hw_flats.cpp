@@ -48,7 +48,6 @@
 #include "hw_renderstate.h"
 #include "texturemanager.h"
 #include "hw_flatdispatcher.h"
-#include "hw_viewpointbuffer.h"
 
 EXTERN_CVAR(Bool, lm_dynlights);
 
