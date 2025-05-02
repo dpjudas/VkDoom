@@ -165,7 +165,6 @@ void HWWall::SkyPlane(HWWallDispatcher *di, FRenderState& state, sector_t *secto
 			if (glport != NULL)
 			{
 				if (sector->PortalBlocksView(plane)) return;
-
 				if (di->di && screen->instack[1 - plane]) return;
 				ptype = PORTALTYPE_SECTORSTACK;
 				portal = glport;
