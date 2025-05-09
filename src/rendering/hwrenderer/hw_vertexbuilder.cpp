@@ -451,6 +451,50 @@ static void UpdatePlaneVertices(FRenderState& renderstate, sector_t* sec, int pl
 //
 //==========================================================================
 
+static void UpdatePlaneLightmap(FRenderState& renderstate, sector_t* sec, int plane, int lightmapIndex)
+{
+	if (!sec->HasLightmaps)
+		return;
+
+	int startvt = sec->vboindex[plane];
+	int countvt = sec->vbocount[plane];
+	secplane_t& splane = sec->GetSecPlane(plane);
+
+	auto sections = sec->Level->sections.SectionsForSector(sec);
+	int pos = startvt;
+	for (auto& section : sections)
+	{
+		for (auto& sub : section.subsectors)
+		{
+			// vertices
+			int lightmap = sub->LightmapTiles[plane].Size() > lightmapIndex ? sub->LightmapTiles[plane][lightmapIndex] : -1;
+			if (lightmap >= 0) // tile may be missing if the subsector is degenerate triangle
+			{
+				const auto& tile = level.levelMesh->Lightmap.Tiles[lightmap];
+				float textureSize = (float)level.levelMesh->Lightmap.TextureSize;
+				float lindex = (float)tile.AtlasLocation.ArrayIndex;
+				for (unsigned int j = 0, end = sub->numlines; j < end; j++)
+				{
+					vertex_t* vt = sub->firstline[j].v1;
+					FVector2 luv = tile.ToUV(FVector3((float)vt->fX(), (float)vt->fY(), (float)splane.ZatPoint(vt)), textureSize);
+					sector_vertices[pos].lu = luv.X;
+					sector_vertices[pos].lv = luv.Y;
+					sector_vertices[pos].lindex = lightmapIndex;
+					pos++;
+				}
+			}
+		}
+	}
+
+	renderstate.UpdateShadowData(startvt, &sector_vertices[startvt], countvt);
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
 static void CreateVertices(TArray<sector_t>& sectors)
 {
 	sector_vertices.Clear();
@@ -479,6 +523,18 @@ static void CheckPlanes(FRenderState& renderstate, sector_t* sector)
 
 //==========================================================================
 //
+//
+//
+//==========================================================================
+
+static void UpdateLightmapPlanes(FRenderState& renderstate, sector_t* sector)
+{
+	UpdatePlaneLightmap(renderstate, sector, sector_t::ceiling, 0);
+	UpdatePlaneLightmap(renderstate, sector, sector_t::floor, 0);
+}
+
+//==========================================================================
+//
 // checks the validity of all planes attached to this sector
 // and updates them if possible.
 //
@@ -491,6 +547,30 @@ void CheckUpdate(FRenderState& renderstate, sector_t* sector)
 	if (hs != NULL) CheckPlanes(renderstate, hs);
 	for (unsigned i = 0; i < sector->e->XFloor.ffloors.Size(); i++)
 		CheckPlanes(renderstate, sector->e->XFloor.ffloors[i]->model);
+}
+
+//==========================================================================
+//
+// Update the lightmap UV coordinates for the sector
+//
+//==========================================================================
+
+void UpdateVBOLightmap(FRenderState& renderstate, sector_t* sector)
+{
+	UpdatePlaneLightmap(renderstate, sector, sector_t::ceiling, 0);
+	UpdatePlaneLightmap(renderstate, sector, sector_t::floor, 0);
+
+	sector_t* hs = sector->GetHeightSec();
+	if (hs != NULL)
+	{
+		UpdatePlaneLightmap(renderstate, hs, sector_t::ceiling, -1);
+		UpdatePlaneLightmap(renderstate, hs, sector_t::floor, -1);
+	}
+	for (unsigned i = 0; i < sector->e->XFloor.ffloors.Size(); i++)
+	{
+		UpdatePlaneLightmap(renderstate, sector->e->XFloor.ffloors[i]->model, sector_t::ceiling, i + 1);
+		UpdatePlaneLightmap(renderstate, sector->e->XFloor.ffloors[i]->model, sector_t::floor, i + 1);
+	}
 }
 
 //==========================================================================

@@ -331,9 +331,15 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 		}
 		Flats[flatIndex].UpdateType = SurfaceUpdateType::None;
 	}
-	FlatUpdateList.Clear();
 
 	PackLightmapAtlas();
+
+	for (int flatIndex : FlatUpdateList)
+	{
+		UpdateVBOLightmap(*screen->RenderState(), &doomMap.sectors[flatIndex]);
+	}
+	FlatUpdateList.Clear();
+
 	UpdateWallPortals();
 	UploadDynLights(doomMap);
 
