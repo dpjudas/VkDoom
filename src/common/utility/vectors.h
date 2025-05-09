@@ -705,11 +705,15 @@ struct TVector3
 		return *this;
 	}
 
-
 	// returns a version with swapped Z/Y
 	constexpr const TVector3 ToXZY() const
 	{
 		return {X, Z, Y};
+	}
+	
+	constexpr TVector3 ScaleXYZ (const TVector3 &scaling)
+	{
+		return TVector3(X * scaling.X, Y * scaling.Y, Z * scaling.Z);
 	}
 };
 

@@ -797,7 +797,7 @@ DEFINE_ACTION_FUNCTION(_PlayerInfo, GetSkin)
 DEFINE_ACTION_FUNCTION(_PlayerInfo, GetSkinCount)
 {
 	PARAM_SELF_STRUCT_PROLOGUE(player_t);
-	ACTION_RETURN_INT(Skins.size());
+	ACTION_RETURN_INT(Skins.SSize());
 }
 
 DEFINE_ACTION_FUNCTION(_PlayerInfo, GetGender)
