@@ -71,6 +71,7 @@ VertexContainers BuildVertices(TArray<sector_t> &sectors);
 
 class FRenderState;
 void CheckUpdate(FRenderState& renderstate, sector_t* sector);
+void UpdateVBOLightmap(FRenderState& renderstate, sector_t* sector);
 void CreateVBO(FRenderState& renderstate, TArray<sector_t>& sectors);
 
 extern TArray<FFlatVertex> sector_vertices;
