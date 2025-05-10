@@ -731,7 +731,7 @@ LightListAllocInfo DoomLevelMesh::CreateLightList(FLightNode* node, int portalgr
 	while (cur)
 	{
 		FDynamicLight* light = cur->lightsource;
-		if (light && (light->Trace() || lm_dynlights) && GetLightIndex(light, portalgroup) >= 0)
+		if (light && light->IsActive() && (light->Trace() || lm_dynlights) && GetLightIndex(light, portalgroup) >= 0)
 		{
 			lightcount++;
 		}
@@ -744,7 +744,7 @@ LightListAllocInfo DoomLevelMesh::CreateLightList(FLightNode* node, int portalgr
 	while (cur)
 	{
 		FDynamicLight* light = cur->lightsource;
-		if (light && (light->Trace() || lm_dynlights))
+		if (light && light->IsActive() && (light->Trace() || lm_dynlights))
 		{
 			int lightindex = GetLightIndex(light, portalgroup);
 			if (lightindex >= 0)
