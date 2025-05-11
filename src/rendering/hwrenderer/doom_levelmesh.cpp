@@ -706,21 +706,47 @@ void DoomLevelMesh::OnSectorLightThinkerDestroyed(sector_t* sector, DLighting* l
 {
 }
 
+void DoomLevelMesh::OnSectorLightListChanged(sector_t* sector)
+{
+	// To do: we don't have to recreate the entire surface. Updating just the light list would do.
+	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+}
+
+void DoomLevelMesh::OnSideLightListChanged(side_t* side)
+{
+	// To do: we don't have to recreate the entire surface. Updating just the light list would do.
+	UpdateSide(side->Index(), SurfaceUpdateType::Full);
+}
+
 void DoomLevelMesh::UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType)
 {
-	if (Sides[sideIndex].UpdateType == SurfaceUpdateType::None)
+	SurfaceUpdateType value = Sides[sideIndex].UpdateType;
+	if (value == SurfaceUpdateType::None)
 	{
+		// First update request
 		SideUpdateList.Push(sideIndex);
 		Sides[sideIndex].UpdateType = updateType;
+	}
+	else if (value != updateType)
+	{
+		// Upgrade to full update if we get multiple upgrade requests of different types
+		Sides[sideIndex].UpdateType = SurfaceUpdateType::Full;
 	}
 }
 
 void DoomLevelMesh::UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updateType)
 {
-	if (Flats[sectorIndex].UpdateType == SurfaceUpdateType::None)
+	SurfaceUpdateType value = Flats[sectorIndex].UpdateType;
+	if (value == SurfaceUpdateType::None)
 	{
+		// First update request
 		FlatUpdateList.Push(sectorIndex);
 		Flats[sectorIndex].UpdateType = updateType;
+	}
+	else if (value != updateType)
+	{
+		// Upgrade to full update if we get multiple upgrade requests of different types
+		Flats[sectorIndex].UpdateType = SurfaceUpdateType::Full;
 	}
 }
 

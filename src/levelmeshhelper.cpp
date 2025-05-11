@@ -88,6 +88,16 @@ void UpdateLevelMesh::SectorLightThinkerDestroyed(sector_t* sector, DLighting* l
 	PropagateCorrelations(this, &UpdateLevelMesh::OnSectorLightThinkerDestroyed, sector, lightthinker);
 }
 
+void UpdateLevelMesh::SectorLightListChanged(sector_t* sector)
+{
+	OnSectorLightListChanged(sector);
+}
+
+void UpdateLevelMesh::SideLightListChanged(side_t* side)
+{
+	OnSideLightListChanged(side);
+}
+
 struct NullLevelMeshUpdater : UpdateLevelMesh
 {
 	void OnFloorHeightChanged(sector_t* sector) override {}
@@ -105,6 +115,9 @@ struct NullLevelMeshUpdater : UpdateLevelMesh
 	void OnSectorLightChanged(sector_t* sector) override {}
 	void OnSectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker) override {}
 	void OnSectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker) override {}
+
+	void OnSectorLightListChanged(sector_t* sector) override {}
+	void OnSideLightListChanged(side_t* side) override {}
 };
 
 static NullLevelMeshUpdater nullUpdater;

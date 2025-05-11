@@ -24,7 +24,10 @@ struct UpdateLevelMesh
 	void SectorLightChanged(sector_t* sector);
 	void SectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker);
 	void SectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker);
-	
+
+	void SectorLightListChanged(sector_t* sector);
+	void SideLightListChanged(side_t* side);
+
 	//raw
 	virtual void OnFloorHeightChanged(sector_t *sector) = 0;
 	virtual void OnCeilingHeightChanged(sector_t *sector) = 0;
@@ -41,6 +44,9 @@ struct UpdateLevelMesh
 	virtual void OnSectorLightChanged(sector_t* sector) = 0;
 	virtual void OnSectorLightThinkerCreated(sector_t* sector, DLighting* lightthinker) = 0;
 	virtual void OnSectorLightThinkerDestroyed(sector_t* sector, DLighting* lightthinker) = 0;
+
+	virtual void OnSectorLightListChanged(sector_t* sector) = 0;
+	virtual void OnSideLightListChanged(side_t* side) = 0;
 };
 
 extern UpdateLevelMesh* LevelMeshUpdater;

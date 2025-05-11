@@ -26,6 +26,14 @@ struct LightmapTileBinding
 	}
 };
 
+enum TileUpdatePolicy
+{
+	MapChanges,
+	AlwaysUltraQuality,
+	Always,
+	MapChangesUltraQuality
+};
+
 struct LightmapTile
 {
 	// Surface location in lightmap texture

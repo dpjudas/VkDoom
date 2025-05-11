@@ -95,6 +95,7 @@ static void MarkTilesForUpdate(FLevelLocals * Level, FLightNode * touching_sides
 	{
 		while(touching_sides)
 		{
+			LevelMeshUpdater->SideLightListChanged(touching_sides->targLine);
 			MarkTilesForUpdate(Level, touching_sides->targLine->LightmapTiles);
 
 			touching_sides = touching_sides->nextTarget;
@@ -102,6 +103,7 @@ static void MarkTilesForUpdate(FLevelLocals * Level, FLightNode * touching_sides
 	
 		while(touching_sector)
 		{
+			LevelMeshUpdater->SectorLightListChanged(touching_sector->targSection->sector);
 			for(subsector_t * ss : touching_sector->targSection->subsectors)
 			{
 				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
