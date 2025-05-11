@@ -163,6 +163,7 @@ private:
 		const int BufferSize = 100'000;
 		std::unique_ptr<VulkanBuffer> Buffer;
 		CopyTileInfo* Tiles = nullptr;
+		int Pos = 0;
 	} copytiles;
 
 	struct

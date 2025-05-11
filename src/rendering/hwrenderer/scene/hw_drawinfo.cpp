@@ -139,11 +139,13 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 	for (int i = 0; i < GLDL_TYPES; i++) drawlists[i].Reset();
 	hudsprites.Clear();
 	Fogballs.Clear();
-	VisibleTiles.Clear();
 	vpIndex = 0;
 
-	static int counter = 1;
-	TileSeenCounter = ++counter;
+	if (!outer)
+	{
+		static int counter = 1;
+		TileSeenCounter = ++counter;
+	}
 
 	// Fullbright information needs to be propagated from the main view.
 	if (outer != nullptr) FullbrightFlags = outer->FullbrightFlags;
@@ -717,7 +719,7 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 void HWDrawInfo::UpdateLightmaps()
 {
 	if (outer)
-		return;
+		outer->UpdateLightmaps();
 	/*
 	if (VisibleTiles.size() > (size_t)lm_max_updates)
 		VisibleTiles.resize(lm_max_updates);
@@ -737,15 +739,8 @@ void HWDrawInfo::UpdateLightmaps()
 	*/
 
 	screen->UpdateLightmaps(VisibleTiles);
+	VisibleTiles.Clear();
 }
-
-//-----------------------------------------------------------------------------
-//
-// RenderScene
-//
-// Draws the current draw lists for the non GLSL renderer
-//
-//-----------------------------------------------------------------------------
 
 void HWDrawInfo::RenderScene(FRenderState &state)
 {

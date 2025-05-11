@@ -262,6 +262,8 @@ public:
 	uint64_t FrameTime = 0;
 	uint64_t FrameTimeNS = 0;
 
+	int FrameTileUpdates = 0;
+
 private:
 	uint64_t fpsLimitTime = 0;
 

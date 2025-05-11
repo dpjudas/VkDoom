@@ -241,7 +241,7 @@ public:
 		}
 
 		LightmapTile* tile = &Level->levelMesh->Lightmap.Tiles[tileIndex];
-		if (tile->LastSeen != TileSeenCounter)
+		if (tile->NeedsUpdate && tile->LastSeen != TileSeenCounter)
 		{
 			tile->LastSeen = TileSeenCounter;
 			VisibleTiles.Push(tile);

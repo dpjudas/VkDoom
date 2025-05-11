@@ -1146,6 +1146,11 @@ void HWWall::DoTexture(HWWallDispatcher *di, FRenderState& state, int _type,seg_
 
 	if (di->di)
 	{
+		if (seg->sidedef->Index() == 55)
+		{
+			type = _type;
+		}
+
 		if (seg->sidedef->LightmapTiles.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
 		{
 			lightmaptile = seg->sidedef->LightmapTiles[type - RENDERWALL_TOP];

@@ -77,15 +77,17 @@ ADD_STAT(lightmap)
 	int indexBufferUsed = levelMesh->FreeLists.Index.GetUsedSize();
 
 	out.Format(
-		"Surfaces: %u (awaiting updates: %u)\n"
-		"Surface pixel area to update: %u\n"
-		"Surface pixel area: %u\nAtlas pixel area:   %u\n"
+		"Tiles updated this frame: %d\n"
+		"Tiles: %u (%u out of date)\n"
+		"Tile pixel area to update: %u\n"
+		"Tile pixel area: %u\nAtlas pixel area:   %u\n"
 		"Atlas efficiency: %.4f%%\n"
 		"Dynamic BLAS time: %2.3f ms\n"
 		"Level mesh process time: %2.3f ms\n"
 		"Level mesh index buffer: %d K used (%d%%)\n"
 		"Lightmap tiles in use: %d\n"
 		"Lightmap texture count: %d",
+		screen->FrameTileUpdates,
 		stats.tiles.total, stats.tiles.dirty,
 		stats.pixels.dirty,
 		stats.pixels.total,

@@ -604,6 +604,8 @@ void VulkanRenderDevice::BeginFrame()
 	}
 	hwtexturecount = mTextureManager->GetHWTextureCount();
 
+	FrameTileUpdates = 0;
+
 	GetRenderPassManager()->ProcessMainThreadTasks();
 	GetTextureManager()->ProcessMainThreadTasks();
 
@@ -686,6 +688,7 @@ void VulkanRenderDevice::SetLevelMesh(LevelMesh* mesh)
 
 void VulkanRenderDevice::UpdateLightmaps(const TArray<LightmapTile*>& tiles)
 {
+	FrameTileUpdates += (int)tiles.size();
 	GetLightmapper()->Raytrace(tiles);
 }
 
