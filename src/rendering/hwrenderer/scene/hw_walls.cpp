@@ -1149,7 +1149,7 @@ void HWWall::DoTexture(HWWallDispatcher *di, FRenderState& state, int _type,seg_
 		if (seg->sidedef->LightmapTiles.Size() >= 4 && type >= RENDERWALL_TOP && type <= RENDERWALL_BOTTOM)
 		{
 			lightmaptile = seg->sidedef->LightmapTiles[type - RENDERWALL_TOP];
-			if (lightmaptile && di->di)
+			if (lightmaptile >= 0 && di->di)
 			{
 				di->di->PushVisibleTile(lightmaptile);
 			}
@@ -1582,7 +1582,7 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 		else
 			lightmaptile = seg->linedef->sidedef[0]->LightmapTiles.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->LightmapTiles[4 + roverIndex] : -1;
 
-		if (lightmaptile > 0)
+		if (lightmaptile >= 0)
 		{
 			di->di->PushVisibleTile(lightmaptile);
 		}

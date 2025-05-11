@@ -142,12 +142,6 @@ LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 			stats.tiles.dirty++;
 			stats.pixels.dirty += area;
 		}
-		
-		if (tile.AlwaysUpdate)
-		{
-			stats.tiles.dirtyDynamic++;
-			stats.pixels.dirtyDynamic += area;
-		}
 	}
 	stats.tiles.total += Lightmap.Tiles.Size();
 	return stats;

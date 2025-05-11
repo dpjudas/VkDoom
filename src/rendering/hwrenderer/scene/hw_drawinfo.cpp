@@ -140,8 +140,10 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 	hudsprites.Clear();
 	Fogballs.Clear();
 	VisibleTiles.Clear();
-	visibleDyn = 0;
 	vpIndex = 0;
+
+	static int counter = 1;
+	TileSeenCounter = ++counter;
 
 	// Fullbright information needs to be propagated from the main view.
 	if (outer != nullptr) FullbrightFlags = outer->FullbrightFlags;
@@ -714,34 +716,26 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 
 void HWDrawInfo::UpdateLightmaps()
 {
-	if (!outer && VisibleTiles.Size() < unsigned(lm_background_updates))
-	{
-		int unbaked = 0;
-		int dynamic = 0;
+	if (outer)
+		return;
+	/*
+	if (VisibleTiles.size() > (size_t)lm_max_updates)
+		VisibleTiles.resize(lm_max_updates);
 
+	if (VisibleTiles.size() < (size_t)lm_background_updates)
+	{
 		for (auto& e : level.levelMesh->Lightmap.Tiles)
 		{
-			if (e.NeedsUpdate)
+			if (e.NeedsUpdate && e.LastSeen != TileSeenCounter)
 			{
-				if(e.AlwaysUpdate == 0) unbaked++;
-				if(e.AlwaysUpdate != 0) dynamic++;
-
 				VisibleTiles.Push(&e);
-
-				if((!dynamic && (VisibleTiles.Size() >= unsigned(lm_background_updates))) || unbaked >= unsigned(lm_background_updates)) break;
+				if (VisibleTiles.size() >= (size_t)lm_background_updates)
+					break;
 			}
 		}
-
-		if(unbaked && dynamic)
-		{
-			std::sort(VisibleTiles.begin(), VisibleTiles.end(), [](LightmapTile *a, LightmapTile *b){return (!!a->AlwaysUpdate) < (!!b->AlwaysUpdate);});
-		}
-
-		if(VisibleTiles.Size() > unsigned(lm_background_updates))
-		{
-			VisibleTiles.Resize(lm_background_updates);
-		}
 	}
+	*/
+
 	screen->UpdateLightmaps(VisibleTiles);
 }
 

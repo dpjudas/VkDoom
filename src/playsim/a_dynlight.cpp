@@ -74,21 +74,6 @@ static FCRandom randLight;
 extern TArray<FLightDefaults *> StateLights;
 
 
-static void MarkTilesForUpdate(FLevelLocals * Level, const TArrayView<int> &tiles)
-{
-	for(int i : tiles)
-	{
-		if(i >= 0)
-		{
-			auto &tile = Level->levelMesh->Lightmap.Tiles[i];
-			if(tile.AlwaysUpdate == 0 && !tile.NeedsUpdate)
-			{
-				tile.AlwaysUpdate = 3;
-			}
-		}
-	}
-}
-
 static void MarkTilesForUpdate(FLevelLocals * Level, FLightNode * touching_sides, FLightNode * touching_sector)
 {
 	if(Level->levelMesh)
@@ -96,20 +81,12 @@ static void MarkTilesForUpdate(FLevelLocals * Level, FLightNode * touching_sides
 		while(touching_sides)
 		{
 			LevelMeshUpdater->SideLightListChanged(touching_sides->targLine);
-			MarkTilesForUpdate(Level, touching_sides->targLine->LightmapTiles);
-
 			touching_sides = touching_sides->nextTarget;
 		}
 	
 		while(touching_sector)
 		{
 			LevelMeshUpdater->SectorLightListChanged(touching_sector->targSection->sector);
-			for(subsector_t * ss : touching_sector->targSection->subsectors)
-			{
-				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
-				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
-			}
-
 			touching_sector = touching_sector->nextTarget;
 		}
 	}
@@ -675,11 +652,7 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 
 		if(markTiles)
 		{
-			for(subsector_t * ss : section->subsectors)
-			{
-				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
-				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
-			}
+			LevelMeshUpdater->SectorLightListChanged(section->sector);
 		}
 
 		auto processSide = [&](side_t *sidedef, const vertex_t *v1, const vertex_t *v2)
@@ -694,7 +667,7 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 					touching_sides = AddLightNode(&sidedef->lighthead, sidedef, this, touching_sides);
 					if(markTiles)
 					{
-						MarkTilesForUpdate(Level, sidedef->LightmapTiles);
+						LevelMeshUpdater->SideLightListChanged(sidedef);
 					}
 				}
 				else if (linedef->sidedef[0] == sidedef && linedef->sidedef[1] == nullptr)
@@ -836,8 +809,7 @@ void FDynamicLight::LinkLight()
 		{
 			if (node->lightsource == nullptr)
 			{
-				MarkTilesForUpdate(Level, node->targLine->LightmapTiles);
-
+				LevelMeshUpdater->SideLightListChanged(node->targLine);
 				node = DeleteLightNode(node);
 			}
 			else
@@ -849,12 +821,7 @@ void FDynamicLight::LinkLight()
 		{
 			if (node->lightsource == nullptr)
 			{
-				for(subsector_t * ss : node->targSection->subsectors)
-				{
-					MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
-					MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
-				}
-
+				LevelMeshUpdater->SectorLightListChanged(node->targSection->sector);
 				node = DeleteLightNode(node);
 			}
 			else
@@ -901,17 +868,13 @@ void FDynamicLight::UnlinkLight ()
 	{
 		while (touching_sides)
 		{
-			MarkTilesForUpdate(Level, touching_sides->targLine->LightmapTiles);
+			LevelMeshUpdater->SideLightListChanged(touching_sides->targLine);
 			touching_sides = DeleteLightNode(touching_sides);
 		}
 
 		while (touching_sector)
 		{
-			for(subsector_t * ss : touching_sector->targSection->subsectors)
-			{
-				MarkTilesForUpdate(Level, ss->LightmapTiles[0]);
-				MarkTilesForUpdate(Level, ss->LightmapTiles[1]);
-			}
+			LevelMeshUpdater->SectorLightListChanged(touching_sector->targSection->sector);
 			touching_sector = DeleteLightNode(touching_sector);
 		}
 	}

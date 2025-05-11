@@ -94,22 +94,23 @@ void VkLightmapper::Raytrace(const TArray<LightmapTile*>& tiles)
 		lightmapRaytraceLast.active = true;
 
 		lightmapRaytraceLast.ResetAndClock();
+		fb->GetCommands()->PushGroup(fb->GetCommands()->GetTransferCommands(), "lightmap.total");
+		UploadUniforms();
 
-		SelectTiles(tiles);
-		if (selectedTiles.Size() > 0)
+		while (true)
 		{
-			fb->GetCommands()->PushGroup(fb->GetCommands()->GetTransferCommands(), "lightmap.total");
+			SelectTiles(tiles);
+			if (selectedTiles.Size() == 0)
+				break;
 
-			UploadUniforms();
 			Render();
 			Resolve();
 			if (lm_blur)
 				Blur();
 			CopyResult();
-
-			fb->GetCommands()->PopGroup(fb->GetCommands()->GetTransferCommands());
 		}
 
+		fb->GetCommands()->PopGroup(fb->GetCommands()->GetTransferCommands());
 		lightmapRaytraceLast.Unclock();
 	}
 }

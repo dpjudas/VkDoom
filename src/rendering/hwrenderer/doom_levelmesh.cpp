@@ -77,8 +77,8 @@ ADD_STAT(lightmap)
 	int indexBufferUsed = levelMesh->FreeLists.Index.GetUsedSize();
 
 	out.Format(
-		"Surfaces: %u (awaiting updates: %u static, %u dynamic)\n"
-		"Surface pixel area to update: %u static, %u dynamic\n"
+		"Surfaces: %u (awaiting updates: %u)\n"
+		"Surface pixel area to update: %u\n"
 		"Surface pixel area: %u\nAtlas pixel area:   %u\n"
 		"Atlas efficiency: %.4f%%\n"
 		"Dynamic BLAS time: %2.3f ms\n"
@@ -86,8 +86,8 @@ ADD_STAT(lightmap)
 		"Level mesh index buffer: %d K used (%d%%)\n"
 		"Lightmap tiles in use: %d\n"
 		"Lightmap texture count: %d",
-		stats.tiles.total, stats.tiles.dirty, stats.tiles.dirtyDynamic,
-		stats.pixels.dirty, stats.pixels.dirtyDynamic,
+		stats.tiles.total, stats.tiles.dirty,
+		stats.pixels.dirty,
 		stats.pixels.total,
 		atlasPixelCount,
 		float(stats.pixels.total) / float(atlasPixelCount) * 100.0f,
@@ -159,7 +159,6 @@ void DoomLevelMesh::PrintSurfaceInfo(const LevelMeshSurface* surface)
 		Printf("    Pixels: %dx%d (area: %d)\n", tile->AtlasLocation.Width, tile->AtlasLocation.Height, tile->AtlasLocation.Area());
 		Printf("    Sample dimension: %d\n", tile->SampleDimension);
 		Printf("    Needs update?: %d\n", tile->NeedsUpdate);
-		Printf("    Always update?: %d\n", tile->AlwaysUpdate);
 	}
 	Printf("    Sector group: %d\n", surface->SectorGroup);
 	Printf("    Texture: '%s'\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>");
@@ -1239,7 +1238,6 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 		tile.Bounds.max.X = std::max(tile.Bounds.max.X, surf.Bounds.max.X);
 		tile.Bounds.max.Y = std::max(tile.Bounds.max.Y, surf.Bounds.max.Y);
 		tile.Bounds.max.Z = std::max(tile.Bounds.max.Z, surf.Bounds.max.Z);
-		tile.AlwaysUpdate = max<uint8_t>(tile.AlwaysUpdate, alwaysUpdate);
 		tile.UseCount++;
 
 		return index;
@@ -1251,7 +1249,6 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 		tile.Bounds = surf.Bounds;
 		tile.Plane = surf.Plane;
 		tile.SampleDimension = GetSampleDimension(sampleDimension);
-		tile.AlwaysUpdate = alwaysUpdate;
 		tile.UseCount = 1;
 
 		int index = AllocTile(tile);

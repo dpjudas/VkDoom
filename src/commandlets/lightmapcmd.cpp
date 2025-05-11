@@ -58,8 +58,8 @@ void LightmapBuildCmdlet::OnCommand(FArgs args)
 		uint32_t atlasPixelCount = level.levelMesh->AtlasPixelCount();
 		auto stats = level.levelMesh->GatherTilePixelStats();
 
-		Printf("Surfaces: %u (awaiting updates: %u static, %u dynamic)\n", stats.tiles.total, stats.tiles.dirty, stats.tiles.dirtyDynamic);
-		Printf("Surface pixel area to update: %u static, %u dynamic\n", stats.pixels.dirty, stats.pixels.dirtyDynamic);
+		Printf("Surfaces: %u (awaiting updates: %u)\n", stats.tiles.total, stats.tiles.dirty);
+		Printf("Surface pixel area to update: %u\n", stats.pixels.dirty);
 		Printf("Surface pixel area: %u\nAtlas pixel area: %u\n", stats.pixels.total, atlasPixelCount);
 		Printf("Atlas efficiency: %.4f%%\n", float(stats.pixels.total) / float(atlasPixelCount) * 100.0f);
 
@@ -72,7 +72,7 @@ void LightmapBuildCmdlet::OnCommand(FArgs args)
 			tiles.Clear();
 			for (auto& e : level.levelMesh->Lightmap.Tiles)
 			{
-				if (e.NeedsUpdate && e.AlwaysUpdate == 0)
+				if (e.NeedsUpdate)
 				{
 					tiles.Push(&e);
 					if (tiles.Size() == 1001)

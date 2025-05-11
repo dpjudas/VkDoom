@@ -26,14 +26,6 @@ struct LightmapTileBinding
 	}
 };
 
-enum TileUpdatePolicy
-{
-	MapChanges,
-	AlwaysUltraQuality,
-	Always,
-	MapChangesUltraQuality
-};
-
 struct LightmapTile
 {
 	// Surface location in lightmap texture
@@ -68,7 +60,8 @@ struct LightmapTile
 	// True if the tile needs to be rendered into the lightmap texture before it can be used
 	bool NeedsUpdate = true;
 
-	uint8_t AlwaysUpdate = 0;
+	// Used to track if tile has already been added to the VisibleTiles list for this scene
+	int LastSeen = 0;
 
 	FVector2 ToUV(const FVector3& vert) const
 	{

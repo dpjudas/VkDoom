@@ -553,7 +553,8 @@ void HWFlat::ProcessSector(HWFlatDispatcher *di, FRenderState& state, sector_t *
 				unsigned int count = sector->e->XFloor.ffloors.Size() + 1;
 				for (unsigned int j = 0; j < count; j++)
 				{
-					if (int tile = sector->subsectors[i]->LightmapTiles[plane].Size() > j ? sector->subsectors[i]->LightmapTiles[plane][j] : -1)
+					int tile = sector->subsectors[i]->LightmapTiles[plane].Size() > j ? sector->subsectors[i]->LightmapTiles[plane][j] : -1;
+					if (tile >= 0)
 					{
 						di->di->PushVisibleTile(tile);
 					}
