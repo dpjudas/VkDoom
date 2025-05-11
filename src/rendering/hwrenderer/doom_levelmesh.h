@@ -58,7 +58,9 @@ struct DrawRangeInfo
 enum SurfaceUpdateType
 {
 	None,
-	LightsOnly,
+	LightLevel,
+	Shadows,
+	LightList,
 	Full
 };
 
@@ -149,6 +151,9 @@ private:
 	void SetLimits(FLevelLocals& doomMap);
 
 	void CreateSurfaces(FLevelLocals& doomMap);
+
+	void UpdateLightShadows(sector_t* sector);
+	void UpdateLightShadows(FDynamicLight* light);
 
 	void UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType);
 	void UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updateType);

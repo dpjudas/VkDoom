@@ -306,9 +306,19 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 
 	for (int sideIndex : SideUpdateList)
 	{
-		if (Sides[sideIndex].UpdateType == SurfaceUpdateType::LightsOnly)
+		if (Sides[sideIndex].UpdateType == SurfaceUpdateType::LightLevel)
 		{
 			SetSideLights(doomMap, sideIndex);
+		}
+		else if (Sides[sideIndex].UpdateType == SurfaceUpdateType::Shadows)
+		{
+			// Todo: we can get away with just setting NeedUpdate to true for the tile
+			CreateSide(doomMap, sideIndex);
+		}
+		else if (Sides[sideIndex].UpdateType == SurfaceUpdateType::LightList)
+		{
+			// Todo: we only need to call CreateLightList again for all the surfaces. No need to recreate everything
+			CreateSide(doomMap, sideIndex);
 		}
 		else // SurfaceUpdateType::Full
 		{
@@ -320,9 +330,19 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 
 	for (int flatIndex : FlatUpdateList)
 	{
-		if (Flats[flatIndex].UpdateType == SurfaceUpdateType::LightsOnly)
+		if (Flats[flatIndex].UpdateType == SurfaceUpdateType::LightLevel)
 		{
 			SetFlatLights(doomMap, flatIndex);
+		}
+		else if (Flats[flatIndex].UpdateType == SurfaceUpdateType::Shadows)
+		{
+			// Todo: we can get away with just setting NeedUpdate to true for the tile
+			CreateFlat(doomMap, flatIndex);
+		}
+		else if (Flats[flatIndex].UpdateType == SurfaceUpdateType::LightList)
+		{
+			// Todo: we only need to call CreateLightList again for all the surfaces. No need to recreate everything
+			CreateFlat(doomMap, flatIndex);
 		}
 		else // SurfaceUpdateType::Full
 		{
@@ -624,6 +644,41 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	Flats[sectorIndex].Uniforms.Clear();
 }
 
+void DoomLevelMesh::UpdateLightShadows(sector_t* sector)
+{
+	for (FSection& section : level.sections.SectionsForSector(sector))
+	{
+		int lightcount = 0;
+		FLightNode* cur = section.lighthead;
+		while (cur)
+		{
+			FDynamicLight* light = cur->lightsource;
+			if (light && light->IsActive() && (light->Trace() || lm_dynlights))
+			{
+				UpdateLightShadows(light);
+			}
+			cur = cur->nextLight;
+		}
+	}
+}
+
+void DoomLevelMesh::UpdateLightShadows(FDynamicLight* light)
+{
+	auto touching_sector = light->touching_sector;
+	while (touching_sector)
+	{
+		UpdateFlat(touching_sector->targSection->sector->Index(), SurfaceUpdateType::LightList);
+		touching_sector = touching_sector->nextTarget;
+	}
+
+	auto touching_sides = light->touching_sides;
+	while (touching_sides)
+	{
+		UpdateSide(touching_sides->targLine->Index(), SurfaceUpdateType::LightList);
+		touching_sides = touching_sides->nextTarget;
+	}
+}
+
 void DoomLevelMesh::OnFloorHeightChanged(sector_t* sector)
 {
 	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
@@ -634,6 +689,7 @@ void DoomLevelMesh::OnFloorHeightChanged(sector_t* sector)
 		if (line->sidedef[1])
 			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::Full);
 	}
+	UpdateLightShadows(sector);
 }
 
 void DoomLevelMesh::OnCeilingHeightChanged(sector_t* sector)
@@ -646,6 +702,7 @@ void DoomLevelMesh::OnCeilingHeightChanged(sector_t* sector)
 		if (line->sidedef[1])
 			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::Full);
 	}
+	UpdateLightShadows(sector);
 }
 
 void DoomLevelMesh::OnMidTex3DHeightChanged(sector_t* sector)
@@ -687,13 +744,13 @@ void DoomLevelMesh::OnSideDecalsChanged(side_t* side)
 
 void DoomLevelMesh::OnSectorLightChanged(sector_t* sector)
 {
-	UpdateFlat(sector->Index(), SurfaceUpdateType::LightsOnly);
+	UpdateFlat(sector->Index(), SurfaceUpdateType::LightLevel);
 	for (line_t* line : sector->Lines)
 	{
 		if (line->sidedef[0] && line->sidedef[0]->sector == sector)
-			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::LightsOnly);
+			UpdateSide(line->sidedef[0]->Index(), SurfaceUpdateType::LightLevel);
 		else if (line->sidedef[1] && line->sidedef[1]->sector == sector)
-			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::LightsOnly);
+			UpdateSide(line->sidedef[1]->Index(), SurfaceUpdateType::LightLevel);
 	}
 }
 
@@ -707,14 +764,12 @@ void DoomLevelMesh::OnSectorLightThinkerDestroyed(sector_t* sector, DLighting* l
 
 void DoomLevelMesh::OnSectorLightListChanged(sector_t* sector)
 {
-	// To do: we don't have to recreate the entire surface. Updating just the light list would do.
-	UpdateFlat(sector->Index(), SurfaceUpdateType::Full);
+	UpdateFlat(sector->Index(), SurfaceUpdateType::LightList);
 }
 
 void DoomLevelMesh::OnSideLightListChanged(side_t* side)
 {
-	// To do: we don't have to recreate the entire surface. Updating just the light list would do.
-	UpdateSide(side->Index(), SurfaceUpdateType::Full);
+	UpdateSide(side->Index(), SurfaceUpdateType::LightList);
 }
 
 void DoomLevelMesh::UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType)
