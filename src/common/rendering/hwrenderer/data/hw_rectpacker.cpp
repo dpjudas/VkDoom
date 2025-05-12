@@ -16,6 +16,23 @@ RectPacker::RectPacker(int width, int height, int padding) : PageWidth(width), P
 {
 }
 
+void RectPacker::Clear()
+{
+	Pages.clear();
+	ItemFreeList.resize(Items.size());
+	size_t i = Items.size();
+	for (auto& item : Items)
+	{
+		item->Shelf = nullptr;
+		item->PrevItem = nullptr;
+		item->NextItem = nullptr;
+		item->IsAvailable = false;
+		item->PrevAvailable = nullptr;
+		item->NextAvailable = nullptr;
+		ItemFreeList[--i] = item.get();
+	}
+}
+
 RectPackerItem* RectPacker::Alloc(int width, int height)
 {
 	width += Padding * 2;

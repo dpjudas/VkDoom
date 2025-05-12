@@ -56,6 +56,8 @@ class RectPacker
 public:
 	RectPacker(int width, int height, int padding);
 
+	void Clear();
+
 	RectPackerItem* Alloc(int width, int height);
 	void Free(RectPackerItem* item);
 

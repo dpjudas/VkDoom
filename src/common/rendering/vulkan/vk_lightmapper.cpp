@@ -133,7 +133,10 @@ void VkLightmapper::SelectTiles(const TArray<LightmapTile*>& tiles)
 	selectedTiles.Clear();
 
 	// We use a 3 texel spacing between rectangles so that the blur pass will not pick up anything from a neighbour tile.
-	RectPacker packer(bakeImageSize, bakeImageSize, 3);
+	if (!packer)
+		packer = std::make_unique<RectPacker>(bakeImageSize, bakeImageSize, 3);
+	else
+		packer->Clear();
 
 	for (int i = 0, count = tiles.Size(); i < count; i++)
 	{
@@ -143,7 +146,7 @@ void VkLightmapper::SelectTiles(const TArray<LightmapTile*>& tiles)
 			continue;
 
 		// Only grab surfaces until our bake texture is full
-		auto result = packer.Alloc(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
+		auto result = packer->Alloc(tile->AtlasLocation.Width, tile->AtlasLocation.Height);
 		if (result->PageIndex == 0)
 		{
 			SelectedTile selected;

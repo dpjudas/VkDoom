@@ -6,6 +6,7 @@
 class VulkanRenderDevice;
 class FString;
 class ShaderIncludeResult;
+class RectPacker;
 
 struct Uniforms
 {
@@ -232,4 +233,5 @@ private:
 
 	LightmapBakeImage bakeImage;
 	static const int bakeImageSize = 2048;
+	std::unique_ptr<RectPacker> packer;
 };
