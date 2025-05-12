@@ -346,14 +346,17 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 		{
 			CreateFlat(doomMap, flatIndex);
 		}
-		Flats[flatIndex].UpdateType = SurfaceUpdateType::None;
 	}
 
 	PackLightmapAtlas();
 
 	for (int flatIndex : FlatUpdateList)
 	{
-		UpdateVBOLightmap(*screen->RenderState(), &doomMap.sectors[flatIndex]);
+		if (Flats[flatIndex].UpdateType == SurfaceUpdateType::Full)
+		{
+			UpdateVBOLightmap(*screen->RenderState(), &doomMap.sectors[flatIndex]);
+		}
+		Flats[flatIndex].UpdateType = SurfaceUpdateType::None;
 	}
 	FlatUpdateList.Clear();
 
