@@ -723,6 +723,7 @@ void HWDrawInfo::UpdateLightmaps()
 	/*
 	if (VisibleTiles.size() > (size_t)lm_max_updates)
 		VisibleTiles.resize(lm_max_updates);
+	*/
 
 	if (VisibleTiles.size() < (size_t)lm_background_updates)
 	{
@@ -736,7 +737,6 @@ void HWDrawInfo::UpdateLightmaps()
 			}
 		}
 	}
-	*/
 
 	screen->UpdateLightmaps(VisibleTiles);
 	VisibleTiles.Clear();
