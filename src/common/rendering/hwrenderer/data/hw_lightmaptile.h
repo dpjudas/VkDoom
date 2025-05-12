@@ -57,8 +57,14 @@ struct LightmapTile
 	uint16_t SampleDimension = 0;
 	FVector4 Plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
 
-	// True if the tile needs to be rendered into the lightmap texture before it can be used
-	bool NeedsUpdate = true;
+	// Initial tile for surfaces that can be baked in the background
+	bool NeedsInitialBake = false;
+
+	// This tile MUST be baked before it can be rendered
+	bool GeometryUpdate = true;
+
+	// The light for this tile changed since last bake
+	bool ReceivedNewLight = true;
 
 	// Used to track if tile has already been added to the VisibleTiles list for this scene
 	int LastSeen = 0;

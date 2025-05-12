@@ -720,26 +720,59 @@ void HWDrawInfo::UpdateLightmaps()
 {
 	if (outer)
 		outer->UpdateLightmaps();
-	/*
-	if (VisibleTiles.size() > (size_t)lm_max_updates)
-		VisibleTiles.resize(lm_max_updates);
-	*/
 
-	if (VisibleTiles.size() < (size_t)lm_background_updates)
+	VisibleTiles.Result.Clear();
+
+	size_t max_updates = (size_t)lm_max_updates;
+
+	// We always must bake tiles that received new geometry
+	for (auto tile : VisibleTiles.Geometry)
+		VisibleTiles.Result.Push(tile);
+
+	if (VisibleTiles.Result.size() < max_updates)
 	{
-		for (auto& e : level.levelMesh->Lightmap.Tiles)
+		// We got room for more. Include some visible tiles that are being background updated
+		for (auto tile : VisibleTiles.Background)
+			VisibleTiles.Result.Push(tile);
+
+		if (VisibleTiles.Result.size() < max_updates)
 		{
-			if (e.NeedsUpdate && e.LastSeen != TileSeenCounter)
+			// We still have room. Add tiles that received new light
+			for (auto tile : VisibleTiles.ReceivedNewLight)
+				VisibleTiles.Result.Push(tile);
+
+			if (VisibleTiles.Result.size() < max_updates)
 			{
-				VisibleTiles.Push(&e);
-				if (VisibleTiles.size() >= (size_t)lm_background_updates)
-					break;
+				max_updates = VisibleTiles.Result.size() + (size_t)lm_background_updates;
+
+				// Look for more background updates
+				for (auto& e : level.levelMesh->Lightmap.Tiles)
+				{
+					if (e.NeedsInitialBake && e.LastSeen != TileSeenCounter)
+					{
+						VisibleTiles.Result.Push(&e);
+						if (VisibleTiles.Result.size() >= max_updates)
+							break;
+					}
+				}
 			}
+			else
+			{
+				VisibleTiles.Result.resize(max_updates);
+			}
+		}
+		else
+		{
+			VisibleTiles.Result.resize(max_updates);
 		}
 	}
 
-	screen->UpdateLightmaps(VisibleTiles);
-	VisibleTiles.Clear();
+	screen->UpdateLightmaps(VisibleTiles.Result);
+
+	VisibleTiles.Geometry.Clear();
+	VisibleTiles.Background.Clear();
+	VisibleTiles.ReceivedNewLight.Clear();
+	VisibleTiles.Result.Clear();
 }
 
 void HWDrawInfo::RenderScene(FRenderState &state)

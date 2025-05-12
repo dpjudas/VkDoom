@@ -142,7 +142,7 @@ void VkLightmapper::SelectTiles(const TArray<LightmapTile*>& tiles)
 	{
 		LightmapTile* tile = tiles[i];
 
-		if (!tile->NeedsUpdate)
+		if (!tile->ReceivedNewLight)
 			continue;
 
 		// Only grab surfaces until our bake texture is full
@@ -158,7 +158,9 @@ void VkLightmapper::SelectTiles(const TArray<LightmapTile*>& tiles)
 			bakeImage.maxX = std::max<uint16_t>(bakeImage.maxX, uint16_t(result->X + tile->AtlasLocation.Width));
 			bakeImage.maxY = std::max<uint16_t>(bakeImage.maxY, uint16_t(result->Y + tile->AtlasLocation.Height));
 
-			tile->NeedsUpdate = false;
+			tile->ReceivedNewLight = false;
+			tile->NeedsInitialBake = false;
+			tile->GeometryUpdate = false;
 		}
 	}
 
@@ -248,7 +250,7 @@ void VkLightmapper::Render()
 		{
 			while (i < count)
 			{
-				selectedTiles[i].Tile->NeedsUpdate = true;
+				selectedTiles[i].Tile->ReceivedNewLight = true;
 				i++;
 			}
 			break;

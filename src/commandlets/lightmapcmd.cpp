@@ -72,7 +72,7 @@ void LightmapBuildCmdlet::OnCommand(FArgs args)
 			tiles.Clear();
 			for (auto& e : level.levelMesh->Lightmap.Tiles)
 			{
-				if (e.NeedsUpdate)
+				if (e.NeedsInitialBake)
 				{
 					tiles.Push(&e);
 					if (tiles.Size() == 1001)

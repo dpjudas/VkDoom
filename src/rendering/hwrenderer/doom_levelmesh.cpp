@@ -48,9 +48,9 @@ static int InvalidateLightmap()
 
 	for (auto& tile : level.levelMesh->Lightmap.Tiles)
 	{
-		if (!tile.NeedsUpdate)
+		if (!tile.NeedsInitialBake)
 			++count;
-		tile.NeedsUpdate = true;
+		tile.NeedsInitialBake = true;
 	}
 
 	return count;
@@ -126,12 +126,7 @@ CCMD(invalidatelightmap)
 	if (!RequireLightmap()) return;
 
 	int count = InvalidateLightmap();
-	for (auto& tile : level.levelMesh->Lightmap.Tiles)
-	{
-		if (!tile.NeedsUpdate)
-			++count;
-		tile.NeedsUpdate = true;
-	}
+
 	Printf("Marked %d out of %d tiles for update.\n", count, level.levelMesh->Lightmap.Tiles.Size());
 }
 
@@ -160,7 +155,9 @@ void DoomLevelMesh::PrintSurfaceInfo(const LevelMeshSurface* surface)
 		Printf("    Atlas page: %d, x:%d, y:%d\n", tile->AtlasLocation.ArrayIndex, tile->AtlasLocation.X, tile->AtlasLocation.Y);
 		Printf("    Pixels: %dx%d (area: %d)\n", tile->AtlasLocation.Width, tile->AtlasLocation.Height, tile->AtlasLocation.Area());
 		Printf("    Sample dimension: %d\n", tile->SampleDimension);
-		Printf("    Needs update?: %d\n", tile->NeedsUpdate);
+		Printf("    Background update?: %d\n", (int)tile->NeedsInitialBake);
+		Printf("    Geometry update?: %d\n", (int)tile->GeometryUpdate);
+		Printf("    Light update?: %d\n", (int)tile->ReceivedNewLight);
 	}
 	Printf("    Sector group: %d\n", surface->SectorGroup);
 	Printf("    Texture: '%s'\n", gameTexture ? gameTexture->GetName().GetChars() : "<nullptr>");
@@ -238,9 +235,16 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	// This is a bit of a hack. Lights aren't available until BeginFrame is called.
 	// Unfortunately we need a surface list already at this point for our Mesh.MaxNodes calculation
 	for (unsigned int i = 0; i < Sides.Size(); i++)
-		UpdateSide(i, SurfaceUpdateType::Full);
+		UpdateSide(i, SurfaceUpdateType::LightList);
 	for (unsigned int i = 0; i < Flats.Size(); i++)
-		UpdateFlat(i, SurfaceUpdateType::Full);
+		UpdateFlat(i, SurfaceUpdateType::LightList);
+
+	// Initial tiles are black and should be background updated
+	for (auto& tile : Lightmap.Tiles)
+	{
+		tile.GeometryUpdate = false;
+		tile.NeedsInitialBake = true;
+	}
 
 	CreateCollision();
 	UploadPortals();
@@ -845,7 +849,7 @@ void DoomLevelMesh::UpdateSideLightList(FLevelLocals& doomMap, unsigned int side
 		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
 		if (tile != -1)
 		{
-			Lightmap.Tiles[tile].NeedsUpdate = true;
+			Lightmap.Tiles[tile].ReceivedNewLight = true;
 		}
 		surf = DoomSurfaceInfos[surf].NextSurface;
 	}
@@ -853,14 +857,14 @@ void DoomLevelMesh::UpdateSideLightList(FLevelLocals& doomMap, unsigned int side
 
 void DoomLevelMesh::UpdateFlatLightList(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
+	for (auto& lightlist : Flats[sectorIndex].Lights)
+		FreeLightList(lightlist.Start, lightlist.Count);
+	Flats[sectorIndex].Lights.Clear();
+
 	sector_t* sector = &doomMap.sectors[sectorIndex];
-	int lightListSection = 0;
 	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
 	{
-		auto& lightlist = Flats[sectorIndex].Lights[lightListSection];
-		FreeLightList(lightlist.Start, lightlist.Count);
-		lightlist = CreateLightList(section.lighthead, section.sector->PortalGroup);
-		lightListSection++;
+		Flats[sectorIndex].Lights.Push(CreateLightList(section.lighthead, section.sector->PortalGroup));
 	}
 
 	int surf = Flats[sectorIndex].FirstSurface;
@@ -874,7 +878,7 @@ void DoomLevelMesh::UpdateFlatLightList(FLevelLocals& doomMap, unsigned int sect
 		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
 		if (tile != -1)
 		{
-			Lightmap.Tiles[tile].NeedsUpdate = true;
+			Lightmap.Tiles[tile].ReceivedNewLight = true;
 		}
 		surf = DoomSurfaceInfos[surf].NextSurface;
 	}
@@ -888,7 +892,7 @@ void DoomLevelMesh::UpdateSideShadows(FLevelLocals& doomMap, unsigned int sideIn
 		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
 		if (tile != -1)
 		{
-			Lightmap.Tiles[tile].NeedsUpdate = true;
+			Lightmap.Tiles[tile].ReceivedNewLight = true;
 		}
 		surf = DoomSurfaceInfos[surf].NextSurface;
 	}
@@ -902,7 +906,7 @@ void DoomLevelMesh::UpdateFlatShadows(FLevelLocals& doomMap, unsigned int sector
 		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
 		if (tile != -1)
 		{
-			Lightmap.Tiles[tile].NeedsUpdate = true;
+			Lightmap.Tiles[tile].ReceivedNewLight = true;
 		}
 		surf = DoomSurfaceInfos[surf].NextSurface;
 	}

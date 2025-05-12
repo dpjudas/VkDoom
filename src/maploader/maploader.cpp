@@ -3173,7 +3173,9 @@ bool MapLoader::LoadLightmap(MapData* map)
 		tile->Transform.TranslateWorldToLocal = entry.translateWorldToLocal;
 		tile->Transform.ProjLocalToU = entry.projLocalToU;
 		tile->Transform.ProjLocalToV = entry.projLocalToV;
-		tile->NeedsUpdate = false;
+		tile->NeedsInitialBake = false;
+		tile->GeometryUpdate = false;
+		tile->ReceivedNewLight = false;
 
 		foundBindings.Push({ &entry, tile });
 	}
@@ -3210,7 +3212,9 @@ bool MapLoader::LoadLightmap(MapData* map)
 			memcpy(dstline, srcline, width * 3 * sizeof(uint16_t));
 		}
 
-		tile->NeedsUpdate = false;
+		tile->NeedsInitialBake = false;
+		tile->GeometryUpdate = false;
+		tile->ReceivedNewLight = false;
 	}
 
 	if (errors > 0)

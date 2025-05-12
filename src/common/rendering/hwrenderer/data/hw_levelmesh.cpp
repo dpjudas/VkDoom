@@ -137,7 +137,7 @@ LevelMeshTileStats LevelMesh::GatherTilePixelStats()
 
 		stats.pixels.total += area;
 
-		if (tile.NeedsUpdate)
+		if (tile.NeedsInitialBake)
 		{
 			stats.tiles.dirty++;
 			stats.pixels.dirty += area;
@@ -160,7 +160,7 @@ void LevelMesh::PackLightmapAtlas()
 
 		tile.AddedThisFrame = false;
 
-		if (tile.NeedsUpdate) // false for tiles loaded from lump
+		if (tile.NeedsInitialBake || tile.GeometryUpdate) // NeedsInitialBake is false for tiles loaded from lump
 			tile.SetupTileTransform(Lightmap.TextureSize);
 
 		sortedTiles.push_back(&tile);
