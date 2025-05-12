@@ -228,6 +228,9 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	r_viewpoint.extralight = 0;
 	r_viewpoint.camera = nullptr;
 
+	BuildSideVisibilityLists(doomMap);
+	BuildSubsectorVisibilityLists(doomMap);
+
 	BuildSectorGroups(doomMap);
 	CreatePortals(doomMap);
 	CreateSurfaces(doomMap);
@@ -249,6 +252,34 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 
 DoomLevelMesh::~DoomLevelMesh()
 {
+}
+
+void DoomLevelMesh::BuildSideVisibilityLists(FLevelLocals& doomMap)
+{
+	VisibleSides.resize(doomMap.sides.size());
+	for (size_t i = 0, count = VisibleSides.size(); i < count; i++)
+	{
+		side_t* side = &doomMap.sides[i];
+
+		// Always bake the side
+		VisibleSides[i].Push(i);
+
+		// To do: use side->LeftSide and side->RightSide or maybe blockmap to find sides closeby we also want included in the bake
+	}
+}
+
+void DoomLevelMesh::BuildSubsectorVisibilityLists(FLevelLocals& doomMap)
+{
+	VisibleSubsectors.resize(doomMap.subsectors.size());
+	for (size_t i = 0, count = VisibleSubsectors.size(); i < count; i++)
+	{
+		subsector_t* sub = &doomMap.subsectors[i];
+
+		// Always bake the subsector
+		VisibleSubsectors[i].Push(i);
+
+		// To do: use sub->firstline to find neighbouring subsectors we want included in a tile bake
+	}
 }
 
 void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
@@ -529,7 +560,10 @@ void DoomLevelMesh::CreateSurfaces(FLevelLocals& doomMap)
 	Sides.clear();
 	Flats.clear();
 	Sides.resize(doomMap.sides.size());
-	Flats.resize(doomMap.sectors.Size());
+	Flats.resize(doomMap.sectors.size());
+	SubsectorSurfaces.resize(doomMap.subsectors.size());
+	for (int& i : SubsectorSurfaces)
+		i = -1;
 
 	// Create surface objects for all sides
 	for (unsigned int i = 0; i < doomMap.sides.Size(); i++)
@@ -617,6 +651,14 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
 	if (sectorIndex < 0 || sectorIndex >= Flats.Size())
 		return;
+
+	for (FSection& section : level.sections.SectionsForSector(&doomMap.sectors[sectorIndex]))
+	{
+		for (subsector_t* subsector : section.subsectors)
+		{
+			SubsectorSurfaces[subsector->Index()] = -1;
+		}
+	}
 
 	ReleaseTiles(Flats[sectorIndex].FirstSurface);
 
@@ -1066,6 +1108,20 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 		state.SetRenderStyle(STYLE_Normal);
 
 		lightlistSection++;
+	}
+
+	// Sort the generated surfaces into subsectors
+	int surf = Flats[sectorIndex].FirstSurface;
+	while (surf != -1)
+	{
+		auto& sinfo = DoomSurfaceInfos[surf];
+		if (sinfo.Subsector)
+		{
+			int subsectorIndex = sinfo.Subsector->Index();
+			sinfo.NextSubsectorSurface = SubsectorSurfaces[subsectorIndex];
+			SubsectorSurfaces[subsectorIndex] = surf;
+		}
+		surf = sinfo.NextSurface;
 	}
 }
 
@@ -1733,37 +1789,35 @@ void DoomLevelMesh::GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfa
 {
 	if (tile->Binding.Type == ST_MIDDLESIDE || tile->Binding.Type == ST_UPPERSIDE || tile->Binding.Type == ST_LOWERSIDE)
 	{
-		int sideIndex = tile->Binding.TypeIndex;
-		int surf = Sides[sideIndex].FirstSurface;
-		while (surf != -1)
+		for (int sideIndex : VisibleSides[tile->Binding.TypeIndex])
 		{
-			const auto& sinfo = DoomSurfaceInfos[surf];
-			if (sinfo.Type == tile->Binding.Type)
+			int surf = Sides[sideIndex].FirstSurface;
+			while (surf != -1)
 			{
-				outSurfaces.Push(surf);
+				const auto& sinfo = DoomSurfaceInfos[surf];
+				if (sinfo.Type == tile->Binding.Type)
+				{
+					outSurfaces.Push(surf);
+				}
+				surf = sinfo.NextSurface;
 			}
-			surf = sinfo.NextSurface;
 		}
 	}
 	else if (tile->Binding.Type == ST_CEILING || tile->Binding.Type == ST_FLOOR)
 	{
-		int subsectorIndex = tile->Binding.TypeIndex;
-		int sectorIndex = level.subsectors[subsectorIndex].sector->Index();
-		int surf = Flats[sectorIndex].FirstSurface;
-		while (surf != -1)
+		for (int subsectorIndex : VisibleSubsectors[tile->Binding.TypeIndex])
 		{
-			const auto& sinfo = DoomSurfaceInfos[surf];
-			int controlSector = sinfo.ControlSector ? sinfo.ControlSector->Index() : (int)0xffffffffUL;
-			if (sinfo.Type == tile->Binding.Type && controlSector == tile->Binding.ControlSector)
+			int surf = SubsectorSurfaces[subsectorIndex];
+			while (surf != -1)
 			{
-				FVector2 minUV = tile->ToUV(Mesh.Surfaces[surf].Bounds.min);
-				FVector2 maxUV = tile->ToUV(Mesh.Surfaces[surf].Bounds.max);
-				if (!(maxUV.X < 0.0f || maxUV.Y < 0.0f || minUV.X > 1.0f || minUV.Y > 1.0f))
+				const auto& sinfo = DoomSurfaceInfos[surf];
+				int controlSector = sinfo.ControlSector ? sinfo.ControlSector->Index() : (int)0xffffffffUL;
+				if (sinfo.Type == tile->Binding.Type && controlSector == tile->Binding.ControlSector)
 				{
 					outSurfaces.Push(surf);
 				}
+				surf = sinfo.NextSubsectorSurface;
 			}
-			surf = sinfo.NextSurface;
 		}
 	}
 }

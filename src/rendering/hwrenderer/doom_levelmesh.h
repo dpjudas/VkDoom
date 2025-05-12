@@ -31,6 +31,7 @@ struct DoomSurfaceInfo
 	int LightListSection = 0;
 
 	int NextSurface = -1;
+	int NextSubsectorSurface = -1;
 };
 
 struct GeometryFreeInfo
@@ -203,14 +204,21 @@ private:
 
 	void ReleaseTiles(int surfaceIndex);
 
+	void BuildSideVisibilityLists(FLevelLocals& doomMap);
+	void BuildSubsectorVisibilityLists(FLevelLocals& doomMap);
+
 	TArray<DoomSurfaceInfo> DoomSurfaceInfos;
 
 	TArray<SideSurfaceBlock> Sides;
 	TArray<FlatSurfaceBlock> Flats;
+	TArray<int> SubsectorSurfaces;
 	TArray<side_t*> PolySides;
 
 	TArray<int> SideUpdateList;
 	TArray<int> FlatUpdateList;
+
+	TArray<TArray<int>> VisibleSides;
+	TArray<TArray<int>> VisibleSubsectors;
 
 	std::map<LightmapTileBinding, int> TileBindings;
 	MeshBuilder state;
