@@ -232,6 +232,6 @@ private:
 	} copy;
 
 	LightmapBakeImage bakeImage;
-	static const int bakeImageSize = 2048;
+	enum { bakeImageSize = 2048 };
 	std::unique_ptr<RectPacker> packer;
 };
