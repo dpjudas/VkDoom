@@ -28,6 +28,8 @@ struct DoomSurfaceInfo
 	side_t* Side = nullptr;
 	sector_t* ControlSector = nullptr;
 
+	int LightListSection = 0;
+
 	int NextSurface = -1;
 };
 
@@ -158,6 +160,12 @@ private:
 	void UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType);
 	void UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updateType);
 
+	void UpdateSideShadows(FLevelLocals& doomMap, unsigned int sideIndex);
+	void UpdateFlatShadows(FLevelLocals& doomMap, unsigned int sectorIndex);
+
+	void UpdateSideLightList(FLevelLocals& doomMap, unsigned int sideIndex);
+	void UpdateFlatLightList(FLevelLocals& doomMap, unsigned int sectorIndex);
+
 	void CreateSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
 
@@ -173,7 +181,7 @@ private:
 	void SetSideLightmap(int surfaceIndex);
 
 	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist);
-	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist);
+	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist, int lightlistSection);
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;
 

@@ -314,13 +314,11 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 		}
 		else if (Sides[sideIndex].UpdateType == SurfaceUpdateType::Shadows)
 		{
-			// Todo: we can get away with just setting NeedUpdate to true for the tile
-			CreateSide(doomMap, sideIndex);
+			UpdateSideShadows(doomMap, sideIndex);
 		}
 		else if (Sides[sideIndex].UpdateType == SurfaceUpdateType::LightList)
 		{
-			// Todo: we only need to call CreateLightList again for all the surfaces. No need to recreate everything
-			CreateSide(doomMap, sideIndex);
+			UpdateSideLightList(doomMap, sideIndex);
 		}
 		else // SurfaceUpdateType::Full
 		{
@@ -338,13 +336,11 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 		}
 		else if (Flats[flatIndex].UpdateType == SurfaceUpdateType::Shadows)
 		{
-			// Todo: we can get away with just setting NeedUpdate to true for the tile
-			CreateFlat(doomMap, flatIndex);
+			UpdateFlatShadows(doomMap, flatIndex);
 		}
 		else if (Flats[flatIndex].UpdateType == SurfaceUpdateType::LightList)
 		{
-			// Todo: we only need to call CreateLightList again for all the surfaces. No need to recreate everything
-			CreateFlat(doomMap, flatIndex);
+			UpdateFlatLightList(doomMap, flatIndex);
 		}
 		else // SurfaceUpdateType::Full
 		{
@@ -774,6 +770,99 @@ void DoomLevelMesh::OnSideLightListChanged(side_t* side)
 	UpdateSide(side->Index(), SurfaceUpdateType::LightList);
 }
 
+void DoomLevelMesh::UpdateSideLightList(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	SideSurfaceBlock& sideBlock = Sides[sideIndex];
+	side_t* side = &doomMap.sides[sideIndex];
+
+	if (side->Flags & WALLF_POLYOBJ)
+	{
+		auto sub = level.PointInRenderSubsector((side->V1()->fPos() + side->V2()->fPos()) * 0.5);
+		if (!sub)
+			return;
+
+		FreeLightList(sideBlock.Lights.Start, sideBlock.Lights.Count);
+		sideBlock.Lights = CreateLightList(sub->section->lighthead, sub->sector->PortalGroup);
+	}
+	else
+	{
+		FreeLightList(sideBlock.Lights.Start, sideBlock.Lights.Count);
+		sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
+	}
+
+	int surf = Sides[sideIndex].FirstSurface;
+	while (surf != -1)
+	{
+		Mesh.Surfaces[surf].LightList.Pos = sideBlock.Lights.Start;
+		Mesh.Surfaces[surf].LightList.Count = sideBlock.Lights.Count;
+		UploadRanges.Surface.Add(surf, 1);
+
+		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
+		if (tile != -1)
+		{
+			Lightmap.Tiles[tile].NeedsUpdate = true;
+		}
+		surf = DoomSurfaceInfos[surf].NextSurface;
+	}
+}
+
+void DoomLevelMesh::UpdateFlatLightList(FLevelLocals& doomMap, unsigned int sectorIndex)
+{
+	sector_t* sector = &doomMap.sectors[sectorIndex];
+	int lightListSection = 0;
+	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
+	{
+		auto& lightlist = Flats[sectorIndex].Lights[lightListSection];
+		FreeLightList(lightlist.Start, lightlist.Count);
+		lightlist = CreateLightList(section.lighthead, section.sector->PortalGroup);
+		lightListSection++;
+	}
+
+	int surf = Flats[sectorIndex].FirstSurface;
+	while (surf != -1)
+	{
+		const auto& lightlist = Flats[sectorIndex].Lights[DoomSurfaceInfos[surf].LightListSection];
+		Mesh.Surfaces[surf].LightList.Pos = lightlist.Start;
+		Mesh.Surfaces[surf].LightList.Count = lightlist.Count;
+		UploadRanges.Surface.Add(surf, 1);
+
+		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
+		if (tile != -1)
+		{
+			Lightmap.Tiles[tile].NeedsUpdate = true;
+		}
+		surf = DoomSurfaceInfos[surf].NextSurface;
+	}
+}
+
+void DoomLevelMesh::UpdateSideShadows(FLevelLocals& doomMap, unsigned int sideIndex)
+{
+	int surf = Sides[sideIndex].FirstSurface;
+	while (surf != -1)
+	{
+		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
+		if (tile != -1)
+		{
+			Lightmap.Tiles[tile].NeedsUpdate = true;
+		}
+		surf = DoomSurfaceInfos[surf].NextSurface;
+	}
+}
+
+void DoomLevelMesh::UpdateFlatShadows(FLevelLocals& doomMap, unsigned int sectorIndex)
+{
+	int surf = Flats[sectorIndex].FirstSurface;
+	while (surf != -1)
+	{
+		int tile = Mesh.Surfaces[surf].LightmapTileIndex;
+		if (tile != -1)
+		{
+			Lightmap.Tiles[tile].NeedsUpdate = true;
+		}
+		surf = DoomSurfaceInfos[surf].NextSurface;
+	}
+}
+
 void DoomLevelMesh::UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateType)
 {
 	SurfaceUpdateType value = Sides[sideIndex].UpdateType;
@@ -782,6 +871,13 @@ void DoomLevelMesh::UpdateSide(unsigned int sideIndex, SurfaceUpdateType updateT
 		// First update request
 		SideUpdateList.Push(sideIndex);
 		Sides[sideIndex].UpdateType = updateType;
+	}
+	else if (
+		(value == SurfaceUpdateType::Shadows && updateType == SurfaceUpdateType::LightList) ||
+		(value == SurfaceUpdateType::LightList && updateType == SurfaceUpdateType::Shadows))
+	{
+		// Shadows only bakes the tile. This is also done by LightList.
+		Sides[sideIndex].UpdateType = SurfaceUpdateType::LightList;
 	}
 	else if (value != updateType)
 	{
@@ -798,6 +894,13 @@ void DoomLevelMesh::UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updat
 		// First update request
 		FlatUpdateList.Push(sectorIndex);
 		Flats[sectorIndex].UpdateType = updateType;
+	}
+	else if (
+		(value == SurfaceUpdateType::Shadows && updateType == SurfaceUpdateType::LightList) ||
+		(value == SurfaceUpdateType::LightList && updateType == SurfaceUpdateType::Shadows))
+	{
+		// Shadows only bakes the tile. This is also done by LightList.
+		Flats[sectorIndex].UpdateType = SurfaceUpdateType::LightList;
 	}
 	else if (value != updateType)
 	{
@@ -927,6 +1030,7 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	FreeFlat(doomMap, sectorIndex);
 
 	sector_t* sector = &doomMap.sectors[sectorIndex];
+	int lightlistSection = 0;
 	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
 	{
 		Flats[sectorIndex].Lights.Push(CreateLightList(section.lighthead, section.sector->PortalGroup));
@@ -944,19 +1048,21 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 		state.ClearDepthBias();
 		state.EnableTexture(true);
 		state.EnableBrightmap(true);
-		CreateFlatSurface(disp, state, result.list, LevelMeshDrawType::Opaque, false, sectorIndex, lightlist);
+		CreateFlatSurface(disp, state, result.list, LevelMeshDrawType::Opaque, false, sectorIndex, lightlist, lightlistSection);
 
-		CreateFlatSurface(disp, state, result.portals, LevelMeshDrawType::Portal, false, sectorIndex, lightlist);
+		CreateFlatSurface(disp, state, result.portals, LevelMeshDrawType::Portal, false, sectorIndex, lightlist, lightlistSection);
 
 		// final pass: translucent stuff
 		state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 		state.SetRenderStyle(STYLE_Translucent);
-		CreateFlatSurface(disp, state, result.translucentborder, LevelMeshDrawType::Translucent, true, sectorIndex, lightlist);
+		CreateFlatSurface(disp, state, result.translucentborder, LevelMeshDrawType::Translucent, true, sectorIndex, lightlist, lightlistSection);
 		state.SetDepthMask(false);
-		CreateFlatSurface(disp, state, result.translucent, LevelMeshDrawType::Translucent, true, sectorIndex, lightlist);
+		CreateFlatSurface(disp, state, result.translucent, LevelMeshDrawType::Translucent, true, sectorIndex, lightlist, lightlistSection);
 		state.AlphaFunc(Alpha_GEqual, 0.f);
 		state.SetDepthMask(true);
 		state.SetRenderStyle(STYLE_Normal);
+
+		lightlistSection++;
 	}
 }
 
@@ -1336,7 +1442,7 @@ int DoomLevelMesh::GetSampleDimension(uint16_t sampleDimension)
 	return sampleDimension;
 }
 
-void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist)
+void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist, int lightlistSection)
 {
 	for (HWFlat& flatpart : list)
 	{
@@ -1524,6 +1630,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 
 			surf.LightList.Pos = lightlist.Start;
 			surf.LightList.Count = lightlist.Count;
+			info.LightListSection = lightlistSection;
 
 			info.NextSurface = Flats[sectorIndex].FirstSurface;
 			Flats[sectorIndex].FirstSurface = sinfo.Index;
