@@ -1042,6 +1042,10 @@ void HWHorizonPortal::DrawContents(HWDrawInfo *di, FRenderState &state)
 	}
 	di->SetCameraPos(vp.Pos);
 
+	if (level.lightmaps && texture->GetID() == skyflatnum)
+	{
+		state.SetAddColor(FVector4(level.SunColor * level.SunIntensity, 0.0f));
+	}
 
 	if (texture->isFullbright())
 	{
@@ -1062,6 +1066,11 @@ void HWHorizonPortal::DrawContents(HWDrawInfo *di, FRenderState &state)
 	state.SetObjectColor(origin->specialcolor);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	state.SetRenderStyle(STYLE_Source);
+
+	if (level.lightmaps && texture->GetID() == skyflatnum)
+	{
+		state.SetAddColor(FVector4(0.0f, 0.0f, 0.0f, 0.0f));
+	}
 
 	bool texmatrix = SetPlaneTextureRotation(state, sp, texture);
 

@@ -491,6 +491,11 @@ public:
 		mSurfaceUniforms.uAddColor = toFVector4(pe);
 	}
 
+	void SetAddColor(FVector4 color)
+	{
+		mSurfaceUniforms.uAddColor = color;
+	}
+
 	void SetNpotEmulation(float factor, float offset)
 	{
 #ifdef NPOT_EMULATION
