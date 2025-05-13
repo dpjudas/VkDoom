@@ -842,6 +842,7 @@ bool HWWall::DoHorizon(HWWallDispatcher *di, FRenderState& state, seg_t * seg,se
 				hi.lightlevel = hw_ClampLight(fs->GetCeilingLight());
 				hi.colormap = fs->Colormap;
 				hi.specialcolor = fs->SpecialColors[sector_t::ceiling];
+				hi.sunlight = level.lightmaps && fs->GetTexture(sector_t::floor) == skyflatnum && level.SunDirection.Z < 0.0f;
 
 				if (fs->e->XFloor.ffloors.Size())
 				{
@@ -871,6 +872,7 @@ bool HWWall::DoHorizon(HWWallDispatcher *di, FRenderState& state, seg_t * seg,se
 				hi.lightlevel = hw_ClampLight(fs->GetFloorLight());
 				hi.colormap = fs->Colormap;
 				hi.specialcolor = fs->SpecialColors[sector_t::floor];
+				hi.sunlight = level.lightmaps && fs->GetTexture(sector_t::ceiling) == skyflatnum && level.SunDirection.Z > 0.0f;
 
 				if (fs->e->XFloor.ffloors.Size())
 				{

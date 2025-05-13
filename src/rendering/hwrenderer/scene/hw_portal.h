@@ -39,6 +39,7 @@ struct HWHorizonInfo
 	int lightlevel;
 	FColormap colormap;
 	PalEntry specialcolor;
+	bool sunlight;
 };
 
 struct FPortalSceneState;
