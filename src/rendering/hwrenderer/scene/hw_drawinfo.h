@@ -252,11 +252,33 @@ public:
 			tile->LastSeen = TileSeenCounter;
 
 			if (tile->GeometryUpdate)
+			{
 				VisibleTiles.Geometry.Push(tile);
+			}
 			else if (tile->NeedsInitialBake)
+			{
 				VisibleTiles.Background.Push(tile);
+			}
 			else if (tile->ReceivedNewLight)
-				VisibleTiles.ReceivedNewLight.Push(tile);
+			{
+				// Only update light changes if the mapper requested it
+				if (tile->Binding.Type == ST_UPPERSIDE || tile->Binding.Type == ST_MIDDLESIDE || tile->Binding.Type == ST_LOWERSIDE)
+				{
+					sector_t* sector = Level->sides[tile->Binding.TypeIndex].sector;
+					if (sector && sector->Flags & SECF_LM_DYNAMIC)
+					{
+						VisibleTiles.ReceivedNewLight.Push(tile);
+					}
+				}
+				else if (tile->Binding.Type == ST_CEILING || tile->Binding.Type == ST_FLOOR)
+				{
+					sector_t* sector = Level->subsectors[tile->Binding.TypeIndex].sector;
+					if (sector && sector->Flags & SECF_LM_DYNAMIC)
+					{
+						VisibleTiles.ReceivedNewLight.Push(tile);
+					}
+				}
+			}
 		}
 	}
 
