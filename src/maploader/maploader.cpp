@@ -3046,7 +3046,7 @@ bool MapLoader::LoadLightmap(MapData* map)
 	int version = fr.ReadInt32();
 	if (version < LIGHTMAPVER)
 	{
-		Printf(PRINT_HIGH, "LoadLightmap: This is an old unsupported version of the lightmap lump. Please rebuild the map with the console commands 'deletelightmap', and then 'savelightmap'.\n");
+		Printf(PRINT_HIGH, "LoadLightmap: This is an old unsupported version of the lightmap lump. Please rebuild the map with %s.\n", TOOLNAMELOWERCASE);
 		return false;
 	}
 	else if (version != LIGHTMAPVER)

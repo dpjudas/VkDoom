@@ -53,6 +53,9 @@ void LightmapBuildCmdlet::OnCommand(FArgs args)
 			Printf("Lightmap is not enabled in this level.\n");
 		}
 
+		if (level.levelMesh)
+			level.levelMesh->BeginFrame(level);
+
 		Printf("Baking lightmaps. Please wait...\n");
 
 		uint32_t atlasPixelCount = level.levelMesh->AtlasPixelCount();
