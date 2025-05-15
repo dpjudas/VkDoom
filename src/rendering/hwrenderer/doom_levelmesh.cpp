@@ -1609,7 +1609,15 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		surf.Texture = flatpart.texture;
 		surf.PipelineID = pipelineID;
 		surf.PortalIndex = sectorPortals[flatpart.ceiling][flatpart.sector->Index()];
-		surf.IsSky = (drawType == LevelMeshDrawType::Portal);
+		if(drawType == LevelMeshDrawType::Portal)
+		{
+			auto * port = flatpart.sector->GetPortal(flatpart.ceiling ? sector_t::ceiling : sector_t::floor);
+			surf.IsSky = port->mType == PORTS_SKYVIEWPOINT; // might not work for all skies, needs more testing, but works for the example map
+		}
+		else
+		{
+			surf.IsSky = false;
+		}
 
 		auto plane = info.ControlSector ? info.ControlSector->GetSecPlane(!flatpart.ceiling) : flatpart.sector->GetSecPlane(flatpart.ceiling);
 		surf.Plane = FVector4((float)plane.Normal().X, (float)plane.Normal().Y, (float)plane.Normal().Z, -(float)plane.D);
