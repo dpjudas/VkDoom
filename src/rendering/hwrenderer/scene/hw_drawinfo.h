@@ -251,7 +251,7 @@ public:
 		{
 			tile->LastSeen = TileSeenCounter;
 
-			if (tile->GeometryUpdate)
+			if (lm_always_update || tile->GeometryUpdate)
 			{
 				VisibleTiles.Geometry.Push(tile);
 			}
