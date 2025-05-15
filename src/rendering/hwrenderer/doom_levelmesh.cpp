@@ -1342,8 +1342,8 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		sinfo.Surface->MeshLocation.NumElements = ginfo.IndexCount;
 		sinfo.Surface->Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
 		sinfo.Surface->Texture = wallpart.texture;
-		sinfo.Surface->PortalIndex = (drawType == LevelMeshDrawType::Portal) ? linePortals[side->linedef->Index()] : 0;
-		sinfo.Surface->IsSky = (drawType == LevelMeshDrawType::Portal) ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
+		sinfo.Surface->PortalIndex = (drawType == LevelMeshDrawType::Portal && wallpart.portalplane == -1) ? linePortals[side->linedef->Index()] : 0;
+		sinfo.Surface->IsSky = (drawType == LevelMeshDrawType::Portal && wallpart.portalplane == -1) ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
 		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
 		sinfo.Surface->LightList.Pos = lightlist.Start;
 		sinfo.Surface->LightList.Count = lightlist.Count;
