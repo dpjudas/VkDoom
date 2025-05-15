@@ -95,7 +95,7 @@ public:
 			uint64_t UseShadowmap : 1;  // USE_SHADOWMAP
 			uint64_t UseRaytrace : 1;   // USE_RAYTRACE
 			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
-			uint64_t PreciseMidtextureTrace : 1; // PRECISE_MIDTEXTURES
+			uint64_t Unused4 : 1; // formerly PRECISE_MIDTEXTURES
 			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
 			uint64_t FogBeforeLights : 1; // FOG_BEFORE_LIGHTS
 			uint64_t FogAfterLights : 1;  // FOG_AFTER_LIGHTS
@@ -105,12 +105,12 @@ public:
 			uint64_t LightMode : 2;     // LIGHTMODE_DEFAULT, LIGHTMODE_SOFTWARE, LIGHTMODE_VANILLA, LIGHTMODE_BUILD
 			uint64_t LightBlendMode : 2; // LIGHT_BLEND_CLAMPED , LIGHT_BLEND_COLORED_CLAMP , LIGHT_BLEND_UNCLAMPED
 			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
-			uint64_t Unused4: 1;
+			uint64_t Unused5: 1;
 			uint64_t FogBalls : 1;      // FOGBALLS
 			uint64_t NoFragmentShader : 1;
 			uint64_t DepthFadeThreshold : 1;
 			uint64_t AlphaTestOnly : 1; // ALPHATEST_ONLY
-			uint64_t Unused5 : 1;
+			uint64_t Unused6 : 1;
 			uint64_t LightNoNormals : 1; // LIGHT_NONORMALS
 			uint64_t UseSpriteCenter : 1; // USE_SPRITE_CENTER
 			uint64_t Unused : 26;
