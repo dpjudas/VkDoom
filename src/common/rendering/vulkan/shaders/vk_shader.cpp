@@ -441,7 +441,6 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 
 	definesBlock << "#define USE_RAYTRACE ((uShaderKey1 & SK1_USE_RAYTRACE) != 0)\n";
 	definesBlock << "#define USE_RAYTRACE_PRECISE ((uShaderKey1 & SK1_USE_RAYTRACE_PRECISE) != 0)\n";
-	definesBlock << "#define PRECISE_MIDTEXTURES ((uShaderKey1 & SK1_PRECISE_MIDTEXTURES) != 0)\n";
 
 	definesBlock << "#define SHADOWMAP_FILTER (SK_GET_SHADOWMAP_FILTER())\n";
 

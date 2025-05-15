@@ -183,4 +183,3 @@ int get_gl_spritelight()
 CVARD(Bool, gl_fakemodellight, true, CVAR_GLOBALCONFIG | CVAR_ARCHIVE, "adds a fake sunlight on models to improve contrast")
 CVARD(Float, gl_fakemodellightintensity, 0.05, CVAR_GLOBALCONFIG | CVAR_ARCHIVE, "fake sunlight intensity (brightness)")
 
-CVARD(Bool, gl_precise_midtextures_trace, false, CVAR_GLOBALCONFIG | CVAR_ARCHIVE, "trace midtextures facing towards camera, only needed for maps that don't use midtextures 'evenly', roughly doubles the cost of ray-traced lights")

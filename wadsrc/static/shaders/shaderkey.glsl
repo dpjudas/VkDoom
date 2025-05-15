@@ -20,7 +20,7 @@
 #define SK1_USE_SHADOWMAP			(1  << 12)
 #define SK1_USE_RAYTRACE			(1  << 13)
 #define SK1_USE_RAYTRACE_PRECISE	(1  << 14)
-#define SK1_PRECISE_MIDTEXTURES		(1  << 15)
+
 #define SK1_SHADOWMAP_FILTER		(15 << 16)
 #define SK1_FOG_BEFORE_LIGHTS		(1  << 20)
 #define SK1_FOG_AFTER_LIGHTS		(1  << 21)
