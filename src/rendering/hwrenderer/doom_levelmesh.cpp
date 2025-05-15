@@ -1633,7 +1633,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			{
 				auto& vt = sub->firstline[end - 1 - i].v1;
 
-				FVector3 pt((float)vt->fX(), (float)vt->fY(), (drawType == LevelMeshDrawType::Portal) ? skyZ : (float)plane.ZatPoint(vt));
+				FVector3 pt((float)vt->fX(), (float)vt->fY(), (drawType == LevelMeshDrawType::Portal && flatpart.plane.texture == skyflatnum) ? skyZ : (float)plane.ZatPoint(vt));
 				FVector4 uv = textureMatrix * FVector4(pt.X * (1.0f / 64.0f), pt.Y * (-1.0f / 64.0f), 0.0f, 1.0f);
 
 				FFlatVertex ffv;
