@@ -1611,8 +1611,8 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		surf.PortalIndex = sectorPortals[flatpart.ceiling][flatpart.sector->Index()];
 		if(drawType == LevelMeshDrawType::Portal)
 		{
-			auto * port = flatpart.sector->GetPortal(flatpart.ceiling ? sector_t::ceiling : sector_t::floor);
-			surf.IsSky = port->mType == PORTS_SKYVIEWPOINT; // might not work for all skies, needs more testing, but works for the example map
+			FSectorPortal* port = flatpart.sector->GetPortal(flatpart.ceiling ? sector_t::ceiling : sector_t::floor);
+			surf.IsSky = flatpart.plane.texture == skyflatnum || (port && port->mType == PORTS_SKYVIEWPOINT);
 		}
 		else
 		{
