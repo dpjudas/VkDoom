@@ -2942,7 +2942,7 @@ void MapLoader::CalcIndices()
 //
 //==========================================================================
 
-void MapLoader::InitLevelMesh(MapData* map)
+void MapLoader::InitLightmapTiles(MapData* map)
 {
 	// Propagate sample distance where it isn't yet set
 	for (auto& line : Level->lines)
@@ -3017,7 +3017,10 @@ void MapLoader::InitLevelMesh(MapData* map)
 		subsector.LightmapTiles[1] = TArrayView<int>(&Level->LightmapTiles[offset + count], count);
 		offset += count * 2;
 	}
+}
 
+void MapLoader::InitLevelMesh(MapData* map)
+{
 	// Create the levelmesh
 	Level->levelMesh = new DoomLevelMesh(*Level);
 
@@ -3553,7 +3556,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	if (!Level->IsReentering())
 		Level->FinalizePortals();	// finalize line portals after polyobjects have been initialized. This info is needed for properly flagging them.
 
-	InitLevelMesh(map);
+	InitLightmapTiles(map);
 
 	Level->ClearDynamic3DFloorData();	// CreateVBO must be run on the plain 3D floor data.
 	CreateVBO(*screen->RenderState(), Level->sectors);
@@ -3561,6 +3564,10 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	{
 		P_Recalculate3DFloors(&sec);
 	}
+
+	InitLevelMesh(map);
+
+	UpdateVBOLightmap(*screen->RenderState(), Level->sectors);
 
 	Level->aabbTree = new DoomLevelAABBTree(Level);
 

@@ -255,31 +255,12 @@ static int CreateIndexedSectorVerticesLM(sector_t* sec, const secplane_t& plane,
 		for(auto& sub : section.subsectors)
 		{
 			// vertices
-			int lightmap = sub->LightmapTiles[h].Size() > lightmapIndex ? sub->LightmapTiles[h][lightmapIndex] : -1;
-			if (lightmap >= 0) // tile may be missing if the subsector is degenerate triangle
+			for (unsigned int j = 0; j < sub->numlines; j++)
 			{
-				const auto& tile = level.levelMesh->Lightmap.Tiles[lightmap];
-				float textureSize = (float)level.levelMesh->Lightmap.TextureSize;
-				float lindex = (float)tile.AtlasLocation.ArrayIndex;
-				for (unsigned int j = 0, end = sub->numlines; j < end; j++)
-				{
-					vertex_t* vt = sub->firstline[j].v1;
-					FVector2 luv = tile.ToUV(FVector3((float)vt->fX(), (float)vt->fY(), (float)plane.ZatPoint(vt)), textureSize);
-					SetFlatVertex(vbo_shadowdata[vi + pos], vt, plane, luv.X, luv.Y, lindex);
-					vbo_shadowdata[vi + pos].z += diff;
-					vbo_origins[vi + pos] = SectorVertexOrigin(sub, h, lightmapIndex);
-					pos++;
-				}
-			}
-			else
-			{
-				for (unsigned int j = 0; j < sub->numlines; j++)
-				{
-					SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane);
-					vbo_shadowdata[vi + pos].z += diff;
-					vbo_origins[vi + pos] = SectorVertexOrigin(sub, h, lightmapIndex);
-					pos++;
-				}
+				SetFlatVertex(vbo_shadowdata[vi + pos], sub->firstline[j].v1, plane);
+				vbo_shadowdata[vi + pos].z += diff;
+				vbo_origins[vi + pos] = SectorVertexOrigin(sub, h, lightmapIndex);
+				pos++;
 			}
 		}
 	}
@@ -307,7 +288,7 @@ static int CreateIndexedSectorVerticesLM(sector_t* sec, const secplane_t& plane,
 
 static int CreateIndexedSectorVertices(sector_t* sec, const secplane_t& plane, int floor, VertexContainer& verts, int h, int lightmapIndex)
 {
-	if (sec->HasLightmaps && lightmapIndex != -1)
+	if (level.lightmaps && lightmapIndex != -1)
 		return CreateIndexedSectorVerticesLM(sec, plane, floor, h, lightmapIndex);
 
 	auto& vbo_shadowdata = sector_vertices;
@@ -565,6 +546,14 @@ void UpdateVBOLightmap(FRenderState& renderstate, sector_t* sector)
 	{
 		UpdatePlaneLightmap(renderstate, sector->e->XFloor.ffloors[i]->model, sector_t::ceiling);
 		UpdatePlaneLightmap(renderstate, sector->e->XFloor.ffloors[i]->model, sector_t::floor);
+	}
+}
+
+void UpdateVBOLightmap(FRenderState& renderstate, TArray<sector_t>& sectors)
+{
+	for (sector_t& sector : sectors)
+	{
+		UpdateVBOLightmap(renderstate, &sector);
 	}
 }
 

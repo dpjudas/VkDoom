@@ -308,6 +308,7 @@ public:
 	void SetSlopes();
 	void CopySlopes();
 
+	void InitLightmapTiles(MapData* map);
 	void InitLevelMesh(MapData* map);
 	bool LoadLightmap(MapData* map);
 

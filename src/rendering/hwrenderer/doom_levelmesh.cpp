@@ -1716,9 +1716,6 @@ void DoomLevelMesh::SetSubsectorLightmap(int surfaceIndex)
 	int lightmapTileIndex = Mesh.Surfaces[surfaceIndex].LightmapTileIndex;
 	auto surface = &DoomSurfaceInfos[surfaceIndex];
 
-	if (surface->Subsector->firstline && surface->Subsector->firstline->sidedef)
-		surface->Subsector->firstline->sidedef->sector->HasLightmaps = true;
-
 	if (!surface->ControlSector)
 	{
 		int index = surface->Type == ST_CEILING ? 1 : 0;
