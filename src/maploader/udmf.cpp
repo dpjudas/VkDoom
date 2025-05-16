@@ -841,7 +841,7 @@ public:
 					DPrintf(DMSG_WARNING, "Current lm_sampledist value, %x, on the ZDRayInfo thing is out of range (min: %i, max: %i)\n",
 						CheckInt(key), LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX);
 				}
-				Level->LightmapSampleDistance = CheckInt(key);
+				Level->LightmapSampleDistance = std::clamp(CheckInt(key), LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MIN, LIGHTMAP_GLOBAL_SAMPLE_DISTANCE_MAX);
 				break;
 
 			case NAME_lm_bounce:
