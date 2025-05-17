@@ -553,6 +553,8 @@ static const char *LightTags[]=
    "trace",
    "shadowminquality",
    "intensity",
+   "softshadowradius",
+   "linearity",
    nullptr
 };
 
@@ -582,6 +584,8 @@ enum {
    LIGHTTAG_TRACE,
    LIGHTTAG_SHADOW_MINQUALITY,
    LIGHTTAG_INTENSITY,
+   LIGHTTAG_SOFTSHADOWRADIUS,
+   LIGHTTAG_LINEARITY,
 };
 
 //==========================================================================
@@ -908,6 +912,12 @@ class GLDefsParser
 				case LIGHTTAG_INTENSITY:
 					defaults->SetLightDefIntensity(ParseFloat(sc));
 					break;
+				case LIGHTTAG_SOFTSHADOWRADIUS:
+					defaults->SetSoftShadowRadius(ParseFloat(sc));
+					break;
+				case LIGHTTAG_LINEARITY:
+					defaults->SetLinearity(ParseFloat(sc));
+					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
 				}
@@ -1018,6 +1028,12 @@ class GLDefsParser
 					break;
 				case LIGHTTAG_INTENSITY:
 					defaults->SetLightDefIntensity(ParseFloat(sc));
+					break;
+				case LIGHTTAG_SOFTSHADOWRADIUS:
+					defaults->SetSoftShadowRadius(ParseFloat(sc));
+					break;
+				case LIGHTTAG_LINEARITY:
+					defaults->SetLinearity(ParseFloat(sc));
 					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
@@ -1133,6 +1149,12 @@ class GLDefsParser
 				case LIGHTTAG_INTENSITY:
 					defaults->SetLightDefIntensity(ParseFloat(sc));
 					break;
+				case LIGHTTAG_SOFTSHADOWRADIUS:
+					defaults->SetSoftShadowRadius(ParseFloat(sc));
+					break;
+				case LIGHTTAG_LINEARITY:
+					defaults->SetLinearity(ParseFloat(sc));
+					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
 				}
@@ -1246,6 +1268,12 @@ class GLDefsParser
 				case LIGHTTAG_INTENSITY:
 					defaults->SetLightDefIntensity(ParseFloat(sc));
 					break;
+				case LIGHTTAG_SOFTSHADOWRADIUS:
+					defaults->SetSoftShadowRadius(ParseFloat(sc));
+					break;
+				case LIGHTTAG_LINEARITY:
+					defaults->SetLinearity(ParseFloat(sc));
+					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
 				}
@@ -1355,6 +1383,12 @@ class GLDefsParser
 					break;
 				case LIGHTTAG_INTENSITY:
 					defaults->SetLightDefIntensity(ParseFloat(sc));
+					break;
+				case LIGHTTAG_SOFTSHADOWRADIUS:
+					defaults->SetSoftShadowRadius(ParseFloat(sc));
+					break;
+				case LIGHTTAG_LINEARITY:
+					defaults->SetLinearity(ParseFloat(sc));
 					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);

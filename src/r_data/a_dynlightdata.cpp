@@ -82,6 +82,8 @@ FSerializer &Serialize(FSerializer &arc, const char *key, FLightDefaults &value,
 			("spotouter", value.m_spotOuterAngle)
 			("pitch", value.m_pitch)
 			("lightdefintensity", value.m_LightDefIntensity)
+			("softshadowradius", value.SoftShadowRadius)
+			("linearity", value.Linearity)
 		.EndObject();
 	}
 	return arc;

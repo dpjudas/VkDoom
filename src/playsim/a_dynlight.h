@@ -121,6 +121,8 @@ public:
 			m_swapped = true;
 		}
 	}
+	void SetSoftShadowRadius(double r) { SoftShadowRadius = r; }
+	void SetLinearity(double i) { Linearity = i; }
 
 protected:
 	FName m_Name = NAME_None;
