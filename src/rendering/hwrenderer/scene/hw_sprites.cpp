@@ -111,6 +111,8 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 {
 	int gl_spritelight = get_gl_spritelight();
 
+	if(!actor && gl_spritelight > 1) gl_spritelight = 1;
+
 	state.SetShadeVertex(gl_spritelight == 1);
 	bool additivefog = false;
 	bool foglayer = false;
