@@ -1031,7 +1031,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, A_AttachLightDef, AttachLightDef)
 //
 //==========================================================================
 
-int AttachLightDirect(AActor *self, int _lightid, int type, int color, int radius1, int radius2, int flags, double ofs_x, double ofs_y, double ofs_z, double param, double spoti, double spoto, double spotp, double intensity, double softshadowradius, double linearity)
+int AttachLightDirect(AActor *self, int _lightid, int type, int color, int radius1, int radius2, int flags, double ofs_x, double ofs_y, double ofs_z, double param, double spoti, double spoto, double spotp, double intensity, double softshadowradius)
 {
 	FName lightid = FName(ENamedName(_lightid));
 	auto userlight = self->UserLights[FindUserLight(self, lightid, true)];
@@ -1057,7 +1057,6 @@ int AttachLightDirect(AActor *self, int _lightid, int type, int color, int radiu
 		userlight->UnsetSpotPitch();
 	}
 	userlight->SetSoftShadowRadius(softshadowradius);
-	userlight->SetLinearity(linearity);
 	self->flags8 |= MF8_RECREATELIGHTS;
 	self->Level->flags3 |= LEVEL3_LIGHTCREATED;
 	return 1;
@@ -1081,8 +1080,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, A_AttachLight, AttachLightDirect)
 	PARAM_FLOAT(spotp);
 	PARAM_FLOAT(intensity);
 	PARAM_FLOAT(softshadowradius);
-	PARAM_FLOAT(linearity);
-	ACTION_RETURN_BOOL(AttachLightDirect(self, lightid.GetIndex(), type, color, radius1, radius2, flags, ofs_x, ofs_y, ofs_z, parami, spoti, spoto, spotp, intensity, softshadowradius, linearity));
+	ACTION_RETURN_BOOL(AttachLightDirect(self, lightid.GetIndex(), type, color, radius1, radius2, flags, ofs_x, ofs_y, ofs_z, parami, spoti, spoto, spotp, intensity, softshadowradius));
 }
 
 //==========================================================================
