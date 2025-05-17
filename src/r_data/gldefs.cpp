@@ -552,6 +552,7 @@ static const char *LightTags[]=
    "dontlightmap",
    "trace",
    "shadowminquality",
+   "intensity",
    nullptr
 };
 
@@ -580,6 +581,7 @@ enum {
    LIGHTTAG_DONTLIGHTMAP,
    LIGHTTAG_TRACE,
    LIGHTTAG_SHADOW_MINQUALITY,
+   LIGHTTAG_INTENSITY,
 };
 
 //==========================================================================
@@ -903,6 +905,9 @@ class GLDefsParser
 						defaults->SetSpotOuterAngle(outerAngle);
 					}
 					break;
+				case LIGHTTAG_INTENSITY:
+					defaults->SetLightDefIntensity(ParseFloat(sc));
+					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
 				}
@@ -1010,6 +1015,9 @@ class GLDefsParser
 						defaults->SetSpotInnerAngle(innerAngle);
 						defaults->SetSpotOuterAngle(outerAngle);
 					}
+					break;
+				case LIGHTTAG_INTENSITY:
+					defaults->SetLightDefIntensity(ParseFloat(sc));
 					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
@@ -1122,6 +1130,9 @@ class GLDefsParser
 						defaults->SetSpotOuterAngle(outerAngle);
 					}
 					break;
+				case LIGHTTAG_INTENSITY:
+					defaults->SetLightDefIntensity(ParseFloat(sc));
+					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
 				}
@@ -1232,6 +1243,9 @@ class GLDefsParser
 						defaults->SetSpotOuterAngle(outerAngle);
 					}
 					break;
+				case LIGHTTAG_INTENSITY:
+					defaults->SetLightDefIntensity(ParseFloat(sc));
+					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);
 				}
@@ -1338,6 +1352,9 @@ class GLDefsParser
 						defaults->SetSpotInnerAngle(innerAngle);
 						defaults->SetSpotOuterAngle(outerAngle);
 					}
+					break;
+				case LIGHTTAG_INTENSITY:
+					defaults->SetLightDefIntensity(ParseFloat(sc));
 					break;
 				default:
 					sc.ScriptError("Unknown tag: %s\n", sc.String);

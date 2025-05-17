@@ -225,6 +225,11 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache,
 							lb *= alpha;
 						}
 
+						// Get GLDEFS intensity
+						lr *= light->GetLightDefIntensity();
+						lg *= light->GetLightDefIntensity();
+						lb *= light->GetLightDefIntensity();
+
 						if (light->IsSubtractive())
 						{
 							float bright = (float)FVector3(lr, lg, lb).Length();

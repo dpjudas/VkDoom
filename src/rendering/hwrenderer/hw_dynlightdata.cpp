@@ -101,6 +101,9 @@ void AddLightToList(FDynLightData &dld, int group, FDynamicLight * light, bool f
 	if (light->target && (light->target->renderflags2 & RF2_LIGHTMULTALPHA))
 		cs *= (float)light->target->Alpha;
 
+	// Multiply intensity from GLDEFS
+	cs *= (float)light->GetLightDefIntensity();
+
 	info.r = light->GetRed() / 255.0f * cs;
 	info.g = light->GetGreen() / 255.0f * cs;
 	info.b = light->GetBlue() / 255.0f * cs;
