@@ -1069,6 +1069,7 @@ OptionMenu "LightOptions" protected
 	StaticText " "
 	Option "$GLLIGHTMNU_LIGHTSHADOWS",			gl_light_shadows,				"ShadowMode"
 	Option "$GLLIGHTMNU_LIGHTSHADOWFILTER", 	gl_light_shadow_filter,			"ShadowFilter"
+	Option "$GLLIGHTMNU_LIGHTSHADOW_DITHER", 	gl_light_shadow_nearest_dither,	"YesNo"
 	Option "$GLLIGHTMNU_LIGHTSHADOWMAPQUALITY", gl_shadowmap_quality,			"ShadowMapQuality"
 	StaticText " "
 	Option "$GLPREFMNU_SWLMBANDED",				gl_bandedswlight,				"OnOff"
