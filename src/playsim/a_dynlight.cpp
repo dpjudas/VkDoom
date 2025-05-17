@@ -759,7 +759,7 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 			}
 		}
 	}
-	shadowmapped = hitonesidedback && !DontShadowmap() && shadowMinQuality <= gl_light_shadow_max_quality;
+	shadowmapped = (hitonesidedback || gl_light_shadows > 1) && !DontShadowmap() && shadowMinQuality <= gl_light_shadow_max_quality;
 }
 
 //==========================================================================
