@@ -166,3 +166,8 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 	vec3 color = max(ambient + Lo, vec3(0.0));
 	return color;
 }
+
+vec3 ProcessSWLight(Material material)
+{
+	return vec3(0.0);
+}

@@ -115,3 +115,8 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 
 	return frag;
 }
+
+vec3 ProcessSWLight(Material material)
+{
+	return vec3(0.0);
+}

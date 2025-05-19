@@ -123,9 +123,50 @@
 
 		return frag;
 	}
+
+	vec3 ProcessSWLight(Material material)
+	{
+		vec3 normal = material.Normal;
+		vec3 dynlight = vec3(0.0);
+
+		#ifndef UBERSHADER
+			#ifdef SHADE_VERTEX
+				dynlight.rgb += vLightColor;
+			#else
+				if (uLightIndex >= 0)
+				{
+					ivec4 lightRange = getLightRange();
+				
+					if (lightRange.z > lightRange.x)
+					{
+						// modulated lights
+						for(int i=lightRange.x; i<lightRange.y; i++)
+						{
+							dynlight.rgb += lightContribution(getLights()[i], normal);
+						}
+
+						// subtractive lights
+						for(int i=lightRange.y; i<lightRange.z; i++)
+						{
+							dynlight.rgb -= lightContribution(getLights()[i], normal);
+						}
+					}
+				}
+			#endif
+			dynlight = desaturate(vec4(dynlight, 0.0)).rgb;
+		#endif
+
+		return dynlight;
+	}
+
 #else
 	vec3 ProcessMaterialLight(Material material, vec3 color)
 	{
 		return material.Base.rgb;
+	}
+
+	vec3 ProcessSWLight(Material material)
+	{
+		return vec3(0.0);
 	}
 #endif
