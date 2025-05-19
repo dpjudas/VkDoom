@@ -35,6 +35,11 @@ void main()
 
 		Material material = CreateMaterial();
 
+	if (PALETTEMODE)
+	{
+		material.Base.a = material.Base.r != 0.0 ? 1.0 : 0.0;
+	}
+
 	#ifdef DO_ALPHATEST
 		if (material.Base.a <= uAlphaThreshold) discard;
 	#endif
