@@ -6,6 +6,23 @@
 #include "shaders/scene/material.glsl"
 #include "shaders/scene/fogball.glsl"
 
+#ifndef SIMPLE3D
+vec3 swLightContribution(DynLightInfo light, vec3 normal);
+float distanceAttenuation(float dist, float radius, float strength, float linearity);
+float spotLightAttenuation(vec3 lightpos, vec3 spotdir, float lightCosInnerAngle, float lightCosOuterAngle);
+float traceSun(vec3 SunDir);
+float shadowAttenuation(vec3 lightpos, int shadowIndex, float softShadowRadius, int flags);
+#endif
+
+vec3 PickGamePaletteColor(vec3 color)
+{
+	ivec3 c = ivec3(clamp(color.rgb, vec3(0.0), vec3(1.0)) * 63.0 + 0.5);
+	int index = (c.r * 64 + c.g) * 64 + c.b;
+	int tx = index % 512;
+	int ty = index / 512;
+	return texelFetch(textures[PaletteLUT], ivec2(tx, ty), 0).rgb;
+}
+
 //===========================================================================
 //
 // Calculate light
@@ -38,7 +55,49 @@ vec4 getLightColor(Material material)
 		float shade = 2.0 - (L + 12.0) / 128.0;
 		int light = max(int((shade - vis) * 32), 0);
 
-		return vec4(texelFetch(textures[uColormapIndex], ivec2(color, light), 0).rgb, 1.0);
+		vec3 matColor = texelFetch(textures[uColormapIndex], ivec2(color, 0), 0).rgb;
+		vec4 frag = vec4(texelFetch(textures[uColormapIndex], ivec2(color, light), 0).rgb, 1.0);
+
+		vec4 dynlight = uDynLightColor;
+
+		if (vLightmap.z >= 0.0)
+		{
+			dynlight.rgb += texture(LightMap, vLightmap).rgb;
+		}
+
+		vec3 normal = material.Normal;
+
+		#ifndef SIMPLE3D
+			#ifndef UBERSHADER
+				#ifdef SHADE_VERTEX
+					dynlight.rgb += vLightColor;
+				#else
+					if (uLightIndex >= 0)
+					{
+						ivec4 lightRange = getLightRange();
+				
+						if (lightRange.z > lightRange.x)
+						{
+							// modulated lights
+							for(int i=lightRange.x; i<lightRange.y; i++)
+							{
+								dynlight.rgb += swLightContribution(getLights()[i], normal);
+							}
+
+							// subtractive lights
+							for(int i=lightRange.y; i<lightRange.z; i++)
+							{
+								dynlight.rgb -= swLightContribution(getLights()[i], normal);
+							}
+						}
+					}
+				#endif
+				dynlight = desaturate(dynlight);
+			#endif
+		#endif
+
+		frag.rgb = PickGamePaletteColor(frag.rgb + matColor * dynlight.rgb);
+		return frag;
 	}
 	else
 	{
@@ -179,3 +238,56 @@ vec4 ProcessLightMode(Material material)
 			return getLightColor(material);
 	}
 }
+
+#ifndef SIMPLE3D
+	vec3 swLightContribution(DynLightInfo light, vec3 normal)
+	{
+		float lightdistance = distance(light.pos.xyz, pixelpos.xyz);
+		
+		if (light.radius < lightdistance)
+			return vec3(0.0); // Early out lights touching surface but not this fragment
+		
+		vec3 lightdir = normalize(light.pos.xyz - pixelpos.xyz);
+		
+		float dotprod;
+		
+		if (!LIGHT_NONORMALS)
+		{
+			dotprod = dot(normal, lightdir);
+			if (dotprod < -0.0001) return vec3(0.0);	// light hits from the backside. This can happen with full sector light lists and must be rejected for all cases. Note that this can cause precision issues.
+		}
+		
+		float attenuation = distanceAttenuation(lightdistance, light.radius, light.strength, light.linearity);
+
+		if ((light.flags & LIGHTINFO_SPOT) != 0)
+		{
+			attenuation *= spotLightAttenuation(light.pos.xyz, light.spotDir.xyz, light.spotInnerAngle, light.spotOuterAngle);
+		}
+		
+		if (!LIGHT_NONORMALS)
+		{
+			if ((light.flags & LIGHTINFO_ATTENUATED) != 0)
+			{
+				attenuation *= clamp(dotprod, 0.0, 1.0);
+			}
+		}
+		
+		if (attenuation > 0.0) // Skip shadow map test if possible
+		{
+			if((light.flags & (LIGHTINFO_SUN | LIGHTINFO_TRACE)) == (LIGHTINFO_SUN | LIGHTINFO_TRACE))
+			{
+				attenuation *= traceSun(lightdir);
+			}
+			else if((light.flags & (LIGHTINFO_SHADOWMAPPED | LIGHTINFO_SUN)) == LIGHTINFO_SHADOWMAPPED)
+			{
+				attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius, light.flags);
+			}
+			
+			return light.color.rgb * attenuation;
+		}
+		else
+		{
+			return vec3(0.0);
+		}
+	}
+#endif

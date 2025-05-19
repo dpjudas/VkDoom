@@ -237,7 +237,7 @@ void VkTextureManager::CreateGamePalette()
 {
 	GamePalette = ImageBuilder()
 		.Format(VK_FORMAT_B8G8R8A8_UNORM)
-		.Size(256, 1)
+		.Size(512, 512)
 		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 		.DebugName("VkDescriptorSetManager.GamePalette")
 		.Create(fb->GetDevice());
@@ -250,6 +250,25 @@ void VkTextureManager::CreateGamePalette()
 
 void VkTextureManager::SetGamePalette()
 {
+	std::shared_ptr<void> data(new uint32_t[512 * 512], [](void* p) { delete[](uint32_t*)p; });
+	uint8_t* lut = (uint8_t*)data.get();
+	for (int r = 0; r < 64; r++)
+	{
+		for (int g = 0; g < 64; g++)
+		{
+			for (int b = 0; b < 64; b++)
+			{
+				// Do not tonemap this. Must match the RGB666 lookup table from the software renderer exactly.
+				PalEntry color = GPalette.BaseColors[ColorMatcher.Pick((r << 2) | (r >> 4), (g << 2) | (g >> 4), (b << 2) | (b >> 4))];
+				int index = ((r * 64 + g) * 64 + b) * 4;
+				lut[index] = color.b;
+				lut[index + 1] = color.g;
+				lut[index + 2] = color.r;
+				lut[index + 3] = 255;
+			}
+		}
+	}
+
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
 	PipelineBarrier()
@@ -257,21 +276,21 @@ void VkTextureManager::SetGamePalette()
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	auto stagingBuffer = BufferBuilder()
-		.Size(256 * 4)
+		.Size(512 * 512 * 4)
 		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
 		.DebugName("VkDescriptorSetManager.GamePaletteStagingBuffer")
 		.Create(fb->GetDevice());
 
-	void* data = stagingBuffer->Map(0, 256 * 4);
-	memcpy(data, GPalette.BaseColors, 256 * 4);
+	void* dest = stagingBuffer->Map(0, 512 * 512 * 4);
+	memcpy(dest, data.get(), 512 * 512 * 4);
 	stagingBuffer->Unmap();
 
 	VkBufferImageCopy region = {};
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	region.imageSubresource.layerCount = 1;
 	region.imageExtent.depth = 1;
-	region.imageExtent.width = 256;
-	region.imageExtent.height = 1;
+	region.imageExtent.width = 512;
+	region.imageExtent.height = 512;
 	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, GamePalette->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
