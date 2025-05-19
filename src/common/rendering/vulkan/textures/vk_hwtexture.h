@@ -46,13 +46,13 @@ public:
 	std::list<VkHardwareTexture*>::iterator it;
 
 private:
-	void CreateImage(FTexture *tex, int translation, int flags);
+	void CreateImage(VkTextureImage* image, FTexture *tex, int translation, int flags);
 
-	void CreateTexture(int w, int h, int pixelsize, VkFormat format, const void *pixels, bool mipmap);
-	void UploadTexture(int w, int h, int pixelsize, VkFormat format, const void* pixels, bool mipmap);
+	void CreateTexture(VkTextureImage* image, int w, int h, int pixelsize, VkFormat format, const void *pixels, bool mipmap);
+	void UploadTexture(VkTextureImage* image, int w, int h, int pixelsize, VkFormat format, const void* pixels, bool mipmap);
 	static int GetMipLevels(int w, int h);
 
-	VkTextureImage mImage;
+	VkTextureImage mImage, mPaletteImage;
 	int mTexelsize = 4;
 
 	VkTextureImage mDepthStencil;
@@ -80,13 +80,15 @@ private:
 		intptr_t remap;
 		int bindlessIndex;
 		GlobalShaderAddr globalShaderAddr;
+		bool indexed;
 
-		DescriptorEntry(int cm, intptr_t f, int index, GlobalShaderAddr addr)
+		DescriptorEntry(int cm, intptr_t f, int index, GlobalShaderAddr addr, bool paletteMode)
 		{
 			clampmode = cm;
 			remap = f;
 			bindlessIndex = index;
 			globalShaderAddr = addr;
+			indexed = paletteMode;
 		}
 	};
 

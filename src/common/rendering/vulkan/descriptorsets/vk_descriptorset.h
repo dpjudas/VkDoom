@@ -10,6 +10,7 @@ class VulkanRenderDevice;
 class VkMaterial;
 class PPTextureInput;
 class VkPPRenderPassSetup;
+struct FSWColormap;
 
 class VkDescriptorSetManager
 {
@@ -43,6 +44,8 @@ public:
 
 	void UpdateBindlessDescriptorSet();
 	int AddBindlessTextureIndex(VulkanImageView* imageview, VulkanSampler* sampler);
+
+	int GetSWColormapTextureIndex(FSWColormap* colormap);
 
 private:
 	void CreateLevelMeshLayout();
@@ -115,6 +118,7 @@ private:
 	} ZMinMax;
 
 	std::list<VkMaterial*> Materials;
+	std::vector<FSWColormap*> Colormaps;
 
 	static const int MaxFixedSets = 100;
 	static const int MaxBindlessTextures = 16536;

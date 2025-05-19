@@ -241,9 +241,9 @@ CUSTOM_CVAR(Int, vid_rendermode, 4, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOIN
 	{
 		self = 4;
 	}
-	else if (self == 2 || self == 3)
+	else if (self == 3)
 	{
-		self = self - 2; // softpoly to software
+		self = 4; // map old softpoly truecolor to hwrenderer
 	}
 
 	if (usergame)
@@ -405,7 +405,7 @@ void D_Render(std::function<void()> action, bool interpolate)
 	for (auto Level : AllLevels())
 	{
 		// Check for the presence of dynamic lights at the start of the frame once.
-		if ((gl_lights && vid_rendermode == 4) || (r_dynlights && vid_rendermode != 4) || Level->lightmaps)
+		if ((gl_lights && V_IsHardwareRenderer()) || (r_dynlights && V_IsSoftwareRenderer()) || Level->lightmaps)
 		{
 			Level->HasDynamicLights = Level->lights || Level->lightmaps;
 		}
@@ -987,7 +987,7 @@ void D_Display ()
 	// No wipes when in a stereo3D VR mode
 	else if (gamestate != wipegamestate && gamestate != GS_FULLCONSOLE && gamestate != GS_TITLELEVEL)
 	{
-		if (vr_mode == 0 || vid_rendermode != 4)
+		if (vr_mode == 0 || V_IsSoftwareRenderer())
 		{
 			// save the current screen if about to wipe
 			wipestart = screen->WipeStartScreen();
@@ -3320,11 +3320,8 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		screen->CompileNextShader();
 		if (StartScreen != nullptr) StartScreen->Render();
 	}
-	else
-	{
-		// Update screen palette when restarting
-		screen->UpdatePalette();
-	}
+
+	screen->UpdatePalette();
 
 	// Base systems have been inited; enable cvar callbacks
 	FBaseCVar::EnableCallbacks ();

@@ -111,7 +111,7 @@ void FThinkerCollection::RunThinkers(FLevelLocals *Level)
 	ThinkCycles.Clock();
 
 	bool dolights;
-	if ((gl_lights && vid_rendermode == 4) || (r_dynlights && vid_rendermode != 4) || Level->lightmaps)
+	if ((gl_lights && V_IsHardwareRenderer()) || (r_dynlights && V_IsSoftwareRenderer()) || Level->lightmaps)
 	{
 		dolights = true;// Level->lights || (Level->flags3 & LEVEL3_LIGHTCREATED) || Level->lightmaps;
 	}

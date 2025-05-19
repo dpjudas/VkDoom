@@ -844,7 +844,7 @@ void VkLevelMeshUploader::UploadSurfaces()
 			if (surface->Texture)
 			{
 				auto mat = FMaterial::ValidateTexture(surface->Texture, 0);
-				info.TextureIndex = Mesh->fb->GetBindlessTextureIndex(mat, CLAMP_NONE, 0);
+				info.TextureIndex = Mesh->fb->GetBindlessTextureIndex(mat, CLAMP_NONE, 0, false);
 			}
 			else
 			{
@@ -873,7 +873,7 @@ void VkLevelMeshUploader::UploadUniforms()
 				auto source = material.mMaterial->Source();
 				surfaceUniforms.uSpecularMaterial = { source->GetGlossiness(), source->GetSpecularLevel() };
 				surfaceUniforms.uDepthFadeThreshold = source->GetDepthFadeThreshold();
-				surfaceUniforms.uTextureIndex = Mesh->fb->GetBindlessTextureIndex(material.mMaterial, material.mClampMode, material.mTranslation);
+				surfaceUniforms.uTextureIndex = Mesh->fb->GetBindlessTextureIndex(material.mMaterial, material.mClampMode, material.mTranslation, false);
 			}
 			else
 			{

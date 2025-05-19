@@ -62,17 +62,25 @@ void VkHardwareTexture::Reset()
 		}
 
 		mImage.Reset(fb);
+		mPaletteImage.Reset(fb);
 		mDepthStencil.Reset(fb);
 	}
 }
 
 VkTextureImage *VkHardwareTexture::GetImage(FTexture *tex, int translation, int flags)
 {
-	if (!mImage.Image)
+	if (flags & (CTF_Indexed | CTF_IndexedRedIsAlpha))
 	{
-		CreateImage(tex, translation, flags);
+		if (!mPaletteImage.Image)
+			CreateImage(&mPaletteImage, tex, translation, flags);
+		return &mPaletteImage;
 	}
-	return &mImage;
+	else
+	{
+		if (!mImage.Image)
+			CreateImage(&mImage, tex, translation, flags);
+		return &mImage;
+	}
 }
 
 VkTextureImage *VkHardwareTexture::GetDepthStencil(FTexture *tex)
@@ -105,7 +113,7 @@ VkTextureImage *VkHardwareTexture::GetDepthStencil(FTexture *tex)
 	return &mDepthStencil;
 }
 
-void VkHardwareTexture::CreateImage(FTexture *tex, int translation, int flags)
+void VkHardwareTexture::CreateImage(VkTextureImage* image, FTexture *tex, int translation, int flags)
 {
 	if (!tex->isHardwareCanvas())
 	{
@@ -115,7 +123,7 @@ void VkHardwareTexture::CreateImage(FTexture *tex, int translation, int flags)
 
 			FTextureBuffer texbuffer = tex->CreateTexBuffer(translation, flags | CTF_CheckOnly);
 			bool indexed = flags & CTF_Indexed;
-			CreateTexture(texbuffer.mWidth, texbuffer.mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, texbuffer.mBuffer, !indexed);
+			CreateTexture(image, texbuffer.mWidth, texbuffer.mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, texbuffer.mBuffer, !indexed);
 
 			auto textureManager = fb->GetTextureManager();
 			
@@ -130,7 +138,7 @@ void VkHardwareTexture::CreateImage(FTexture *tex, int translation, int flags)
 					// Upload the texture on the main thread, as long as the hwrenderer didn't destroy this hwtexture already.
 					if (textureManager->CheckUploadID(uploadID))
 					{
-						UploadTexture(imagedata->mWidth, imagedata->mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, imagedata->mBuffer, !indexed);
+						UploadTexture(image, imagedata->mWidth, imagedata->mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, imagedata->mBuffer, !indexed);
 					}
 
 					});
@@ -140,7 +148,7 @@ void VkHardwareTexture::CreateImage(FTexture *tex, int translation, int flags)
 		{
 			FTextureBuffer texbuffer = tex->CreateTexBuffer(translation, flags | CTF_ProcessData);
 			bool indexed = flags & CTF_Indexed;
-			CreateTexture(texbuffer.mWidth, texbuffer.mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, texbuffer.mBuffer, !indexed);
+			CreateTexture(image, texbuffer.mWidth, texbuffer.mHeight, indexed ? 1 : 4, indexed ? VK_FORMAT_R8_UNORM : VK_FORMAT_B8G8R8A8_UNORM, texbuffer.mBuffer, !indexed);
 		}
 	}
 	else
@@ -149,25 +157,25 @@ void VkHardwareTexture::CreateImage(FTexture *tex, int translation, int flags)
 		int w = tex->GetWidth();
 		int h = tex->GetHeight();
 
-		mImage.Image = ImageBuilder()
+		image->Image = ImageBuilder()
 			.Format(format)
 			.Size(w, h)
 			.Usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
 			.DebugName("VkHardwareTexture.mImage")
 			.Create(fb->GetDevice());
 
-		mImage.View = ImageViewBuilder()
-			.Image(mImage.Image.get(), format)
+		image->View = ImageViewBuilder()
+			.Image(image->Image.get(), format)
 			.DebugName("VkHardwareTexture.mImageView")
 			.Create(fb->GetDevice());
 
 		VkImageTransition()
-			.AddImage(&mImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true)
+			.AddImage(image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true)
 			.Execute(fb->GetCommands()->GetTransferCommands());
 	}
 }
 
-void VkHardwareTexture::CreateTexture(int w, int h, int pixelsize, VkFormat format, const void *pixels, bool mipmap)
+void VkHardwareTexture::CreateTexture(VkTextureImage* image, int w, int h, int pixelsize, VkFormat format, const void *pixels, bool mipmap)
 {
 	if (w <= 0 || h <= 0)
 		throw CVulkanError("Trying to create zero size texture");
@@ -189,22 +197,22 @@ void VkHardwareTexture::CreateTexture(int w, int h, int pixelsize, VkFormat form
 
 	stagingBuffer->Unmap();
 
-	mImage.Image = ImageBuilder()
+	image->Image = ImageBuilder()
 		.Format(format)
 		.Size(w, h, !mipmap ? 1 : GetMipLevels(w, h))
 		.Usage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
 		.DebugName("VkHardwareTexture.mImage")
 		.Create(fb->GetDevice());
 
-	mImage.View = ImageViewBuilder()
-		.Image(mImage.Image.get(), format)
+	image->View = ImageViewBuilder()
+		.Image(image->Image.get(), format)
 		.DebugName("VkHardwareTexture.mImageView")
 		.Create(fb->GetDevice());
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
 	VkImageTransition()
-		.AddImage(&mImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true)
+		.AddImage(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true)
 		.Execute(cmdbuffer);
 
 	VkBufferImageCopy region = {};
@@ -213,9 +221,9 @@ void VkHardwareTexture::CreateTexture(int w, int h, int pixelsize, VkFormat form
 	region.imageExtent.depth = 1;
 	region.imageExtent.width = w;
 	region.imageExtent.height = h;
-	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, mImage.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, image->Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-	if (mipmap) mImage.GenerateMipmaps(cmdbuffer);
+	if (mipmap) image->GenerateMipmaps(cmdbuffer);
 
 	// If we queued more than 64 MB of data already: wait until the uploads finish before continuing
 	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
@@ -223,7 +231,7 @@ void VkHardwareTexture::CreateTexture(int w, int h, int pixelsize, VkFormat form
 		fb->GetCommands()->WaitForCommands(false, true);
 }
 
-void VkHardwareTexture::UploadTexture(int w, int h, int pixelsize, VkFormat format, const void* pixels, bool mipmap)
+void VkHardwareTexture::UploadTexture(VkTextureImage* image, int w, int h, int pixelsize, VkFormat format, const void* pixels, bool mipmap)
 {
 	if (w <= 0 || h <= 0)
 		throw CVulkanError("Trying to create zero size texture");
@@ -243,7 +251,7 @@ void VkHardwareTexture::UploadTexture(int w, int h, int pixelsize, VkFormat form
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
 	VkImageTransition()
-		.AddImage(&mImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true)
+		.AddImage(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true)
 		.Execute(cmdbuffer);
 
 	VkBufferImageCopy region = {};
@@ -252,9 +260,9 @@ void VkHardwareTexture::UploadTexture(int w, int h, int pixelsize, VkFormat form
 	region.imageExtent.depth = 1;
 	region.imageExtent.width = w;
 	region.imageExtent.height = h;
-	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, mImage.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, image->Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-	if (mipmap) mImage.GenerateMipmaps(cmdbuffer);
+	if (mipmap) image->GenerateMipmaps(cmdbuffer);
 
 	// If we queued more than 64 MB of data already: wait until the uploads finish before continuing
 	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
@@ -323,7 +331,7 @@ unsigned int VkHardwareTexture::CreateTexture(unsigned char * buffer, int w, int
 {
 	// CreateTexture is used by the software renderer to create a screen output but without any screen data.
 	if (buffer)
-		CreateTexture(w, h, mTexelsize, mTexelsize == 4 ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8_UNORM, buffer, mipmap);
+		CreateTexture(&mImage, w, h, mTexelsize, mTexelsize == 4 ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8_UNORM, buffer, mipmap);
 	return 0;
 }
 
@@ -409,9 +417,19 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 
 	clampmode = base->GetClampMode(clampmode);
 
+	int paletteFlags = 0;
+	if (state.mPaletteMode)
+	{
+		paletteFlags |= CTF_Indexed; // To do: may need to implement CTF_IndexedRedIsAlpha too for the "style.Flags & STYLEF_RedIsAlpha" case
+
+		// We can't do linear filtering for indexed textures
+		if (clampmode < CLAMP_NOFILTER)
+			clampmode += CLAMP_NOFILTER;
+	}
+
 	for (auto& set : mDescriptorSets)
 	{
-		if (set.clampmode == clampmode && set.remap == translationp && set.globalShaderAddr == globalShaderAddr) return set;
+		if (set.clampmode == clampmode && set.remap == translationp && set.globalShaderAddr == globalShaderAddr && set.indexed == state.mPaletteMode) return set;
 	}
 
 	auto globalshader = GetGlobalShader(globalShaderAddr);
@@ -421,7 +439,7 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 
 	MaterialLayerInfo *layer;
 	auto systex = static_cast<VkHardwareTexture*>(GetLayer(0, state.mTranslation, &layer));
-	auto systeximage = systex->GetImage(layer->layerTexture, state.mTranslation, layer->scaleFlags);
+	auto systeximage = systex->GetImage(layer->layerTexture, state.mTranslation, layer->scaleFlags | paletteFlags);
 	int bindlessIndex = descriptors->AddBindlessTextureIndex(systeximage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(0), clampmode));
 
 	if (!(layer->scaleFlags & CTF_Indexed))
@@ -429,7 +447,7 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 		for (int i = 1; i < numLayersMat; i++)
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, 0, &layer));
-			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
+			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags | paletteFlags);
 			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 
@@ -441,7 +459,7 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 				if (texture != nullptr)
 				{
 					VkHardwareTexture *tex = static_cast<VkHardwareTexture*>(texture.get()->GetHardwareTexture(0, 0));
-					VkTextureImage *img = tex->GetImage(texture.get(), 0, 0);
+					VkTextureImage *img = tex->GetImage(texture.get(), 0, paletteFlags);
 					descriptors->AddBindlessTextureIndex(img->View.get(), fb->GetSamplerManager()->Get(globalshader->CustomShaderTextureSampling[i], clampmode));
 				}
 				i++;
@@ -453,11 +471,11 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 		for (int i = 1; i < 3; i++)
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, translation, &layer));
-			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags);
+			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags | paletteFlags);
 			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 	}
 
-	mDescriptorSets.emplace_back(clampmode, translationp, bindlessIndex, globalShaderAddr);
+	mDescriptorSets.emplace_back(clampmode, translationp, bindlessIndex, globalShaderAddr, state.mPaletteMode);
 	return mDescriptorSets.back();
 }

@@ -16,6 +16,7 @@ struct FColormap;
 class IBuffer;
 struct HWViewpointUniforms;
 struct FDynLightData;
+struct FSWColormap;
 enum class LevelMeshDrawType;
 
 enum EClearTarget
@@ -159,6 +160,9 @@ protected:
 	int mColorMapSpecial;
 	float mColorMapFlash;
 
+	bool mPaletteMode = false;
+	FSWColormap* mSWColormap = nullptr;
+
 	SurfaceUniforms mSurfaceUniforms = {};
 	PalEntry mFogColor;
 
@@ -223,6 +227,8 @@ public:
 		mMaterial.Reset();
 		mBias.Reset();
 		mPassType = NORMAL_PASS;
+		mPaletteMode = false;
+		mSWColormap = nullptr;
 
 		mColorMapSpecial = 0;
 		mColorMapFlash = 1;
@@ -619,6 +625,16 @@ public:
 	void SetMaterial(FGameTexture* tex, EUpscaleFlags upscalemask, int scaleflags, int clampmode, FTranslationID translation, int overrideshader, PClass *cls = nullptr)
 	{
 		SetMaterial(tex, upscalemask, scaleflags, clampmode, translation.index(), overrideshader, cls);
+	}
+
+	void SetPaletteMode(bool palette)
+	{
+		mPaletteMode = palette;
+	}
+
+	void SetSWColormap(FSWColormap* cm)
+	{
+		mSWColormap = cm;
 	}
 
 	void SetClipSplit(float bottom, float top)

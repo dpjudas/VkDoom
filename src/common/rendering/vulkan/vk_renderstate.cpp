@@ -343,6 +343,8 @@ void VkRenderState::ApplyRenderPass(int dt)
 	pipelineKey.ShaderKey.LightBlendMode = (level.info ? static_cast<int>(level.info->lightblendmode) : 0);
 	pipelineKey.ShaderKey.LightAttenuationMode = (level.info ? static_cast<int>(level.info->lightattenuationmode) : 0);
 
+	pipelineKey.ShaderKey.PaletteMode = mPaletteMode;
+
 	// Is this the one we already have?
 	bool inRenderPass = mCommandBuffer;
 	bool changingPipeline = (!inRenderPass) || (pipelineKey != mPipelineKey);
@@ -440,6 +442,21 @@ void VkRenderState::ApplySurfaceUniforms()
 		mSurfaceUniforms.timer = static_cast<float>((double)(screen->FrameTime - firstFrame) * (double)mMaterial.mMaterial->Source()->GetShaderSpeed() / 1000.);
 	else
 		mSurfaceUniforms.timer = 0.0f;
+
+	if (mMaterial.mPaletteMode != mPaletteMode)
+	{
+		mMaterial.mPaletteMode = mPaletteMode;
+		mMaterial.mChanged = true;
+	}
+
+	if (mPaletteMode && mSWColormap)
+	{
+		mSurfaceUniforms.uColormapIndex = fb->GetDescriptorSetManager()->GetSWColormapTextureIndex(mSWColormap);
+	}
+	else
+	{
+		mSurfaceUniforms.uColormapIndex = 0;
+	}
 
 	if (mMaterial.mChanged)
 	{

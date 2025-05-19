@@ -48,6 +48,8 @@
 #include "actorinlines.h"
 #include "g_levellocals.h"
 #include "hw_lighting.h"
+#include "d_main.h"
+#include "swrenderer/r_swcolormaps.h"
 
 EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Int, lm_background_updates);
@@ -783,6 +785,15 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	UpdateLightmaps();
 
 	state.SetLightMode((int)lightmode);
+	
+	if (!V_IsTrueColor())
+	{
+		state.SetPaletteMode(!V_IsTrueColor());
+
+		FColormap cm;
+		cm.Clear();
+		state.SetSWColormap(GetColorTable(cm));
+	}
 
 	state.SetDepthMask(true);
 
@@ -828,6 +839,8 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	// Part 4: Draw decals (not a real pass)
 	state.SetDepthFunc(DF_LEqual);
 	DrawDecals(state, Decals[0]);
+
+	state.SetPaletteMode(false);
 
 	RenderAll.Unclock();
 }

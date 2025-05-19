@@ -464,6 +464,7 @@ void VkShaderManager::BuildDefinesBlock(FString &definesBlock, const char *defin
 	definesBlock << "#define LIGHT_ATTENUATION_INVERSE_SQUARE ((uShaderKey1 & SK1_LIGHTATTENUATIONMODE) != 0)\n";
 
 	definesBlock << "#define FOGBALLS ((uShaderKey1 & SK1_FOGBALLS) != 0)\n";
+	definesBlock << "#define PALETTEMODE ((uShaderKey1 & SK1_PALETTEMODE) != 0)\n";
 
 	definesBlock << "#define USE_DEPTHFADETHRESHOLD ((uShaderKey2 & SK2_USE_DEPTHFADETHRESHOLD) != 0)\n";
 	definesBlock << "#define NOT_ALPHATEST_ONLY ((uShaderKey2 & SK2_ALPHATEST_ONLY) == 0)\n";

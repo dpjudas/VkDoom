@@ -227,7 +227,7 @@ public:
 	virtual void SetActiveRenderTarget() {}
 
 	// Get the array index for the material in the textures array accessible from shaders
-	virtual int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) { return -1; }
+	virtual int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation, bool paletteMode) { return -1; }
 
 	virtual void RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc, TArrayView<uint16_t>& irradianceMap, TArrayView<uint16_t>& prefilterMap) {}
 	virtual void UploadEnvironmentMaps(int cubemapCount, const TArray<uint16_t>& irradianceMaps, const TArray<uint16_t>& prefilterMaps) {}

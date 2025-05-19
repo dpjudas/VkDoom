@@ -3,14 +3,6 @@
 
 #include "g_levellocals.h"
 
-struct FSWColormap
-{
-	uint8_t *Maps = nullptr;
-	PalEntry Color = 0xffffffff;
-	PalEntry Fade = 0xff000000;
-	int Desaturate = 0;
-};
-
 struct FDynamicColormap : FSWColormap
 {
 	void ChangeFade (PalEntry fadecolor);

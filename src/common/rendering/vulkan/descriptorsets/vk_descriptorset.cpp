@@ -37,6 +37,7 @@
 #include "flatvertices.h"
 #include "hw_viewpointuniforms.h"
 #include "v_2ddrawer.h"
+#include "fcolormap.h"
 
 VkDescriptorSetManager::VkDescriptorSetManager(VulkanRenderDevice* fb) : fb(fb)
 {
@@ -170,6 +171,10 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 	for (auto mat : Materials)
 		mat->DeleteDescriptors();
 
+	for (FSWColormap* colormap : Colormaps)
+		colormap->Renderdev.bindIndex = -1;
+	Colormaps.clear();
+
 	Bindless.Writer = WriteDescriptors();
 	Bindless.NextIndex = 0;
 
@@ -178,6 +183,9 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 
 	// And slot 1 is always our BRDF LUT texture
 	AddBindlessTextureIndex(fb->GetTextureManager()->GetBrdfLutTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
+
+	// Slot 2 is always our game palette texture
+	AddBindlessTextureIndex(fb->GetTextureManager()->GetGamePaletteView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
 }
 
 void VkDescriptorSetManager::AddMaterial(VkMaterial* texture)
@@ -407,4 +415,14 @@ int VkDescriptorSetManager::AddBindlessTextureIndex(VulkanImageView* imageview, 
 	int index = Bindless.NextIndex++;
 	Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index, imageview, sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	return index;
+}
+
+int VkDescriptorSetManager::GetSWColormapTextureIndex(FSWColormap* colormap)
+{
+	if (colormap->Renderdev.bindIndex != -1)
+		return colormap->Renderdev.bindIndex;
+
+	colormap->Renderdev.bindIndex = AddBindlessTextureIndex(fb->GetTextureManager()->GetSWColormapView(colormap), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
+	Colormaps.push_back(colormap);
+	return colormap->Renderdev.bindIndex;
 }

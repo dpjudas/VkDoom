@@ -26,11 +26,13 @@
 #include "vk_renderbuffers.h"
 #include "vulkan/vk_postprocess.h"
 #include "hw_cvars.h"
+#include "fcolormap.h"
 
 VkTextureManager::VkTextureManager(VulkanRenderDevice* fb) : fb(fb)
 {
 	CreateNullTexture();
 	CreateBrdfLutTexture();
+	CreateGamePalette();
 	CreateShadowmap();
 	CreateLightmap();
 	CreateIrradiancemap();
@@ -229,6 +231,113 @@ void VkTextureManager::CreateBrdfLutTexture()
 	PipelineBarrier()
 		.AddImage(BrdfLutTexture.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
+void VkTextureManager::CreateGamePalette()
+{
+	GamePalette = ImageBuilder()
+		.Format(VK_FORMAT_B8G8R8A8_UNORM)
+		.Size(256, 1)
+		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.DebugName("VkDescriptorSetManager.GamePalette")
+		.Create(fb->GetDevice());
+
+	GamePaletteView = ImageViewBuilder()
+		.Image(GamePalette.get(), VK_FORMAT_B8G8R8A8_UNORM)
+		.DebugName("VkDescriptorSetManager.GamePaletteView")
+		.Create(fb->GetDevice());
+}
+
+void VkTextureManager::SetGamePalette()
+{
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	PipelineBarrier()
+		.AddImage(GamePalette.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+	auto stagingBuffer = BufferBuilder()
+		.Size(256 * 4)
+		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.DebugName("VkDescriptorSetManager.GamePaletteStagingBuffer")
+		.Create(fb->GetDevice());
+
+	void* data = stagingBuffer->Map(0, 256 * 4);
+	memcpy(data, GPalette.BaseColors, 256 * 4);
+	stagingBuffer->Unmap();
+
+	VkBufferImageCopy region = {};
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageExtent.depth = 1;
+	region.imageExtent.width = 256;
+	region.imageExtent.height = 1;
+	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, GamePalette->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
+
+	PipelineBarrier()
+		.AddImage(GamePalette.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
+VulkanImageView* VkTextureManager::GetSWColormapView(FSWColormap* colormap)
+{
+	if (colormap->Renderdev.textureIndex != -1)
+		return Colormaps[colormap->Renderdev.textureIndex].View.get();
+	
+	SWColormapTexture tex;
+
+	tex.Texture = ImageBuilder()
+		.Format(VK_FORMAT_B8G8R8A8_UNORM)
+		.Size(256, 32)
+		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		.DebugName("VkDescriptorSetManager.SWColormap")
+		.Create(fb->GetDevice());
+
+	tex.View = ImageViewBuilder()
+		.Image(tex.Texture.get(), VK_FORMAT_B8G8R8A8_UNORM)
+		.DebugName("VkDescriptorSetManager.SWColormapView")
+		.Create(fb->GetDevice());
+
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	PipelineBarrier()
+		.AddImage(tex.Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+	auto stagingBuffer = BufferBuilder()
+		.Size(256 * 32 * sizeof(uint32_t))
+		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.DebugName("VkDescriptorSetManager.SWColormapStagingBuffer")
+		.Create(fb->GetDevice());
+
+	const uint8_t* src = colormap->Maps;
+	uint32_t* data = static_cast<uint32_t*>(stagingBuffer->Map(0, 256 * 32 * sizeof(uint32_t)));
+	for (int i = 0; i < 256 * 32; i++)
+	{
+		data[i] = GPalette.BaseColors[src[i]].d;
+	}
+	stagingBuffer->Unmap();
+
+	VkBufferImageCopy region = {};
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageExtent.depth = 1;
+	region.imageExtent.width = 256;
+	region.imageExtent.height = 32;
+	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, tex.Texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
+
+	PipelineBarrier()
+		.AddImage(tex.Texture.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT)
+		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	colormap->Renderdev.textureIndex = Colormaps.size();
+	Colormaps.push_back(std::move(tex));
+
+	return Colormaps[colormap->Renderdev.textureIndex].View.get();
 }
 
 void VkTextureManager::CreateShadowmap()

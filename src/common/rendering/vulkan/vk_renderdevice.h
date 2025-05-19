@@ -95,7 +95,7 @@ public:
 
 	void WaitForCommands(bool finish) override;
 
-	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation) override;
+	int GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation, bool paletteMode) override;
 
 	int GetLevelMeshPipelineID(const MeshApplyData& applyData, const SurfaceUniforms& surfaceUniforms, const FMaterialState& material) override;
 	void DownloadLightmap(int arrayIndex, uint16_t* buffer) override;

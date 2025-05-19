@@ -161,7 +161,12 @@ constexpr int vid_rendermode = 4;
 
 inline bool V_IsHardwareRenderer()
 {
-	return vid_rendermode == 4;
+	return vid_rendermode == 4 || vid_rendermode == 2;
+}
+
+inline bool V_IsSoftwareRenderer()
+{
+	return !V_IsHardwareRenderer();
 }
 
 inline bool V_IsTrueColor()

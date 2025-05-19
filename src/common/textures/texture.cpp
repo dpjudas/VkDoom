@@ -332,12 +332,13 @@ FTextureBuffer FTexture::CreateTexBuffer(int translation, int flags)
 	std::unique_lock lock(mutex);
 
 	FTextureBuffer result;
-	if (flags & CTF_Indexed)
+	if (flags & (CTF_Indexed | CTF_IndexedRedIsAlpha))
 	{
 		// Indexed textures will never be translated and never be scaled.
 		int w = GetWidth(), h = GetHeight();
 
-		auto store = Get8BitPixels(false);
+		bool alpha = !!(flags & CTF_IndexedRedIsAlpha);
+		auto store = Get8BitPixels(alpha);
 		const uint8_t* p = store.Data();
 
 		result.mBuffer = new uint8_t[w * h];

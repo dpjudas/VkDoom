@@ -16,6 +16,7 @@ class VkPPTexture;
 class VkTextureImage;
 enum class PPTextureType;
 class PPTexture;
+struct FSWColormap;
 
 class VkTextureManager
 {
@@ -32,6 +33,8 @@ public:
 	void CreatePrefiltermap(int size, int count, const TArray<uint16_t>& data);
 	void DownloadLightmap(int arrayIndex, uint16_t* buffer);
 
+	void SetGamePalette();
+
 	VkTextureImage* GetTexture(const PPTextureType& type, PPTexture* tex);
 	VkFormat GetTextureFormat(PPTexture* texture);
 
@@ -46,6 +49,11 @@ public:
 
 	VulkanImage* GetBrdfLutTexture() { return BrdfLutTexture.get(); }
 	VulkanImageView* GetBrdfLutTextureView() { return BrdfLutTextureView.get(); }
+
+	VulkanImage* GetGamePalette() { return GamePalette.get(); }
+	VulkanImageView* GetGamePaletteView() { return GamePaletteView.get(); }
+
+	VulkanImageView* GetSWColormapView(FSWColormap* colormap);
 
 	int GetHWTextureCount() { return (int)Textures.size(); }
 
@@ -70,6 +78,7 @@ public:
 private:
 	void CreateNullTexture();
 	void CreateBrdfLutTexture();
+	void CreateGamePalette();
 	void CreateShadowmap();
 	void CreateLightmap();
 	void CreateIrradiancemap();
@@ -91,6 +100,16 @@ private:
 
 	std::unique_ptr<VulkanImage> BrdfLutTexture;
 	std::unique_ptr<VulkanImageView> BrdfLutTextureView;
+
+	std::unique_ptr<VulkanImage> GamePalette;
+	std::unique_ptr<VulkanImageView> GamePaletteView;
+
+	struct SWColormapTexture
+	{
+		std::unique_ptr<VulkanImage> Texture;
+		std::unique_ptr<VulkanImageView> View;
+	};
+	std::vector<SWColormapTexture> Colormaps;
 
 	int NextUploadID = 1;
 	std::unordered_map<int, VkHardwareTexture*> PendingUploads;

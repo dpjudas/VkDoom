@@ -482,6 +482,8 @@ void VulkanRenderDevice::UpdatePalette()
 {
 	if (mPostprocess)
 		mPostprocess->ClearTonemapPalette();
+
+	mTextureManager->SetGamePalette();
 }
 
 FTexture *VulkanRenderDevice::WipeStartScreen()
@@ -748,7 +750,7 @@ void VulkanRenderDevice::DownloadLightmap(int arrayIndex, uint16_t* buffer)
 	mTextureManager->DownloadLightmap(arrayIndex, buffer);
 }
 
-int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation)
+int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmode, int translation, bool paletteMode)
 {
 	GlobalShaderAddr addr;
 	auto globalshader = GetGlobalShader(material->GetShaderIndex(), nullptr, addr);
@@ -757,6 +759,7 @@ int VulkanRenderDevice::GetBindlessTextureIndex(FMaterial* material, int clampmo
 	materialState.mMaterial = material;
 	materialState.mClampMode = clampmode;
 	materialState.mTranslation = translation;
+	materialState.mPaletteMode = paletteMode;
 
 	if(addr.type == 1 && *globalshader)
 	{ // handle per-map global shaders

@@ -15,6 +15,7 @@ enum ECreateTexBufferFlags
 	CTF_Indexed = 4,		// Tell the backend to create an indexed texture.
 	CTF_CheckOnly = 8,		// Only runs the code to get a content ID but does not create a texture. Can be used to access a caching system for the hardware textures.
 	CTF_ProcessData = 16,	// run postprocessing on the generated buffer. This is only needed when using the data for a hardware texture.
+	CTF_IndexedRedIsAlpha = 32,	// Tell the backend to create an indexed alpha texture.
 };
 
 class FHardwareTextureContainer

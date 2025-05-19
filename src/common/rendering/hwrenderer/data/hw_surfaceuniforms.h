@@ -44,10 +44,10 @@ struct SurfaceUniforms
 
 	float uAlphaThreshold;
 	int uTextureIndex;
-	float uDepthFadeThreshold;
+	int uColormapIndex;
 	int uLightProbeIndex;
 	FVector3 uActorCenter;
-	float padding2;
+	float uDepthFadeThreshold;
 };
 
 struct SurfaceLightUniforms

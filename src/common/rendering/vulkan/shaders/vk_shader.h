@@ -105,7 +105,7 @@ public:
 			uint64_t LightMode : 2;     // LIGHTMODE_DEFAULT, LIGHTMODE_SOFTWARE, LIGHTMODE_VANILLA, LIGHTMODE_BUILD
 			uint64_t LightBlendMode : 2; // LIGHT_BLEND_CLAMPED , LIGHT_BLEND_COLORED_CLAMP , LIGHT_BLEND_UNCLAMPED
 			uint64_t LightAttenuationMode : 1; // LIGHT_ATTENUATION_LINEAR , LIGHT_ATTENUATION_INVERSE_SQUARE
-			uint64_t Unused5: 1;
+			uint64_t PaletteMode: 1;
 			uint64_t FogBalls : 1;      // FOGBALLS
 			uint64_t NoFragmentShader : 1;
 			uint64_t DepthFadeThreshold : 1;

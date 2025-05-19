@@ -55,6 +55,7 @@
 #define uLightDist data[uDataIndex].uLightDist
 #define uAlphaThreshold data[uDataIndex].uAlphaThreshold
 #define uTextureIndex data[uDataIndex].uTextureIndex
+#define uColormapIndex data[uDataIndex].uColormapIndex
 #define uDepthFadeThreshold data[uDataIndex].uDepthFadeThreshold
 #define uActorCenter data[uDataIndex].uActorCenter
 #define uLightProbeIndex data[uDataIndex].uLightProbeIndex

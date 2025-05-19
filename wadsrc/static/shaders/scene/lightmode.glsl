@@ -22,75 +22,96 @@
 
 vec4 getLightColor(Material material)
 {
-	vec4 color;
-	if (LIGHTMODE_DEFAULT)
-		color = Lightmode_Default();
-	else if (LIGHTMODE_SOFTWARE)
-		color = Lightmode_Software();
-	else if (LIGHTMODE_VANILLA)
-		color = Lightmode_Vanilla();
-	else if (LIGHTMODE_BUILD)
-		color = Lightmode_Build();
-
-	//
-	// handle glowing walls
-	//
-	if (uGlowTopColor.a > 0.0 && glowdist.x < uGlowTopColor.a)
+	if (PALETTEMODE)
 	{
-		color.rgb += desaturate(uGlowTopColor * (1.0 - glowdist.x / uGlowTopColor.a)).rgb;
-	}
-	if (uGlowBottomColor.a > 0.0 && glowdist.y < uGlowBottomColor.a)
-	{
-		color.rgb += desaturate(uGlowBottomColor * (1.0 - glowdist.y / uGlowBottomColor.a)).rgb;
-	}
-	color = min(color, 1.0);
+		int color = int(material.Base.r * 255.0 + 0.5);
 
-	// these cannot be safely applied by the legacy format where the implementation cannot guarantee that the values are set.
-#if !defined LEGACY_USER_SHADER && !defined NO_LAYERS
-	//
-	// apply glow 
-	//
-	color.rgb = mix(color.rgb, material.Glow.rgb, material.Glow.a);
-
-	//
-	// apply brightmaps 
-	//
-	color.rgb = min(color.rgb + material.Bright.rgb, 1.0);
-#endif
-
-	//
-	// apply lightmaps
-	//
-	if (vLightmap.z >= 0.0)
-	{
-		color.rgb += texture(LightMap, vLightmap).rgb;
-	}
-
-	//
-	// apply dynamic lights
-	//
-	vec4 frag = vec4(ProcessMaterialLight(material, color.rgb), material.Base.a * vColor.a);
-
-	//
-	// colored fog
-	//
-	if (FOG_AFTER_LIGHTS)
-	{
-		// calculate fog factor
-		float fogdist;
-		if (FOG_RADIAL)
-			fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+		// z is the depth in view space, positive going into the screen
+		float z;
+		if (SWLIGHT_RADIAL)
+			z = distance(pixelpos.xyz, uCameraPos.xyz);
 		else
-			fogdist = max(16.0, pixelpos.w);
-		float fogfactor = exp2 (uFogDensity * fogdist);
+			z = pixelpos.w;
 
-		frag = vec4(mix(uFogColor.rgb, frag.rgb, fogfactor), frag.a);
+		float L = uLightLevel * 255.0;
+		float vis = min(uGlobVis / z, 24.0 / 32.0);
+		float shade = 2.0 - (L + 12.0) / 128.0;
+		int light = max(int((shade - vis) * 32), 0);
+
+		return vec4(texelFetch(textures[uColormapIndex], ivec2(color, light), 0).rgb, 1.0);
 	}
+	else
+	{
+		vec4 color;
+		if (LIGHTMODE_DEFAULT)
+			color = Lightmode_Default();
+		else if (LIGHTMODE_SOFTWARE)
+			color = Lightmode_Software();
+		else if (LIGHTMODE_VANILLA)
+			color = Lightmode_Vanilla();
+		else if (LIGHTMODE_BUILD)
+			color = Lightmode_Build();
 
-	if (FOGBALLS)
-		frag = ProcessFogBalls(frag);
+		//
+		// handle glowing walls
+		//
+		if (uGlowTopColor.a > 0.0 && glowdist.x < uGlowTopColor.a)
+		{
+			color.rgb += desaturate(uGlowTopColor * (1.0 - glowdist.x / uGlowTopColor.a)).rgb;
+		}
+		if (uGlowBottomColor.a > 0.0 && glowdist.y < uGlowBottomColor.a)
+		{
+			color.rgb += desaturate(uGlowBottomColor * (1.0 - glowdist.y / uGlowBottomColor.a)).rgb;
+		}
+		color = min(color, 1.0);
 
-	return frag;
+		// these cannot be safely applied by the legacy format where the implementation cannot guarantee that the values are set.
+	#if !defined LEGACY_USER_SHADER && !defined NO_LAYERS
+		//
+		// apply glow 
+		//
+		color.rgb = mix(color.rgb, material.Glow.rgb, material.Glow.a);
+
+		//
+		// apply brightmaps 
+		//
+		color.rgb = min(color.rgb + material.Bright.rgb, 1.0);
+	#endif
+
+		//
+		// apply lightmaps
+		//
+		if (vLightmap.z >= 0.0)
+		{
+			color.rgb += texture(LightMap, vLightmap).rgb;
+		}
+
+		//
+		// apply dynamic lights
+		//
+		vec4 frag = vec4(ProcessMaterialLight(material, color.rgb), material.Base.a * vColor.a);
+
+		//
+		// colored fog
+		//
+		if (FOG_AFTER_LIGHTS)
+		{
+			// calculate fog factor
+			float fogdist;
+			if (FOG_RADIAL)
+				fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
+			else
+				fogdist = max(16.0, pixelpos.w);
+			float fogfactor = exp2 (uFogDensity * fogdist);
+
+			frag = vec4(mix(uFogColor.rgb, frag.rgb, fogfactor), frag.a);
+		}
+
+		if (FOGBALLS)
+			frag = ProcessFogBalls(frag);
+
+		return frag;
+	}
 }
 
 // The color of the fragment if it is fully occluded by ambient lighting
