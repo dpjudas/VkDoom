@@ -11,6 +11,10 @@ int I_GameMain(HINSTANCE hInstance, HINSTANCE nothing, LPWSTR cmdline, int nCmdS
 #include <cstdint>
 #pragma comment(linker,"/ENTRY:mainStartup")
 
+#ifdef __AVX2__
+#error "This file must be compiled with /arch:SSE2"
+#endif
+
 extern "C"
 {
 	int WINAPI wWinMainCRTStartup();
