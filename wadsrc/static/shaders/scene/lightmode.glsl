@@ -45,7 +45,7 @@ vec4 getLightColor(Material material)
 		float L = uLightLevel * 255.0;
 		float vis = min(uGlobVis / z, 24.0 / 32.0);
 		float shade = 2.0 - (L + 12.0) / 128.0;
-		int light = max(int((shade - vis) * 32), 0);
+		int light = clamp(int((shade - vis) * 32), 0, 31);
 
 		vec3 matColor = texelFetch(textures[uColormapIndex], ivec2(color, 0), 0).rgb;
 		vec4 frag = vec4(texelFetch(textures[uColormapIndex], ivec2(color, light), 0).rgb, 1.0);

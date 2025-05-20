@@ -32,6 +32,8 @@
 #include "hw_lighting.h"
 #include "hw_cvars.h"
 #include "hw_drawcontext.h"
+#include "d_main.h"
+#include "rendering/swrenderer/r_swcolormaps.h"
 
 //==========================================================================
 //
@@ -51,8 +53,16 @@ void SetColor(FRenderState &state, FLevelLocals* Level, ELightMode lightmode, in
 		int hwlightlevel = CalcLightLevel(lightmode, sectorlightlevel, rellight, weapon, cm.BlendFactor);
 		PalEntry pe = CalcLightColor(lightmode, hwlightlevel, cm.LightColor, cm.BlendFactor);
 		state.SetColorAlpha(pe, alpha, cm.Desaturation);
-		if (isSoftwareLighting(lightmode)) state.SetSoftLightLevel(hw_ClampLight(sectorlightlevel + rellight), cm.BlendFactor);
-		else state.SetNoSoftLightLevel();
+		if (V_IsTrueColor())
+		{
+			if (isSoftwareLighting(lightmode)) state.SetSoftLightLevel(hw_ClampLight(sectorlightlevel + rellight), cm.BlendFactor);
+			else state.SetNoSoftLightLevel();
+		}
+		else
+		{
+			state.SetSoftLightLevel(hw_ClampLight(sectorlightlevel + rellight), 0);
+			state.SetSWColormap(GetColorTable(cm));
+		}
 	}
 }
 
@@ -69,8 +79,15 @@ void SetColor(SurfaceLightUniforms& uniforms, FLevelLocals* Level, ELightMode li
 		int hwlightlevel = CalcLightLevel(lightmode, sectorlightlevel, rellight, weapon, cm.BlendFactor);
 		PalEntry pe = CalcLightColor(lightmode, hwlightlevel, cm.LightColor, cm.BlendFactor);
 		uniforms.SetColorAlpha(pe, alpha, cm.Desaturation);
-		if (isSoftwareLighting(lightmode)) uniforms.SetSoftLightLevel(hw_ClampLight(sectorlightlevel + rellight), cm.BlendFactor);
-		else uniforms.SetNoSoftLightLevel();
+		if (V_IsTrueColor())
+		{
+			if (isSoftwareLighting(lightmode)) uniforms.SetSoftLightLevel(hw_ClampLight(sectorlightlevel + rellight), cm.BlendFactor);
+			else uniforms.SetNoSoftLightLevel();
+		}
+		else
+		{
+			uniforms.SetSoftLightLevel(hw_ClampLight(sectorlightlevel + rellight), 0);
+		}
 	}
 }
 
