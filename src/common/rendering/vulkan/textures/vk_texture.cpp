@@ -309,7 +309,7 @@ VulkanImageView* VkTextureManager::GetSWColormapView(FSWColormap* colormap)
 
 	tex.Texture = ImageBuilder()
 		.Format(VK_FORMAT_B8G8R8A8_UNORM)
-		.Size(256, 32)
+		.Size(256, 33)
 		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 		.DebugName("VkDescriptorSetManager.SWColormap")
 		.Create(fb->GetDevice());
@@ -326,17 +326,21 @@ VulkanImageView* VkTextureManager::GetSWColormapView(FSWColormap* colormap)
 		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	auto stagingBuffer = BufferBuilder()
-		.Size(256 * 32 * sizeof(uint32_t))
+		.Size(256 * 33 * sizeof(uint32_t))
 		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
 		.DebugName("VkDescriptorSetManager.SWColormapStagingBuffer")
 		.Create(fb->GetDevice());
 
 	const uint8_t* src = colormap->Maps;
-	uint32_t* data = static_cast<uint32_t*>(stagingBuffer->Map(0, 256 * 32 * sizeof(uint32_t)));
+	uint32_t* data = static_cast<uint32_t*>(stagingBuffer->Map(0, 256 * 33 * sizeof(uint32_t)));
 	for (int i = 0; i < 256 * 32; i++)
 	{
 		data[i] = GPalette.BaseColors[src[i]].d;
 	}
+
+	// Always include the game palette as we need it for dynlights (they ignore the fog for stupid reasons)
+	memcpy(data + 256 * 32, GPalette.BaseColors, 256 * sizeof(uint32_t));
+	
 	stagingBuffer->Unmap();
 
 	VkBufferImageCopy region = {};
@@ -344,7 +348,7 @@ VulkanImageView* VkTextureManager::GetSWColormapView(FSWColormap* colormap)
 	region.imageSubresource.layerCount = 1;
 	region.imageExtent.depth = 1;
 	region.imageExtent.width = 256;
-	region.imageExtent.height = 32;
+	region.imageExtent.height = 33;
 	cmdbuffer->copyBufferToImage(stagingBuffer->buffer, tex.Texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 	fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
