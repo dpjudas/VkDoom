@@ -1240,6 +1240,12 @@ set_source_files_properties( common/engine/sc_man.cpp PROPERTIES OBJECT_DEPENDS 
 set_source_files_properties( ${NOT_COMPILED_SOURCE_FILES} PROPERTIES HEADER_FILE_ONLY TRUE )
 set_source_files_properties( ${GAME_NONPCH_SOURCES} common/textures/hires/hqresize.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE )
 
+# Disable AVX2 for the entry point as we want to do a CPU check first
+if(MSVC)
+	if(X64)
+		set_source_files_properties( gamemain.cpp PROPERTIES COMPILE_FLAGS /arch:SSE2 )
+	endif()
+endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "SunOS")
 	# [BL] Solaris requires these to be explicitly linked.
