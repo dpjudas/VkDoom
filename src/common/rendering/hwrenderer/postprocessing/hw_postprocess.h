@@ -531,11 +531,11 @@ class PPTonemap
 {
 public:
 	void SetTonemapMode(ETonemapMode tm) { level_tonemap = tm; }
-	void Render(PPRenderState *renderstate);
+	void Render(PPRenderState *renderstate, bool palettePostprocess);
 	void ClearTonemapPalette() { PaletteTexture = {}; }
 
 private:
-	void UpdateTextures();
+	void UpdateTextures(bool palettePostprocess);
 
 	PPTexture PaletteTexture;
 
@@ -827,7 +827,7 @@ public:
 
 	void SetTonemapMode(ETonemapMode tm) { tonemap.SetTonemapMode(tm); }
 	void Pass1(PPRenderState *state, int fixedcm, int sceneWidth, int sceneHeight);
-	void Pass2(PPRenderState* state, int fixedcm, float flash, int sceneWidth, int sceneHeight);
+	void Pass2(PPRenderState* state, int fixedcm, float flash, bool palettePostprocess, int sceneWidth, int sceneHeight);
 };
 
 

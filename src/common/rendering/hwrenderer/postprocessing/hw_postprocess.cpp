@@ -574,10 +574,10 @@ void PPColormap::Render(PPRenderState *renderstate, int fixedcm, float flash)
 
 /////////////////////////////////////////////////////////////////////////////
 
-void PPTonemap::UpdateTextures()
+void PPTonemap::UpdateTextures(bool palettePostprocess)
 {
 	// level.info->tonemap cannot be ETonemapMode::Palette, so it's fine to only check gl_tonemap here
-	if (ETonemapMode((int)gl_tonemap) == ETonemapMode::Palette && !PaletteTexture.Data)
+	if ((palettePostprocess || ETonemapMode((int)gl_tonemap) == ETonemapMode::Palette) && !PaletteTexture.Data)
 	{
 		std::shared_ptr<void> data(new uint32_t[512 * 512], [](void *p) { delete[](uint32_t*)p; });
 
@@ -588,8 +588,13 @@ void PPTonemap::UpdateTextures()
 			{
 				for (int b = 0; b < 64; b++)
 				{
+					// Use the exact math from the software renderer.
+					// Hardware renderer palette emulation needs a post process pass to fix up translucent stuff.
+					PalEntry color = GPalette.BaseColors[ColorMatcher.Pick((r << 2) | (r >> 4), (g << 2) | (g >> 4), (b << 2) | (b >> 4))];
+/*
 					PalEntry color = GPalette.BaseColors[(uint8_t)PTM_BestColor((uint32_t *)GPalette.BaseColors, (r << 2) | (r >> 4), (g << 2) | (g >> 4), (b << 2) | (b >> 4),
 						gl_paltonemap_reverselookup, gl_paltonemap_powtable, 0, 256)];
+*/
 					int index = ((r * 64 + g) * 64 + b) * 4;
 					lut[index] = color.r;
 					lut[index + 1] = color.g;
@@ -603,16 +608,19 @@ void PPTonemap::UpdateTextures()
 	}
 }
 
-void PPTonemap::Render(PPRenderState *renderstate)
+void PPTonemap::Render(PPRenderState *renderstate, bool palettePostprocess)
 {
 	ETonemapMode current_tonemap = (level_tonemap != ETonemapMode::None) ? level_tonemap : ETonemapMode((int)gl_tonemap);
+
+	if (palettePostprocess)
+		current_tonemap = ETonemapMode::Palette;
 
 	if (current_tonemap == ETonemapMode::None)
 	{
 		return;
 	}
 
-	UpdateTextures();
+	UpdateTextures(palettePostprocess);
 
 	PPShader *shader = nullptr;
 	switch (current_tonemap)
@@ -1167,9 +1175,9 @@ void Postprocess::Pass1(PPRenderState* state, int fixedcm, int sceneWidth, int s
 	bloom.RenderBloom(state, sceneWidth, sceneHeight, fixedcm);
 }
 
-void Postprocess::Pass2(PPRenderState* state, int fixedcm, float flash, int sceneWidth, int sceneHeight)
+void Postprocess::Pass2(PPRenderState* state, int fixedcm, float flash, bool palettePostprocess, int sceneWidth, int sceneHeight)
 {
-	tonemap.Render(state);
+	tonemap.Render(state, palettePostprocess);
 	colormap.Render(state, fixedcm, flash);
 	lens.Render(state);
 	fxaa.Render(state);

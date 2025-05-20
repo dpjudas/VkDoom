@@ -24,7 +24,7 @@ public:
 	~VkPostprocess();
 
 	void SetActiveRenderTarget();
-	void PostProcessScene(int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D);
+	void PostProcessScene(int fixedcm, float flash, bool palettePostprocess, const std::function<void()> &afterBloomDrawEndScene2D);
 
 	void UpdateLinearDepthTexture();
 	void AmbientOccludeScene(float m5);

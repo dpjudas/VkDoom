@@ -64,7 +64,7 @@ void VkPostprocess::SetActiveRenderTarget()
 	fb->GetRenderState()->SetRenderTarget(&buffers->PipelineImage[mCurrentPipelineImage], buffers->PipelineDepthStencil.View.get(), buffers->GetWidth(), buffers->GetHeight(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_SAMPLE_COUNT_1_BIT);
 }
 
-void VkPostprocess::PostProcessScene(int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D)
+void VkPostprocess::PostProcessScene(int fixedcm, float flash, bool palettePostprocess, const std::function<void()> &afterBloomDrawEndScene2D)
 {
 	fb->GetRenderState()->EndRenderPass();
 	fb->GetCommands()->FlushCommands(false);
@@ -77,7 +77,7 @@ void VkPostprocess::PostProcessScene(int fixedcm, float flash, const std::functi
 	hw_postprocess.Pass1(&renderstate, fixedcm, sceneWidth, sceneHeight);
 	SetActiveRenderTarget();
 	afterBloomDrawEndScene2D();
-	hw_postprocess.Pass2(&renderstate, fixedcm, flash, sceneWidth, sceneHeight);
+	hw_postprocess.Pass2(&renderstate, fixedcm, flash, palettePostprocess, sceneWidth, sceneHeight);
 }
 
 void VkPostprocess::BlitSceneToPostprocess()

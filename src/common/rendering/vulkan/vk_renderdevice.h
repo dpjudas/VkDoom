@@ -66,7 +66,7 @@ public:
 	void StartPrecaching() override;
 	void BeginFrame() override;
 	void BlurScene(float amount) override;
-	void PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D) override;
+	void PostProcessScene(bool swscene, int fixedcm, float flash, bool palettePostprocess, const std::function<void()> &afterBloomDrawEndScene2D) override;
 	void UpdateLinearDepthTexture() override;
 	void AmbientOccludeScene(float m5) override;
 	void SetSceneRenderTarget(bool useSSAO) override;

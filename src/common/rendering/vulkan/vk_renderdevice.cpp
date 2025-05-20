@@ -403,10 +403,10 @@ void VulkanRenderDevice::UploadEnvironmentMaps(int cubemapCount, const TArray<ui
 	mTextureManager->CreatePrefiltermap(128, 6 * cubemapCount, prefilterMaps);
 }
 
-void VulkanRenderDevice::PostProcessScene(bool swscene, int fixedcm, float flash, const std::function<void()> &afterBloomDrawEndScene2D)
+void VulkanRenderDevice::PostProcessScene(bool swscene, int fixedcm, float flash, bool palettePostprocess, const std::function<void()> &afterBloomDrawEndScene2D)
 {
 	if (!swscene) mPostprocess->BlitSceneToPostprocess(); // Copy the resulting scene to the current post process texture
-	mPostprocess->PostProcessScene(fixedcm, flash, afterBloomDrawEndScene2D);
+	mPostprocess->PostProcessScene(fixedcm, flash, palettePostprocess, afterBloomDrawEndScene2D);
 }
 
 const char* VulkanRenderDevice::DeviceName() const
