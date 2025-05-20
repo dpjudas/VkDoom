@@ -834,13 +834,13 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 
 	drawlists[GLDL_MODELS].Draw(this, state, false);
 
+	state.SetPaletteMode(false); // Translucent stuff uses other rules in the software renderer. We don't support that right now.
+
 	state.SetRenderStyle(STYLE_Translucent);
 
 	// Part 4: Draw decals (not a real pass)
 	state.SetDepthFunc(DF_LEqual);
 	DrawDecals(state, Decals[0]);
-
-	state.SetPaletteMode(false);
 
 	RenderAll.Unclock();
 }
