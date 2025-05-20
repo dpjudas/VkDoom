@@ -119,12 +119,16 @@ public:
 //
 //==========================================================================
 
+static float mix(float a, float b, float t)
+{
+	return a * (1.0f - t) + t * b;
+}
 
-float inverseSquareAttenuation(float dist, float radius, float strength)
+float inverseSquareAttenuation(float dist, float radius, float strength, float linearity)
 {
 	float a = dist / radius;
-	float b = clamp(1.0 - a * a * a * a, 0.0, 1.0);
-	return (b * b) / (dist * dist + 1.0) * strength;
+	float b = clamp(1.0f - a * a * a * a, 0.0f, 1.0f);
+	return mix(((b * b) / (dist * dist + 1.0f) * strength), clamp((radius - dist) / radius, 0.0f, 1.0f), linearity);
 }
 
 void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache, double x, double y, double z, FLightNode *node, int portalgroup, float *out, bool fullbright)
@@ -192,7 +196,7 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache,
 				{
 					if(level.info->lightattenuationmode == ELightAttenuationMode::INVERSE_SQUARE)
 					{
-						frac = (inverseSquareAttenuation(std::max(dist, sqrt(radius) * 2), radius, light->GetStrength()));
+						frac = (inverseSquareAttenuation(std::max(dist, sqrt(radius) * 2), radius, light->GetStrength(), light->GetLinearity()));
 					}
 					else
 					{
