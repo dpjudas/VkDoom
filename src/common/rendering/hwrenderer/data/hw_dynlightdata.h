@@ -66,7 +66,7 @@ enum FDynLightDataArrays
 	LIGHTARRAY_ADDITIVE,
 };
 
-#define MAX_LIGHT_DATA 8192
+#define MAX_LIGHT_DATA 80000
 
 struct FDynLightData
 {
