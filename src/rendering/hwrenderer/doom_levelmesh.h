@@ -54,8 +54,8 @@ struct DrawRangeInfo
 {
 	int PipelineID = 0;
 	LevelMeshDrawType DrawType = {};
-	int DrawIndexStart = 0;
-	int DrawIndexCount = 0;
+	int IndexStart = 0;
+	int IndexCount = 0;
 };
 
 enum SurfaceUpdateType
@@ -106,6 +106,9 @@ public:
 	void BuildSectorGroups(const FLevelLocals& doomMap);
 
 	void ProcessDecals(HWDrawInfo* drawinfo, FRenderState& state);
+
+	void DrawSector(FRenderState& renderstate, int sectorIndex, LevelMeshDrawType drawType, bool noFragmentShader);
+	void DrawSide(FRenderState& renderstate, int sideIndex, LevelMeshDrawType drawType, bool noFragmentShader);
 
 	TArray<int> SideDecals;
 	TArray<int> SidePortals;
@@ -197,8 +200,6 @@ private:
 	void CopyToMeshLight(FDynamicLight* light, LevelMeshLight& meshlight, int portalgroup);
 
 	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType);
-	void RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges);
-	void SortDrawLists();
 
 	void UploadDynLights(FLevelLocals& doomMap);
 

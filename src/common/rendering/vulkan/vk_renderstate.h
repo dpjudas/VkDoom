@@ -57,8 +57,8 @@ public:
 	void ResetVertices() override;
 
 	// Draw level mesh
+	void DrawLevelMeshRange(int firstIndex, int indexCount, int pipelineID, LevelMeshDrawType drawType, bool noFragmentShader) override;
 	void DispatchLightTiles(const VSMatrix& worldToView, float m5) override;
-	void DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader) override;
 	int GetNextQueryIndex() override;
 	void BeginQuery() override;
 	void EndQuery() override;

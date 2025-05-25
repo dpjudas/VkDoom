@@ -58,7 +58,6 @@ void VkLevelMesh::Reset()
 	deletelist->Add(std::move(PortalBuffer));
 	deletelist->Add(std::move(LightBuffer));
 	deletelist->Add(std::move(LightIndexBuffer));
-	deletelist->Add(std::move(DrawIndexBuffer));
 	for (BLAS& blas : DynamicBLAS)
 	{
 		deletelist->Add(std::move(blas.ScratchBuffer));
@@ -255,12 +254,6 @@ void VkLevelMesh::CreateBuffers()
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
 		.Size((size_t)Mesh->Mesh.Indexes.Size() * sizeof(uint32_t))
 		.DebugName("IndexBuffer")
-		.Create(fb->GetDevice());
-
-	DrawIndexBuffer = BufferBuilder()
-		.Usage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size((size_t)Mesh->Mesh.DrawIndexes.Size() * sizeof(uint32_t))
-		.DebugName("DrawIndexBuffer")
 		.Create(fb->GetDevice());
 
 	NodeBuffer = BufferBuilder()
@@ -704,7 +697,6 @@ void VkLevelMeshUploader::Upload()
 		UploadRanges(Mesh->Mesh->UploadRanges.Index, Mesh->Mesh->Mesh.Indexes.Data(), Mesh->IndexBuffer.get(), "IndexBuffer");
 		UploadRanges(Mesh->Mesh->UploadRanges.SurfaceIndex, Mesh->Mesh->Mesh.SurfaceIndexes.Data(), Mesh->SurfaceIndexBuffer.get(), "SurfaceIndexBuffer");
 		UploadRanges(Mesh->Mesh->UploadRanges.LightIndex, Mesh->Mesh->Mesh.LightIndexes.Data(), Mesh->LightIndexBuffer.get(), "LightIndexBuffer");
-		UploadRanges(Mesh->Mesh->UploadRanges.DrawIndex, Mesh->Mesh->Mesh.DrawIndexes.Data(), Mesh->DrawIndexBuffer.get(), "DrawIndexBuffer");
 		UploadRanges(Mesh->Mesh->UploadRanges.LightUniforms, Mesh->Mesh->Mesh.LightUniforms.Data(), Mesh->LightUniformsBuffer.get(), "LightUniformsBuffer");
 		UploadRanges(Mesh->Mesh->UploadRanges.DynLight, Mesh->Mesh->Mesh.DynLights.Data(), Mesh->DynLightBuffer.get(), "DynLightBuffer");
 		UploadSurfaces();
@@ -746,7 +738,6 @@ void VkLevelMeshUploader::ClearRanges()
 	Mesh->Mesh->UploadRanges.Light.Clear();
 	Mesh->Mesh->UploadRanges.LightIndex.Clear();
 	Mesh->Mesh->UploadRanges.DynLight.Clear();
-	Mesh->Mesh->UploadRanges.DrawIndex.Clear();
 }
 
 void VkLevelMeshUploader::BeginTransfer(size_t transferBufferSize)
@@ -948,6 +939,5 @@ size_t VkLevelMeshUploader::GetTransferSize()
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.LightIndex.GetRanges()) transferBufferSize += range.Count() * sizeof(int32_t);
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.Light.GetRanges()) transferBufferSize += range.Count() * sizeof(LightInfo);
 	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.DynLight.GetRanges()) transferBufferSize += range.Count();
-	for (const MeshBufferRange& range : Mesh->Mesh->UploadRanges.DrawIndex.GetRanges()) transferBufferSize += range.Count() * sizeof(uint32_t);
 	return transferBufferSize;
 }

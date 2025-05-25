@@ -46,13 +46,10 @@ void LevelMesh::Reset(const LevelMeshLimits& limits)
 	Mesh.Indexes.Resize(limits.MaxIndexes);
 	Mesh.SurfaceIndexes.Resize(limits.MaxIndexes / 3 + 1);
 
-	Mesh.DrawIndexes.Resize(limits.MaxIndexes);
-
 	FreeLists.Vertex.Reset(limits.MaxVertices);
 	FreeLists.Index.Reset(limits.MaxIndexes);
 	FreeLists.Uniforms.Reset(limits.MaxUniforms);
 	FreeLists.Surface.Reset(limits.MaxSurfaces);
-	FreeLists.DrawIndex.Reset(limits.MaxIndexes);
 	FreeLists.LightIndex.Reset(limits.MaxSurfaces * 10);
 	FreeLists.Light.Reset(maxLights);
 }

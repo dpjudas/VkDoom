@@ -180,9 +180,6 @@ public:
 		TArray<int> SurfaceIndexes;
 		int IndexCount = 0; // Index range filled with data
 
-		// Indexes sorted by pipeline
-		TArray<uint32_t> DrawIndexes;
-
 		// Acceleration structure nodes for when the GPU doesn't support rayquery
 		TArray<CollisionNode> Nodes;
 		int RootNode = 0;
@@ -203,7 +200,6 @@ public:
 		MeshBufferUploads Light;
 		MeshBufferUploads LightIndex;
 		MeshBufferUploads DynLight;
-		MeshBufferUploads DrawIndex;
 	} UploadRanges;
 
 	// Ranges in mesh currently not in use
@@ -215,14 +211,10 @@ public:
 		MeshBufferAllocator Surface;
 		MeshBufferAllocator Light;
 		MeshBufferAllocator LightIndex;
-		MeshBufferAllocator DrawIndex;
 	} FreeLists;
 
 	// Data structure for doing mesh traces on the CPU
 	std::unique_ptr<CPUAccelStruct> Collision;
-
-	// Draw index ranges for rendering the level mesh, grouped by pipeline
-	std::unordered_map<int, LevelMeshDrawList> DrawList[(int)LevelMeshDrawType::NumDrawTypes];
 
 	// Lightmap tiles and their locations in the texture atlas
 	struct

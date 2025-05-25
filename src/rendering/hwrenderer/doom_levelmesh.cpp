@@ -248,7 +248,6 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 
 	CreateCollision();
 	UploadPortals();
-	SortDrawLists();
 
 	r_viewpoint.extralight = oldextralight;
 	r_viewpoint.camera = oldcamera;
@@ -317,6 +316,28 @@ void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
 	limits.MaxIndexes *= 2;
 
 	Reset(limits);
+}
+
+void DoomLevelMesh::DrawSector(FRenderState& renderstate, int sectorIndex, LevelMeshDrawType drawType, bool noFragmentShader)
+{
+	for (const DrawRangeInfo& di : Flats[sectorIndex].DrawRanges)
+	{
+		if (di.DrawType == drawType)
+		{
+			renderstate.DrawLevelMeshRange(di.IndexStart, di.IndexCount, di.PipelineID, drawType, noFragmentShader);
+		}
+	}
+}
+
+void DoomLevelMesh::DrawSide(FRenderState& renderstate, int sideIndex, LevelMeshDrawType drawType, bool noFragmentShader)
+{
+	for (const DrawRangeInfo& di : Sides[sideIndex].DrawRanges)
+	{
+		if (di.DrawType == drawType)
+		{
+			renderstate.DrawLevelMeshRange(di.IndexStart, di.IndexCount, di.PipelineID, drawType, noFragmentShader);
+		}
+	}
 }
 
 void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
@@ -640,7 +661,6 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
 	Sides[sideIndex].Geometries.Clear();
 
-	RemoveFromDrawList(Sides[sideIndex].DrawRanges);
 	Sides[sideIndex].DrawRanges.Clear();
 
 	for (auto& uni : Sides[sideIndex].Uniforms)
@@ -683,7 +703,6 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
 	Flats[sectorIndex].Geometries.Clear();
 
-	RemoveFromDrawList(Flats[sectorIndex].DrawRanges);
 	Flats[sectorIndex].DrawRanges.Clear();
 
 	for (auto& uni : Flats[sectorIndex].Uniforms)
@@ -1372,77 +1391,12 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 
 void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType)
 {
-	// Remember the location if we have to remove it again
 	DrawRangeInfo info;
-	info.DrawIndexStart = FreeLists.DrawIndex.Alloc(indexCount);
-	info.DrawIndexCount = indexCount;
+	info.IndexStart = indexStart;
+	info.IndexCount = indexCount;
 	info.DrawType = drawType;
 	info.PipelineID = pipelineID;
 	drawRanges.Push(info);
-
-	// Copy the indexes over from the unsorted index list
-	memcpy(&Mesh.DrawIndexes[info.DrawIndexStart], &Mesh.Indexes[indexStart], indexCount * sizeof(uint32_t));
-	UploadRanges.DrawIndex.Add(info.DrawIndexStart, indexCount);
-
-	// Add to the draw lists
-	DrawList[(int)drawType][pipelineID].Add(info.DrawIndexStart, indexCount);
-}
-
-void DoomLevelMesh::RemoveFromDrawList(const TArray<DrawRangeInfo>& drawRanges)
-{
-	for (const DrawRangeInfo& info : drawRanges)
-	{
-		DrawList[(int)info.DrawType][info.PipelineID].Remove(info.DrawIndexStart, info.DrawIndexCount);
-		FreeLists.DrawIndex.Free(info.DrawIndexStart, info.DrawIndexCount);
-	}
-}
-
-void DoomLevelMesh::SortDrawLists()
-{
-	std::unordered_map<int, TArray<DrawRangeInfo*>> sortedDrawList[(int)LevelMeshDrawType::NumDrawTypes];
-
-	for (auto& side : Sides)
-	{
-		for (auto& range : side.DrawRanges)
-		{
-			sortedDrawList[(int)range.DrawType][range.PipelineID].Push(&range);
-		}
-	}
-
-	for (auto& flat : Flats)
-	{
-		for (auto& range : flat.DrawRanges)
-		{
-			sortedDrawList[(int)range.DrawType][range.PipelineID].Push(&range);
-		}
-	}
-
-	TArray<uint32_t> indexes;
-
-	for (int drawType = 0; drawType < (int)LevelMeshDrawType::NumDrawTypes; drawType++)
-	{
-		DrawList[drawType].clear();
-		for (auto& it : sortedDrawList[drawType])
-		{
-			auto& list = DrawList[drawType][it.first];
-			int listStart = indexes.Size();
-			for (DrawRangeInfo* range : it.second)
-			{
-				int sortedStart = indexes.Size();
-				int start = range->DrawIndexStart;
-				int count = range->DrawIndexCount;
-				for (int i = 0; i < count; i++)
-				{
-					indexes.Push(Mesh.DrawIndexes[start + i]);
-				}
-				range->DrawIndexStart = sortedStart;
-			}
-			int listEnd = indexes.Size();
-			list.Add(listStart, listEnd - listStart);
-		}
-	}
-
-	memcpy(Mesh.DrawIndexes.Data(), indexes.Data(), indexes.Size() * sizeof(uint32_t));
 }
 
 int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMeshSurface& surf, uint16_t sampleDimension, uint8_t alwaysUpdate)

@@ -923,7 +923,7 @@ void VkRenderState::ApplyLevelMesh()
 	VkBuffer vertexBuffers[2] = { fb->GetLevelMesh()->GetVertexBuffer()->buffer, fb->GetLevelMesh()->GetUniformIndexBuffer()->buffer };
 	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
 	mCommandBuffer->bindVertexBuffers(0, 2, vertexBuffers, vertexBufferOffsets);
-	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetDrawIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+	mCommandBuffer->bindIndexBuffer(fb->GetLevelMesh()->GetIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
 void VkRenderState::RunZMinMaxPass()
@@ -1055,23 +1055,14 @@ void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
 	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
-void VkRenderState::DrawLevelMesh(LevelMeshDrawType drawType, bool noFragmentShader)
+void VkRenderState::DrawLevelMeshRange(int firstIndex, int indexCount, int pipelineID, LevelMeshDrawType drawType, bool noFragmentShader)
 {
 	ApplyLevelMesh();
 
-	auto mesh = fb->GetLevelMesh()->GetMesh();
-	for (auto& it : mesh->DrawList[(int)drawType])
-	{
-		int pipelineID = it.first;
-		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
+	const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
+	ApplyLevelMeshPipeline(mCommandBuffer, key, drawType, noFragmentShader);
 
-		ApplyLevelMeshPipeline(mCommandBuffer, key, drawType, noFragmentShader);
-
-		for (const MeshBufferRange& range : it.second.GetRanges())
-		{
-			mCommandBuffer->drawIndexed(range.End - range.Start, 1, range.Start, 0, 0);
-		}
-	}
+	mCommandBuffer->drawIndexed(indexCount, 1, firstIndex, 0, 0);
 }
 
 void VkRenderState::BeginQuery()

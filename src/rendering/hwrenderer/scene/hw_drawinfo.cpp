@@ -477,12 +477,29 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		// draw level into depth buffer
 		state.SetColorMask(false);
 		state.SetCulling(Cull_CW);
-		state.DrawLevelMesh(LevelMeshDrawType::Opaque, true);
-		state.DrawLevelMesh(LevelMeshDrawType::Masked, true);
+
+		int numSectors = level.sectors.Size();
+		int numSides = level.sides.Size();
+
+		for (int i = 0; i < numSectors; i++)
+			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Opaque, true);
+		for (int i = 0; i < numSides; i++)
+			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Opaque, true);
+
+		for (int i = 0; i < numSectors; i++)
+			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Masked, true);
+		for (int i = 0; i < numSides; i++)
+			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Masked, true);
+
 		if (gl_portals)
 		{
 			state.SetDepthBias(1, 128);
-			state.DrawLevelMesh(LevelMeshDrawType::Portal, true);
+
+			for (int i = 0; i < numSectors; i++)
+				level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Portal, true);
+			for (int i = 0; i < numSides; i++)
+				level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Portal, true);
+
 			state.SetDepthBias(0, 0);
 		}
 
@@ -518,12 +535,26 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
 
 		// draw opaque level so the GPU has something to do while we examine the query results
-		state.DrawLevelMesh(LevelMeshDrawType::Opaque, false);
-		state.DrawLevelMesh(LevelMeshDrawType::Masked, false);
+
+		for (int i = 0; i < numSectors; i++)
+			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Opaque, false);
+		for (int i = 0; i < numSides; i++)
+			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Opaque, false);
+
+		for (int i = 0; i < numSectors; i++)
+			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Masked, false);
+		for (int i = 0; i < numSides; i++)
+			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Masked, false);
+
 		if (!gl_portals)
 		{
 			state.SetDepthBias(1, 128);
-			state.DrawLevelMesh(LevelMeshDrawType::Portal, false);
+
+			for (int i = 0; i < numSectors; i++)
+				level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Portal, false);
+			for (int i = 0; i < numSides; i++)
+				level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Portal, false);
+
 			state.SetDepthBias(0, 0);
 		}
 		state.SetCulling(Cull_None);
