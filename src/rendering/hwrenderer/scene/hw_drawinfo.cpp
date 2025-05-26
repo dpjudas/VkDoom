@@ -464,168 +464,23 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 	// clip the scene and fill the drawlists
 
-	if (gl_levelmesh && !outer)
+	RenderBSP(Level->HeadNode(), drawpsprites, state);
+
+	if (uselevelmesh)
 	{
-		// Give the DrawInfo the viewpoint in fixed point because that's what the nodes are.
-		viewx = FLOAT2FIXED(Viewpoint.Pos.X);
-		viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
+		level.levelMesh->CurFrameStats.Portals++;
 
-		validcount++;	// used for processing sidedefs only once by the renderer.
-
-		auto& portals = level.levelMesh->WallPortals;
-
-		// draw level into depth buffer
-		state.SetColorMask(false);
-		state.SetCulling(Cull_CW);
-
-		int numSectors = level.sectors.Size();
-		int numSides = level.sides.Size();
-
-		for (int i = 0; i < numSectors; i++)
-			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Opaque, true);
-		for (int i = 0; i < numSides; i++)
-			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Opaque, true);
-
-		for (int i = 0; i < numSectors; i++)
-			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Masked, true);
-		for (int i = 0; i < numSides; i++)
-			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Masked, true);
-
-		if (gl_portals)
+		for (int sideIndex : SeenSides.Get())
 		{
-			state.SetDepthBias(1, 128);
-
-			for (int i = 0; i < numSectors; i++)
-				level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Portal, true);
-			for (int i = 0; i < numSides; i++)
-				level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Portal, true);
-
-			state.SetDepthBias(0, 0);
-		}
-
-		// use occlusion queries on all portals in level to decide which are visible
-		int queryStart = state.GetNextQueryIndex();
-		state.SetDepthMask(false);
-		state.EnableTexture(false);
-		state.SetEffect(EFF_PORTAL);
-
-		if (!gl_portals)
-			state.SetColorMask(true); // For debugging where the query is
-
-		for (HWWall* wall : portals)
-		{
-			state.BeginQuery();
-
-			// sector portals not handled yet by PutWallPortal
-			if (wall->portaltype != PORTALTYPE_SECTORSTACK)
+			for (HWWall& portal : level.levelMesh->GetSidePortals(sideIndex))
 			{
-				wall->MakeVertices(state, false);
-				wall->RenderWall(state, HWWall::RWF_BLANK);
-				wall->vertcount = 0;
-			}
-
-			state.EndQuery();
-		}
-		state.SetEffect(EFF_NONE);
-		state.EnableTexture(gl_texture);
-		state.SetColorMask(true);
-		state.SetDepthMask(true);
-		int queryEnd = state.GetNextQueryIndex();
-
-		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
-
-		// draw opaque level so the GPU has something to do while we examine the query results
-
-		for (int i = 0; i < numSectors; i++)
-			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Opaque, false);
-		for (int i = 0; i < numSides; i++)
-			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Opaque, false);
-
-		for (int i = 0; i < numSectors; i++)
-			level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Masked, false);
-		for (int i = 0; i < numSides; i++)
-			level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Masked, false);
-
-		if (!gl_portals)
-		{
-			state.SetDepthBias(1, 128);
-
-			for (int i = 0; i < numSectors; i++)
-				level.levelMesh->DrawSector(state, i, LevelMeshDrawType::Portal, false);
-			for (int i = 0; i < numSides; i++)
-				level.levelMesh->DrawSide(state, i, LevelMeshDrawType::Portal, false);
-
-			state.SetDepthBias(0, 0);
-		}
-		state.SetCulling(Cull_None);
-
-		if (queryStart != queryEnd)
-		{
-			// retrieve the query results and use them to fill the portal manager with portals
-			state.GetQueryResults(queryStart, queryEnd - queryStart, QueryResultsBuffer);
-			for (unsigned int i = 0, count = QueryResultsBuffer.Size(); i < count; i++)
-			{
-				bool portalVisible = QueryResultsBuffer[i];
-				if (portalVisible)
+				// sector portals not handled yet by PutWallPortal
+				if (portal.portaltype != PORTALTYPE_SECTORSTACK)
 				{
-					PutWallPortal(*portals[i], state);
+					PutWallPortal(portal, state);
 				}
 			}
 		}
-
-		// Draw Decals
-		{
-			level.levelMesh->ProcessDecals(this, state);
-			state.SetRenderStyle(STYLE_Translucent);
-			state.SetDepthFunc(DF_LEqual);
-			DrawDecals(state, Decals[0]);
-			DrawDecals(state, Decals[1]); // Mirror decals - when should they be drawn?
-			Decals[0].Clear();
-			Decals[1].Clear();
-		}
-
-		// Draw sprites
-		auto it = level.GetThinkerIterator<AActor>();
-		AActor* thing;
-		while ((thing = it.Next()) != nullptr)
-		{
-			HWSprite sprite;
-
-			if (R_ShouldDrawSpriteShadow(thing))
-			{
-				double dist = (thing->Pos() - vp.Pos).LengthSquared();
-				double check = r_actorspriteshadowdist;
-				if (dist <= check * check)
-				{
-					sprite.Process(this, state, thing, thing->Sector, in_area, false, true);
-				}
-			}
-
-			sprite.Process(this, state, thing, thing->Sector, in_area, false);
-		}
-
-		// Draw particles
-		for (uint16_t i = level.ActiveParticles; i != NO_PARTICLE; i = level.Particles[i].tnext)
-		{
-			if (Level->Particles[i].subsector)
-			{
-				HWSprite sprite;
-				sprite.ProcessParticle(this, state, &Level->Particles[i], Level->Particles[i].subsector->sector, nullptr);
-			}
-		}
-
-		// Process all the sprites on the current portal's back side which touch the portal.
-		if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
-
-		if (drawpsprites)
-			PreparePlayerSprites(Viewpoint.sector, in_area, state);
-	}
-	else
-	{
-		if (gl_levelmesh && level.levelMesh)
-			level.levelMesh->CurFrameStats.Portals++;
-
-		RenderBSP(Level->HeadNode(), drawpsprites, state);
 	}
 
 	// And now the crappy hacks that have to be done to avoid rendering anomalies.
@@ -847,12 +702,22 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 
 	state.EnableTexture(gl_texture);
 	state.EnableBrightmap(true);
+
+	// To do: replace this is classic light lists
+	DrawSeenSides(state, LevelMeshDrawType::Opaque, true);
+	DrawSeenFlats(state, LevelMeshDrawType::Opaque, true);
+	state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
+
+	DrawSeenSides(state, LevelMeshDrawType::Opaque, false);
 	drawlists[GLDL_PLAINWALLS].DrawWalls(this, state, false);
+	DrawSeenFlats(state, LevelMeshDrawType::Opaque, false);
 	drawlists[GLDL_PLAINFLATS].DrawFlats(this, state, false);
 
 	// Part 2: masked geometry. This is set up so that only pixels with alpha>gl_mask_threshold will show
 	state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+	DrawSeenSides(state, LevelMeshDrawType::Masked, false);
 	drawlists[GLDL_MASKEDWALLS].DrawWalls(this, state, false);
+	DrawSeenFlats(state, LevelMeshDrawType::Masked, false);
 	drawlists[GLDL_MASKEDFLATS].DrawFlats(this, state, false);
 
 	// Part 3: masked geometry with polygon offset. This list is empty most of the time so only waste time on it when in use.
@@ -876,6 +741,18 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	RenderAll.Unclock();
 }
 
+void HWDrawInfo::DrawSeenSides(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
+{
+	for (int sideIndex : SeenSides.Get())
+		level.levelMesh->DrawSide(state, sideIndex, drawType, noFragmentShader);
+}
+
+void HWDrawInfo::DrawSeenFlats(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
+{
+	for (int sectorIndex : SeenSectors.Get())
+		level.levelMesh->DrawSector(state, sectorIndex, drawType, noFragmentShader);
+}
+
 //-----------------------------------------------------------------------------
 //
 // RenderTranslucent
@@ -893,6 +770,10 @@ void HWDrawInfo::RenderTranslucent(FRenderState &state)
 	state.EnableBrightmap(true);
 	drawlists[GLDL_TRANSLUCENTBORDER].Draw(this, state, true);
 	state.SetDepthMask(false);
+
+	// To do: this needs to be sorted
+	DrawSeenSides(state, LevelMeshDrawType::Translucent, false);
+	DrawSeenFlats(state, LevelMeshDrawType::Translucent, false);
 
 	drawlists[GLDL_TRANSLUCENT].DrawSorted(this, state);
 	state.EnableBrightmap(false);

@@ -416,7 +416,6 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 	}
 	FlatUpdateList.Clear();
 
-	UpdateWallPortals();
 	UploadDynLights(doomMap);
 
 	Collision->Update();
@@ -469,16 +468,9 @@ void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
 	UploadRanges.DynLight.Add(0, sizeof(int) * 4 + totalsize * sizeof(FDynLightInfo));
 }
 
-void DoomLevelMesh::UpdateWallPortals()
+TArray<HWWall>& DoomLevelMesh::GetSidePortals(int sideIndex)
 {
-	WallPortals.Clear();
-	for (int sideIndex : SidePortals)
-	{
-		for (HWWall& wall : Sides[sideIndex].WallPortals)
-		{
-			WallPortals.Push(&wall);
-		}
-	}
+	return Sides[sideIndex].WallPortals;
 }
 
 void DoomLevelMesh::ProcessDecals(HWDrawInfo* di, FRenderState& state)

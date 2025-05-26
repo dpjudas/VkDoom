@@ -191,6 +191,42 @@ struct HWDrawInfo
 	area_t	in_area;
 	fixed_t viewx, viewy;	// since the nodes are still fixed point, keeping the view position  also fixed point for node traversal is faster.
 	bool multithread;
+	bool uselevelmesh;
+
+	struct VisList
+	{
+		const TArray<int>& Get() const { return List; }
+
+		void Clear()
+		{
+			for (int index : List)
+				AddedToList[index] = false;
+			List.Clear();
+		}
+
+		void Add(int index)
+		{
+			if (index >= (int)AddedToList.size())
+			{
+				int lastSize = AddedToList.size();
+				AddedToList.resize(index + 1); // Beware! TArray does not clear on resize!
+				for (int i = lastSize; i < index + 1; i++)
+					AddedToList[i] = false;
+			}
+
+			if (!AddedToList[index])
+			{
+				AddedToList[index] = true;
+				List.Push(index);
+			}
+		}
+
+	private:
+		TArray<int> List;
+		TArray<bool> AddedToList;
+	};
+	
+	VisList SeenSectors, SeenSides;
 
 	TArray<bool> QueryResultsBuffer;
 
@@ -392,6 +428,9 @@ private:
 	void AddSpecialPortalLines(subsector_t* sub, sector_t* sector, linebase_t* line, FRenderState& state);
 
 	void UpdateLightmaps();
+
+	void DrawSeenSides(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader);
+	void DrawSeenFlats(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader);
 };
 
 void CleanSWDrawer();

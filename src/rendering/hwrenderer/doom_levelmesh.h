@@ -109,10 +109,10 @@ public:
 
 	void DrawSector(FRenderState& renderstate, int sectorIndex, LevelMeshDrawType drawType, bool noFragmentShader);
 	void DrawSide(FRenderState& renderstate, int sideIndex, LevelMeshDrawType drawType, bool noFragmentShader);
+	TArray<HWWall>& GetSidePortals(int sideIndex);
 
 	TArray<int> SideDecals;
 	TArray<int> SidePortals;
-	TArray<HWWall*> WallPortals;
 
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 	TArray<int> sectorPortals[2]; // index is sector+plane, value is index into the portal list
@@ -178,8 +178,6 @@ private:
 
 	void FreeSide(FLevelLocals& doomMap, unsigned int sideIndex);
 	void FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex);
-
-	void UpdateWallPortals();
 
 	void SetSubsectorLightmap(int surfaceIndex);
 	void SetSideLightmap(int surfaceIndex);

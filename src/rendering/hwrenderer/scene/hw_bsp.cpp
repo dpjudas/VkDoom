@@ -56,6 +56,7 @@ CVAR(Bool, gl_multithread, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 EXTERN_CVAR(Float, r_actorspriteshadowdist)
 EXTERN_CVAR(Bool, r_radarclipper)
 EXTERN_CVAR(Bool, r_dithertransparency)
+EXTERN_CVAR(Bool, gl_levelmesh)
 
 thread_local bool isWorkerThread;
 ctpl::thread_pool renderPool(1);
@@ -394,6 +395,14 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 			if (multithread)
 			{
 				jobQueue.AddJob(RenderJob::WallJob, seg->Subsector, seg);
+			}
+			else if (uselevelmesh)
+			{
+				if (seg->sidedef)
+				{
+					SeenSides.Add(seg->sidedef->Index());
+					rendered_lines++;
+				}
 			}
 			else
 			{
@@ -887,6 +896,10 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 					{
 						jobQueue.AddJob(RenderJob::FlatJob, sub);
 					}
+					else if (uselevelmesh)
+					{
+						SeenSectors.Add(sub->sector->Index());
+					}
 					else
 					{
 						HWFlat flat;
@@ -917,6 +930,10 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 					{
 						jobQueue.AddJob(RenderJob::PortalJob, sub, (seg_t *)portal);
 					}
+					else if (uselevelmesh)
+					{
+						// To do: what to do here?
+					}
 					else
 					{
 						AddSubsectorToPortal(portal, sub);
@@ -929,6 +946,10 @@ void HWDrawInfo::DoSubsector(subsector_t * sub, FRenderState& state)
 					if (multithread)
 					{
 						jobQueue.AddJob(RenderJob::PortalJob, sub, (seg_t *)portal);
+					}
+					else if (uselevelmesh)
+					{
+						// To do: what to do here?
 					}
 					else
 					{
@@ -1030,6 +1051,13 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 	validcount++;	// used for processing sidedefs only once by the renderer.
 
 	multithread = gl_multithread;
+	uselevelmesh = gl_levelmesh && !outer;
+	if (uselevelmesh)
+		multithread = false;
+
+	SeenSectors.Clear();
+	SeenSides.Clear();
+
 	if (multithread)
 	{
 		jobQueue.ReleaseAll();
