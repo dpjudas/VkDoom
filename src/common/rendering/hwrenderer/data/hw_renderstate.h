@@ -827,6 +827,7 @@ public:
 	}
 
 	// Draw level mesh
+	virtual void ApplyLevelMesh() { }
 	virtual void DrawLevelMeshRange(int firstIndex, int indexCount, int pipelineID, LevelMeshDrawType drawType, bool noFragmentShader) {}
 	virtual void DispatchLightTiles(const VSMatrix& worldToView, float m5) { }
 	virtual int GetNextQueryIndex() { return 0; }

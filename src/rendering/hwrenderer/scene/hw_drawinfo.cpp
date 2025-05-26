@@ -704,19 +704,27 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	state.EnableBrightmap(true);
 
 	// To do: replace this is classic light lists
+	state.ApplyLevelMesh();
 	DrawSeenSides(state, LevelMeshDrawType::Opaque, true);
 	DrawSeenFlats(state, LevelMeshDrawType::Opaque, true);
 	state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
 
+	state.ApplyLevelMesh();
 	DrawSeenSides(state, LevelMeshDrawType::Opaque, false);
 	drawlists[GLDL_PLAINWALLS].DrawWalls(this, state, false);
+
+	state.ApplyLevelMesh();
 	DrawSeenFlats(state, LevelMeshDrawType::Opaque, false);
 	drawlists[GLDL_PLAINFLATS].DrawFlats(this, state, false);
 
 	// Part 2: masked geometry. This is set up so that only pixels with alpha>gl_mask_threshold will show
 	state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+
+	state.ApplyLevelMesh();
 	DrawSeenSides(state, LevelMeshDrawType::Masked, false);
 	drawlists[GLDL_MASKEDWALLS].DrawWalls(this, state, false);
+
+	state.ApplyLevelMesh();
 	DrawSeenFlats(state, LevelMeshDrawType::Masked, false);
 	drawlists[GLDL_MASKEDFLATS].DrawFlats(this, state, false);
 
@@ -772,6 +780,7 @@ void HWDrawInfo::RenderTranslucent(FRenderState &state)
 	state.SetDepthMask(false);
 
 	// To do: this needs to be sorted
+	state.ApplyLevelMesh();
 	DrawSeenSides(state, LevelMeshDrawType::Translucent, false);
 	DrawSeenFlats(state, LevelMeshDrawType::Translucent, false);
 
