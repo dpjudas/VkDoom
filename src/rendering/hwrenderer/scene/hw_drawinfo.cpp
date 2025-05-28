@@ -707,7 +707,8 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	state.ApplyLevelMesh();
 	DrawSeenSides(state, LevelMeshDrawType::Opaque, true);
 	DrawSeenFlats(state, LevelMeshDrawType::Opaque, true);
-	state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
+	if (uselevelmesh)
+		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
 
 	state.ApplyLevelMesh();
 	DrawSeenSides(state, LevelMeshDrawType::Opaque, false);
