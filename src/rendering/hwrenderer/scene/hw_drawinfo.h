@@ -321,6 +321,7 @@ public:
 	HWPortal * FindPortal(const void * src);
 	void RenderBSPNode(void *node, FRenderState& state);
 	void RenderOrthoNoFog(FRenderState& state);
+	void RenderPVS(bool drawpsprites, FRenderState& state);
 	void RenderBSP(void *node, bool drawpsprites, FRenderState& state);
 
 	static HWDrawInfo *StartDrawInfo(HWDrawContext* drawctx, FLevelLocals *lev, HWDrawInfo *parent, FRenderViewpoint &parentvp, HWViewpointUniforms *uniforms);

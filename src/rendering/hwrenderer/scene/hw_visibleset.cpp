@@ -1,0 +1,615 @@
+
+#include "hw_visibleset.h"
+#include "hw_clipper.h"
+#include "hw_drawinfo.h"
+#include "hw_fakeflat.h"
+#include "hw_drawstructs.h"
+#include "hw_portal.h"
+#include "g_levellocals.h"
+#include "texturemanager.h"
+#include "v_draw.h"
+#include <mutex>
+
+EXTERN_CVAR(Bool, gl_render_things);
+EXTERN_CVAR(Bool, gl_render_walls);
+EXTERN_CVAR(Bool, gl_render_flats);
+
+// TArray resize doesn't initialize integers on resize
+static void resizeIntArray(TArray<int>& arr, size_t newsize)
+{
+	size_t s = arr.size();
+	if (s >= newsize)
+	{
+		arr.resize(s);
+	}
+	else
+	{
+		arr.resize(newsize);
+		for (size_t i = s; i < newsize; i++)
+			arr[i] = 0;
+	}
+}
+
+angle_t HWVisibleSet::FrustumAngle()
+{
+	float tilt = fabs(Viewpoint.HWAngles.Pitch.Degrees());
+
+	// If the pitch is larger than this you can look all around at a FOV of 90 degrees
+	if (tilt > 46.0f) return 0xffffffff;
+
+	// ok, this is a gross hack that barely works...
+	// but at least it doesn't overestimate too much...
+	double floatangle = 2.0 + (45.0 + ((tilt / 1.9))) * Viewpoint.FieldOfView.Degrees() * 48.0 / AspectMultiplier(r_viewwindow.WidescreenRatio) / 90.0;
+	angle_t a1 = DAngle::fromDeg(floatangle).BAMs();
+	if (a1 >= ANGLE_180) return 0xffffffff;
+	return a1;
+}
+
+void HWVisibleSet::FindPVS(HWDrawInfo* di)
+{
+	Level = di->Level;
+	Viewpoint = di->Viewpoint;
+	in_area = di->in_area;
+	CurrentMapSections = &di->CurrentMapSections;
+	no_renderflags = TArrayView<uint8_t>(di->no_renderflags.data(), di->no_renderflags.size());
+	section_renderflags = di->section_renderflags; // To do: RenderBSP modifies this
+	ss_renderflags = di->ss_renderflags; // To do: RenderBSP modifies this
+#if NEEDS_PVS_PORTING
+	mClipPortal = di->mClipPortal;
+#endif
+
+	drawctx.staticClipper.Clear();
+	mClipper = &drawctx.staticClipper;
+	mClipper->SetViewpoint(Viewpoint);
+
+	const auto& vp = Viewpoint;
+	angle_t a1 = FrustumAngle();
+	mClipper->SafeAddClipRangeRealAngles(vp.Angles.Yaw.BAMs() + a1, vp.Angles.Yaw.BAMs() - a1);
+
+	drawctx.portalState.StartFrame();
+
+	validcount.current++;
+	resizeIntArray(validcount.sector, Level->sectors.size());
+	resizeIntArray(validcount.line, Level->lines.size());
+
+	hw_ClearFakeFlat(&drawctx);
+	RenderBSP(Level->HeadNode());
+}
+
+void HWVisibleSet::RenderBSP(void* node)
+{
+	// Give the DrawInfo the viewpoint in fixed point because that's what the nodes are.
+	viewx = FLOAT2FIXED(Viewpoint.Pos.X);
+	viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
+
+	SeenSectors.Clear();
+	SeenSides.Clear();
+
+	RenderBSPNode(node);
+}
+
+void HWVisibleSet::RenderBSPNode(void* node)
+{
+	if (Level->nodes.Size() == 0)
+	{
+		DoSubsector(&Level->subsectors[0]);
+		return;
+	}
+	while (!((size_t)node & 1))  // Keep going until found a subsector
+	{
+		node_t* bsp = (node_t*)node;
+
+		// Decide which side the view point is on.
+		int side = R_PointOnSide(viewx, viewy, bsp);
+
+		// Recursively divide front space (toward the viewer).
+		RenderBSPNode(bsp->children[side]);
+
+		// Possibly divide back space (away from the viewer).
+		side ^= 1;
+
+		// It is not necessary to use the slower precise version here
+		if (!mClipper->CheckBox(bsp->bbox[side]))
+		{
+			if (!(no_renderflags[bsp->Index()] & SSRF_SEEN))
+				return;
+		}
+
+		node = bsp->children[side];
+	}
+	DoSubsector((subsector_t*)((uint8_t*)node - 1));
+}
+
+void HWVisibleSet::DoSubsector(subsector_t* sub)
+{
+	sector_t* sector;
+	sector_t* fakesector;
+
+#ifdef _DEBUG
+	if (sub->sector->sectornum == 931)
+	{
+		int a = 0;
+	}
+#endif
+
+	sector = sub->sector;
+	if (!sector) return;
+
+	// If the mapsections differ this subsector can't possibly be visible from the current view point
+	if (!(*CurrentMapSections)[sub->mapsection]) return;
+	if (sub->flags & SSECF_POLYORG) return;	// never render polyobject origin subsectors because their vertices no longer are where one may expect.
+
+	if (ss_renderflags[sub->Index()] & SSRF_SEEN)
+	{
+		// This means that we have reached a subsector in a portal that has been marked 'seen'
+		// from the other side of the portal. This means we must clear the clipper for the
+		// range this subsector spans before going on.
+		UnclipSubsector(sub);
+	}
+	if (mClipper->IsBlocked()) return;	// if we are inside a stacked sector portal which hasn't unclipped anything yet.
+
+	fakesector = hw_FakeFlat(&drawctx, sector, in_area, false);
+
+	if (mClipPortal)
+	{
+		int clipres = mClipPortal->ClipSubsector(sub);
+		if (clipres == PClip_InFront)
+		{
+			auto line = mClipPortal->ClipLine();
+			// The subsector is out of range, but we still have to check lines that lie directly on the boundary and may expose their upper or lower parts.
+			if (line)
+				AddSpecialPortalLines(sub, fakesector, line);
+			return;
+		}
+	}
+
+	if (validcount.sector[sector->Index()] != validcount.current)
+	{
+		CheckUpdate(sector);
+	}
+
+	// [RH] Add particles
+	if (gl_render_things && (sub->sprites.Size() > 0 || Level->ParticlesInSubsec[sub->Index()] != NO_PARTICLE))
+	{
+		RenderParticles(sub, fakesector);
+	}
+
+	AddLines(sub, fakesector);
+
+	// BSP is traversed by subsector.
+	// A sector might have been split into several
+	//	subsectors during BSP building.
+	// Thus we check whether it was already added.
+	if (validcount.sector[sector->Index()] != validcount.current)
+	{
+		// Well, now it will be done.
+		validcount.sector[sector->Index()] = validcount.current;
+		sector->MoreFlags |= SECMF_DRAWN;
+
+		if (gl_render_things && (sector->touching_renderthings || sector->sectorportal_thinglist))
+		{
+			RenderThings(sub, fakesector);
+		}
+	}
+
+	if (gl_render_flats)
+	{
+		// Subsectors with only 2 lines cannot have any area
+		if (sub->numlines > 2 || (sub->hacked & 1))
+		{
+			// Exclude the case when it tries to render a sector with a heightsec
+			// but undetermined heightsec state. This can only happen if the
+			// subsector is obstructed but not excluded due to a large bounding box.
+			// Due to the way a BSP works such a subsector can never be visible
+			if (!sector->GetHeightSec() || in_area != area_default)
+			{
+				if (sector != sub->render_sector)
+				{
+					sector = sub->render_sector;
+					// the planes of this subsector are faked to belong to another sector
+					// This means we need the heightsec parts and light info of the render sector, not the actual one.
+					fakesector = hw_FakeFlat(&drawctx, sector, in_area, false);
+				}
+
+				uint8_t& srf = section_renderflags[Level->sections.SectionIndex(sub->section)];
+				if (!(srf & SSRF_PROCESSED))
+				{
+					srf |= SSRF_PROCESSED;
+
+					SeenSectors.Add(sub->sector->Index());
+				}
+
+				// mark subsector as processed - but mark for rendering only if it has an actual area.
+				ss_renderflags[sub->Index()] = (sub->numlines > 2) ? SSRF_PROCESSED | SSRF_RENDERALL : SSRF_PROCESSED;
+				if (sub->hacked & 1)
+					AddHackedSubsector(sub);
+
+				// This is for portal coverage.
+				FSectorPortalGroup* portal;
+
+				// AddSubsectorToPortal cannot be called here when using multithreaded processing,
+				// because the wall processing code in the worker can also modify the portal state.
+				// To avoid costly synchronization for every access to the portal list,
+				// the call to AddSubsectorToPortal will be deferred to the worker.
+				// (GetPortalGruop only accesses static sector data so this check can be done here, restricting the new job to the minimum possible extent.)
+				portal = fakesector->GetPortalGroup(sector_t::ceiling);
+				if (portal != nullptr)
+				{
+					// To do: what to do here?
+					// AddSubsectorToPortal(portal, sub);
+				}
+
+				portal = fakesector->GetPortalGroup(sector_t::floor);
+				if (portal != nullptr)
+				{
+					// To do: what to do here?
+					// AddSubsectorToPortal(portal, sub);
+				}
+			}
+		}
+	}
+}
+
+void HWVisibleSet::UnclipSubsector(subsector_t* sub)
+{
+	int count = sub->numlines;
+	seg_t* seg = sub->firstline;
+	auto& clipper = *mClipper;
+
+	while (count--)
+	{
+		angle_t startAngle = clipper.GetClipAngle(seg->v2);
+		angle_t endAngle = clipper.GetClipAngle(seg->v1);
+
+		// Back side, i.e. backface culling	- read: endAngle >= startAngle!
+		if (startAngle - endAngle >= ANGLE_180)
+		{
+			clipper.SafeRemoveClipRange(startAngle, endAngle);
+			clipper.SetBlocked(false);
+		}
+		seg++;
+	}
+}
+
+void HWVisibleSet::AddLines(subsector_t* sub, sector_t* sector)
+{
+	currentsector = sector;
+	currentsubsector = sub;
+
+	if (sub->polys != nullptr)
+	{
+		AddPolyobjs(sub);
+	}
+	else
+	{
+		int count = sub->numlines;
+		seg_t* seg = sub->firstline;
+
+		while (count--)
+		{
+			if (seg->linedef == nullptr)
+			{
+				if (!(sub->flags & SSECMF_DRAWN)) AddLine(seg, mClipPortal != nullptr);
+			}
+			else if (!(seg->sidedef->Flags & WALLF_POLYOBJ))
+			{
+				AddLine(seg, mClipPortal != nullptr);
+			}
+			seg++;
+		}
+	}
+}
+
+void HWVisibleSet::AddLine(seg_t* seg, bool portalclip)
+{
+#ifdef _DEBUG
+	if (seg->linedef && seg->linedef->Index() == 38)
+	{
+		int a = 0;
+	}
+#endif
+
+	sector_t* backsector = nullptr;
+
+	if (portalclip)
+	{
+		int clipres = mClipPortal->ClipSeg(seg, Viewpoint.Pos);
+		if (clipres == PClip_InFront) return;
+	}
+
+	auto& clipper = *mClipper;
+	angle_t startAngle = clipper.GetClipAngle(seg->v2);
+	angle_t endAngle = clipper.GetClipAngle(seg->v1);
+
+	// Back side, i.e. backface culling	- read: endAngle >= startAngle!
+	if (startAngle - endAngle < ANGLE_180)
+	{
+		return;
+	}
+
+	if (seg->sidedef == nullptr)
+	{
+		if (!(currentsubsector->flags & SSECMF_DRAWN))
+		{
+			if (clipper.SafeCheckRange(startAngle, endAngle))
+			{
+				currentsubsector->flags |= SSECMF_DRAWN;
+			}
+		}
+		return;
+	}
+
+	if (!clipper.SafeCheckRange(startAngle, endAngle))
+	{
+		return;
+	}
+
+	uint8_t ispoly = uint8_t(seg->sidedef->Flags & WALLF_POLYOBJ);
+
+	if (!seg->backsector)
+	{
+		if (!(seg->sidedef->Flags & WALLF_DITHERTRANS_MID)) clipper.SafeAddClipRange(startAngle, endAngle);
+	}
+	else if (!ispoly)	// Two-sided polyobjects never obstruct the view
+	{
+		if (currentsector->sectornum == seg->backsector->sectornum)
+		{
+			if (!seg->linedef->isVisualPortal())
+			{
+				auto tex = TexMan.GetGameTexture(seg->sidedef->GetTexture(side_t::mid), true);
+				if (!tex || !tex->isValid())
+				{
+					// nothing to do here!
+					validcount.line[seg->linedef->Index()] = validcount.current;
+					return;
+				}
+			}
+			backsector = currentsector;
+		}
+		else
+		{
+			// clipping checks are only needed when the backsector is not the same as the front sector
+			if (in_area == area_default) in_area = hw_CheckViewArea(seg->v1, seg->v2, seg->frontsector, seg->backsector);
+
+			backsector = hw_FakeFlat(&drawctx, seg->backsector, in_area, true);
+
+			if (hw_CheckClip(seg->sidedef, currentsector, backsector))
+			{
+				clipper.SafeAddClipRange(startAngle, endAngle);
+			}
+		}
+	}
+	else
+	{
+		// Backsector for polyobj segs is always the containing sector itself
+		backsector = currentsector;
+	}
+
+	seg->linedef->flags |= ML_MAPPED;
+
+	if (ispoly || validcount.line[seg->linedef->Index()] != validcount.current)
+	{
+		if (!ispoly) validcount.line[seg->linedef->Index()] = validcount.current;
+
+		if (gl_render_walls)
+		{
+			if (seg->sidedef)
+			{
+				SeenSides.Add(seg->sidedef->Index());
+				rendered_lines++;
+			}
+		}
+	}
+}
+
+void HWVisibleSet::AddPolyobjs(subsector_t* sub)
+{
+	// This function isn't thread safe, but polyobjs are very rare. Take the performance hit for now.
+	static std::mutex mutex;
+	std::unique_lock lock(mutex);
+
+	if (sub->BSP == nullptr || sub->BSP->bDirty)
+	{
+		sub->BuildPolyBSP();
+	}
+	if (sub->BSP->Nodes.Size() == 0)
+	{
+		PolySubsector(&sub->BSP->Subsectors[0]);
+	}
+	else
+	{
+		RenderPolyBSPNode(&sub->BSP->Nodes.Last());
+	}
+}
+
+void HWVisibleSet::RenderPolyBSPNode(void* node)
+{
+	while (!((size_t)node & 1))  // Keep going until found a subsector
+	{
+		node_t* bsp = (node_t*)node;
+
+		// Decide which side the view point is on.
+		int side = R_PointOnSide(viewx, viewy, bsp);
+
+		// Recursively divide front space (toward the viewer).
+		RenderPolyBSPNode(bsp->children[side]);
+
+		// Possibly divide back space (away from the viewer).
+		side ^= 1;
+
+		// It is not necessary to use the slower precise version here
+		if (!mClipper->CheckBox(bsp->bbox[side]))
+		{
+			return;
+		}
+
+		node = bsp->children[side];
+	}
+	PolySubsector((subsector_t*)((uint8_t*)node - 1));
+}
+
+void HWVisibleSet::PolySubsector(subsector_t* sub)
+{
+	int count = sub->numlines;
+	seg_t* line = sub->firstline;
+
+	while (count--)
+	{
+		if (line->linedef)
+		{
+			AddLine(line, mClipPortal != nullptr);
+		}
+		line++;
+	}
+}
+
+void HWVisibleSet::AddHackedSubsector(subsector_t* sub)
+{
+#if NEEDS_PVS_PORTING
+	if (Level->maptype != MAPTYPE_HEXEN)
+	{
+		SubsectorHackInfo sh = { sub, 0 };
+		SubsectorHacks.Push(sh);
+	}
+#endif
+}
+
+static bool PointOnLine(const DVector2& pos, const linebase_t* line)
+{
+	double v = (pos.Y - line->v1->fY()) * line->Delta().X + (line->v1->fX() - pos.X) * line->Delta().Y;
+	return fabs(v) <= EQUAL_EPSILON;
+}
+
+// Adds lines that lie directly on the portal boundary.
+// Only two-sided lines will be handled here, and no polyobjects
+void HWVisibleSet::AddSpecialPortalLines(subsector_t* sub, sector_t* sector, linebase_t* line)
+{
+	currentsector = sector;
+	currentsubsector = sub;
+
+	int count = sub->numlines;
+	seg_t* seg = sub->firstline;
+
+	while (count--)
+	{
+		if (seg->linedef != nullptr && seg->PartnerSeg != nullptr)
+		{
+			if (PointOnLine(seg->v1->fPos(), line) && PointOnLine(seg->v2->fPos(), line))
+				AddLine(seg, false);
+		}
+		seg++;
+	}
+}
+
+void HWVisibleSet::RenderThings(subsector_t* sub, sector_t* sector)
+{
+#if NEEDS_PVS_PORTING
+	sector_t* sec = sub->sector;
+	// Handle all things in sector.
+	const auto& vp = Viewpoint;
+	for (auto p = sec->touching_renderthings; p != nullptr; p = p->m_snext)
+	{
+		auto thing = p->m_thing;
+		if (thing->validcount == validcount) continue;
+		thing->validcount = validcount;
+
+		if (Viewpoint.IsAllowedOoB() && thing->Sector->isSecret() && thing->Sector->wasSecret() && !r_radarclipper) continue; // This covers things that are touching non-secret sectors
+		FIntCVar* cvar = thing->GetInfo()->distancecheck;
+		if (cvar != nullptr && *cvar >= 0)
+		{
+			double dist = (thing->Pos() - vp.Pos).LengthSquared();
+			double check = (double)**cvar;
+			if (dist >= check * check)
+			{
+				continue;
+			}
+		}
+		// If this thing is in a map section that's not in view it can't possibly be visible
+		if ((*CurrentMapSections)[thing->subsector->mapsection])
+		{
+			HWSprite sprite;
+
+			// [Nash] draw sprite shadow
+			if (R_ShouldDrawSpriteShadow(thing))
+			{
+				double dist = (thing->Pos() - vp.Pos).LengthSquared();
+				double check = r_actorspriteshadowdist;
+				if (dist <= check * check)
+				{
+					sprite.Process(this, state, thing, sector, in_area, false, true);
+				}
+			}
+
+			sprite.Process(this, state, thing, sector, in_area, false);
+		}
+	}
+
+	for (msecnode_t* node = sec->sectorportal_thinglist; node; node = node->m_snext)
+	{
+		AActor* thing = node->m_thing;
+		FIntCVar* cvar = thing->GetInfo()->distancecheck;
+		if (cvar != nullptr && *cvar >= 0)
+		{
+			double dist = (thing->Pos() - vp.Pos).LengthSquared();
+			double check = (double)**cvar;
+			if (dist >= check * check)
+			{
+				continue;
+			}
+		}
+
+		HWSprite sprite;
+
+		// [Nash] draw sprite shadow
+		if (R_ShouldDrawSpriteShadow(thing))
+		{
+			double dist = (thing->Pos() - vp.Pos).LengthSquared();
+			double check = r_actorspriteshadowdist;
+			if (dist <= check * check)
+			{
+				sprite.Process(this, state, thing, sector, in_area, true, true);
+			}
+		}
+
+		sprite.Process(this, state, thing, sector, in_area, true);
+	}
+#endif
+}
+
+void HWVisibleSet::RenderParticles(subsector_t* sub, sector_t* front)
+{
+#if NEEDS_PVS_PORTING
+	SetupSprite.Clock();
+	for (uint32_t i = 0; i < sub->sprites.Size(); i++)
+	{
+		DVisualThinker* sp = sub->sprites[i];
+		if (!sp || sp->ObjectFlags & OF_EuthanizeMe)
+			continue;
+		if (mClipPortal)
+		{
+			int clipres = mClipPortal->ClipPoint(sp->PT.Pos.XY());
+			if (clipres == PClip_InFront) continue;
+		}
+
+		HWSprite sprite;
+		sprite.ProcessParticle(this, state, &sp->PT, front, sp);
+	}
+	for (int i = Level->ParticlesInSubsec[sub->Index()]; i != NO_PARTICLE; i = Level->Particles[i].snext)
+	{
+		if (mClipPortal)
+		{
+			int clipres = mClipPortal->ClipPoint(Level->Particles[i].Pos.XY());
+			if (clipres == PClip_InFront) continue;
+		}
+
+		HWSprite sprite;
+		sprite.ProcessParticle(this, state, &Level->Particles[i], front, nullptr);
+	}
+	SetupSprite.Unclock();
+#endif
+}
+
+void HWVisibleSet::CheckUpdate(sector_t* sector)
+{
+	// This updates the GPU vertices for the sector. Only needed if rendering flats without the level mesh.
+}

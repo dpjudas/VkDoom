@@ -36,6 +36,7 @@
 #include "hw_drawinfo.h"
 #include "hw_drawcontext.h"
 #include "hw_walldispatcher.h"
+#include "hw_visibleset.h"
 #include "po_man.h"
 #include "models.h"
 #include "hw_clock.h"
@@ -434,6 +435,38 @@ HWDecal *HWDrawInfo::AddDecal(bool onmirror)
 	return decal;
 }
 
+void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
+{
+	if (Viewpoint.IsOrtho() || !(gl_levelmesh && !outer))
+	{
+		RenderBSP(Level->HeadNode(), drawpsprites, state);
+	}
+	else
+	{
+		// Anything outside the BSP using this?
+		viewx = FLOAT2FIXED(Viewpoint.Pos.X);
+		viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
+		multithread = false;
+		uselevelmesh = true;
+
+		Bsp.Clock();
+		
+		// To do: do this over many threads
+		static HWVisibleSet VisibleSet;
+		VisibleSet.FindPVS(this);
+
+		// Merge results
+		SeenSectors.Clear();
+		SeenSides.Clear();
+		for (int sectorIndex : VisibleSet.SeenSectors.Get())
+			SeenSectors.Add(sectorIndex);
+		for (int sideIndex : VisibleSet.SeenSides.Get())
+			SeenSides.Add(sideIndex);
+
+		Bsp.Unclock();
+	}
+}
+
 //-----------------------------------------------------------------------------
 //
 // CreateScene
@@ -464,7 +497,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 	// clip the scene and fill the drawlists
 
-	RenderBSP(Level->HeadNode(), drawpsprites, state);
+	RenderPVS(drawpsprites, state);
 
 	if (uselevelmesh)
 	{

@@ -545,7 +545,7 @@ void HWDrawInfo::AddLines(subsector_t * sub, sector_t * sector, FRenderState& st
 //
 //==========================================================================
 
-inline bool PointOnLine(const DVector2 &pos, const linebase_t *line)
+static bool PointOnLine(const DVector2 &pos, const linebase_t *line)
 {
 	double v = (pos.Y - line->v1->fY()) * line->Delta().X + (line->v1->fX() - pos.X) * line->Delta().Y;
 	return fabs(v) <= EQUAL_EPSILON;

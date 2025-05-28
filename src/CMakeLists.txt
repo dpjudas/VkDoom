@@ -714,6 +714,7 @@ set( FASTMATH_SOURCES
 	common/textures/hires/xbr/xbrz_old.cpp
 	rendering/hwrenderer/hw_dynlightdata.cpp
 	rendering/hwrenderer/scene/hw_bsp.cpp
+	rendering/hwrenderer/scene/hw_visibleset.cpp
 	rendering/hwrenderer/scene/hw_fakeflat.cpp
 	rendering/hwrenderer/scene/hw_decal.cpp
 	rendering/hwrenderer/scene/hw_drawcontext.cpp
