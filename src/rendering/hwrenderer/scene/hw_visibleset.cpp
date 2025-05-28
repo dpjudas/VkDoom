@@ -54,9 +54,7 @@ void HWVisibleSet::FindPVS(HWDrawInfo* di)
 	no_renderflags = TArrayView<uint8_t>(di->no_renderflags.data(), di->no_renderflags.size());
 	section_renderflags = di->section_renderflags; // To do: RenderBSP modifies this
 	ss_renderflags = di->ss_renderflags; // To do: RenderBSP modifies this
-#if NEEDS_PVS_PORTING
 	mClipPortal = di->mClipPortal;
-#endif
 
 	drawctx.staticClipper.Clear();
 	mClipper = &drawctx.staticClipper;
@@ -161,11 +159,6 @@ void HWVisibleSet::DoSubsector(subsector_t* sub)
 				AddSpecialPortalLines(sub, fakesector, line);
 			return;
 		}
-	}
-
-	if (validcount.sector[sector->Index()] != validcount.current)
-	{
-		CheckUpdate(sector);
 	}
 
 	// [RH] Add particles
@@ -607,9 +600,4 @@ void HWVisibleSet::RenderParticles(subsector_t* sub, sector_t* front)
 	}
 	SetupSprite.Unclock();
 #endif
-}
-
-void HWVisibleSet::CheckUpdate(sector_t* sector)
-{
-	// This updates the GPU vertices for the sector. Only needed if rendering flats without the level mesh.
 }

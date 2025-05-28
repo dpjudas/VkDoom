@@ -47,7 +47,7 @@
 #include "v_draw.h"
 #include "texturemanager.h"
 #include "actorinlines.h"
-#include "g_levellocals.h"
+#include "hw_vertexbuilder.h"
 #include "hw_lighting.h"
 #include "d_main.h"
 #include "swrenderer/r_swcolormaps.h"
@@ -462,6 +462,12 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 			SeenSectors.Add(sectorIndex);
 		for (int sideIndex : VisibleSet.SeenSides.Get())
 			SeenSides.Add(sideIndex);
+
+		if (!gl_levelmesh) // Update sector heights for the non-levelmesh rendering of sectors
+		{
+			for (int sectorIndex : VisibleSet.SeenSectors.Get())
+				CheckUpdate(state, &Level->sectors[sectorIndex]);
+		}
 
 		Bsp.Unclock();
 	}

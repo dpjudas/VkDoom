@@ -63,7 +63,6 @@ private:
 	void AddSpecialPortalLines(subsector_t* sub, sector_t* sector, linebase_t* line);
 	void RenderParticles(subsector_t* sub, sector_t* front);
 	void RenderThings(subsector_t* sub, sector_t* sector);
-	void CheckUpdate(sector_t* sector);
 	angle_t FrustumAngle();
 
 	struct
