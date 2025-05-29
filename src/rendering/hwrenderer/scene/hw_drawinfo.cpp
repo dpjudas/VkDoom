@@ -453,14 +453,12 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 		multithread = false;
 		uselevelmesh = true;
 
-		ClipWall.Clock();
+		Bsp.Clock();
 
+		ClipWall.Clock();
 		static HWVisibleSetThreads threads;
 		threads.FindPVS(this);
-
 		ClipWall.Unclock();
-
-		Bsp.Clock();
 
 		if (!gl_levelmesh) // Update sector heights for the non-levelmesh rendering of sectors
 		{
@@ -830,14 +828,18 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 
 void HWDrawInfo::DrawSeenSides(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
 {
+	RenderWall.Clock();
 	for (int sideIndex : SeenSides.Get())
 		level.levelMesh->DrawSide(state, sideIndex, drawType, noFragmentShader);
+	RenderWall.Unclock();
 }
 
 void HWDrawInfo::DrawSeenFlats(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
 {
+	RenderFlat.Clock();
 	for (int sectorIndex : SeenSectors.Get())
 		level.levelMesh->DrawSector(state, sectorIndex, drawType, noFragmentShader);
+	RenderFlat.Unclock();
 }
 
 //-----------------------------------------------------------------------------

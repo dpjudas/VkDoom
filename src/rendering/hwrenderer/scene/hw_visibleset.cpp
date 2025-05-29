@@ -611,7 +611,7 @@ void HWVisibleSetThreads::WorkerMain(int sliceIndex)
 				bool isLeft = sliceIndex % 2 == 0;
 				int left = isLeft ? sliceIndex : sliceIndex - 1;
 				int right = isLeft ? sliceIndex + 1 : sliceIndex;
-				if ((isLeft && !WorkFlags[right]) || (!isLeft && !WorkFlags[left]))
+				if (right < SliceCount && ((isLeft && !WorkFlags[right]) || (!isLeft && !WorkFlags[left])))
 				{
 					// Other side is also done. Merge results.
 					lock.unlock();
