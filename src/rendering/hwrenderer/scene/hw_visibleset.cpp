@@ -45,7 +45,7 @@ angle_t HWVisibleSet::FrustumAngle()
 	return a1;
 }
 
-void HWVisibleSet::FindPVS(HWDrawInfo* di)
+void HWVisibleSet::FindPVS(HWDrawInfo* di, int sliceIndex, int sliceCount)
 {
 	Level = di->Level;
 	Viewpoint = di->Viewpoint;
@@ -62,7 +62,14 @@ void HWVisibleSet::FindPVS(HWDrawInfo* di)
 
 	const auto& vp = Viewpoint;
 	angle_t a1 = FrustumAngle();
-	mClipper->SafeAddClipRangeRealAngles(vp.Angles.Yaw.BAMs() + a1, vp.Angles.Yaw.BAMs() - a1);
+
+	// Find the range for our slice
+	//uint64_t start = static_cast<uint64_t>(vp.Angles.Yaw.BAMs() + a1);
+	uint64_t end = static_cast<uint64_t>(vp.Angles.Yaw.BAMs() - a1);
+	uint64_t length = static_cast<uint64_t>(a1) * 2;
+	uint32_t sliceend = static_cast<uint32_t>(end + length * sliceIndex / sliceCount);
+	uint32_t slicestart = static_cast<uint32_t>(end + length * (sliceIndex + 1) / sliceCount);
+	mClipper->SafeAddClipRangeRealAngles(slicestart, sliceend);
 
 	drawctx.portalState.StartFrame();
 
@@ -600,4 +607,104 @@ void HWVisibleSet::RenderParticles(subsector_t* sub, sector_t* front)
 	}
 	SetupSprite.Unclock();
 #endif
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+HWVisibleSetThreads::HWVisibleSetThreads()
+{
+	SliceCount = std::max((int)(std::thread::hardware_concurrency() * 3 / 4), 1);
+	Slices.Resize(SliceCount);
+	WorkFlags.resize(SliceCount);
+
+	size_t threadCount = SliceCount - 1;
+	while (Threads.size() < threadCount)
+	{
+		int sliceIndex = Threads.size() + 1;
+		Threads.push_back(std::thread([=]() { WorkerMain(sliceIndex); }));
+	}
+}
+
+HWVisibleSetThreads::~HWVisibleSetThreads()
+{
+	std::unique_lock lock(Mutex);
+	StopFlag = true;
+	lock.unlock();
+	Condvar.notify_all();
+	for (auto& thread : Threads)
+		thread.join();
+}
+
+void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
+{
+	// Tell workers there's work to do!
+	std::unique_lock lock(Mutex);
+	DrawInfo = di;
+	for (int i = 0; i < SliceCount; i++)
+		WorkFlags[i] = true;
+	lock.unlock();
+	Condvar.notify_all();
+
+	// Process slice zero ourselves
+	Slices[0].FindPVS(DrawInfo, 0, SliceCount);
+
+	// Wait for all workers
+	lock.lock();
+	WorkFlags[0] = false;
+	while (true)
+	{
+		bool allDone = true;
+		for (int i = 0; i < SliceCount; i++)
+		{
+			if (WorkFlags[i])
+			{
+				allDone = false;
+				break;
+			}
+		}
+		if (allDone)
+			break;
+		Condvar.wait(lock);
+	}
+
+	// Merge results
+	di->SeenSectors.Clear();
+	di->SeenSides.Clear();
+	for (int i = 0; i < SliceCount; i++)
+	{
+		for (int sectorIndex : Slices[i].SeenSectors.Get())
+			di->SeenSectors.Add(sectorIndex);
+		for (int sideIndex : Slices[i].SeenSides.Get())
+			di->SeenSides.Add(sideIndex);
+	}
+}
+
+void HWVisibleSetThreads::WorkerMain(int sliceIndex)
+{
+	std::unique_lock lock(Mutex);
+	while (true)
+	{
+		if (StopFlag)
+			break;
+		if (WorkFlags[sliceIndex])
+		{
+			lock.unlock();
+			Slices[sliceIndex].FindPVS(DrawInfo, sliceIndex, SliceCount);
+			lock.lock();
+			WorkFlags[sliceIndex] = false;
+
+			bool allDone = true;
+			for (int i = 0; i < SliceCount; i++)
+			{
+				if (WorkFlags[i])
+				{
+					allDone = false;
+					break;
+				}
+			}
+			if (allDone)
+				Condvar.notify_all();
+		}
+		Condvar.wait(lock);
+	}
 }

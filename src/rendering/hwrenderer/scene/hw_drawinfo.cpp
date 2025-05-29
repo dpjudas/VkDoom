@@ -450,22 +450,13 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 		uselevelmesh = true;
 
 		Bsp.Clock();
-		
-		// To do: do this over many threads
-		static HWVisibleSet VisibleSet;
-		VisibleSet.FindPVS(this);
 
-		// Merge results
-		SeenSectors.Clear();
-		SeenSides.Clear();
-		for (int sectorIndex : VisibleSet.SeenSectors.Get())
-			SeenSectors.Add(sectorIndex);
-		for (int sideIndex : VisibleSet.SeenSides.Get())
-			SeenSides.Add(sideIndex);
+		static HWVisibleSetThreads threads;
+		threads.FindPVS(this);
 
 		if (!gl_levelmesh) // Update sector heights for the non-levelmesh rendering of sectors
 		{
-			for (int sectorIndex : VisibleSet.SeenSectors.Get())
+			for (int sectorIndex : SeenSectors.Get())
 				CheckUpdate(state, &Level->sectors[sectorIndex]);
 		}
 

@@ -4,6 +4,8 @@
 #include "r_utility.h"
 #include "hw_fakeflat.h"
 #include "hw_drawcontext.h"
+#include <mutex>
+#include <condition_variable>
 
 class Clipper;
 class HWPortal;
@@ -12,7 +14,7 @@ struct HWDrawInfo;
 class HWVisibleSet
 {
 public:
-	void FindPVS(HWDrawInfo* di);
+	void FindPVS(HWDrawInfo* di, int sliceIndex, int sliceCount);
 
 	struct VisList
 	{
@@ -90,4 +92,25 @@ private:
 	subsector_t* currentsubsector = nullptr;
 
 	int rendered_lines = 0;
+};
+
+class HWVisibleSetThreads
+{
+public:
+	HWVisibleSetThreads();
+	~HWVisibleSetThreads();
+
+	void FindPVS(HWDrawInfo* di);
+
+private:
+	void WorkerMain(int sliceIndex);
+
+	int SliceCount = 1;
+	TArray<HWVisibleSet> Slices;
+	std::vector<std::thread> Threads;
+	std::mutex Mutex;
+	std::condition_variable Condvar;
+	std::vector<bool> WorkFlags;
+	bool StopFlag = false;
+	HWDrawInfo* DrawInfo = nullptr;
 };
