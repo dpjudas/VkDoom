@@ -31,7 +31,7 @@ CVAR(Bool, lm_ao, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_softshadows, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_bounce, true, CVAR_ARCHIVE);
 CVAR(Bool, lm_dynamic, true, CVAR_ARCHIVE);
-CVAR(Bool, lm_dynlights, false, CVAR_ARCHIVE);
+EXTERN_CVAR(Bool, lm_dynlights);
 
 VkLightmapper::VkLightmapper(VulkanRenderDevice* fb) : fb(fb)
 {
