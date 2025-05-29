@@ -18,8 +18,38 @@
 #include <unordered_map>
 
 #include "vm.h"
+#include "p_setup.h"
 
-EXTERN_CVAR(Bool, lm_dynlights);
+static int InvalidateLightmap();
+static void InvalidateActorLightTraceCache();
+
+static void RefreshLightmap()
+{
+	if(level.levelMesh)
+	{
+		level.levelMesh->FullRefresh();
+		InvalidateLightmap();
+		InvalidateActorLightTraceCache();
+		screen->SetLevelMesh(level.levelMesh); // force lightmap texture binding update
+	}
+}
+
+CUSTOM_CVAR(Bool, lm_dynlights, false, CVAR_ARCHIVE)
+{
+	if(*self)
+	{
+		level.lightmaps = true;
+		RefreshLightmap();
+	}
+	else
+	{
+		level.lightmaps = level.orig_lightmapped;
+		if(level.lightmaps)
+		{
+			RefreshLightmap();
+		}
+	}
+}
 
 static bool RequireLevelMesh()
 {

@@ -97,6 +97,14 @@ public:
 	DoomLevelMesh(FLevelLocals &doomMap);
 	~DoomLevelMesh();
 
+	void FullRefresh() override
+	{
+		for (unsigned int i = 0; i < Sides.Size(); i++)
+			UpdateSide(i, SurfaceUpdateType::Full);
+		for (unsigned int i = 0; i < Flats.Size(); i++)
+			UpdateFlat(i, SurfaceUpdateType::Full);
+	}
+
 	void PrintSurfaceInfo(const LevelMeshSurface* surface);
 
 	void BeginFrame(FLevelLocals& doomMap);

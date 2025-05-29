@@ -2965,6 +2965,8 @@ void MapLoader::InitLightmapTiles(MapData* map)
 		}
 	}
 
+	Level->orig_lightmapped = Level->lightmaps || genlightmaps;
+
 	if (map->Size(ML_LIGHTMAP) && !RunningAsTool)
 	{
 		// Arbitrary ZDRay limit. This will break lightmap lump loading if not enforced.
@@ -2977,7 +2979,7 @@ void MapLoader::InitLightmapTiles(MapData* map)
 	}
 	else
 	{
-		if (!Level->lightmaps && lm_dynlights)
+		if (!Level->lightmaps && !genlightmaps)
 		{
 			// Turn off AO and sunlight if we are only enabling the lightmapper for dynamic lights
 			Level->AmbientOcclusion = false;
