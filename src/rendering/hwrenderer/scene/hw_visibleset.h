@@ -107,7 +107,7 @@ private:
 	TArray<HWVisibleSet> Slices;
 	std::vector<std::thread> Threads;
 	std::mutex Mutex;
-	std::condition_variable Condvar;
+	std::condition_variable WorkCondvar, DoneCondvar;
 	std::vector<bool> WorkFlags;
 	bool StopFlag = false;
 	HWDrawInfo* DrawInfo = nullptr;

@@ -453,10 +453,14 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 		multithread = false;
 		uselevelmesh = true;
 
-		Bsp.Clock();
+		ClipWall.Clock();
 
 		static HWVisibleSetThreads threads;
 		threads.FindPVS(this);
+
+		ClipWall.Unclock();
+
+		Bsp.Clock();
 
 		if (!gl_levelmesh) // Update sector heights for the non-levelmesh rendering of sectors
 		{
@@ -498,13 +502,13 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 			}
 		}
 
-		Bsp.Unclock();
-
 		// Process all the sprites on the current portal's back side which touch the portal.
 		if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
 
 		if (drawpsprites)
 			PreparePlayerSprites(Viewpoint.sector, in_area, state);
+
+		Bsp.Unclock();
 	}
 }
 

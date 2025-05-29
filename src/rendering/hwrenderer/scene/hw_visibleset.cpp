@@ -523,25 +523,31 @@ HWVisibleSetThreads::~HWVisibleSetThreads()
 	std::unique_lock lock(Mutex);
 	StopFlag = true;
 	lock.unlock();
-	Condvar.notify_all();
+	WorkCondvar.notify_all();
 	for (auto& thread : Threads)
 		thread.join();
 }
 
+CVAR(Int, gl_debug_slice, -1, 0);
+extern glcycle_t MTWait, WTTotal;
+
 void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 {
+	WTTotal.Clock();
+
 	// Tell workers there's work to do!
 	std::unique_lock lock(Mutex);
 	DrawInfo = di;
 	for (int i = 0; i < SliceCount; i++)
 		WorkFlags[i] = true;
 	lock.unlock();
-	Condvar.notify_all();
+	WorkCondvar.notify_all();
 
 	// Process slice zero ourselves
 	Slices[0].FindPVS(DrawInfo, 0, SliceCount);
 
 	// Wait for all workers
+	MTWait.Clock();
 	lock.lock();
 	WorkFlags[0] = false;
 	while (true)
@@ -557,8 +563,11 @@ void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 		}
 		if (allDone)
 			break;
-		Condvar.wait(lock);
+		DoneCondvar.wait(lock);
 	}
+	lock.unlock();
+	MTWait.Unclock();
+	WTTotal.Unclock();
 
 	// Merge results
 	di->SeenSectors.Clear();
@@ -567,6 +576,9 @@ void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 	di->SeenHackedSubsectors.Clear();
 	for (int i = 0; i < SliceCount; i++)
 	{
+		if (gl_debug_slice != -1 && gl_debug_slice < SliceCount)
+			i = gl_debug_slice;
+
 		for (int sectorIndex : Slices[i].SeenSectors.Get())
 			di->SeenSectors.Add(sectorIndex);
 		for (int sideIndex : Slices[i].SeenSides.Get())
@@ -575,6 +587,9 @@ void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 			di->SeenSubsectors.Add(subIndex);
 		for (int subIndex : Slices[i].SeenHackedSubsectors.Get())
 			di->SeenHackedSubsectors.Add(subIndex);
+
+		if (gl_debug_slice != -1)
+			break;
 	}
 }
 
@@ -590,6 +605,32 @@ void HWVisibleSetThreads::WorkerMain(int sliceIndex)
 			lock.unlock();
 			Slices[sliceIndex].FindPVS(DrawInfo, sliceIndex, SliceCount);
 			lock.lock();
+
+			if (gl_debug_slice == -1)
+			{
+				bool isLeft = sliceIndex % 2 == 0;
+				int left = isLeft ? sliceIndex : sliceIndex - 1;
+				int right = isLeft ? sliceIndex + 1 : sliceIndex;
+				if ((isLeft && !WorkFlags[right]) || (!isLeft && !WorkFlags[left]))
+				{
+					// Other side is also done. Merge results.
+					lock.unlock();
+					for (int sectorIndex : Slices[right].SeenSectors.Get())
+						Slices[left].SeenSectors.Add(sectorIndex);
+					for (int sideIndex : Slices[right].SeenSides.Get())
+						Slices[left].SeenSides.Add(sideIndex);
+					for (int subIndex : Slices[right].SeenSubsectors.Get())
+						Slices[left].SeenSubsectors.Add(subIndex);
+					for (int subIndex : Slices[right].SeenHackedSubsectors.Get())
+						Slices[left].SeenHackedSubsectors.Add(subIndex);
+					Slices[right].SeenSectors.Clear();
+					Slices[right].SeenSides.Clear();
+					Slices[right].SeenSubsectors.Clear();
+					Slices[right].SeenHackedSubsectors.Clear();
+					lock.lock();
+				}
+			}
+
 			WorkFlags[sliceIndex] = false;
 
 			bool allDone = true;
@@ -601,9 +642,10 @@ void HWVisibleSetThreads::WorkerMain(int sliceIndex)
 					break;
 				}
 			}
+
 			if (allDone)
-				Condvar.notify_all();
+				DoneCondvar.notify_all();
 		}
-		Condvar.wait(lock);
+		WorkCondvar.wait(lock);
 	}
 }
