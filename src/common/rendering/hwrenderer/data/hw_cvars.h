@@ -69,3 +69,6 @@ EXTERN_CVAR(Bool, gl_fakemodellight)
 EXTERN_CVAR(Float, gl_fakemodellightintensity)
 
 
+
+EXTERN_CVAR(Bool, lm_dynlights)
+
