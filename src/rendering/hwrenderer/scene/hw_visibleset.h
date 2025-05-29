@@ -4,8 +4,10 @@
 #include "r_utility.h"
 #include "hw_fakeflat.h"
 #include "hw_drawcontext.h"
+#include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 
 class Clipper;
 class HWPortal;
