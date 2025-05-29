@@ -89,6 +89,8 @@ void HWVisibleSet::RenderBSP(void* node)
 
 	SeenSectors.Clear();
 	SeenSides.Clear();
+	SeenSubsectors.Clear();
+	SeenHackedSubsectors.Clear();
 
 	RenderBSPNode(node);
 }
@@ -171,7 +173,8 @@ void HWVisibleSet::DoSubsector(subsector_t* sub)
 	// [RH] Add particles
 	if (gl_render_things && (sub->sprites.Size() > 0 || Level->ParticlesInSubsec[sub->Index()] != NO_PARTICLE))
 	{
-		RenderParticles(sub, fakesector);
+		SeenSubsectors.Add(sub->Index());
+		//RenderParticles(sub, fakesector);
 	}
 
 	AddLines(sub, fakesector);
@@ -184,11 +187,12 @@ void HWVisibleSet::DoSubsector(subsector_t* sub)
 	{
 		// Well, now it will be done.
 		validcount.sector[sector->Index()] = validcount.current;
-		sector->MoreFlags |= SECMF_DRAWN;
+		//sector->MoreFlags |= SECMF_DRAWN;
 
 		if (gl_render_things && (sector->touching_renderthings || sector->sectorportal_thinglist))
 		{
-			RenderThings(sub, fakesector);
+			SeenSubsectors.Add(sub->Index());
+			//RenderThings(sub, fakesector);
 		}
 	}
 
@@ -465,13 +469,10 @@ void HWVisibleSet::PolySubsector(subsector_t* sub)
 
 void HWVisibleSet::AddHackedSubsector(subsector_t* sub)
 {
-#if NEEDS_PVS_PORTING
 	if (Level->maptype != MAPTYPE_HEXEN)
 	{
-		SubsectorHackInfo sh = { sub, 0 };
-		SubsectorHacks.Push(sh);
+		SeenHackedSubsectors.Add(sub->Index());
 	}
-#endif
 }
 
 static bool PointOnLine(const DVector2& pos, const linebase_t* line)
@@ -499,114 +500,6 @@ void HWVisibleSet::AddSpecialPortalLines(subsector_t* sub, sector_t* sector, lin
 		}
 		seg++;
 	}
-}
-
-void HWVisibleSet::RenderThings(subsector_t* sub, sector_t* sector)
-{
-#if NEEDS_PVS_PORTING
-	sector_t* sec = sub->sector;
-	// Handle all things in sector.
-	const auto& vp = Viewpoint;
-	for (auto p = sec->touching_renderthings; p != nullptr; p = p->m_snext)
-	{
-		auto thing = p->m_thing;
-		if (thing->validcount == validcount) continue;
-		thing->validcount = validcount;
-
-		if (Viewpoint.IsAllowedOoB() && thing->Sector->isSecret() && thing->Sector->wasSecret() && !r_radarclipper) continue; // This covers things that are touching non-secret sectors
-		FIntCVar* cvar = thing->GetInfo()->distancecheck;
-		if (cvar != nullptr && *cvar >= 0)
-		{
-			double dist = (thing->Pos() - vp.Pos).LengthSquared();
-			double check = (double)**cvar;
-			if (dist >= check * check)
-			{
-				continue;
-			}
-		}
-		// If this thing is in a map section that's not in view it can't possibly be visible
-		if ((*CurrentMapSections)[thing->subsector->mapsection])
-		{
-			HWSprite sprite;
-
-			// [Nash] draw sprite shadow
-			if (R_ShouldDrawSpriteShadow(thing))
-			{
-				double dist = (thing->Pos() - vp.Pos).LengthSquared();
-				double check = r_actorspriteshadowdist;
-				if (dist <= check * check)
-				{
-					sprite.Process(this, state, thing, sector, in_area, false, true);
-				}
-			}
-
-			sprite.Process(this, state, thing, sector, in_area, false);
-		}
-	}
-
-	for (msecnode_t* node = sec->sectorportal_thinglist; node; node = node->m_snext)
-	{
-		AActor* thing = node->m_thing;
-		FIntCVar* cvar = thing->GetInfo()->distancecheck;
-		if (cvar != nullptr && *cvar >= 0)
-		{
-			double dist = (thing->Pos() - vp.Pos).LengthSquared();
-			double check = (double)**cvar;
-			if (dist >= check * check)
-			{
-				continue;
-			}
-		}
-
-		HWSprite sprite;
-
-		// [Nash] draw sprite shadow
-		if (R_ShouldDrawSpriteShadow(thing))
-		{
-			double dist = (thing->Pos() - vp.Pos).LengthSquared();
-			double check = r_actorspriteshadowdist;
-			if (dist <= check * check)
-			{
-				sprite.Process(this, state, thing, sector, in_area, true, true);
-			}
-		}
-
-		sprite.Process(this, state, thing, sector, in_area, true);
-	}
-#endif
-}
-
-void HWVisibleSet::RenderParticles(subsector_t* sub, sector_t* front)
-{
-#if NEEDS_PVS_PORTING
-	SetupSprite.Clock();
-	for (uint32_t i = 0; i < sub->sprites.Size(); i++)
-	{
-		DVisualThinker* sp = sub->sprites[i];
-		if (!sp || sp->ObjectFlags & OF_EuthanizeMe)
-			continue;
-		if (mClipPortal)
-		{
-			int clipres = mClipPortal->ClipPoint(sp->PT.Pos.XY());
-			if (clipres == PClip_InFront) continue;
-		}
-
-		HWSprite sprite;
-		sprite.ProcessParticle(this, state, &sp->PT, front, sp);
-	}
-	for (int i = Level->ParticlesInSubsec[sub->Index()]; i != NO_PARTICLE; i = Level->Particles[i].snext)
-	{
-		if (mClipPortal)
-		{
-			int clipres = mClipPortal->ClipPoint(Level->Particles[i].Pos.XY());
-			if (clipres == PClip_InFront) continue;
-		}
-
-		HWSprite sprite;
-		sprite.ProcessParticle(this, state, &Level->Particles[i], front, nullptr);
-	}
-	SetupSprite.Unclock();
-#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -670,12 +563,18 @@ void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 	// Merge results
 	di->SeenSectors.Clear();
 	di->SeenSides.Clear();
+	di->SeenSubsectors.Clear();
+	di->SeenHackedSubsectors.Clear();
 	for (int i = 0; i < SliceCount; i++)
 	{
 		for (int sectorIndex : Slices[i].SeenSectors.Get())
 			di->SeenSectors.Add(sectorIndex);
 		for (int sideIndex : Slices[i].SeenSides.Get())
 			di->SeenSides.Add(sideIndex);
+		for (int subIndex : Slices[i].SeenSubsectors.Get())
+			di->SeenSubsectors.Add(subIndex);
+		for (int subIndex : Slices[i].SeenHackedSubsectors.Get())
+			di->SeenHackedSubsectors.Add(subIndex);
 	}
 }
 

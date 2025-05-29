@@ -49,7 +49,7 @@ public:
 		TArray<bool> AddedToList;
 	};
 
-	VisList SeenSectors, SeenSides;
+	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors;
 
 private:
 	void RenderBSP(void* node);
@@ -63,8 +63,6 @@ private:
 	void PolySubsector(subsector_t* sub);
 	void AddHackedSubsector(subsector_t* sub);
 	void AddSpecialPortalLines(subsector_t* sub, sector_t* sector, linebase_t* line);
-	void RenderParticles(subsector_t* sub, sector_t* front);
-	void RenderThings(subsector_t* sub, sector_t* sector);
 	angle_t FrustumAngle();
 
 	struct

@@ -37,6 +37,7 @@
 #include "hw_drawcontext.h"
 #include "hw_walldispatcher.h"
 #include "hw_visibleset.h"
+#include "hw_fakeflat.h"
 #include "po_man.h"
 #include "models.h"
 #include "hw_clock.h"
@@ -56,6 +57,9 @@ EXTERN_CVAR(Float, r_visibility)
 EXTERN_CVAR(Int, lm_background_updates);
 EXTERN_CVAR(Float, r_actorspriteshadowdist)
 EXTERN_CVAR(Bool, gl_portals)
+EXTERN_CVAR(Bool, gl_render_things);
+EXTERN_CVAR(Bool, gl_render_walls);
+EXTERN_CVAR(Bool, gl_render_flats);
 
 CVAR(Bool, lm_always_update, false, 0)
 
@@ -460,7 +464,47 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 				CheckUpdate(state, &Level->sectors[sectorIndex]);
 		}
 
+		for (int sectorIndex : SeenSectors.Get())
+		{
+			Level->sectors[sectorIndex].MoreFlags |= SECMF_DRAWN;
+		}
+
+		for (int subIndex : SeenHackedSubsectors.Get())
+		{
+			SubsectorHackInfo sh = { &Level->subsectors[subIndex], 0 };
+			SubsectorHacks.Push(sh);
+		}
+
+		if (gl_render_things)
+		{
+			for (int subIndex : SeenSubsectors.Get())
+			{
+				subsector_t* sub = &Level->subsectors[subIndex];
+				sector_t* sector = sub->sector;
+
+				bool things = sector->touching_renderthings || sector->sectorportal_thinglist;
+				bool particles = sub->sprites.Size() > 0 || Level->ParticlesInSubsec[sub->Index()] != NO_PARTICLE;
+
+				if (things || particles)
+				{
+					auto fakesector = hw_FakeFlat(drawctx, sector, in_area, false);
+
+					if (things)
+						RenderThings(sub, fakesector, state);
+
+					if (particles)
+						RenderParticles(sub, fakesector, state);
+				}
+			}
+		}
+
 		Bsp.Unclock();
+
+		// Process all the sprites on the current portal's back side which touch the portal.
+		if (mCurrentPortal != nullptr) mCurrentPortal->RenderAttached(this, state);
+
+		if (drawpsprites)
+			PreparePlayerSprites(Viewpoint.sector, in_area, state);
 	}
 }
 

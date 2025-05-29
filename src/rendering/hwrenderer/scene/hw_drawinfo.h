@@ -226,7 +226,7 @@ struct HWDrawInfo
 		TArray<bool> AddedToList;
 	};
 	
-	VisList SeenSectors, SeenSides;
+	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors;
 
 	TArray<bool> QueryResultsBuffer;
 
@@ -242,9 +242,7 @@ struct HWDrawInfo
 	void AddPolyobjs(subsector_t *sub);
 	void AddLines(subsector_t * sub, sector_t * sector);
 	void AddSpecialPortalLines(subsector_t * sub, sector_t * sector, linebase_t *line);
-	public:
-	void RenderThings(subsector_t * sub, sector_t * sector);
-	void RenderParticles(subsector_t *sub, sector_t *front);
+public:
 	void DoSubsector(subsector_t * sub);
 	void DrawPSprite(HUDSprite* huds, FRenderState& state);
 	WeaponLighting GetWeaponLighting(sector_t* viewsector, const DVector3& pos, int cm, area_t in_area, const DVector3& playerpos);
