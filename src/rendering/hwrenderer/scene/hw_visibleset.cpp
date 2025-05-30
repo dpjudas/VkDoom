@@ -50,11 +50,15 @@ void HWVisibleSet::FindPVS(HWDrawInfo* di, int sliceIndex, int sliceCount)
 	Level = di->Level;
 	Viewpoint = di->Viewpoint;
 	in_area = di->in_area;
+	mClipPortal = di->mClipPortal;
+
 	CurrentMapSections = &di->CurrentMapSections;
 	no_renderflags = TArrayView<uint8_t>(di->no_renderflags.data(), di->no_renderflags.size());
-	section_renderflags = di->section_renderflags; // To do: RenderBSP modifies this
-	ss_renderflags = di->ss_renderflags; // To do: RenderBSP modifies this
-	mClipPortal = di->mClipPortal;
+
+	section_renderflags.Resize(Level->sections.allSections.Size());
+	ss_renderflags.Resize(Level->subsectors.Size());
+	memset(&section_renderflags[0], 0, Level->sections.allSections.Size() * sizeof(section_renderflags[0]));
+	memset(&ss_renderflags[0], 0, Level->subsectors.Size() * sizeof(ss_renderflags[0]));
 
 	drawctx.staticClipper.Clear();
 	mClipper = &drawctx.staticClipper;
