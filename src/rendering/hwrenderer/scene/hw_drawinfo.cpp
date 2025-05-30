@@ -829,16 +829,14 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 void HWDrawInfo::DrawSeenSides(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
 {
 	RenderWall.Clock();
-	for (int sideIndex : SeenSides.Get())
-		level.levelMesh->DrawSide(state, sideIndex, drawType, noFragmentShader);
+	level.levelMesh->DrawSides(state, SeenSides.Get(), drawType, noFragmentShader);
 	RenderWall.Unclock();
 }
 
 void HWDrawInfo::DrawSeenFlats(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
 {
 	RenderFlat.Clock();
-	for (int sectorIndex : SeenSectors.Get())
-		level.levelMesh->DrawSector(state, sectorIndex, drawType, noFragmentShader);
+	level.levelMesh->DrawSectors(state, SeenSectors.Get(), drawType, noFragmentShader);
 	RenderFlat.Unclock();
 }
 

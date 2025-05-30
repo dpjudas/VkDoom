@@ -53,7 +53,6 @@ struct GeometryFreeInfo
 struct DrawRangeInfo
 {
 	int PipelineID = 0;
-	LevelMeshDrawType DrawType = {};
 	int IndexStart = 0;
 	int IndexCount = 0;
 };
@@ -76,7 +75,7 @@ struct SideSurfaceBlock
 	TArray<HWDecalCreateInfo> Decals;
 	bool InSidePortalsList = false;
 	bool InSideDecalsList = false;
-	TArray<DrawRangeInfo> DrawRanges;
+	TArray<DrawRangeInfo> DrawRanges[(int)LevelMeshDrawType::NumDrawTypes];
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 	LightListAllocInfo Lights;
 };
@@ -86,7 +85,7 @@ struct FlatSurfaceBlock
 	int FirstSurface = -1;
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
-	TArray<DrawRangeInfo> DrawRanges;
+	TArray<DrawRangeInfo> DrawRanges[(int)LevelMeshDrawType::NumDrawTypes];
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 	TArray<LightListAllocInfo> Lights;
 };
@@ -107,8 +106,8 @@ public:
 
 	void ProcessDecals(HWDrawInfo* drawinfo, FRenderState& state);
 
-	void DrawSector(FRenderState& renderstate, int sectorIndex, LevelMeshDrawType drawType, bool noFragmentShader);
-	void DrawSide(FRenderState& renderstate, int sideIndex, LevelMeshDrawType drawType, bool noFragmentShader);
+	void DrawSectors(FRenderState& renderstate, const TArray<int>& sectors, LevelMeshDrawType drawType, bool noFragmentShader);
+	void DrawSides(FRenderState& renderstate, const TArray<int>& sides, LevelMeshDrawType drawType, bool noFragmentShader);
 	TArray<HWWall>& GetSidePortals(int sideIndex);
 
 	TArray<int> SideDecals;
@@ -197,7 +196,7 @@ private:
 	void UpdateLight(FDynamicLight* light);
 	void CopyToMeshLight(FDynamicLight* light, LevelMeshLight& meshlight, int portalgroup);
 
-	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType);
+	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount);
 
 	void UploadDynLights(FLevelLocals& doomMap);
 

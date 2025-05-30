@@ -318,22 +318,22 @@ void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
 	Reset(limits);
 }
 
-void DoomLevelMesh::DrawSector(FRenderState& renderstate, int sectorIndex, LevelMeshDrawType drawType, bool noFragmentShader)
+void DoomLevelMesh::DrawSectors(FRenderState& renderstate, const TArray<int>& sectors, LevelMeshDrawType drawType, bool noFragmentShader)
 {
-	for (const DrawRangeInfo& di : Flats[sectorIndex].DrawRanges)
+	for (int sectorIndex : sectors)
 	{
-		if (di.DrawType == drawType)
+		for (const DrawRangeInfo& di : Flats[sectorIndex].DrawRanges[(int)drawType])
 		{
 			renderstate.DrawLevelMeshRange(di.IndexStart, di.IndexCount, di.PipelineID, drawType, noFragmentShader);
 		}
 	}
 }
 
-void DoomLevelMesh::DrawSide(FRenderState& renderstate, int sideIndex, LevelMeshDrawType drawType, bool noFragmentShader)
+void DoomLevelMesh::DrawSides(FRenderState& renderstate, const TArray<int>& sides, LevelMeshDrawType drawType, bool noFragmentShader)
 {
-	for (const DrawRangeInfo& di : Sides[sideIndex].DrawRanges)
+	for (int sideIndex : sides)
 	{
-		if (di.DrawType == drawType)
+		for (const DrawRangeInfo& di : Sides[sideIndex].DrawRanges[(int)drawType])
 		{
 			renderstate.DrawLevelMeshRange(di.IndexStart, di.IndexCount, di.PipelineID, drawType, noFragmentShader);
 		}
@@ -653,7 +653,8 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
 	Sides[sideIndex].Geometries.Clear();
 
-	Sides[sideIndex].DrawRanges.Clear();
+	for (auto& list : Sides[sideIndex].DrawRanges)
+		list.Clear();
 
 	for (auto& uni : Sides[sideIndex].Uniforms)
 		FreeUniforms(uni.Start, uni.Count);
@@ -695,7 +696,8 @@ void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 		FreeGeometry(geo.VertexStart, geo.VertexCount, geo.IndexStart, geo.IndexCount);
 	Flats[sectorIndex].Geometries.Clear();
 
-	Flats[sectorIndex].DrawRanges.Clear();
+	for (auto& list : Flats[sectorIndex].DrawRanges)
+		list.Clear();
 
 	for (auto& uni : Flats[sectorIndex].Uniforms)
 		FreeUniforms(uni.Start, uni.Count);
@@ -1377,16 +1379,15 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		Sides[sideIndex].Geometries.Push(ginfo);
 		Sides[sideIndex].Uniforms.Push(uinfo);
 
-		AddToDrawList(Sides[sideIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, drawType);
+		AddToDrawList(Sides[sideIndex].DrawRanges[(int)drawType], pipelineID, ginfo.IndexStart, ginfo.IndexCount);
 	}
 }
 
-void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount, LevelMeshDrawType drawType)
+void DoomLevelMesh::AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount)
 {
 	DrawRangeInfo info;
 	info.IndexStart = indexStart;
 	info.IndexCount = indexCount;
-	info.DrawType = drawType;
 	info.PipelineID = pipelineID;
 	drawRanges.Push(info);
 }
@@ -1662,7 +1663,7 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			SetSubsectorLightmap(sinfo.Index);
 		}
 
-		AddToDrawList(Flats[sectorIndex].DrawRanges, pipelineID, ginfo.IndexStart, ginfo.IndexCount, drawType);
+		AddToDrawList(Flats[sectorIndex].DrawRanges[(int)drawType], pipelineID, ginfo.IndexStart, ginfo.IndexCount);
 	}
 }
 
