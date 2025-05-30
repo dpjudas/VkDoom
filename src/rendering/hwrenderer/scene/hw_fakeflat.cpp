@@ -35,6 +35,7 @@
 #include "hw_drawinfo.h"
 #include "hw_cvars.h"
 #include "hw_drawcontext.h"
+#include "hw_visibleset.h"
 #include "r_utility.h"
 #include "texturemanager.h"
 
@@ -46,7 +47,7 @@ extern thread_local bool isWorkerThread;
 //
 //==========================================================================
 
-bool hw_CheckClip(side_t * sidedef, sector_t * frontsector, sector_t * backsector)
+bool hw_CheckClip(side_t * sidedef, sector_t * frontsector, sector_t * backsector, CameraFrustum* frustum)
 {
 	line_t *linedef = sidedef->linedef;
 	double bs_floorheight1;
@@ -153,6 +154,25 @@ bool hw_CheckClip(side_t * sidedef, sector_t * frontsector, sector_t * backsecto
 		if (backsector->GetTexture(sector_t::floor) == skyflatnum && frontsector->GetTexture(sector_t::floor)
 			== skyflatnum) return false;
 		return true;
+	}
+
+	if (frustum)
+	{
+		// Is the line visible by the camera's clip frustum?
+		DVector3 p0(linedef->v1->fX(), std::min(bs_ceilingheight1, fs_ceilingheight1), linedef->v1->fY());
+		DVector3 p1(linedef->v2->fX(), std::min(bs_ceilingheight2, fs_ceilingheight2), linedef->v2->fY());
+		DVector3 p2(linedef->v1->fX(), std::max(bs_floorheight1, fs_floorheight1), linedef->v1->fY());
+		DVector3 p3(linedef->v2->fX(), std::max(bs_floorheight2, fs_floorheight2), linedef->v2->fY());
+		DVector3 aabbMin = p0;
+		DVector3 aabbMax = p0;
+		aabbMin.X = std::min(aabbMin.X, p1.X); aabbMin.Y = std::min(aabbMin.Y, p1.Y); aabbMin.Z = std::min(aabbMin.Z, p1.Z);
+		aabbMax.X = std::max(aabbMax.X, p1.X); aabbMax.Y = std::max(aabbMax.Y, p1.Y); aabbMax.Z = std::max(aabbMax.Z, p1.Z);
+		aabbMin.X = std::min(aabbMin.X, p2.X); aabbMin.Y = std::min(aabbMin.Y, p2.Y); aabbMin.Z = std::min(aabbMin.Z, p2.Z);
+		aabbMax.X = std::max(aabbMax.X, p2.X); aabbMax.Y = std::max(aabbMax.Y, p2.Y); aabbMax.Z = std::max(aabbMax.Z, p2.Z);
+		aabbMin.X = std::min(aabbMin.X, p3.X); aabbMin.Y = std::min(aabbMin.Y, p3.Y); aabbMin.Z = std::min(aabbMin.Z, p3.Z);
+		aabbMax.X = std::max(aabbMax.X, p3.X); aabbMax.Y = std::max(aabbMax.Y, p3.Y); aabbMax.Z = std::max(aabbMax.Z, p3.Z);
+		if (!frustum->IsAABBVisible(aabbMin, aabbMax))
+			return true;
 	}
 
 	return false;

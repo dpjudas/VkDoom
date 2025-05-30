@@ -52,6 +52,10 @@ void HWVisibleSet::FindPVS(HWDrawInfo* di, int sliceIndex, int sliceCount)
 	in_area = di->in_area;
 	mClipPortal = di->mClipPortal;
 
+	VSMatrix m = di->VPUniforms.mProjectionMatrix;
+	m.multMatrix(di->VPUniforms.mViewMatrix);
+	ClipFrustum.Set(m);
+
 	CurrentMapSections = &di->CurrentMapSections;
 	no_renderflags = TArrayView<uint8_t>(di->no_renderflags.data(), di->no_renderflags.size());
 
@@ -381,7 +385,7 @@ void HWVisibleSet::AddLine(seg_t* seg, bool portalclip)
 
 			backsector = hw_FakeFlat(&drawctx, seg->backsector, in_area, true);
 
-			if (hw_CheckClip(seg->sidedef, currentsector, backsector))
+			if (hw_CheckClip(seg->sidedef, currentsector, backsector, &ClipFrustum))
 			{
 				clipper.SafeAddClipRange(startAngle, endAngle);
 			}
@@ -652,4 +656,92 @@ void HWVisibleSetThreads::WorkerMain(int sliceIndex)
 		}
 		WorkCondvar.wait(lock);
 	}
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+void CameraFrustum::Set(const VSMatrix& worldToProjection)
+{
+	Planes[0] = LeftFrustum(worldToProjection);
+	Planes[1] = TopFrustum(worldToProjection);
+	Planes[2] = RightFrustum(worldToProjection);
+	Planes[3] = BottomFrustum(worldToProjection);
+	Planes[4] = NearFrustum(worldToProjection);
+	Planes[5] = FarFrustum(worldToProjection);
+
+	for (int i = 0; i < 6; i++)
+	{
+		AbsPlaneNormals[i] = Planes[i].XYZ();
+		AbsPlaneNormals[i].X = std::abs(AbsPlaneNormals[i].X);
+		AbsPlaneNormals[i].Y = std::abs(AbsPlaneNormals[i].Y);
+		AbsPlaneNormals[i].Z = std::abs(AbsPlaneNormals[i].Z);
+	}
+}
+
+DVector4 CameraFrustum::LeftFrustum(const VSMatrix& matrix)
+{
+	return Normalize(DVector4(
+		matrix.mMatrix[3 + 0 * 4] + matrix.mMatrix[0 + 0 * 4],
+		matrix.mMatrix[3 + 1 * 4] + matrix.mMatrix[0 + 1 * 4],
+		matrix.mMatrix[3 + 2 * 4] + matrix.mMatrix[0 + 2 * 4],
+		matrix.mMatrix[3 + 3 * 4] + matrix.mMatrix[0 + 3 * 4]));
+}
+
+DVector4 CameraFrustum::RightFrustum(const VSMatrix& matrix)
+{
+	return Normalize(DVector4(
+		matrix.mMatrix[3 + 0 * 4] - matrix.mMatrix[0 + 0 * 4],
+		matrix.mMatrix[3 + 1 * 4] - matrix.mMatrix[0 + 1 * 4],
+		matrix.mMatrix[3 + 2 * 4] - matrix.mMatrix[0 + 2 * 4],
+		matrix.mMatrix[3 + 3 * 4] - matrix.mMatrix[0 + 3 * 4]));
+}
+
+DVector4 CameraFrustum::TopFrustum(const VSMatrix& matrix)
+{
+	return Normalize(DVector4(
+		matrix.mMatrix[3 + 0 * 4] - matrix.mMatrix[1 + 0 * 4],
+		matrix.mMatrix[3 + 1 * 4] - matrix.mMatrix[1 + 1 * 4],
+		matrix.mMatrix[3 + 2 * 4] - matrix.mMatrix[1 + 2 * 4],
+		matrix.mMatrix[3 + 3 * 4] - matrix.mMatrix[1 + 3 * 4]));
+}
+
+DVector4 CameraFrustum::BottomFrustum(const VSMatrix& matrix)
+{
+	return Normalize(DVector4(
+		matrix.mMatrix[3 + 0 * 4] + matrix.mMatrix[1 + 0 * 4],
+		matrix.mMatrix[3 + 1 * 4] + matrix.mMatrix[1 + 1 * 4],
+		matrix.mMatrix[3 + 2 * 4] + matrix.mMatrix[1 + 2 * 4],
+		matrix.mMatrix[3 + 3 * 4] + matrix.mMatrix[1 + 3 * 4]));
+}
+
+DVector4 CameraFrustum::NearFrustum(const VSMatrix& matrix)
+{
+	return Normalize(DVector4(
+		matrix.mMatrix[3 + 0 * 4] + matrix.mMatrix[2 + 0 * 4],
+		matrix.mMatrix[3 + 1 * 4] + matrix.mMatrix[2 + 1 * 4],
+		matrix.mMatrix[3 + 2 * 4] + matrix.mMatrix[2 + 2 * 4],
+		matrix.mMatrix[3 + 3 * 4] + matrix.mMatrix[2 + 3 * 4]));
+}
+
+DVector4 CameraFrustum::FarFrustum(const VSMatrix& matrix)
+{
+	return Normalize(DVector4(
+		matrix.mMatrix[3 + 0 * 4] - matrix.mMatrix[2 + 0 * 4],
+		matrix.mMatrix[3 + 1 * 4] - matrix.mMatrix[2 + 1 * 4],
+		matrix.mMatrix[3 + 2 * 4] - matrix.mMatrix[2 + 2 * 4],
+		matrix.mMatrix[3 + 3 * 4] - matrix.mMatrix[2 + 3 * 4]));
+}
+
+DVector4 CameraFrustum::Normalize(DVector4 v)
+{
+	double length = std::sqrt(v.XYZ() | v.XYZ());
+	if (length > DBL_EPSILON)
+	{
+		double rcpLength = 1.0 / length;
+		v.X *= rcpLength;
+		v.Y *= rcpLength;
+		v.Z *= rcpLength;
+		v.W *= rcpLength;
+	}
+	return v;
 }
