@@ -15,7 +15,7 @@ struct HWDrawInfo;
 
 struct CameraFrustum
 {
-	void Set(const VSMatrix& worldToProjection);
+	void Set(const VSMatrix& worldToProjection, const DVector3& viewpoint);
 
 	bool IsSphereVisible(const DVector3& point, double radius) const
 	{

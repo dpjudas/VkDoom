@@ -54,7 +54,7 @@ void HWVisibleSet::FindPVS(HWDrawInfo* di, int sliceIndex, int sliceCount)
 
 	VSMatrix m = di->VPUniforms.mProjectionMatrix;
 	m.multMatrix(di->VPUniforms.mViewMatrix);
-	ClipFrustum.Set(m);
+	ClipFrustum.Set(m, Viewpoint.Pos);
 
 	CurrentMapSections = &di->CurrentMapSections;
 	no_renderflags = TArrayView<uint8_t>(di->no_renderflags.data(), di->no_renderflags.size());
@@ -660,14 +660,17 @@ void HWVisibleSetThreads::WorkerMain(int sliceIndex)
 
 /////////////////////////////////////////////////////////////////////////////
 
-void CameraFrustum::Set(const VSMatrix& worldToProjection)
+void CameraFrustum::Set(const VSMatrix& worldToProjection, const DVector3& viewpoint)
 {
-	Planes[0] = LeftFrustum(worldToProjection);
-	Planes[1] = TopFrustum(worldToProjection);
-	Planes[2] = RightFrustum(worldToProjection);
-	Planes[3] = BottomFrustum(worldToProjection);
-	Planes[4] = NearFrustum(worldToProjection);
+	Planes[0] = NearFrustum(worldToProjection);
+	Planes[1] = LeftFrustum(worldToProjection);
+	Planes[2] = TopFrustum(worldToProjection);
+	Planes[3] = RightFrustum(worldToProjection);
+	Planes[4] = BottomFrustum(worldToProjection);
 	Planes[5] = FarFrustum(worldToProjection);
+
+	// Move back near plane to be slightly behind the camera position
+	Planes[0].W = -(Planes[0].XYZ() | viewpoint.ToXZY() - 1.0);
 
 	for (int i = 0; i < 6; i++)
 	{
