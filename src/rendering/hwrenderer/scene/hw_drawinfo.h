@@ -227,6 +227,7 @@ struct HWDrawInfo
 	};
 	
 	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors;
+	LevelMeshDrawLists SeenFlatsDrawLists, SeenSidesDrawLists;
 
 	TArray<bool> QueryResultsBuffer;
 
@@ -427,9 +428,6 @@ private:
 	void AddSpecialPortalLines(subsector_t* sub, sector_t* sector, linebase_t* line, FRenderState& state);
 
 	void UpdateLightmaps();
-
-	void DrawSeenSides(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader);
-	void DrawSeenFlats(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader);
 };
 
 void CleanSWDrawer();

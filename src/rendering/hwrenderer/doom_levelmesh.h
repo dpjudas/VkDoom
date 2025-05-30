@@ -52,6 +52,7 @@ struct GeometryFreeInfo
 
 struct DrawRangeInfo
 {
+	LevelMeshDrawType DrawType = {};
 	int PipelineID = 0;
 	int IndexStart = 0;
 	int IndexCount = 0;
@@ -75,7 +76,7 @@ struct SideSurfaceBlock
 	TArray<HWDecalCreateInfo> Decals;
 	bool InSidePortalsList = false;
 	bool InSideDecalsList = false;
-	TArray<DrawRangeInfo> DrawRanges[(int)LevelMeshDrawType::NumDrawTypes];
+	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 	LightListAllocInfo Lights;
 };
@@ -85,9 +86,43 @@ struct FlatSurfaceBlock
 	int FirstSurface = -1;
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
-	TArray<DrawRangeInfo> DrawRanges[(int)LevelMeshDrawType::NumDrawTypes];
+	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 	TArray<LightListAllocInfo> Lights;
+};
+
+enum class LevelMeshDrawType
+{
+	Opaque,
+	Masked,
+	Portal,
+	Translucent,
+	NumDrawTypes
+};
+
+class LevelMeshDrawLists
+{
+public:
+	TArray<TArray<MeshBufferRange>> List[static_cast<int>(LevelMeshDrawType::NumDrawTypes)];
+
+	void Clear()
+	{
+		for (auto& l : List)
+		{
+			for (auto& p : l)
+			{
+				p.Clear();
+			}
+		}
+	}
+
+	void Add(LevelMeshDrawType drawType, int pipelineID, const MeshBufferRange& range)
+	{
+		int listIndex = static_cast<int>(drawType);
+		if (pipelineID >= (int)List[listIndex].Size())
+			List[listIndex].Resize(pipelineID + 1);
+		List[listIndex][pipelineID].Push(range);
+	}
 };
 
 class DoomLevelMesh : public LevelMesh, public UpdateLevelMesh
@@ -106,8 +141,9 @@ public:
 
 	void ProcessDecals(HWDrawInfo* drawinfo, FRenderState& state);
 
-	void DrawSectors(FRenderState& renderstate, const TArray<int>& sectors, LevelMeshDrawType drawType, bool noFragmentShader);
-	void DrawSides(FRenderState& renderstate, const TArray<int>& sides, LevelMeshDrawType drawType, bool noFragmentShader);
+	void AddSectorsToDrawLists(const TArray<int>& sectors, LevelMeshDrawLists& lists);
+	void AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists);
+
 	TArray<HWWall>& GetSidePortals(int sideIndex);
 
 	TArray<int> SideDecals;
@@ -196,7 +232,7 @@ private:
 	void UpdateLight(FDynamicLight* light);
 	void CopyToMeshLight(FDynamicLight* light, LevelMeshLight& meshlight, int portalgroup);
 
-	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, int pipelineID, int indexStart, int indexCount);
+	void AddToDrawList(TArray<DrawRangeInfo>& drawRanges, LevelMeshDrawType drawType, int pipelineID, int indexStart, int indexCount);
 
 	void UploadDynLights(FLevelLocals& doomMap);
 

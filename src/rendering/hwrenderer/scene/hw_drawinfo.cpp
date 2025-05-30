@@ -559,6 +559,11 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 		}
 	}
 
+	SeenFlatsDrawLists.Clear();
+	SeenSidesDrawLists.Clear();
+	level.levelMesh->AddSectorsToDrawLists(SeenSectors.Get(), SeenFlatsDrawLists);
+	level.levelMesh->AddSidesToDrawLists(SeenSides.Get(), SeenSidesDrawLists);
+
 	// And now the crappy hacks that have to be done to avoid rendering anomalies.
 	// These cannot be multithreaded when the time comes because all these depend
 	// on the global 'validcount' variable.
@@ -779,30 +784,42 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	state.EnableTexture(gl_texture);
 	state.EnableBrightmap(true);
 
-	// To do: replace this is classic light lists
+	// To do: replace this with classic light lists
 	state.ApplyLevelMesh();
-	DrawSeenSides(state, LevelMeshDrawType::Opaque, true);
-	DrawSeenFlats(state, LevelMeshDrawType::Opaque, true);
+	state.DrawLevelMeshList(SeenSidesDrawLists.List[static_cast<int>(LevelMeshDrawType::Opaque)], false, true);
+	state.DrawLevelMeshList(SeenFlatsDrawLists.List[static_cast<int>(LevelMeshDrawType::Opaque)], false, true);
 	if (uselevelmesh)
 		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
 
+	RenderWall.Clock();
 	state.ApplyLevelMesh();
-	DrawSeenSides(state, LevelMeshDrawType::Opaque, false);
+	state.DrawLevelMeshList(SeenSidesDrawLists.List[static_cast<int>(LevelMeshDrawType::Opaque)], false, false);
+	RenderWall.Unclock();
+
 	drawlists[GLDL_PLAINWALLS].DrawWalls(this, state, false);
 
+	RenderFlat.Clock();
 	state.ApplyLevelMesh();
-	DrawSeenFlats(state, LevelMeshDrawType::Opaque, false);
+	state.DrawLevelMeshList(SeenFlatsDrawLists.List[static_cast<int>(LevelMeshDrawType::Opaque)], false, false);
+	RenderFlat.Unclock();
+
 	drawlists[GLDL_PLAINFLATS].DrawFlats(this, state, false);
 
 	// Part 2: masked geometry. This is set up so that only pixels with alpha>gl_mask_threshold will show
 	state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
 
+	RenderWall.Clock();
 	state.ApplyLevelMesh();
-	DrawSeenSides(state, LevelMeshDrawType::Masked, false);
+	state.DrawLevelMeshList(SeenSidesDrawLists.List[static_cast<int>(LevelMeshDrawType::Masked)], true, false);
+	RenderWall.Unclock();
+
 	drawlists[GLDL_MASKEDWALLS].DrawWalls(this, state, false);
 
+	RenderFlat.Clock();
 	state.ApplyLevelMesh();
-	DrawSeenFlats(state, LevelMeshDrawType::Masked, false);
+	state.DrawLevelMeshList(SeenFlatsDrawLists.List[static_cast<int>(LevelMeshDrawType::Masked)], true, false);
+	RenderFlat.Unclock();
+
 	drawlists[GLDL_MASKEDFLATS].DrawFlats(this, state, false);
 
 	// Part 3: masked geometry with polygon offset. This list is empty most of the time so only waste time on it when in use.
@@ -826,20 +843,6 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	RenderAll.Unclock();
 }
 
-void HWDrawInfo::DrawSeenSides(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
-{
-	RenderWall.Clock();
-	level.levelMesh->DrawSides(state, SeenSides.Get(), drawType, noFragmentShader);
-	RenderWall.Unclock();
-}
-
-void HWDrawInfo::DrawSeenFlats(FRenderState& state, LevelMeshDrawType drawType, bool noFragmentShader)
-{
-	RenderFlat.Clock();
-	level.levelMesh->DrawSectors(state, SeenSectors.Get(), drawType, noFragmentShader);
-	RenderFlat.Unclock();
-}
-
 //-----------------------------------------------------------------------------
 //
 // RenderTranslucent
@@ -859,9 +862,14 @@ void HWDrawInfo::RenderTranslucent(FRenderState &state)
 	state.SetDepthMask(false);
 
 	// To do: this needs to be sorted
+	RenderWall.Clock();
 	state.ApplyLevelMesh();
-	DrawSeenSides(state, LevelMeshDrawType::Translucent, false);
-	DrawSeenFlats(state, LevelMeshDrawType::Translucent, false);
+	state.DrawLevelMeshList(SeenSidesDrawLists.List[static_cast<int>(LevelMeshDrawType::Translucent)], false, false);
+	RenderWall.Unclock();
+	RenderFlat.Clock();
+	state.ApplyLevelMesh();
+	state.DrawLevelMeshList(SeenFlatsDrawLists.List[static_cast<int>(LevelMeshDrawType::Translucent)], false, false);
+	RenderFlat.Unclock();
 
 	drawlists[GLDL_TRANSLUCENT].DrawSorted(this, state);
 	state.EnableBrightmap(false);

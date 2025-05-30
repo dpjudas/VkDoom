@@ -919,7 +919,6 @@ void VkRenderState::ApplyLevelMesh()
 	ApplyStencilRef();
 	ApplyDepthBias();
 	mNeedApply = true;
-	mLevelMeshPipelineID = -1;
 
 	VkBuffer vertexBuffers[2] = { fb->GetLevelMesh()->GetVertexBuffer()->buffer, fb->GetLevelMesh()->GetUniformIndexBuffer()->buffer };
 	VkDeviceSize vertexBufferOffsets[] = { 0, 0 };
@@ -1061,16 +1060,22 @@ void VkRenderState::DispatchLightTiles(const VSMatrix& worldToView, float m5)
 	fb->GetCommands()->PopGroup(cmdbuffer);
 }
 
-void VkRenderState::DrawLevelMeshRange(int firstIndex, int indexCount, int pipelineID, LevelMeshDrawType drawType, bool noFragmentShader)
+void VkRenderState::DrawLevelMeshList(const TArray<TArray<MeshBufferRange>>& drawList, bool masked, bool noFragmentShader)
 {
-	if (pipelineID != mLevelMeshPipelineID)
+	int pipelineID = 0;
+	for (const TArray<MeshBufferRange>& ranges : drawList)
 	{
-		const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
-		ApplyLevelMeshPipeline(mCommandBuffer, key, drawType, noFragmentShader);
-		mLevelMeshPipelineID = pipelineID;
+		if (ranges.size() != 0)
+		{
+			const VkPipelineKey& key = fb->GetLevelMeshPipelineKey(pipelineID);
+			ApplyLevelMeshPipeline(mCommandBuffer, key, masked, noFragmentShader);
+			for (const MeshBufferRange& range : ranges)
+			{
+				mCommandBuffer->drawIndexed(range.Count(), 1, range.Start, 0, 0);
+			}
+		}
+		pipelineID++;
 	}
-
-	mCommandBuffer->drawIndexed(indexCount, 1, firstIndex, 0, 0);
 }
 
 void VkRenderState::BeginQuery()
@@ -1107,9 +1112,9 @@ void VkRenderState::GetQueryResults(int queryStart, int queryCount, TArray<bool>
 	}
 }
 
-void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, LevelMeshDrawType drawType, bool noFragmentShader)
+void VkRenderState::ApplyLevelMeshPipeline(VulkanCommandBuffer* cmdbuffer, VkPipelineKey pipelineKey, bool masked, bool noFragmentShader)
 {
-	if (drawType == LevelMeshDrawType::Masked && noFragmentShader)
+	if (masked && noFragmentShader)
 	{
 		// We unfortunately have to run the fragment shader to know which pixels are masked. Use a simplified version to reduce the cost.
 		noFragmentShader = false;

@@ -92,32 +92,12 @@ private:
 	TArray<MeshBufferRange> Ranges;
 };
 
-class LevelMeshDrawList
-{
-public:
-	void Add(int position, int count);
-	void Remove(int position, int count);
-	const TArray<MeshBufferRange>& GetRanges() const { return Ranges; }
-
-private:
-	TArray<MeshBufferRange> Ranges;
-};
-
 struct LevelMeshLimits
 {
 	int MaxVertices = 0;
 	int MaxSurfaces = 0;
 	int MaxUniforms = 0;
 	int MaxIndexes = 0;
-};
-
-enum class LevelMeshDrawType
-{
-	Opaque,
-	Masked,
-	Portal,
-	Translucent,
-	NumDrawTypes
 };
 
 class LevelMesh
