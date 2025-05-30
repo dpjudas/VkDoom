@@ -785,11 +785,13 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	state.EnableBrightmap(true);
 
 	// To do: replace this with classic light lists
+	/*
 	state.ApplyLevelMesh();
 	state.DrawLevelMeshList(SeenSidesDrawLists.List[static_cast<int>(LevelMeshDrawType::Opaque)], false, true);
 	state.DrawLevelMeshList(SeenFlatsDrawLists.List[static_cast<int>(LevelMeshDrawType::Opaque)], false, true);
 	if (uselevelmesh)
 		state.DispatchLightTiles(VPUniforms.mViewMatrix, VPUniforms.mProjectionMatrix.get()[5]);
+	*/
 
 	RenderWall.Clock();
 	state.ApplyLevelMesh();
