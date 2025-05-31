@@ -19,6 +19,13 @@ struct HWDrawInfo;
 class DoomLevelMesh;
 class MeshBuilder;
 
+struct HWMissing
+{
+	side_t* side;
+	subsector_t* sub;
+	double plane;
+};
+
 struct DoomSurfaceInfo
 {
 	DoomLevelMeshSurfaceType Type = ST_NONE;
@@ -73,6 +80,8 @@ struct SideSurfaceBlock
 	TArray<GeometryFreeInfo> Geometries;
 	TArray<UniformsAllocInfo> Uniforms;
 	TArray<HWWall> WallPortals;
+	TArray<HWMissing> MissingUpper;
+	TArray<HWMissing> MissingLower;
 	TArray<HWDecalCreateInfo> Decals;
 	bool InSideDecalsList = false;
 	TArray<DrawRangeInfo> DrawRanges;
@@ -143,7 +152,7 @@ public:
 	void ProcessDecals(HWDrawInfo* drawinfo, FRenderState& state);
 
 	void AddSectorsToDrawLists(const TArray<int>& sectors, LevelMeshDrawLists& lists);
-	void AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists);
+	void AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists, HWDrawInfo* di);
 
 	TArray<HWWall>& GetSidePortals(int sideIndex);
 

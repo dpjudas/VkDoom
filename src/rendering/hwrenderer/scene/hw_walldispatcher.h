@@ -1,12 +1,5 @@
 #pragma once
 
-struct HWMissing
-{
-	side_t* side;
-	subsector_t* sub;
-	double plane;
-};
-
 struct HWMeshHelper
 {
 	TArray<HWWall> opaque;

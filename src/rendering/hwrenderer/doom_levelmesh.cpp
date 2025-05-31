@@ -329,13 +329,23 @@ void DoomLevelMesh::AddSectorsToDrawLists(const TArray<int>& sectors, LevelMeshD
 	}
 }
 
-void DoomLevelMesh::AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists)
+void DoomLevelMesh::AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists, HWDrawInfo* di)
 {
 	for (int sideIndex : sides)
 	{
 		for (const DrawRangeInfo& di : Sides[sideIndex].DrawRanges)
 		{
 			lists.Add(di.DrawType, di.PipelineID, { di.IndexStart, di.IndexStart + di.IndexCount });
+		}
+
+		for (const HWMissing& missing : Sides[sideIndex].MissingUpper)
+		{
+			di->AddUpperMissingTexture(missing.side, missing.sub, missing.plane);
+		}
+
+		for (const HWMissing& missing : Sides[sideIndex].MissingLower)
+		{
+			di->AddLowerMissingTexture(missing.side, missing.sub, missing.plane);
 		}
 	}
 }
@@ -660,6 +670,8 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	Sides[sideIndex].Uniforms.Clear();
 
 	Sides[sideIndex].WallPortals.Clear();
+	Sides[sideIndex].MissingUpper.Clear();
+	Sides[sideIndex].MissingLower.Clear();
 	Sides[sideIndex].Decals.Clear();
 }
 
@@ -1090,10 +1102,14 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	state.SetRenderStyle(STYLE_Normal);
 	*/
 
-	for (HWWall& portal : result.portals)
-	{
+	for (const HWWall& portal : result.portals)
 		sideBlock.WallPortals.Push(portal);
-	}
+
+	for (const HWMissing& missing : result.upper)
+		sideBlock.MissingUpper.Push(missing);
+
+	for (const HWMissing& missing : result.lower)
+		sideBlock.MissingLower.Push(missing);
 
 	// Add portal surface to the level mesh so raytraces can see them
 	CreateWallSurface(side, disp, state, result.portals, LevelMeshDrawType::Portal, sideIndex, sideBlock.Lights);

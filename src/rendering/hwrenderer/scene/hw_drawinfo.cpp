@@ -575,7 +575,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	SeenFlatsDrawLists.Clear();
 	SeenSidesDrawLists.Clear();
 	level.levelMesh->AddSectorsToDrawLists(SeenSectors.Get(), SeenFlatsDrawLists);
-	level.levelMesh->AddSidesToDrawLists(SeenSides.Get(), SeenSidesDrawLists);
+	level.levelMesh->AddSidesToDrawLists(SeenSides.Get(), SeenSidesDrawLists, this);
 
 	// And now the crappy hacks that have to be done to avoid rendering anomalies.
 	// These cannot be multithreaded when the time comes because all these depend

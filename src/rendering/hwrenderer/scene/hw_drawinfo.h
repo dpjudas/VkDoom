@@ -96,7 +96,6 @@ enum DrawListType
 	GLDL_TYPES,
 };
 
-
 struct HWDrawInfo
 {
 	struct wallseg
