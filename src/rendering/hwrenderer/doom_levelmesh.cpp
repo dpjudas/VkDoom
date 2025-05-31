@@ -1257,15 +1257,6 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		}
 		else
 		{
-			if (wallpart.texture && wallpart.texture->isMasked())
-			{
-				state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
-			}
-			else
-			{
-				state.AlphaFunc(Alpha_GEqual, 0.f);
-			}
-
 			wallpart.DrawWall(&disp, state, drawType == LevelMeshDrawType::Translucent || drawType == LevelMeshDrawType::TranslucentBorder);
 		}
 

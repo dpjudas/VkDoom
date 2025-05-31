@@ -99,6 +99,7 @@ void HWVisibleSet::RenderBSP(void* node)
 	SeenSides.Clear();
 	SeenSubsectors.Clear();
 	SeenHackedSubsectors.Clear();
+	SeenSubsectorPortals.Clear();
 
 	RenderBSPNode(node);
 }
@@ -247,14 +248,14 @@ void HWVisibleSet::DoSubsector(subsector_t* sub)
 				portal = fakesector->GetPortalGroup(sector_t::ceiling);
 				if (portal != nullptr)
 				{
-					// To do: what to do here?
+					SeenSubsectorPortals.Add(sub->Index());
 					// AddSubsectorToPortal(portal, sub);
 				}
 
 				portal = fakesector->GetPortalGroup(sector_t::floor);
 				if (portal != nullptr)
 				{
-					// To do: what to do here?
+					SeenSubsectorPortals.Add(sub->Index());
 					// AddSubsectorToPortal(portal, sub);
 				}
 			}
@@ -582,6 +583,7 @@ void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 	di->SeenSides.Clear();
 	di->SeenSubsectors.Clear();
 	di->SeenHackedSubsectors.Clear();
+	di->SeenSubsectorPortals.Clear();
 	for (int i = 0; i < SliceCount; i++)
 	{
 		if (gl_debug_slice != -1 && gl_debug_slice < SliceCount)
@@ -595,6 +597,8 @@ void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 			di->SeenSubsectors.Add(subIndex);
 		for (int subIndex : Slices[i].SeenHackedSubsectors.Get())
 			di->SeenHackedSubsectors.Add(subIndex);
+		for (int subIndex : Slices[i].SeenSubsectorPortals.Get())
+			di->SeenSubsectorPortals.Add(subIndex);
 
 		if (gl_debug_slice != -1)
 			break;
@@ -631,10 +635,13 @@ void HWVisibleSetThreads::WorkerMain(int sliceIndex)
 						Slices[left].SeenSubsectors.Add(subIndex);
 					for (int subIndex : Slices[right].SeenHackedSubsectors.Get())
 						Slices[left].SeenHackedSubsectors.Add(subIndex);
+					for (int subIndex : Slices[right].SeenSubsectorPortals.Get())
+						Slices[left].SeenSubsectorPortals.Add(subIndex);
 					Slices[right].SeenSectors.Clear();
 					Slices[right].SeenSides.Clear();
 					Slices[right].SeenSubsectors.Clear();
 					Slices[right].SeenHackedSubsectors.Clear();
+					Slices[right].SeenSubsectorPortals.Clear();
 					lock.lock();
 				}
 			}

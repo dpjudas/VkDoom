@@ -95,7 +95,7 @@ public:
 		TArray<bool> AddedToList;
 	};
 
-	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors;
+	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors, SeenSubsectorPortals;
 
 private:
 	void RenderBSP(void* node);

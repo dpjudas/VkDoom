@@ -477,6 +477,33 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 			SubsectorHacks.Push(sh);
 		}
 
+		for (int subIndex : SeenSubsectorPortals.Get())
+		{
+			subsector_t* sub = &Level->subsectors[subIndex];
+			sector_t* sector = sub->sector;
+			auto fakesector = hw_FakeFlat(drawctx, sector, in_area, false);
+
+			FSectorPortalGroup* portal = fakesector->GetPortalGroup(sector_t::ceiling);
+			if (portal != nullptr)
+			{
+				AddSubsectorToPortal(portal, sub);
+			}
+
+			portal = fakesector->GetPortalGroup(sector_t::floor);
+			if (portal != nullptr)
+			{
+				AddSubsectorToPortal(portal, sub);
+			}
+		}
+
+		for (int sideIndex : SeenSides.Get())
+		{
+			for (HWWall& portal : level.levelMesh->GetSidePortals(sideIndex))
+			{
+				PutWallPortal(portal, state);
+			}
+		}
+
 		if (gl_render_things)
 		{
 			for (int subIndex : SeenSubsectors.Get())
@@ -542,22 +569,8 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 
 	RenderPVS(drawpsprites, state);
 
-	if (uselevelmesh)
-	{
+	if (gl_levelmesh)
 		level.levelMesh->CurFrameStats.Portals++;
-
-		for (int sideIndex : SeenSides.Get())
-		{
-			for (HWWall& portal : level.levelMesh->GetSidePortals(sideIndex))
-			{
-				// sector portals not handled yet by PutWallPortal
-				if (portal.portaltype != PORTALTYPE_SECTORSTACK)
-				{
-					PutWallPortal(portal, state);
-				}
-			}
-		}
-	}
 
 	SeenFlatsDrawLists.Clear();
 	SeenSidesDrawLists.Clear();
@@ -594,20 +607,24 @@ void HWDrawInfo::PutWallPortal(HWWall wall, FRenderState& state)
 	int portaltype = wall.portaltype;
 	int portalplane = wall.portalplane;
 
-	HWSkyInfo skyinfo;
 	if (portaltype == PORTALTYPE_SKY)
 	{
+		HWSkyInfo skyinfo;
 		skyinfo.init(this, wall.frontsector, sector_t::ceiling, wall.frontsector->skytransfer, wall.Colormap.FadeColor);
 		wall.sky = &skyinfo;
 		wall.PutPortal(&ddi, state, portaltype, portalplane);
 	}
 	else if (portaltype == PORTALTYPE_SECTORSTACK)
 	{
-		// To do: this seems to need AddSubsectorToPortal?
+		auto glport = wall.frontsector->GetPortalGroup(portalplane);
+		if (glport)
+		{
+			if (wall.frontsector->PortalBlocksView(portalplane)) return;
+			if (screen->instack[1 - portalplane]) return;
 
-		//if (screen->instack[1 - portalplane])
-		//	return;
-		//wall.PutPortal(&ddi, state, portaltype, portalplane);
+			wall.portal = glport;
+			wall.PutPortal(&ddi, state, portaltype, portalplane);
+		}
 	}
 	else if (portaltype == PORTALTYPE_PLANEMIRROR)
 	{

@@ -226,7 +226,7 @@ struct HWDrawInfo
 		TArray<bool> AddedToList;
 	};
 	
-	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors;
+	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors, SeenSubsectorPortals;
 	LevelMeshDrawLists SeenFlatsDrawLists, SeenSidesDrawLists;
 
 	TArray<bool> QueryResultsBuffer;
