@@ -9,8 +9,11 @@ struct HWMissing
 
 struct HWMeshHelper
 {
-	TArray<HWWall> list;
+	TArray<HWWall> opaque;
+	TArray<HWWall> masked;
+	TArray<HWWall> maskedOffset;
 	TArray<HWWall> translucent;
+	TArray<HWWall> translucentBorder;
 	TArray<HWWall> portals;
 	TArray<HWMissing> lower;
 	TArray<HWMissing> upper;
@@ -66,11 +69,31 @@ struct HWWallDispatcher
 		return di && di->isFullbrightScene();
 	}
 
-	void AddWall(HWWall* wal)
+	void AddWall(HWWall* wall)
 	{
-		if (di) di->AddWall(wal);
-		else if (!(wal->flags & HWWall::HWF_TRANSLUCENT)) mh->list.Push(*wal);
-		else mh->translucent.Push(*wal);
+		if (di) di->AddWall(wall);
+		else
+		{
+			if (wall->flags & HWWall::HWF_TRANSLUCENT)
+			{
+				mh->translucent.Push(*wall);
+			}
+			else
+			{
+				if (wall->flags & HWWall::HWF_SKYHACK && wall->type == RENDERWALL_M2S)
+				{
+					mh->maskedOffset.Push(*wall);
+				}
+				else
+				{
+					bool masked = HWWall::passflag[wall->type] == 1 ? false : (wall->texture && wall->texture->isMasked());
+					if (masked)
+						mh->masked.Push(*wall);
+					else
+						mh->opaque.Push(*wall);
+				}
+			}
+		}
 	}
 
 	void AddPortal(HWWall* wal)

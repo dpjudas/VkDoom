@@ -74,7 +74,6 @@ struct SideSurfaceBlock
 	TArray<UniformsAllocInfo> Uniforms;
 	TArray<HWWall> WallPortals;
 	TArray<HWDecalCreateInfo> Decals;
-	bool InSidePortalsList = false;
 	bool InSideDecalsList = false;
 	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
@@ -95,8 +94,10 @@ enum class LevelMeshDrawType
 {
 	Opaque,
 	Masked,
+	MaskedOffset,
 	Portal,
 	Translucent,
+	TranslucentBorder,
 	NumDrawTypes
 };
 
@@ -147,7 +148,6 @@ public:
 	TArray<HWWall>& GetSidePortals(int sideIndex);
 
 	TArray<int> SideDecals;
-	TArray<int> SidePortals;
 
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 	TArray<int> sectorPortals[2]; // index is sector+plane, value is index into the portal list
@@ -217,7 +217,7 @@ private:
 	void SetSubsectorLightmap(int surfaceIndex);
 	void SetSideLightmap(int surfaceIndex);
 
-	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist);
+	void CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, unsigned int sectorIndex, const LightListAllocInfo& lightlist);
 	void CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state, TArray<HWFlat>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sectorIndex, const LightListAllocInfo& lightlist, int lightlistSection);
 
 	BBox GetBoundsFromSurface(const LevelMeshSurface& surface) const;

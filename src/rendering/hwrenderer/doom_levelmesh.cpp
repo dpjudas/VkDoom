@@ -1051,36 +1051,52 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 
 	sideBlock.Decals = result.decals;
 
+	state.SetDepthMask(true);
+	state.EnableFog(true);
+	state.SetRenderStyle(STYLE_Source);
+
 	// Part 1: solid geometry. This is set up so that there are no transparent parts
 	state.SetDepthFunc(DF_LEqual);
 	state.ClearDepthBias();
 	state.EnableTexture(true);
 	state.EnableBrightmap(true);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
-	CreateWallSurface(side, disp, state, result.list, back ? LevelMeshDrawType::Masked : LevelMeshDrawType::Opaque, true, sideIndex, sideBlock.Lights);
+	CreateWallSurface(side, disp, state, result.opaque, LevelMeshDrawType::Opaque, sideIndex, sideBlock.Lights);
 
-	if (result.portals.Size() != 0 && !sideBlock.InSidePortalsList)
-	{
-		// Register side having portals
-		SidePortals.Push(sideIndex);
-		sideBlock.InSidePortalsList = true;
-	}
+	// Part 2: masked geometry. This is set up so that only pixels with alpha>gl_mask_threshold will show
+	state.AlphaFunc(Alpha_GEqual, gl_mask_threshold);
+	CreateWallSurface(side, disp, state, result.masked, LevelMeshDrawType::Masked, sideIndex, sideBlock.Lights);
+
+	// Part 3: masked geometry with polygon offset.
+	state.SetDepthBias(-1, -128);
+	CreateWallSurface(side, disp, state, result.maskedOffset, LevelMeshDrawType::MaskedOffset, sideIndex, sideBlock.Lights);
+	state.ClearDepthBias();
+
+	// Part 4: Draw decals (not a real pass)
+	state.SetDepthFunc(DF_LEqual);
+	// DrawDecals(state, Decals[0]);
+
+	/*
+	// final pass: translucent stuff
+	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
+	state.SetRenderStyle(STYLE_Translucent);
+	state.EnableBrightmap(true);
+	CreateWallSurface(side, disp, state, result.translucent, LevelMeshDrawType::TranslucentBorder, sideIndex);
+	state.SetDepthMask(false);
+	CreateWallSurface(side, disp, state, result.translucent, LevelMeshDrawType::Translucent, sideIndex);
+	state.EnableBrightmap(false);
+	state.AlphaFunc(Alpha_GEqual, 0.f);
+	state.SetDepthMask(true);
+	state.SetRenderStyle(STYLE_Normal);
+	*/
 
 	for (HWWall& portal : result.portals)
 	{
 		sideBlock.WallPortals.Push(portal);
 	}
 
-	CreateWallSurface(side, disp, state, result.portals, LevelMeshDrawType::Portal, false, sideIndex, sideBlock.Lights);
-
-	/*
-	// final pass: translucent stuff
-	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
-	state.SetRenderStyle(STYLE_Translucent);
-	CreateWallSurface(side, disp, state, result.translucent, LevelMeshDrawType::Translucent, true, sideIndex);
-	state.AlphaFunc(Alpha_GEqual, 0.f);
-	state.SetRenderStyle(STYLE_Normal);
-	*/
+	// Add portal surface to the level mesh so raytraces can see them
+	CreateWallSurface(side, disp, state, result.portals, LevelMeshDrawType::Portal, sideIndex, sideBlock.Lights);
 }
 
 void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
@@ -1215,7 +1231,7 @@ void DoomLevelMesh::SetFlatLights(FLevelLocals& doomMap, unsigned int sectorInde
 	}
 }
 
-void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, bool translucent, unsigned int sideIndex, const LightListAllocInfo& lightlist)
+void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, MeshBuilder& state, TArray<HWWall>& list, LevelMeshDrawType drawType, unsigned int sideIndex, const LightListAllocInfo& lightlist)
 {
 	for (HWWall& wallpart : list)
 	{
@@ -1250,7 +1266,7 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 				state.AlphaFunc(Alpha_GEqual, 0.f);
 			}
 
-			wallpart.DrawWall(&disp, state, translucent);
+			wallpart.DrawWall(&disp, state, drawType == LevelMeshDrawType::Translucent || drawType == LevelMeshDrawType::TranslucentBorder);
 		}
 
 		int numVertices = 0;

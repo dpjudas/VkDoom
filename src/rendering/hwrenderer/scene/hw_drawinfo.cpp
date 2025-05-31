@@ -861,6 +861,9 @@ void HWDrawInfo::RenderTranslucent(FRenderState &state)
 
 	state.EnableBrightmap(true);
 	drawlists[GLDL_TRANSLUCENTBORDER].Draw(this, state, true);
+	state.ApplyLevelMesh();
+	state.DrawLevelMeshList(SeenSidesDrawLists.List[static_cast<int>(LevelMeshDrawType::TranslucentBorder)], false, false);
+	state.DrawLevelMeshList(SeenFlatsDrawLists.List[static_cast<int>(LevelMeshDrawType::TranslucentBorder)], false, false);
 	state.SetDepthMask(false);
 
 	// To do: this needs to be sorted
