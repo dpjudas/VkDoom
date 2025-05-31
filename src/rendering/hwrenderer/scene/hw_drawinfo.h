@@ -300,7 +300,7 @@ public:
 				if (tile->Binding.Type == ST_UPPERSIDE || tile->Binding.Type == ST_MIDDLESIDE || tile->Binding.Type == ST_LOWERSIDE)
 				{
 					sector_t* sector = Level->sides[tile->Binding.TypeIndex].sector;
-					if (sector && sector->Flags & SECF_LM_DYNAMIC)
+					if (sector && (sector->Flags & SECF_LM_DYNAMIC || lm_dynlights))
 					{
 						VisibleTiles.ReceivedNewLight.Push(tile);
 					}
@@ -308,7 +308,7 @@ public:
 				else if (tile->Binding.Type == ST_CEILING || tile->Binding.Type == ST_FLOOR)
 				{
 					sector_t* sector = Level->subsectors[tile->Binding.TypeIndex].sector;
-					if (sector && sector->Flags & SECF_LM_DYNAMIC)
+					if (sector && (sector->Flags & SECF_LM_DYNAMIC || lm_dynlights))
 					{
 						VisibleTiles.ReceivedNewLight.Push(tile);
 					}

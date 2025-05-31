@@ -469,6 +469,7 @@ public:
 
 	// Lightmaps
 	bool lightmaps = false;
+	bool orig_lightmapped = false;
 	TArray<int> LightmapTiles;
 	FVector3 SunDirection;
 	FVector3 SunColor;

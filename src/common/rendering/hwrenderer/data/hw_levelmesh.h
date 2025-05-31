@@ -106,6 +106,9 @@ public:
 	LevelMesh();
 	virtual ~LevelMesh() = default;
 
+
+	virtual void FullRefresh() {};
+
 	LevelMeshSurface* Trace(const FVector3& start, FVector3 direction, float maxDist);
 
 	LevelMeshTileStats GatherTilePixelStats();

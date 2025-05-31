@@ -288,7 +288,7 @@ static int CreateIndexedSectorVerticesLM(sector_t* sec, const secplane_t& plane,
 
 static int CreateIndexedSectorVertices(sector_t* sec, const secplane_t& plane, int floor, VertexContainer& verts, int h, int lightmapIndex)
 {
-	if (level.lightmaps && lightmapIndex != -1)
+	if (lightmapIndex != -1)
 		return CreateIndexedSectorVerticesLM(sec, plane, floor, h, lightmapIndex);
 
 	auto& vbo_shadowdata = sector_vertices;
