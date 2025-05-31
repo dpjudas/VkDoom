@@ -447,11 +447,12 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 	}
 	else
 	{
-		// Anything outside the BSP using this?
 		viewx = FLOAT2FIXED(Viewpoint.Pos.X);
 		viewy = FLOAT2FIXED(Viewpoint.Pos.Y);
 		multithread = false;
 		uselevelmesh = true;
+
+		validcount++;	// used for processing sidedefs only once by the renderer.
 
 		Bsp.Clock();
 
@@ -504,6 +505,14 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 			}
 		}
 
+		if (gl_levelmesh)
+			level.levelMesh->CurFrameStats.Portals++;
+
+		SeenFlatsDrawLists.Clear();
+		SeenSidesDrawLists.Clear();
+		level.levelMesh->AddSectorsToDrawLists(SeenSectors.Get(), SeenFlatsDrawLists);
+		level.levelMesh->AddSidesToDrawLists(SeenSides.Get(), SeenSidesDrawLists, this, state);
+
 		if (gl_render_things)
 		{
 			for (int subIndex : SeenSubsectors.Get())
@@ -537,6 +546,43 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 	}
 }
 
+void HWDrawInfo::ProcessSeg(seg_t* seg, FRenderState& state)
+{
+	subsector_t* sub = seg->Subsector;
+	sector_t* front, * back;
+	front = hw_FakeFlat(drawctx, sub->sector, in_area, false);
+	auto backsector = seg->backsector;
+	if (!backsector && seg->linedef->isVisualPortal() && seg->sidedef == seg->linedef->sidedef[0]) // For one-sided portals use the portal's destination sector as backsector.
+	{
+		auto portal = seg->linedef->getPortal();
+		backsector = portal->mDestination->frontsector;
+		back = hw_FakeFlat(drawctx, backsector, in_area, true);
+		if (front->floorplane.isSlope() || front->ceilingplane.isSlope() || back->floorplane.isSlope() || back->ceilingplane.isSlope())
+		{
+			// Having a one-sided portal like this with slopes is too messy so let's ignore that case.
+			back = nullptr;
+		}
+	}
+	else if (backsector)
+	{
+		if (front->sectornum == backsector->sectornum || (seg->sidedef->Flags & WALLF_POLYOBJ))
+		{
+			back = front;
+		}
+		else
+		{
+			back = hw_FakeFlat(drawctx, backsector, in_area, true);
+		}
+	}
+	else back = nullptr;
+
+	HWMeshHelper result;
+	HWWallDispatcher disp(this);
+	HWWall wall;
+	wall.sub = sub;
+	wall.Process(&disp, state, seg, front, back);
+}
+
 //-----------------------------------------------------------------------------
 //
 // CreateScene
@@ -568,14 +614,6 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	// clip the scene and fill the drawlists
 
 	RenderPVS(drawpsprites, state);
-
-	if (gl_levelmesh)
-		level.levelMesh->CurFrameStats.Portals++;
-
-	SeenFlatsDrawLists.Clear();
-	SeenSidesDrawLists.Clear();
-	level.levelMesh->AddSectorsToDrawLists(SeenSectors.Get(), SeenFlatsDrawLists);
-	level.levelMesh->AddSidesToDrawLists(SeenSides.Get(), SeenSidesDrawLists, this);
 
 	// And now the crappy hacks that have to be done to avoid rendering anomalies.
 	// These cannot be multithreaded when the time comes because all these depend

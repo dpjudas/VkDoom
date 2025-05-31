@@ -10,6 +10,7 @@
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
 #include "hw_dynlightdata.h"
+#include "hwrenderer/scene/hw_fakeflat.h"
 #include "hwrenderer/scene/hw_lighting.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
 #include "hwrenderer/scene/hw_drawinfo.h"
@@ -329,23 +330,33 @@ void DoomLevelMesh::AddSectorsToDrawLists(const TArray<int>& sectors, LevelMeshD
 	}
 }
 
-void DoomLevelMesh::AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists, HWDrawInfo* di)
+void DoomLevelMesh::AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists, HWDrawInfo* di, FRenderState& state)
 {
 	for (int sideIndex : sides)
 	{
-		for (const DrawRangeInfo& di : Sides[sideIndex].DrawRanges)
+		if (!Sides[sideIndex].NeedsImmediateRendering)
 		{
-			lists.Add(di.DrawType, di.PipelineID, { di.IndexStart, di.IndexStart + di.IndexCount });
-		}
+			for (const DrawRangeInfo& di : Sides[sideIndex].DrawRanges)
+			{
+				lists.Add(di.DrawType, di.PipelineID, { di.IndexStart, di.IndexStart + di.IndexCount });
+			}
 
-		for (const HWMissing& missing : Sides[sideIndex].MissingUpper)
-		{
-			di->AddUpperMissingTexture(missing.side, missing.sub, missing.plane);
-		}
+			for (const HWMissing& missing : Sides[sideIndex].MissingUpper)
+			{
+				di->AddUpperMissingTexture(missing.side, missing.sub, missing.plane);
+			}
 
-		for (const HWMissing& missing : Sides[sideIndex].MissingLower)
+			for (const HWMissing& missing : Sides[sideIndex].MissingLower)
+			{
+				di->AddLowerMissingTexture(missing.side, missing.sub, missing.plane);
+			}
+		}
+		else
 		{
-			di->AddLowerMissingTexture(missing.side, missing.sub, missing.plane);
+			// To do: is it good enough to just grab the first seg here?
+			side_t* side = &di->Level->sides[sideIndex];
+			seg_t* seg = side->segs[0];
+			di->ProcessSeg(seg, state);
 		}
 	}
 }
@@ -673,6 +684,8 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	Sides[sideIndex].MissingUpper.Clear();
 	Sides[sideIndex].MissingLower.Clear();
 	Sides[sideIndex].Decals.Clear();
+
+	Sides[sideIndex].NeedsImmediateRendering = false;
 }
 
 void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
@@ -1088,6 +1101,29 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	state.SetDepthFunc(DF_LEqual);
 	// DrawDecals(state, Decals[0]);
 
+	// These things aren't working properly with the level mesh.
+	bool incompatible = false;
+	for (const HWWall& wall : result.opaque)
+		if ((wall.flags & HWWall::HWF_SKYHACK) != 0)
+			incompatible = true;
+	for (const HWWall& wall : result.masked)
+		if ((wall.flags & HWWall::HWF_SKYHACK) != 0)
+			incompatible = true;
+	for (const HWWall& wall : result.maskedOffset)
+		if ((wall.flags & HWWall::HWF_SKYHACK) != 0)
+			incompatible = true;
+
+	if (result.translucent.size() != 0 || result.translucentBorder.size() != 0 || incompatible)
+	{
+		// For things that HWWall doesn't do correctly when drawn into the level mesh for one reason or another.
+		sideBlock.NeedsImmediateRendering = true;
+	}
+	else
+	{
+		for (const HWWall& portal : result.portals)
+			sideBlock.WallPortals.Push(portal);
+	}
+
 	/*
 	// final pass: translucent stuff
 	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
@@ -1101,9 +1137,6 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	state.SetDepthMask(true);
 	state.SetRenderStyle(STYLE_Normal);
 	*/
-
-	for (const HWWall& portal : result.portals)
-		sideBlock.WallPortals.Push(portal);
 
 	for (const HWMissing& missing : result.upper)
 		sideBlock.MissingUpper.Push(missing);

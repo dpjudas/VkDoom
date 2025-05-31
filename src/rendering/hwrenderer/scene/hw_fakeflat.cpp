@@ -158,6 +158,27 @@ bool hw_CheckClip(side_t * sidedef, sector_t * frontsector, sector_t * backsecto
 
 	if (frustum)
 	{
+		if (frontsector->GetTexture(sector_t::ceiling) == skyflatnum)
+		{
+			fs_ceilingheight1 = 32768.0;
+			fs_ceilingheight2 = 32768.0;
+		}
+		if (frontsector->GetTexture(sector_t::floor) == skyflatnum)
+		{
+			fs_floorheight1 = -32768.0;
+			fs_floorheight1 = -32768.0;
+		}
+		if (backsector->GetTexture(sector_t::ceiling) == skyflatnum)
+		{
+			bs_ceilingheight1 = 32768.0;
+			bs_ceilingheight2 = 32768.0;
+		}
+		if (backsector->GetTexture(sector_t::floor) == skyflatnum)
+		{
+			bs_floorheight1 = -32768.0;
+			bs_floorheight1 = -32768.0;
+		}
+
 		// Is the line visible by the camera's clip frustum?
 		DVector3 p0(linedef->v1->fX(), std::min(bs_ceilingheight1, fs_ceilingheight1), linedef->v1->fY());
 		DVector3 p1(linedef->v2->fX(), std::min(bs_ceilingheight2, fs_ceilingheight2), linedef->v2->fY());

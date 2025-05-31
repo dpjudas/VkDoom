@@ -316,6 +316,8 @@ public:
 		}
 	}
 
+	void ProcessSeg(seg_t* seg, FRenderState& state);
+
 	HWPortal * FindPortal(const void * src);
 	void RenderBSPNode(void *node, FRenderState& state);
 	void RenderOrthoNoFog(FRenderState& state);

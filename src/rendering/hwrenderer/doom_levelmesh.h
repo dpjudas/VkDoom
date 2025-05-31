@@ -84,6 +84,7 @@ struct SideSurfaceBlock
 	TArray<HWMissing> MissingLower;
 	TArray<HWDecalCreateInfo> Decals;
 	bool InSideDecalsList = false;
+	bool NeedsImmediateRendering = false;
 	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 	LightListAllocInfo Lights;
@@ -152,7 +153,7 @@ public:
 	void ProcessDecals(HWDrawInfo* drawinfo, FRenderState& state);
 
 	void AddSectorsToDrawLists(const TArray<int>& sectors, LevelMeshDrawLists& lists);
-	void AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists, HWDrawInfo* di);
+	void AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists, HWDrawInfo* di, FRenderState& state);
 
 	TArray<HWWall>& GetSidePortals(int sideIndex);
 
