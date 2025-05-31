@@ -228,8 +228,6 @@ struct HWDrawInfo
 	VisList SeenSectors, SeenSides, SeenSubsectors, SeenHackedSubsectors, SeenSubsectorPortals;
 	LevelMeshDrawLists SeenFlatsDrawLists, SeenSidesDrawLists;
 
-	TArray<bool> QueryResultsBuffer;
-
 	HWDrawInfo(HWDrawContext* drawctx) : drawctx(drawctx) { for (HWDrawList& list : drawlists) list.drawctx = drawctx; }
 
 	void WorkerThread();

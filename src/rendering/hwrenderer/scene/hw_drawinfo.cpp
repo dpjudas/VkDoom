@@ -441,6 +441,14 @@ HWDecal *HWDrawInfo::AddDecal(bool onmirror)
 
 void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 {
+	SeenSectors.Clear();
+	SeenSides.Clear();
+	SeenSubsectors.Clear();
+	SeenHackedSubsectors.Clear();
+	SeenSubsectorPortals.Clear();
+	SeenFlatsDrawLists.Clear();
+	SeenSidesDrawLists.Clear();
+
 	if (Viewpoint.IsOrtho() || !(gl_levelmesh && !outer))
 	{
 		RenderBSP(Level->HeadNode(), drawpsprites, state);
@@ -508,8 +516,6 @@ void HWDrawInfo::RenderPVS(bool drawpsprites, FRenderState& state)
 		if (gl_levelmesh)
 			level.levelMesh->CurFrameStats.Portals++;
 
-		SeenFlatsDrawLists.Clear();
-		SeenSidesDrawLists.Clear();
 		level.levelMesh->AddSectorsToDrawLists(SeenSectors.Get(), SeenFlatsDrawLists);
 		level.levelMesh->AddSidesToDrawLists(SeenSides.Get(), SeenSidesDrawLists, this, state);
 

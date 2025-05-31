@@ -150,14 +150,10 @@ public:
 
 	void BuildSectorGroups(const FLevelLocals& doomMap);
 
-	void ProcessDecals(HWDrawInfo* drawinfo, FRenderState& state);
-
 	void AddSectorsToDrawLists(const TArray<int>& sectors, LevelMeshDrawLists& lists);
 	void AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawLists& lists, HWDrawInfo* di, FRenderState& state);
 
 	TArray<HWWall>& GetSidePortals(int sideIndex);
-
-	TArray<int> SideDecals;
 
 	TArray<int> sectorGroup; // index is sector, value is sectorGroup
 	TArray<int> sectorPortals[2]; // index is sector+plane, value is index into the portal list

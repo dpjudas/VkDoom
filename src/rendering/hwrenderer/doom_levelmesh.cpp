@@ -334,21 +334,38 @@ void DoomLevelMesh::AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawL
 {
 	for (int sideIndex : sides)
 	{
-		if (!Sides[sideIndex].NeedsImmediateRendering)
+		auto& sideInfo = Sides[sideIndex];
+
+		if (!sideInfo.NeedsImmediateRendering)
 		{
-			for (const DrawRangeInfo& di : Sides[sideIndex].DrawRanges)
+			for (const DrawRangeInfo& di : sideInfo.DrawRanges)
 			{
 				lists.Add(di.DrawType, di.PipelineID, { di.IndexStart, di.IndexStart + di.IndexCount });
 			}
 
-			for (const HWMissing& missing : Sides[sideIndex].MissingUpper)
+			for (const HWMissing& missing : sideInfo.MissingUpper)
 			{
 				di->AddUpperMissingTexture(missing.side, missing.sub, missing.plane);
 			}
 
-			for (const HWMissing& missing : Sides[sideIndex].MissingLower)
+			for (const HWMissing& missing : sideInfo.MissingLower)
 			{
 				di->AddLowerMissingTexture(missing.side, missing.sub, missing.plane);
+			}
+
+			auto& decals = sideInfo.Decals;
+			if (decals.Size() != 0)
+			{
+				int dynlightindex = -1;
+				if (di->Level->HasDynamicLights && !di->isFullbrightScene() && decals[0].texture != nullptr && !lm_dynlights)
+				{
+					dynlightindex = decals[0].SetupLights(di, state, lightdata, level.sides[sideIndex].lighthead);
+				}
+
+				for (const HWDecalCreateInfo& info : decals)
+				{
+					info.ProcessDecal(di, state, dynlightindex);
+				}
 			}
 		}
 		else
@@ -492,27 +509,6 @@ void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
 TArray<HWWall>& DoomLevelMesh::GetSidePortals(int sideIndex)
 {
 	return Sides[sideIndex].WallPortals;
-}
-
-void DoomLevelMesh::ProcessDecals(HWDrawInfo* di, FRenderState& state)
-{
-	for (int sideIndex : level.levelMesh->SideDecals)
-	{
-		const auto& side = Sides[sideIndex];
-		if (side.Decals.Size() == 0)
-			continue;
-
-		int dynlightindex = -1;
-		if (di->Level->HasDynamicLights && !di->isFullbrightScene() && side.Decals[0].texture != nullptr && !lm_dynlights)
-		{
-			dynlightindex = side.Decals[0].SetupLights(di, state, lightdata, level.sides[sideIndex].lighthead);
-		}
-
-		for (const HWDecalCreateInfo& info : side.Decals)
-		{
-			info.ProcessDecal(di, state, dynlightindex);
-		}
-	}
 }
 
 int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
@@ -1068,12 +1064,6 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	wall.Process(&disp, state, seg, front, back);
 
 	// Grab the decals generated
-	if (result.decals.Size() != 0 && !sideBlock.InSideDecalsList)
-	{
-		SideDecals.Push(sideIndex);
-		sideBlock.InSideDecalsList = true;
-	}
-
 	sideBlock.Decals = result.decals;
 
 	state.SetDepthMask(true);
@@ -1096,10 +1086,6 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	state.SetDepthBias(-1, -128);
 	CreateWallSurface(side, disp, state, result.maskedOffset, LevelMeshDrawType::MaskedOffset, sideIndex, sideBlock.Lights);
 	state.ClearDepthBias();
-
-	// Part 4: Draw decals (not a real pass)
-	state.SetDepthFunc(DF_LEqual);
-	// DrawDecals(state, Decals[0]);
 
 	// These things aren't working properly with the level mesh.
 	bool incompatible = false;

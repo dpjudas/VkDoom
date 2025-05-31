@@ -579,11 +579,6 @@ void HWVisibleSetThreads::FindPVS(HWDrawInfo* di)
 	WTTotal.Unclock();
 
 	// Merge results
-	di->SeenSectors.Clear();
-	di->SeenSides.Clear();
-	di->SeenSubsectors.Clear();
-	di->SeenHackedSubsectors.Clear();
-	di->SeenSubsectorPortals.Clear();
 	for (int i = 0; i < SliceCount; i++)
 	{
 		if (gl_debug_slice != -1 && gl_debug_slice < SliceCount)
