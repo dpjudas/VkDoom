@@ -4,8 +4,6 @@ VKDoom is a source port based on the DOOM engine with a focus on Vulkan and mode
 
 Please see license files for individual contributor licenses.
 
-Visit our [website](https://vkdoom.org) for more details.
-
 ### Releases
 
 We do not have any official release of VKDoom yet. You can however download a binary build of the latest master branch commit at https://github.com/dpjudas/VkDoom/releases/tag/nightly
