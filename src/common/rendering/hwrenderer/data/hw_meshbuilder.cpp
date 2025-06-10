@@ -59,6 +59,8 @@ void MeshBuilder::Apply()
 {
 	MeshApplyState state;
 
+	state.vertexBuffer = static_cast<MeshBuilderBuffer<FModelVertex>*>(mVertexBuffer);
+	state.indexBuffer = static_cast<MeshBuilderBuffer<unsigned int>*>(mIndexBuffer);
 	state.applyData.RenderStyle = mRenderStyle;
 	state.applyData.SpecialEffect = mSpecialEffect;
 	state.applyData.TextureEnabled = mTextureEnabled;
@@ -80,4 +82,79 @@ std::pair<FFlatVertex*, unsigned int> MeshBuilder::AllocVertices(unsigned int co
 {
 	unsigned int offset = mVertices.Reserve(count);
 	return { &mVertices[offset], offset };
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+MeshBuilderModelRender::MeshBuilderModelRender(MeshBuilder& renderstate) : renderstate(renderstate)
+{
+}
+
+void MeshBuilderModelRender::BeginDrawModel(FRenderStyle style, int smf_flags, const VSMatrix& objectToWorldMatrix, bool mirrored)
+{
+	renderstate.EnableTexture(true);
+
+	VSMatrix normalModelMatrix;
+	normalModelMatrix.computeNormalMatrix(objectToWorldMatrix);
+	renderstate.SetModelMatrix(objectToWorldMatrix, normalModelMatrix);
+}
+
+void MeshBuilderModelRender::EndDrawModel(FRenderStyle style, int smf_flags)
+{
+	renderstate.SetBoneIndexBase(-1);
+	renderstate.SetModelMatrix(VSMatrix::identity(), VSMatrix::identity());
+}
+
+IModelVertexBuffer* MeshBuilderModelRender::CreateVertexBuffer(bool needindex, bool singleframe)
+{
+	return new MeshBuilderModelVertexBuffer();
+}
+
+VSMatrix MeshBuilderModelRender::GetViewToWorldMatrix()
+{
+	return VSMatrix::identity();
+}
+
+void MeshBuilderModelRender::BeginDrawHUDModel(FRenderStyle style, const VSMatrix& objectToWorldMatrix, bool mirrored, int smf_flags)
+{
+}
+
+void MeshBuilderModelRender::EndDrawHUDModel(FRenderStyle style, int smf_flags)
+{
+}
+
+void MeshBuilderModelRender::SetInterpolation(double interpolation)
+{
+	renderstate.SetInterpolationFactor((double)interpolation);
+}
+
+void MeshBuilderModelRender::SetMaterial(FGameTexture* skin, bool clampNoFilter, FTranslationID translation, void* act_v)
+{
+	renderstate.SetMaterial(skin, UF_Skin, 0, clampNoFilter ? CLAMP_NOFILTER : CLAMP_NONE, translation, -1, nullptr);
+}
+
+void MeshBuilderModelRender::DrawArrays(int start, int count)
+{
+	renderstate.Draw(DT_Triangles, start, count);
+}
+
+void MeshBuilderModelRender::DrawElements(int numIndices, size_t offset)
+{
+	renderstate.DrawIndexed(DT_Triangles, int(offset / sizeof(unsigned int)), numIndices);
+}
+
+void MeshBuilderModelRender::SetupFrame(FModel* model, unsigned int frame1, unsigned int frame2, unsigned int size, int boneStartIndex)
+{
+	auto mdbuff = static_cast<MeshBuilderModelVertexBuffer*>(model->GetVertexBuffer(GetType()));
+	renderstate.SetBoneIndexBase(boneStartIndex);
+	if (mdbuff)
+	{
+		renderstate.SetVertexBuffer(&mdbuff->vbuf, frame1, frame2);
+		renderstate.SetIndexBuffer(&mdbuff->ibuf);
+	}
+}
+
+int MeshBuilderModelRender::UploadBones(const TArray<VSMatrix>& bones)
+{
+	return renderstate.UploadBones(bones);
 }

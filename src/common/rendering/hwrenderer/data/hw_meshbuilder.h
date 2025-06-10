@@ -3,9 +3,37 @@
 #include "hw_renderstate.h"
 #include "hw_material.h"
 #include "flatvertices.h"
+#include "modelrenderer.h"
+#include "buffers.h"
 #include <map>
 
 class Mesh;
+
+template<typename T>
+class MeshBuilderBuffer : public IBuffer
+{
+public:
+	TArray<T> Data;
+
+	void SetData(size_t size, const void* data, BufferUsageType type) override
+	{
+		Data.resize(size);
+		memcpy(Data.data(), data, size);
+	}
+
+	void SetSubData(size_t offset, size_t size, const void* data) override
+	{
+		memcpy(reinterpret_cast<uint8_t*>(Data.data()) + offset, data, size);
+	}
+
+	void* Lock(unsigned int size) override
+	{
+		Data.Resize(size);
+		return Data.data();
+	}
+
+	void Unlock() override {}
+};
 
 struct MeshApplyData
 {
@@ -28,6 +56,8 @@ public:
 	SurfaceUniforms surfaceUniforms;
 	FMaterialState material;
 	VSMatrix textureMatrix;
+	MeshBuilderBuffer<FModelVertex>* vertexBuffer = nullptr;
+	MeshBuilderBuffer<unsigned int>* indexBuffer = nullptr;
 
 	bool operator<(const MeshApplyState& other) const
 	{
@@ -39,6 +69,11 @@ public:
 			return material.mTranslation < other.material.mTranslation;
 		if (material.mOverrideShader != other.material.mOverrideShader)
 			return material.mOverrideShader < other.material.mOverrideShader;
+
+		if (vertexBuffer != other.vertexBuffer)
+			return vertexBuffer < other.vertexBuffer;
+		if (indexBuffer != other.indexBuffer)
+			return indexBuffer < other.indexBuffer;
 
 		int result = memcmp(&applyData, &other.applyData, sizeof(MeshApplyData));
 		if (result != 0)
@@ -121,4 +156,57 @@ private:
 	int mDepthFunc = 0;
 	VSMatrix mTextureMatrix = VSMatrix::identity();
 	DrawLists* mDrawLists = nullptr;
+};
+
+class MeshBuilderModelVertexBuffer : public IModelVertexBuffer
+{
+public:
+	FModelVertex* LockVertexBuffer(unsigned int size) override
+	{
+		return static_cast<FModelVertex*>(vbuf.Lock(size));
+	}
+
+	void UnlockVertexBuffer() override
+	{
+	}
+
+	unsigned int* LockIndexBuffer(unsigned int size) override
+	{
+		return static_cast<unsigned int*>(ibuf.Lock(size));
+	}
+
+	void UnlockIndexBuffer() override
+	{
+	}
+
+	MeshBuilderBuffer<FModelVertex> vbuf;
+	MeshBuilderBuffer<unsigned int> ibuf;
+};
+
+class MeshBuilderModelRender : public FModelRenderer
+{
+public:
+	MeshBuilderModelRender(MeshBuilder& renderstate);
+
+	ModelRendererType GetType() const override { return ModelRendererType::MeshBuilderRendererType; }
+
+	void BeginDrawModel(FRenderStyle style, int smf_flags, const VSMatrix& objectToWorldMatrix, bool mirrored) override;
+	void EndDrawModel(FRenderStyle style, int smf_flags) override;
+
+	IModelVertexBuffer* CreateVertexBuffer(bool needindex, bool singleframe) override;
+
+	VSMatrix GetViewToWorldMatrix() override;
+
+	void BeginDrawHUDModel(FRenderStyle style, const VSMatrix& objectToWorldMatrix, bool mirrored, int smf_flags) override;
+	void EndDrawHUDModel(FRenderStyle style, int smf_flags) override;
+
+	void SetInterpolation(double interpolation) override;
+	void SetMaterial(FGameTexture* skin, bool clampNoFilter, FTranslationID translation, void* act) override;
+	void DrawArrays(int start, int count) override;
+	void DrawElements(int numIndices, size_t offset) override;
+	void SetupFrame(FModel* model, unsigned int frame1, unsigned int frame2, unsigned int size, int boneStartIndex) override;
+	int UploadBones(const TArray<VSMatrix>& bones) override;
+
+private:
+	MeshBuilder& renderstate;
 };

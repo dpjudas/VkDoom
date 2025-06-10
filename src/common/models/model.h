@@ -71,7 +71,7 @@ enum ModelRendererType
 {
 	GLModelRendererType,
 	SWModelRendererType,
-	PolyModelRendererType,
+	MeshBuilderRendererType,
 	NumModelRendererTypes
 };
 

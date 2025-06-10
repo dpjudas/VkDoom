@@ -5,7 +5,7 @@
 #include "texturemanager.h"
 #include "playsim/p_lnspec.h"
 #include "c_dispatch.h"
-#include "g_levellocals.h"
+#include "models.h"
 #include "a_dynlight.h"
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
@@ -276,6 +276,31 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 		tile.GeometryUpdate = false;
 		tile.NeedsInitialBake = true;
 	}
+
+#if 0
+	// Collect all the models we want to bake into the level mesh
+	auto it = doomMap.GetThinkerIterator<AActor>();
+	AActor* thing;
+	while ((thing = it.Next()) != nullptr)
+	{
+		bool isPicnumOverride = thing->picnum.isValid();
+		int spritenum = thing->sprite;
+		FSpriteModelFrame* modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
+		if (modelframe && modelframe->modelIDs.size() != 0)
+		{
+			DVector3 thingpos = thing->Pos();
+			double x = thingpos.X + thing->WorldOffset.X;
+			double z = thingpos.Z + thing->WorldOffset.Z;
+			double y = thingpos.Y + thing->WorldOffset.Y;
+
+			MeshBuilder builder;
+			MeshBuilderModelRender renderer(builder);
+			RenderModel(&renderer, x, y, z, modelframe, thing, 0.0);
+
+			// To do: add the MeshBuilder output as surfaces
+		}
+	}
+#endif
 
 	CreateCollision();
 	UploadPortals();
