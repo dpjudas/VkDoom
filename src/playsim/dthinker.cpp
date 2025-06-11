@@ -933,17 +933,19 @@ size_t DThinker::PropagateMark()
 //
 //==========================================================================
 
-FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum) : Level(l)
+FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum, bool forceSearch) : Level(l)
 {
 	if ((unsigned)statnum > MAX_STATNUM)
 	{
 		m_Stat = STAT_FIRST_THINKING;
 		m_SearchStats = true;
+		m_SkipOne = false;
 	}
 	else
 	{
 		m_Stat = statnum;
-		m_SearchStats = false;
+		m_SearchStats = forceSearch;
+		m_SkipOne = (forceSearch && statnum <= STAT_FIRST_THINKING);
 	}
 	m_ParentType = type;
 	Reinit();
@@ -955,17 +957,19 @@ FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int sta
 //
 //==========================================================================
 
-FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum, DThinker *prev) : Level(l)
+FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum, DThinker *prev, bool forceSearch) : Level(l)
 {
 	if ((unsigned)statnum > MAX_STATNUM)
 	{
 		m_Stat = STAT_FIRST_THINKING;
 		m_SearchStats = true;
+		m_SkipOne = false;
 	}
 	else
 	{
 		m_Stat = statnum;
-		m_SearchStats = false;
+		m_SearchStats = forceSearch;
+		m_SkipOne = (forceSearch && statnum <= STAT_FIRST_THINKING);
 	}
 	m_ParentType = type;
 	if (prev == nullptr || (prev->NextThinker->ObjectFlags & OF_Sentinel))
@@ -1005,6 +1009,8 @@ DThinker *FThinkerIterator::Next (bool exact)
 	}
 	do
 	{
+		if(m_SkipOne && m_Stat == STAT_FIRST_THINKING) m_SkipOne = false;
+
 		do
 		{
 			if (m_CurrThinker != nullptr)
@@ -1041,7 +1047,7 @@ DThinker *FThinkerIterator::Next (bool exact)
 		}
 		m_CurrThinker = Level->Thinkers.Thinkers[m_Stat].GetHead();
 		m_SearchingFresh = false;
-	} while (m_SearchStats && m_Stat != STAT_FIRST_THINKING);
+	} while (m_SearchStats && (m_SkipOne || m_Stat != STAT_FIRST_THINKING));
 	return nullptr;
 }
 
