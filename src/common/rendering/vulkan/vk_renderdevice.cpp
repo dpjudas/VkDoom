@@ -89,6 +89,8 @@ CUSTOM_CVAR(Bool, vk_debug, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINI
 
 CVAR(Bool, vk_debug_callstack, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
+CVAR(Bool, vk_amd_driver_check, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
 CUSTOM_CVAR(Int, vk_device, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
 {
 	Printf("This won't take effect until " GAMENAME " is restarted.\n");
@@ -187,10 +189,19 @@ VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::sha
 
 	mUseRayQuery = vk_rayquery && mDevice->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && mDevice->PhysicalDevice.Features.RayQuery.rayQuery;
 
-	// Creating pipelines with rayquery currently crashes the AMD driver
-	// To do: try turn this on once in a while to see if they fixed it as we don't want to permanently gimp AMD card performance
-	if (mDevice->PhysicalDevice.Properties.Properties.vendorID == 0x1002)
-		mUseRayQuery = false;
+	if (vk_amd_driver_check)
+	{
+		// Creating pipelines with rayquery currently crashes the AMD driver
+		// To do: try turn this on once in a while to see if they fixed it as we don't want to permanently gimp AMD card performance
+		if (mDevice->PhysicalDevice.Properties.Properties.vendorID == 0x1002)
+		{
+			if (mUseRayQuery)
+			{
+				Printf("AMD driver detected. Disabling RT cores. You can force RT cores on by setting vk_amd_driver_check to true.\n");
+				mUseRayQuery = false;
+			}
+		}
+	}
 
 	mShaderCache = std::make_unique<VkShaderCache>(this);
 }
