@@ -197,7 +197,7 @@ VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::sha
 		{
 			if (mUseRayQuery)
 			{
-				Printf("AMD driver detected. Disabling RT cores. You can force RT cores on by setting vk_amd_driver_check to true.\n");
+				Printf("AMD driver detected. Disabling RT cores. You can force RT cores on by setting vk_amd_driver_check to false.\n");
 				mUseRayQuery = false;
 			}
 		}
