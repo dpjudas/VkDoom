@@ -22,6 +22,7 @@
 #include "vm.h"
 #include "p_setup.h"
 
+static void UpdateLightmapTiles();
 static int InvalidateLightmap();
 static void InvalidateActorLightTraceCache();
 
@@ -72,6 +73,16 @@ static bool RequireLightmap()
 
 	Printf("Lightmap is not enabled in this level.\n");
 	return false;
+}
+
+// Forces lightmap tiles update
+static void UpdateLightmapTiles()
+{
+	for (auto& tile : level.levelMesh->Lightmap.Tiles)
+	{
+		if (!tile.NeedsInitialBake)
+			tile.ReceivedNewLight = true;
+	}
 }
 
 static int InvalidateLightmap()
@@ -251,6 +262,7 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	Lightmap.SampleDistance = doomMap.LightmapSampleDistance;
 	LightBounce = doomMap.LightBounce;
 	AmbientOcclusion = doomMap.AmbientOcclusion;
+	LevelWideLMDynamic = doomMap.LevelWideLMDynamic;
 
 	// HWWall and HWFlat still looks at r_viewpoint when doing calculations,
 	// but we aren't rendering a specific viewpoint when this function gets called
@@ -2715,6 +2727,14 @@ static void InvalidateActorLightTraceCache()
 	{
 		ac->InvalidateLightTraceCache();
 	}
+}
+
+DEFINE_ACTION_FUNCTION(_Lightmap, Update)
+{
+	PARAM_PROLOGUE;
+	UpdateLightmapTiles();
+	InvalidateActorLightTraceCache();
+	return 0;
 }
 
 DEFINE_ACTION_FUNCTION(_Lightmap, Invalidate)

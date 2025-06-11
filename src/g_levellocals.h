@@ -482,6 +482,7 @@ public:
 	uint16_t LightmapSampleDistance = 0;
 	bool LightBounce = false;
 	bool AmbientOcclusion = true;
+	bool LevelWideLMDynamic = false; // Whole map has dynamic lightmaps enabled via ZDRayInfo (no need to set it per sector)
 
 	// Portal information.
 	FDisplacementTable Displacements;

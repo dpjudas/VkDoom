@@ -3253,6 +3253,7 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 	Level->lightmaps = gameinfo.forceEnableLightmaps;
 	Level->LightBounce = false;
 	Level->AmbientOcclusion = true;
+	Level->LevelWideLMDynamic = false;
 
 	// note: most of this ordering is important 
 	ForceNodeBuild = gennodes;
