@@ -283,16 +283,20 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	// Collect all the models we want to bake into the level mesh
 	if (lm_models)
 	{
+		PClass * cls = PClass::FindClass("StaticMapModel");
 		auto it = doomMap.GetThinkerIterator<AActor>();
 		AActor* thing;
 		while ((thing = it.Next()) != nullptr)
 		{
-			bool isPicnumOverride = thing->picnum.isValid();
-			int spritenum = thing->sprite;
-			FSpriteModelFrame* modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
-			if (modelframe && modelframe->modelIDs.size() != 0)
+			if(thing->GetClass()->IsDescendantOf(cls))
 			{
-				CreateModelSurfaces(thing, modelframe);
+				bool isPicnumOverride = thing->picnum.isValid();
+				int spritenum = thing->sprite;
+				FSpriteModelFrame* modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
+				if (modelframe && modelframe->modelIDs.size() != 0)
+				{
+					CreateModelSurfaces(thing, modelframe);
+				}
 			}
 		}
 	}
