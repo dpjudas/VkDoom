@@ -304,6 +304,11 @@ public:
 	{
 		return TThinkerIterator<T>(this, subtype, statnum, prev);
 	}
+	template<class T> TThinkerIterator<T> GetThinkerIterator(PClass * subtype, int statnum = MAX_STATNUM+1, bool forceSearch = false)
+	{
+		assert(subtype);
+		return TThinkerIterator<T>(this, subtype, statnum, forceSearch);
+	}
 	FActorIterator GetActorIterator(int tid)
 	{
 		return FActorIterator(TIDHash, tid);

@@ -137,10 +137,11 @@ private:
 	uint8_t m_Stat;
 	bool m_SearchStats;
 	bool m_SearchingFresh;
+	bool m_SkipOne;
 
 public:
-	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum=MAX_STATNUM+1);
-	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum, DThinker *prev);
+	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum=MAX_STATNUM+1, bool forceSearch = false);
+	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum, DThinker *prev, bool forceSearch = false);
 	DThinker *Next (bool exact = false);
 	void Reinit ();
 };
@@ -154,7 +155,7 @@ public:
 	TThinkerIterator (FLevelLocals *Level, int statnum, DThinker *prev) : FThinkerIterator (Level, RUNTIME_CLASS(T), statnum, prev)
 	{
 	}
-	TThinkerIterator (FLevelLocals *Level, const PClass *subclass, int statnum=MAX_STATNUM+1) : FThinkerIterator(Level, subclass, statnum)
+	TThinkerIterator (FLevelLocals *Level, const PClass *subclass, int statnum=MAX_STATNUM+1, bool forceSearch = false) : FThinkerIterator(Level, subclass, statnum, forceSearch)
 	{
 	}
 	TThinkerIterator (FLevelLocals *Level, FName subclass, int statnum=MAX_STATNUM+1) : FThinkerIterator(Level, PClass::FindClass(subclass), statnum)
