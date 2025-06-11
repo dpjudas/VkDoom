@@ -120,6 +120,7 @@ public:
 	float SunIntensity = 1.0f;
 	bool AmbientOcclusion = true;
 	bool LightBounce = true;
+	bool LevelWideLMDynamic = false; // Whole map has dynamic lightmaps enabled via ZDRayInfo (no need to set it per sector)
 
 	TArray<LevelMeshPortal> Portals;
 

@@ -852,6 +852,11 @@ public:
 				Level->AmbientOcclusion = CheckBool(key);
 				break;
 
+			case NAME_lm_dynamic:
+				CHECK_N(Zd | Zdt)
+				Level->LevelWideLMDynamic = CheckBool(key);
+				break;
+
 			default:
 				CHECK_N(Zd | Zdt)
 				if (0 == strnicmp("user_", key.GetChars(), 5))
