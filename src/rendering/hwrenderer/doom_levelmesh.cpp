@@ -237,7 +237,7 @@ CCMD(surfaceinfo)
 
 EXTERN_CVAR(Float, lm_scale);
 
-CVAR(Bool, lm_models, false, 0);
+CVAR(Bool, lm_models, true, CVAR_NOSAVE); // CVar-gated for debugging convenience
 
 /////////////////////////////////////////////////////////////////////////////
 
