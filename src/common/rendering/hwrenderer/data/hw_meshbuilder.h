@@ -111,7 +111,7 @@ public:
 	// Buffers
 	int SetViewpoint(const HWViewpointUniforms& vp) override { return 0; }
 	void SetViewpoint(int index) override { }
-	void SetModelMatrix(const VSMatrix& matrix, const VSMatrix& normalMatrix) override { }
+	void SetModelMatrix(const VSMatrix& matrix, const VSMatrix& normalMatrix) override { objectToWorld = matrix; normalToWorld = normalMatrix; }
 	void SetTextureMatrix(const VSMatrix& matrix) override { mTextureMatrix = matrix; }
 	int UploadLights(const FDynLightData& lightdata) override { return -1; }
 	int UploadBones(const TArray<VSMatrix>& bones) override { return -1; }
@@ -149,6 +149,9 @@ public:
 
 	TArray<FFlatVertex> mVertices;
 	TArray<uint32_t> mIndexes;
+
+	VSMatrix objectToWorld = VSMatrix::identity();
+	VSMatrix normalToWorld = VSMatrix::identity();
 
 private:
 	void Apply();

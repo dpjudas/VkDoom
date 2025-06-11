@@ -7,6 +7,7 @@
 #include "c_dispatch.h"
 #include "models.h"
 #include "a_dynlight.h"
+#include "r_sky.h"
 #include "hw_renderstate.h"
 #include "hw_vertexbuilder.h"
 #include "hw_dynlightdata.h"
@@ -236,6 +237,8 @@ CCMD(surfaceinfo)
 
 EXTERN_CVAR(Float, lm_scale);
 
+CVAR(Bool, lm_models, false, 0);
+
 /////////////////////////////////////////////////////////////////////////////
 
 DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
@@ -277,30 +280,22 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 		tile.NeedsInitialBake = true;
 	}
 
-#if 0
 	// Collect all the models we want to bake into the level mesh
-	auto it = doomMap.GetThinkerIterator<AActor>();
-	AActor* thing;
-	while ((thing = it.Next()) != nullptr)
+	if (lm_models)
 	{
-		bool isPicnumOverride = thing->picnum.isValid();
-		int spritenum = thing->sprite;
-		FSpriteModelFrame* modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
-		if (modelframe && modelframe->modelIDs.size() != 0)
+		auto it = doomMap.GetThinkerIterator<AActor>();
+		AActor* thing;
+		while ((thing = it.Next()) != nullptr)
 		{
-			DVector3 thingpos = thing->Pos();
-			double x = thingpos.X + thing->WorldOffset.X;
-			double z = thingpos.Z + thing->WorldOffset.Z;
-			double y = thingpos.Y + thing->WorldOffset.Y;
-
-			MeshBuilder builder;
-			MeshBuilderModelRender renderer(builder);
-			RenderModel(&renderer, x, y, z, modelframe, thing, 0.0);
-
-			// To do: add the MeshBuilder output as surfaces
+			bool isPicnumOverride = thing->picnum.isValid();
+			int spritenum = thing->sprite;
+			FSpriteModelFrame* modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
+			if (modelframe && modelframe->modelIDs.size() != 0)
+			{
+				CreateModelSurfaces(thing, modelframe);
+			}
 		}
 	}
-#endif
 
 	CreateCollision();
 	UploadPortals();
@@ -311,6 +306,162 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 
 DoomLevelMesh::~DoomLevelMesh()
 {
+}
+
+void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelframe)
+{
+	DVector3 thingpos = thing->Pos();
+	double x = thingpos.X + thing->WorldOffset.X;
+	double z = thingpos.Z + thing->WorldOffset.Z;
+	double y = thingpos.Y + thing->WorldOffset.Y;
+
+	state.mSortedLists.clear();
+	state.mVertices.Clear();
+	state.mIndexes.Clear();
+
+	state.SetDepthMask(true);
+	state.EnableFog(true);
+	state.SetRenderStyle(STYLE_Source);
+
+	state.SetDepthFunc(DF_LEqual);
+	state.ClearDepthBias();
+	state.EnableTexture(true);
+	state.EnableBrightmap(true);
+	state.AlphaFunc(Alpha_GEqual, 0.f);
+
+	MeshBuilderModelRender renderer(state);
+	RenderModel(&renderer, x, y, z, modelframe, thing, 0.0);
+
+	// Flatten the model as we need lightmap UV coordinates uniquely for every vertex for each surface.
+	int numUniforms = 0;
+	int numSurfaces = 0;
+	for (auto& it : state.mSortedLists)
+	{
+		numUniforms++;
+		for (MeshDrawCommand& command : it.second.mDraws)
+		{
+			if (command.DrawType == DT_Triangles)
+			{
+				numSurfaces += command.Count / 3;
+			}
+		}
+		for (MeshDrawCommand& command : it.second.mIndexedDraws)
+		{
+			if (command.DrawType == DT_Triangles)
+			{
+				numSurfaces += command.Count / 3;
+			}
+		}
+	}
+
+	VSMatrix objectToWorld = state.objectToWorld;
+	//VSMatrix normalToWorld = state.normalToWorld;
+
+	GeometryAllocInfo ginfo = AllocGeometry(numSurfaces * 3, numSurfaces * 3);
+	UniformsAllocInfo uinfo = AllocUniforms(numUniforms);
+	SurfaceAllocInfo sinfo = AllocSurface(numUniforms); // Note: this is not a typo. We currently only create a SurfaceInfo for each apply state.
+
+	SurfaceUniforms* curUniforms = uinfo.Uniforms;
+	SurfaceLightUniforms* curLightUniforms = uinfo.LightUniforms;
+	FMaterialState* curMaterial = uinfo.Materials;
+
+	int pipelineID = 0;
+	int uniformsIndex = uinfo.Start;
+	int vertIndex = ginfo.VertexStart;
+	for (auto& it : state.mSortedLists)
+	{
+		const MeshApplyState& applyState = it.first;
+
+		pipelineID = screen->GetLevelMeshPipelineID(applyState.applyData, applyState.surfaceUniforms, applyState.material);
+
+		auto indexBuffer = applyState.indexBuffer->Data.data();
+		auto vertexBuffer = applyState.vertexBuffer->Data.data();
+
+		for (MeshDrawCommand& command : it.second.mDraws)
+		{
+			if (command.DrawType == DT_Triangles)
+			{
+				int numVertices = command.Count / 3 * 3;
+				for (int i = 0; i < numVertices; i++)
+				{
+					*(ginfo.Indexes++) = vertIndex + i;
+				}
+				for (int i = command.Start, end = command.Start + numVertices; i < end; i++)
+				{
+					const FModelVertex& vertIn = vertexBuffer[i];
+					FVector4 pos = objectToWorld * FVector4(vertIn.x, vertIn.y, vertIn.z, 1.0f);
+					FFlatVertex vertOut;
+					vertOut.x = pos.X;
+					vertOut.y = pos.Z;
+					vertOut.z = pos.Y;
+					vertOut.u = vertIn.u;
+					vertOut.v = vertIn.v;
+					vertOut.lindex = -1.0f;
+					*(ginfo.Vertices++) = vertOut;
+					*(ginfo.UniformIndexes++) = uniformsIndex;
+				}
+				vertIndex += numVertices;
+			}
+		}
+
+		for (MeshDrawCommand& command : it.second.mIndexedDraws)
+		{
+			if (command.DrawType == DT_Triangles)
+			{
+				int numVertices = command.Count / 3 * 3;
+				for (int i = 0; i < numVertices; i++)
+				{
+					*(ginfo.Indexes++) = vertIndex + i;
+				}
+				for (int i = command.Start, end = command.Start + numVertices; i < end; i++)
+				{
+					const FModelVertex& vertIn = vertexBuffer[indexBuffer[i]];
+					FVector4 pos = objectToWorld * FVector4(vertIn.x, vertIn.y, vertIn.z, 1.0f);
+					FFlatVertex vertOut;
+					vertOut.x = pos.X;
+					vertOut.y = pos.Z;
+					vertOut.z = pos.Y;
+					vertOut.u = vertIn.u;
+					vertOut.v = vertIn.v;
+					vertOut.lindex = -1.0f;
+					*(ginfo.Vertices++) = vertOut;
+					*(ginfo.UniformIndexes++) = uniformsIndex;
+				}
+				vertIndex += numVertices;
+			}
+		}
+
+		*(curUniforms++) = applyState.surfaceUniforms;
+		*(curMaterial++) = applyState.material;
+
+		curLightUniforms->uVertexColor = applyState.surfaceUniforms.uVertexColor;
+		curLightUniforms->uDesaturationFactor = applyState.surfaceUniforms.uDesaturationFactor;
+		curLightUniforms->uLightLevel = applyState.surfaceUniforms.uLightLevel;
+		curLightUniforms++;
+
+		sinfo.Surface->PipelineID = pipelineID;
+		sinfo.Surface->SectorGroup = thing->Sector ? sectorGroup[thing->Sector->Index()] : 0;
+		sinfo.Surface->Alpha = float(thing->Alpha);
+		sinfo.Surface->MeshLocation.StartVertIndex = ginfo.VertexStart;
+		sinfo.Surface->MeshLocation.StartElementIndex = ginfo.IndexStart;
+		sinfo.Surface->MeshLocation.NumVerts = ginfo.VertexCount;
+		sinfo.Surface->MeshLocation.NumElements = ginfo.IndexCount;
+		sinfo.Surface->Plane = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
+		sinfo.Surface->Texture = TexMan.GetGameTexture(skyflatnum); // To do: how to get a FGameTexture from a material? 
+		sinfo.Surface->PortalIndex = 0;
+		sinfo.Surface->IsSky = false;
+		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
+		sinfo.Surface->LightList.Pos = 0; // To do: how to manage the light list for baked models?
+		sinfo.Surface->LightList.Count = 0;
+		sinfo.Surface->LightmapTileIndex = -1; // To do: create tiles for the model surfaces? Current SurfaceInfo is too big for this
+
+		for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
+			Mesh.SurfaceIndexes[i] = sinfo.Index;
+
+		uniformsIndex++;
+	}
+
+	// To do: save ginfo, uinfo and sinfo in a Models list like we are doing for sides and flats? We need that if we are to ever update them
 }
 
 void DoomLevelMesh::BuildSideVisibilityLists(FLevelLocals& doomMap)

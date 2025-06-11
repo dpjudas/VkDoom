@@ -102,7 +102,9 @@ void MeshBuilderModelRender::BeginDrawModel(FRenderStyle style, int smf_flags, c
 void MeshBuilderModelRender::EndDrawModel(FRenderStyle style, int smf_flags)
 {
 	renderstate.SetBoneIndexBase(-1);
-	renderstate.SetModelMatrix(VSMatrix::identity(), VSMatrix::identity());
+
+	// Don't do this so we don't have to track matrix changes in MeshBuilder (only models uses matrices like this)
+	//renderstate.SetModelMatrix(VSMatrix::identity(), VSMatrix::identity());
 }
 
 IModelVertexBuffer* MeshBuilderModelRender::CreateVertexBuffer(bool needindex, bool singleframe)
