@@ -470,6 +470,10 @@ void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelf
 		for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
 			Mesh.SurfaceIndexes[i] = sinfo.Index;
 
+		if (DoomSurfaceInfos.size() <= (size_t)sinfo.Index)
+			DoomSurfaceInfos.resize(sinfo.Index + 1);
+		DoomSurfaceInfos[sinfo.Index].Type = ST_NONE; // Maybe add ST_MODEL?
+
 		uniformsIndex++;
 	}
 
@@ -506,35 +510,7 @@ void DoomLevelMesh::BuildSubsectorVisibilityLists(FLevelLocals& doomMap)
 
 void DoomLevelMesh::SetLimits(FLevelLocals& doomMap)
 {
-	// Try to estimate what the worst case memory needs are for the level
-	LevelMeshLimits limits;
-
-	for (const sector_t& sector : doomMap.sectors)
-	{
-		unsigned int ffloors = sector.e ? sector.e->XFloor.ffloors.Size() : 0;
-
-		limits.MaxVertices += sector.Lines.Size() * 4 * (3 + ffloors);
-		limits.MaxIndexes += sector.Lines.Size() * 6 * (3 + ffloors);
-		limits.MaxSurfaces += sector.Lines.Size() * (3 + ffloors);
-		limits.MaxUniforms += sector.Lines.Size() * (3 + ffloors);
-
-		limits.MaxSurfaces += sector.subsectorcount * (2 + ffloors * 2);
-		limits.MaxUniforms += 2 + ffloors * 2;
-
-		for (int i = 0, count = sector.subsectorcount; i < count; i++)
-		{
-			limits.MaxVertices += sector.subsectors[i]->numlines;
-			limits.MaxIndexes += sector.subsectors[i]->numlines * 3;
-		}
-	}
-
-	// Double up to leave room for fragmentation
-	limits.MaxVertices *= 2;
-	limits.MaxSurfaces *= 2;
-	limits.MaxUniforms *= 2;
-	limits.MaxIndexes *= 2;
-
-	Reset(limits);
+	Reset();
 }
 
 void DoomLevelMesh::AddSectorsToDrawLists(const TArray<int>& sectors, LevelMeshDrawLists& lists)
@@ -1595,6 +1571,9 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
 		}
 
+		if (DoomSurfaceInfos.size() <= (size_t)sinfo.Index)
+			DoomSurfaceInfos.resize(sinfo.Index + 1);
+
 		DoomSurfaceInfo& info = DoomSurfaceInfos[sinfo.Index];
 		info.Type = wallpart.LevelMeshInfo.Type;
 		info.ControlSector = wallpart.LevelMeshInfo.ControlSector;
@@ -1914,6 +1893,9 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			Flats[sectorIndex].FirstSurface = sinfo.Index;
 
 			*sinfo.Surface = surf;
+
+			if (DoomSurfaceInfos.size() <= (size_t)sinfo.Index)
+				DoomSurfaceInfos.resize(sinfo.Index + 1);
 			DoomSurfaceInfos[sinfo.Index] = info;
 
 			for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)

@@ -70,8 +70,9 @@ class MeshBufferAllocator
 {
 public:
 	void Reset(int size);
+	void Grow(int amount);
 
-	int GetTotalSize() const;
+	int GetTotalSize() const { return TotalSize; }
 	int GetUsedSize() const;
 
 	int Alloc(int count);
@@ -91,14 +92,6 @@ public:
 
 private:
 	TArray<MeshBufferRange> Ranges;
-};
-
-struct LevelMeshLimits
-{
-	int MaxVertices = 0;
-	int MaxSurfaces = 0;
-	int MaxUniforms = 0;
-	int MaxIndexes = 0;
 };
 
 class LevelMesh
@@ -137,8 +130,8 @@ public:
 	void FreeLightList(int start, int count);
 	void FreeTile(int index);
 
-	// Sets the sizes of all the GPU buffers and empties the mesh
-	virtual void Reset(const LevelMeshLimits& limits);
+	// Sets the initial sizes of the GPU buffers and empties the mesh
+	virtual void Reset();
 
 	virtual void GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfaces) { }
 
@@ -239,8 +232,26 @@ inline GeometryAllocInfo LevelMesh::AllocGeometry(int vertexCount, int indexCoun
 {
 	GeometryAllocInfo info;
 	info.VertexStart = FreeLists.Vertex.Alloc(vertexCount);
+	if (info.VertexStart == -1)
+	{
+		FreeLists.Vertex.Grow(vertexCount);
+		Mesh.Vertices.Resize(FreeLists.Vertex.GetTotalSize());
+		Mesh.UniformIndexes.Resize(FreeLists.Vertex.GetTotalSize());
+		info.VertexStart = FreeLists.Vertex.Alloc(vertexCount);
+		if (info.VertexStart == -1)
+			I_FatalError("Could not find space in level mesh vertex buffer");
+	}
 	info.VertexCount = vertexCount;
 	info.IndexStart = FreeLists.Index.Alloc(indexCount);
+	if (info.IndexStart == -1)
+	{
+		FreeLists.Index.Grow(indexCount);
+		Mesh.Indexes.Resize(FreeLists.Index.GetTotalSize());
+		Mesh.SurfaceIndexes.Resize(FreeLists.Index.GetTotalSize() / 3 + 1);
+		info.IndexStart = FreeLists.Index.Alloc(indexCount);
+		if (info.IndexStart == -1)
+			I_FatalError("Could not find space in level mesh index buffer");
+	}
 	info.IndexCount = indexCount;
 	info.Vertices = &Mesh.Vertices[info.VertexStart];
 	info.UniformIndexes = &Mesh.UniformIndexes[info.VertexStart];
@@ -260,6 +271,16 @@ inline UniformsAllocInfo LevelMesh::AllocUniforms(int count)
 {
 	UniformsAllocInfo info;
 	info.Start = FreeLists.Uniforms.Alloc(count);
+	if (info.Start == -1)
+	{
+		FreeLists.Uniforms.Grow(count);
+		Mesh.Uniforms.Resize(FreeLists.Uniforms.GetTotalSize());
+		Mesh.LightUniforms.Resize(FreeLists.Uniforms.GetTotalSize());
+		Mesh.Materials.Resize(FreeLists.Uniforms.GetTotalSize());
+		info.Start = FreeLists.Uniforms.Alloc(count);
+		if (info.Start == -1)
+			I_FatalError("Could not find space in level mesh uniform buffer");
+	}
 	info.Count = count;
 	info.Uniforms = &Mesh.Uniforms[info.Start];
 	info.LightUniforms = &Mesh.LightUniforms[info.Start];
@@ -275,6 +296,14 @@ inline LightListAllocInfo LevelMesh::AllocLightList(int count)
 {
 	LightListAllocInfo info;
 	info.Start = FreeLists.LightIndex.Alloc(count);
+	if (info.Start == -1)
+	{
+		FreeLists.LightIndex.Grow(count);
+		Mesh.LightIndexes.Resize(FreeLists.LightIndex.GetTotalSize());
+		info.Start = FreeLists.LightIndex.Alloc(count);
+		if (info.Start == -1)
+			I_FatalError("Could not find space in level mesh light index buffer");
+	}
 	info.Count = count;
 	info.List = &Mesh.LightIndexes[info.Start];
 	UploadRanges.LightIndex.Add(info.Start, info.Count);
@@ -285,6 +314,14 @@ inline LightAllocInfo LevelMesh::AllocLight()
 {
 	LightAllocInfo info;
 	info.Index = FreeLists.Light.Alloc(1);
+	if (info.Index == -1)
+	{
+		FreeLists.Light.Grow(1);
+		Mesh.Lights.Resize(FreeLists.Light.GetTotalSize());
+		info.Index = FreeLists.Light.Alloc(1);
+		if (info.Index == -1)
+			I_FatalError("Could not find space in level mesh light buffer");
+	}
 	info.Light = &Mesh.Lights[info.Index];
 	UploadRanges.Light.Add(info.Index, 1);
 	return info;
@@ -294,6 +331,14 @@ inline SurfaceAllocInfo LevelMesh::AllocSurface(int count)
 {
 	SurfaceAllocInfo info;
 	info.Index = FreeLists.Surface.Alloc(count);
+	if (info.Index == -1)
+	{
+		FreeLists.Surface.Grow(count);
+		Mesh.Surfaces.Resize(FreeLists.Surface.GetTotalSize());
+		info.Index = FreeLists.Surface.Alloc(count);
+		if (info.Index == -1)
+			I_FatalError("Could not find space in level mesh surface buffer");
+	}
 	info.Surface = &Mesh.Surfaces[info.Index];
 	info.Count = count;
 	UploadRanges.Surface.Add(info.Index, info.Count);

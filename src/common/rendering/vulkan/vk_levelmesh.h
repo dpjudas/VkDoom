@@ -103,9 +103,9 @@ private:
 		bool NeedsUpdate = false;
 	};
 
-	void Reset();
-	void CreateVulkanObjects();
-	void CreateBuffers();
+	void ResetAccelStruct();
+	void CheckAccelStruct();
+	void CheckBuffers();
 	void CreateTLASInstanceBuffer();
 	void CreateTopLevelAS(int instanceCount);
 

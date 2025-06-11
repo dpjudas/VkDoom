@@ -75,7 +75,6 @@ void VkLightmapper::ReleaseResources()
 void VkLightmapper::SetLevelMesh(LevelMesh* level)
 {
 	mesh = level;
-	UpdateAccelStructDescriptors();
 
 	lightmapRaytraceLast.Reset();
 	lastPixelCount = 0;
@@ -86,6 +85,8 @@ void VkLightmapper::BeginFrame()
 {
 	drawindexed.Pos = 0;
 	copytiles.Pos = 0;
+
+	UpdateAccelStructDescriptors();
 }
 
 void VkLightmapper::Raytrace(const TArray<LightmapTile*>& tiles)

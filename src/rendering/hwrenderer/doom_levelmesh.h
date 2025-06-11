@@ -185,10 +185,10 @@ public:
 	void OnSectorLightListChanged(sector_t* sector) override;
 	void OnSideLightListChanged(side_t* side) override;
 
-	void Reset(const LevelMeshLimits& limits) override
+	void Reset() override
 	{
-		LevelMesh::Reset(limits);
-		DoomSurfaceInfos.Resize(limits.MaxSurfaces);
+		LevelMesh::Reset();
+		DoomSurfaceInfos.Clear();
 	}
 
 	void GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfaces) override;
