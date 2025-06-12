@@ -845,10 +845,12 @@ public:
 				break;
 
 			case NAME_lm_bounce:
+				CHECK_N(Zd | Zdt)
 				Level->LightBounce = CheckBool(key);
 				break;
 
 			case NAME_lm_ao:
+				CHECK_N(Zd | Zdt)
 				Level->AmbientOcclusion = CheckBool(key);
 				break;
 
@@ -2308,6 +2310,7 @@ public:
 					break;
 
 				case NAME_lm_dynamic:
+					CHECK_N(Zd | Zdt)
 					Flag(sec->Flags, SECF_LM_DYNAMIC, key);
 					continue;
 
