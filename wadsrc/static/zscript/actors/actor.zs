@@ -287,7 +287,7 @@ class Actor : Thinker native
 	meta Sound PushSound;		// Sound being played when pushed by something
 
 	// VKDoom
-	meta readonly int ShadowCastingType;
+	meta int ShadowCastingType;
 
 	// todo: implement access to native meta properties.
 	// native meta int infighting_group;
