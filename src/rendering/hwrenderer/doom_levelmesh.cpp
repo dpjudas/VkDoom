@@ -295,16 +295,19 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	// Collect all the models we want to bake into the level mesh
 	if (lm_models)
 	{
-		TThinkerIterator<AActor> it(&doomMap, PClass::FindClass("StaticMapModel"), STAT_STATIC, true);
+		TThinkerIterator<AActor> it(&doomMap, PClass::FindClass("Actor"), STAT_STATIC, true);
 		AActor* thing;
 		while ((thing = it.Next()) != nullptr)
 		{
-			bool isPicnumOverride = thing->picnum.isValid();
-			int spritenum = thing->sprite;
-			FSpriteModelFrame* modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
-			if (modelframe && modelframe->modelIDs.size() != 0)
+			if (thing->IntVar(NAME_ShadowCastingType) == SHADOWCASTING_Lightmap)
 			{
-				CreateModelSurfaces(thing, modelframe);
+				bool isPicnumOverride = thing->picnum.isValid();
+				int spritenum = thing->sprite;
+				FSpriteModelFrame* modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
+				if (modelframe && modelframe->modelIDs.size() != 0)
+				{
+					CreateModelSurfaces(thing, modelframe);
+				}
 			}
 		}
 	}

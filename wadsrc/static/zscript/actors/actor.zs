@@ -286,6 +286,9 @@ class Actor : Thinker native
 	meta double FastSpeed;		// speed in fast mode
 	meta Sound PushSound;		// Sound being played when pushed by something
 
+	// VKDoom
+	meta readonly int ShadowCastingType;
+
 	// todo: implement access to native meta properties.
 	// native meta int infighting_group;
 	// native meta int projectile_group;
@@ -372,6 +375,7 @@ class Actor : Thinker native
 	property ShadowPenaltyFactor: ShadowPenaltyFactor;
 	property AutomapOffsets : AutomapOffsets;
 	property LandingSpeed: LandingSpeed;
+	property ShadowCastingType: ShadowCastingType;
 
     // need some definition work first
     //FRenderStyle RenderStyle;
