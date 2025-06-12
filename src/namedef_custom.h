@@ -875,6 +875,7 @@ xx(lm_suncolor)
 xx(lm_sunintensity)
 xx(lm_bounce)
 xx(lm_ao)
+xx(ShadowCastingType)
 
 // Light keywords
 xx(light_softshadowradius)

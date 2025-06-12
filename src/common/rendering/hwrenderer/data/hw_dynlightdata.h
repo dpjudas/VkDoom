@@ -87,6 +87,14 @@ struct sun_trace_cache_t
 	bool SunResult = false;
 };
 
+enum FShadowCastingTypes
+{
+	SHADOWCASTING_None = 0,
+	SHADOWCASTING_Lightmap,
+	// Not yet implemented.
+	//SHADOWCASTING_Dynamic
+};
+
 extern thread_local FDynLightData lightdata;
 
 
