@@ -376,9 +376,13 @@ void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelf
 	UniformsAllocInfo uinfo = AllocUniforms(numUniforms);
 	SurfaceAllocInfo sinfo = AllocSurface(numUniforms); // Note: this is not a typo. We currently only create a SurfaceInfo for each apply state.
 
-	SurfaceUniforms* curUniforms = uinfo.Uniforms;
-	SurfaceLightUniforms* curLightUniforms = uinfo.LightUniforms;
-	FMaterialState* curMaterial = uinfo.Materials;
+	SurfaceUniforms* curUniforms = GetUniforms(uinfo);
+	SurfaceLightUniforms* curLightUniforms = GetLightUniforms(uinfo);
+	FMaterialState* curMaterial = GetMaterials(uinfo);
+
+	auto indexes = GetIndexes(ginfo);
+	auto vertices = GetVertices(ginfo);
+	auto uniformIndexes = GetUniformIndexes(ginfo);
 
 	int pipelineID = 0;
 	int uniformsIndex = uinfo.Start;
@@ -399,7 +403,7 @@ void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelf
 				int numVertices = command.Count / 3 * 3;
 				for (int i = 0; i < numVertices; i++)
 				{
-					*(ginfo.Indexes++) = vertIndex + i;
+					*(indexes++) = vertIndex + i;
 				}
 				for (int i = command.Start, end = command.Start + numVertices; i < end; i++)
 				{
@@ -412,8 +416,8 @@ void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelf
 					vertOut.u = vertIn.u;
 					vertOut.v = vertIn.v;
 					vertOut.lindex = -1.0f;
-					*(ginfo.Vertices++) = vertOut;
-					*(ginfo.UniformIndexes++) = uniformsIndex;
+					*(vertices++) = vertOut;
+					*(uniformIndexes++) = uniformsIndex;
 				}
 				vertIndex += numVertices;
 			}
@@ -426,7 +430,7 @@ void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelf
 				int numVertices = command.Count / 3 * 3;
 				for (int i = 0; i < numVertices; i++)
 				{
-					*(ginfo.Indexes++) = vertIndex + i;
+					*(indexes++) = vertIndex + i;
 				}
 				for (int i = command.Start, end = command.Start + numVertices; i < end; i++)
 				{
@@ -439,8 +443,8 @@ void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelf
 					vertOut.u = vertIn.u;
 					vertOut.v = vertIn.v;
 					vertOut.lindex = -1.0f;
-					*(ginfo.Vertices++) = vertOut;
-					*(ginfo.UniformIndexes++) = uniformsIndex;
+					*(vertices++) = vertOut;
+					*(uniformIndexes++) = uniformsIndex;
 				}
 				vertIndex += numVertices;
 			}
@@ -454,28 +458,28 @@ void DoomLevelMesh::CreateModelSurfaces(AActor* thing, FSpriteModelFrame* modelf
 		curLightUniforms->uLightLevel = applyState.surfaceUniforms.uLightLevel;
 		curLightUniforms++;
 
-		sinfo.Surface->PipelineID = pipelineID;
-		sinfo.Surface->SectorGroup = thing->Sector ? sectorGroup[thing->Sector->Index()] : 0;
-		sinfo.Surface->Alpha = float(thing->Alpha);
-		sinfo.Surface->MeshLocation.StartVertIndex = ginfo.VertexStart;
-		sinfo.Surface->MeshLocation.StartElementIndex = ginfo.IndexStart;
-		sinfo.Surface->MeshLocation.NumVerts = ginfo.VertexCount;
-		sinfo.Surface->MeshLocation.NumElements = ginfo.IndexCount;
-		sinfo.Surface->Plane = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
-		sinfo.Surface->Texture = TexMan.GetGameTexture(skyflatnum); // To do: how to get a FGameTexture from a material? 
-		sinfo.Surface->PortalIndex = 0;
-		sinfo.Surface->IsSky = false;
-		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
-		sinfo.Surface->LightList.Pos = 0; // To do: how to manage the light list for baked models?
-		sinfo.Surface->LightList.Count = 0;
-		sinfo.Surface->LightmapTileIndex = -1; // To do: create tiles for the model surfaces? Current SurfaceInfo is too big for this
+		auto surface = GetSurface(sinfo);
+		surface->PipelineID = pipelineID;
+		surface->SectorGroup = thing->Sector ? sectorGroup[thing->Sector->Index()] : 0;
+		surface->Alpha = float(thing->Alpha);
+		surface->MeshLocation.StartVertIndex = ginfo.VertexStart;
+		surface->MeshLocation.StartElementIndex = ginfo.IndexStart;
+		surface->MeshLocation.NumVerts = ginfo.VertexCount;
+		surface->MeshLocation.NumElements = ginfo.IndexCount;
+		surface->Plane = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
+		surface->Texture = TexMan.GetGameTexture(skyflatnum); // To do: how to get a FGameTexture from a material? 
+		surface->PortalIndex = 0;
+		surface->IsSky = false;
+		surface->Bounds = GetBoundsFromSurface(*surface);
+		surface->LightList.Pos = 0; // To do: how to manage the light list for baked models?
+		surface->LightList.Count = 0;
+		surface->LightmapTileIndex = -1; // To do: create tiles for the model surfaces? Current SurfaceInfo is too big for this
 
 		for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
 			Mesh.SurfaceIndexes[i] = sinfo.Index;
 
-		if (DoomSurfaceInfos.size() <= (size_t)sinfo.Index)
-			DoomSurfaceInfos.resize(sinfo.Index + 1);
-		DoomSurfaceInfos[sinfo.Index].Type = ST_NONE; // Maybe add ST_MODEL?
+		auto doomsurface = GetDoomSurface(sinfo);
+		doomsurface->Type = ST_NONE; // Maybe add ST_MODEL?
 
 		uniformsIndex++;
 	}
@@ -721,7 +725,7 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 
 
 	LightAllocInfo info = AllocLight();
-	CopyToMeshLight(light, *info.Light, portalgroup);
+	CopyToMeshLight(light, *GetLight(info), portalgroup);
 
 	light->levelmesh[index].index = info.Index + 1;
 	light->levelmesh[index].portalgroup = portalgroup;
@@ -1202,6 +1206,7 @@ LightListAllocInfo DoomLevelMesh::CreateLightList(FLightNode* node, int portalgr
 	}
 
 	LightListAllocInfo info = AllocLightList(lightcount);
+	int32_t* lightList = GetLightList(info);
 	int i = 0;
 	cur = node;
 	while (cur)
@@ -1212,7 +1217,7 @@ LightListAllocInfo DoomLevelMesh::CreateLightList(FLightNode* node, int portalgr
 			int lightindex = GetLightIndex(light, portalgroup);
 			if (lightindex >= 0)
 			{
-				info.List[i++] = lightindex;
+				lightList[i++] = lightindex;
 			}
 		}
 		cur = cur->nextLight;
@@ -1421,17 +1426,18 @@ void DoomLevelMesh::SetSideLights(FLevelLocals& doomMap, unsigned int sideIndex)
 
 	for (UniformsAllocInfo& uinfo : Sides[sideIndex].Uniforms)
 	{
+		auto lightUniforms = GetLightUniforms(uinfo);
 		for (int i = 0, count = uinfo.Count; i < count; i++)
 		{
 			// To do: calculate this correctly (see HWDrawInfo::SetColor)
-			// uinfo.LightUniforms[i].uVertexColor
-			// uinfo.LightUniforms[i].uDesaturationFactor
-			if (uinfo.LightUniforms[i].uLightLevel >= 0.0f) 
+			// lightUniforms[i].uVertexColor
+			// lightUniforms[i].uDesaturationFactor
+			if (lightUniforms[i].uLightLevel >= 0.0f)
 			{
-				uinfo.LightUniforms[i].uLightLevel = clamp(doomMap.sides[sideIndex].sector->lightlevel * (1.0f / 255.0f), 0.0f, 1.0f);
+				lightUniforms[i].uLightLevel = clamp(doomMap.sides[sideIndex].sector->lightlevel * (1.0f / 255.0f), 0.0f, 1.0f);
 			}
 
-			SetColor(uinfo.LightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, absalpha);
+			SetColor(lightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, absalpha);
 		}
 		UploadRanges.LightUniforms.Add(uinfo.Start, uinfo.Count);
 	}
@@ -1455,9 +1461,10 @@ void DoomLevelMesh::SetFlatLights(FLevelLocals& doomMap, unsigned int sectorInde
 
 	for (UniformsAllocInfo& uinfo : Flats[sectorIndex].Uniforms)
 	{
+		auto lightUniforms = GetLightUniforms(uinfo);
 		for (int i = 0, count = uinfo.Count; i < count; i++)
 		{
-			SetColor(uinfo.LightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, alpha);
+			SetColor(lightUniforms[i], &doomMap, lightmode, lightlevel, rel, fullbrightScene, Colormap, alpha);
 		}
 		UploadRanges.LightUniforms.Add(uinfo.Start, uinfo.Count);
 	}
@@ -1512,9 +1519,13 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		UniformsAllocInfo uinfo = AllocUniforms(numUniforms);
 		SurfaceAllocInfo sinfo = AllocSurface();
 
-		SurfaceUniforms* curUniforms = uinfo.Uniforms;
-		SurfaceLightUniforms* curLightUniforms = uinfo.LightUniforms;
-		FMaterialState* curMaterial = uinfo.Materials;
+		SurfaceUniforms* curUniforms = GetUniforms(uinfo);
+		SurfaceLightUniforms* curLightUniforms = GetLightUniforms(uinfo);
+		FMaterialState* curMaterial = GetMaterials(uinfo);
+
+		auto indexes = GetIndexes(ginfo);
+		auto vertices = GetVertices(ginfo);
+		auto uniformIndexes = GetUniformIndexes(ginfo);
 
 		int pipelineID = 0;
 		int uniformsIndex = uinfo.Start;
@@ -1531,15 +1542,15 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 				{
 					for (int i = 2, count = command.Count; i < count; i++)
 					{
-						*(ginfo.Indexes++) = vertIndex;
-						*(ginfo.Indexes++) = vertIndex + i - 1;
-						*(ginfo.Indexes++) = vertIndex + i;
+						*(indexes++) = vertIndex;
+						*(indexes++) = vertIndex + i - 1;
+						*(indexes++) = vertIndex + i;
 					}
 
 					for (int i = command.Start, end = command.Start + command.Count; i < end; i++)
 					{
-						*(ginfo.Vertices++) = state.mVertices[i];
-						*(ginfo.UniformIndexes++) = uniformsIndex;
+						*(vertices++) = state.mVertices[i];
+						*(uniformIndexes++) = uniformsIndex;
 					}
 					vertIndex += command.Count;
 				}
@@ -1574,10 +1585,7 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 			sampleDimension = side->textures[side_t::bottom].LightmapSampleDistance;
 		}
 
-		if (DoomSurfaceInfos.size() <= (size_t)sinfo.Index)
-			DoomSurfaceInfos.resize(sinfo.Index + 1);
-
-		DoomSurfaceInfo& info = DoomSurfaceInfos[sinfo.Index];
+		DoomSurfaceInfo& info = *GetDoomSurface(sinfo);
 		info.Type = wallpart.LevelMeshInfo.Type;
 		info.ControlSector = wallpart.LevelMeshInfo.ControlSector;
 		info.TypeIndex = side->Index();
@@ -1586,29 +1594,30 @@ void DoomLevelMesh::CreateWallSurface(side_t* side, HWWallDispatcher& disp, Mesh
 		info.NextSurface = Sides[sideIndex].FirstSurface;
 		Sides[sideIndex].FirstSurface = sinfo.Index;
 
-		sinfo.Surface->PipelineID = pipelineID;
-		sinfo.Surface->SectorGroup = sectorGroup[side->sector->Index()];
-		sinfo.Surface->Alpha = float(side->linedef->alpha);
-		sinfo.Surface->MeshLocation.StartVertIndex = ginfo.VertexStart;
-		sinfo.Surface->MeshLocation.StartElementIndex = ginfo.IndexStart;
-		sinfo.Surface->MeshLocation.NumVerts = ginfo.VertexCount;
-		sinfo.Surface->MeshLocation.NumElements = ginfo.IndexCount;
-		sinfo.Surface->Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
-		sinfo.Surface->Texture = wallpart.texture;
-		sinfo.Surface->PortalIndex = (drawType == LevelMeshDrawType::Portal) ? linePortals[side->linedef->Index()] : 0;
-		sinfo.Surface->IsSky = (drawType == LevelMeshDrawType::Portal) ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
-		sinfo.Surface->Bounds = GetBoundsFromSurface(*sinfo.Surface);
-		sinfo.Surface->LightList.Pos = lightlist.Start;
-		sinfo.Surface->LightList.Count = lightlist.Count;
+		auto surface = GetSurface(sinfo);
+		surface->PipelineID = pipelineID;
+		surface->SectorGroup = sectorGroup[side->sector->Index()];
+		surface->Alpha = float(side->linedef->alpha);
+		surface->MeshLocation.StartVertIndex = ginfo.VertexStart;
+		surface->MeshLocation.StartElementIndex = ginfo.IndexStart;
+		surface->MeshLocation.NumVerts = ginfo.VertexCount;
+		surface->MeshLocation.NumElements = ginfo.IndexCount;
+		surface->Plane = FVector4(N.X, N.Y, 0.0f, v1 | N);
+		surface->Texture = wallpart.texture;
+		surface->PortalIndex = (drawType == LevelMeshDrawType::Portal) ? linePortals[side->linedef->Index()] : 0;
+		surface->IsSky = (drawType == LevelMeshDrawType::Portal) ? (wallpart.portaltype == PORTALTYPE_SKY || wallpart.portaltype == PORTALTYPE_SKYBOX || wallpart.portaltype == PORTALTYPE_HORIZON) : false;
+		surface->Bounds = GetBoundsFromSurface(*surface);
+		surface->LightList.Pos = lightlist.Start;
+		surface->LightList.Count = lightlist.Count;
 
-		if (disp.Level->lightmaps && !sinfo.Surface->IsSky)
+		if (disp.Level->lightmaps && !surface->IsSky)
 		{
-			sinfo.Surface->LightmapTileIndex = AddSurfaceToTile(info, *sinfo.Surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC));
+			surface->LightmapTileIndex = AddSurfaceToTile(info, *surface, sampleDimension, !!(side->sector->Flags & SECF_LM_DYNAMIC));
 			Lightmap.AddedSurfaces.Push(sinfo.Index);
 		}
 		else
 		{
-			sinfo.Surface->LightmapTileIndex = -1;
+			surface->LightmapTileIndex = -1;
 		}
 		
 		SetSideLightmap(sinfo.Index);
@@ -1766,12 +1775,13 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 
 		int* surfaceIndexes = &Mesh.SurfaceIndexes[ginfo.IndexStart / 3];
 
-		*uinfo.Uniforms = *uniforms;
-		*uinfo.Materials = *material;
+		*GetUniforms(uinfo) = *uniforms;
+		*GetMaterials(uinfo) = *material;
 
-		uinfo.LightUniforms->uVertexColor = uniforms->uVertexColor;
-		uinfo.LightUniforms->uDesaturationFactor = uniforms->uDesaturationFactor;
-		uinfo.LightUniforms->uLightLevel = uniforms->uLightLevel;
+		auto lightUniforms = GetLightUniforms(uinfo);
+		lightUniforms->uVertexColor = uniforms->uVertexColor;
+		lightUniforms->uDesaturationFactor = uniforms->uDesaturationFactor;
+		lightUniforms->uLightLevel = uniforms->uLightLevel;
 
 		int uniformsIndex = uinfo.Start;
 		int vertIndex = ginfo.VertexStart;
@@ -1816,6 +1826,10 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 		float skyZ = flatpart.ceiling ? 32768.0f : -32768.0f;
 		bool useSkyZ = (drawType == LevelMeshDrawType::Portal && flatpart.plane.texture == skyflatnum);
 
+		FFlatVertex* vertices = GetVertices(ginfo);
+		int* uniformIndexes = GetUniformIndexes(ginfo);
+		uint32_t* indexes = GetIndexes(ginfo);
+
 		for (subsector_t* sub : flatpart.section->subsectors)
 		{
 			if (sub->numlines < 3)
@@ -1843,8 +1857,8 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 				ffv.lv = 0.0f;
 				ffv.lindex = -1.0f;
 
-				*(ginfo.Vertices++) = ffv;
-				*(ginfo.UniformIndexes++) = uniformsIndex;
+				*(vertices++) = ffv;
+				*(uniformIndexes++) = uniformsIndex;
 			}
 
 			SurfaceAllocInfo sinfo = AllocSurface();
@@ -1853,9 +1867,9 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			{
 				for (int i = 2, count = sub->numlines; i < count; i++)
 				{
-					*(ginfo.Indexes++) = startVertIndex;
-					*(ginfo.Indexes++) = startVertIndex + i - 1;
-					*(ginfo.Indexes++) = startVertIndex + i;
+					*(indexes++) = startVertIndex;
+					*(indexes++) = startVertIndex + i - 1;
+					*(indexes++) = startVertIndex + i;
 					*(surfaceIndexes++) = sinfo.Index;
 				}
 			}
@@ -1863,9 +1877,9 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			{
 				for (int i = 2, count = sub->numlines; i < count; i++)
 				{
-					*(ginfo.Indexes++) = startVertIndex + i;
-					*(ginfo.Indexes++) = startVertIndex + i - 1;
-					*(ginfo.Indexes++) = startVertIndex;
+					*(indexes++) = startVertIndex + i;
+					*(indexes++) = startVertIndex + i - 1;
+					*(indexes++) = startVertIndex;
 					*(surfaceIndexes++) = sinfo.Index;
 				}
 			}
@@ -1895,11 +1909,8 @@ void DoomLevelMesh::CreateFlatSurface(HWFlatDispatcher& disp, MeshBuilder& state
 			info.NextSurface = Flats[sectorIndex].FirstSurface;
 			Flats[sectorIndex].FirstSurface = sinfo.Index;
 
-			*sinfo.Surface = surf;
-
-			if (DoomSurfaceInfos.size() <= (size_t)sinfo.Index)
-				DoomSurfaceInfos.resize(sinfo.Index + 1);
-			DoomSurfaceInfos[sinfo.Index] = info;
+			*GetSurface(sinfo) = surf;
+			*GetDoomSurface(sinfo) = info;
 
 			for (int i = ginfo.IndexStart / 3, end = (ginfo.IndexStart + ginfo.IndexCount) / 3; i < end; i++)
 				Mesh.SurfaceIndexes[i] = sinfo.Index;

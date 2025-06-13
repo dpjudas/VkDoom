@@ -20,9 +20,6 @@ struct LevelMeshTileStats;
 
 struct GeometryAllocInfo
 {
-	FFlatVertex* Vertices = nullptr;
-	int* UniformIndexes = nullptr;
-	uint32_t* Indexes = nullptr;
 	int VertexStart = 0;
 	int VertexCount = 0;
 	int IndexStart = 0;
@@ -31,29 +28,23 @@ struct GeometryAllocInfo
 
 struct UniformsAllocInfo
 {
-	SurfaceUniforms* Uniforms = nullptr;
-	SurfaceLightUniforms* LightUniforms = nullptr;
-	FMaterialState* Materials = nullptr;
 	int Start = 0;
 	int Count = 0;
 };
 
 struct SurfaceAllocInfo
 {
-	LevelMeshSurface* Surface = nullptr;
 	int Index = 0;
 	int Count = 0;
 };
 
 struct LightAllocInfo
 {
-	LevelMeshLight* Light = nullptr;
 	int Index = 0;
 };
 
 struct LightListAllocInfo
 {
-	int32_t* List = nullptr;
 	int Start = 0;
 	int Count = 0;
 };
@@ -100,7 +91,6 @@ public:
 	LevelMesh();
 	virtual ~LevelMesh() = default;
 
-
 	virtual void FullRefresh() {};
 
 	LevelMeshSurface* Trace(const FVector3& start, FVector3 direction, float maxDist);
@@ -123,6 +113,19 @@ public:
 	LightAllocInfo AllocLight();
 	LightListAllocInfo AllocLightList(int count);
 	int AllocTile(const LightmapTile& tile);
+
+	LevelMeshSurface* GetSurface(const SurfaceAllocInfo& info) { return &Mesh.Surfaces[info.Index]; }
+
+	FFlatVertex* GetVertices(const GeometryAllocInfo& info) { return &Mesh.Vertices[info.VertexStart]; }
+	int* GetUniformIndexes(const GeometryAllocInfo& info) { return &Mesh.UniformIndexes[info.VertexStart]; }
+	uint32_t* GetIndexes(const GeometryAllocInfo& info) { return &Mesh.Indexes[info.IndexStart]; }
+
+	SurfaceUniforms* GetUniforms(const UniformsAllocInfo& info) { return &Mesh.Uniforms[info.Start]; }
+	SurfaceLightUniforms* GetLightUniforms(const UniformsAllocInfo& info) { return &Mesh.LightUniforms[info.Start]; }
+	FMaterialState* GetMaterials(const UniformsAllocInfo& info) { return &Mesh.Materials[info.Start]; }
+
+	LevelMeshLight* GetLight(const LightAllocInfo& info) { return &Mesh.Lights[info.Index]; }
+	int32_t* GetLightList(const LightListAllocInfo& info) { return &Mesh.LightIndexes[info.Start]; }
 
 	void FreeGeometry(int vertexStart, int vertexCount, int indexStart, int indexCount);
 	void FreeUniforms(int start, int count);
@@ -253,9 +256,6 @@ inline GeometryAllocInfo LevelMesh::AllocGeometry(int vertexCount, int indexCoun
 			I_FatalError("Could not find space in level mesh index buffer");
 	}
 	info.IndexCount = indexCount;
-	info.Vertices = &Mesh.Vertices[info.VertexStart];
-	info.UniformIndexes = &Mesh.UniformIndexes[info.VertexStart];
-	info.Indexes = &Mesh.Indexes[info.IndexStart];
 
 	UploadRanges.Vertex.Add(info.VertexStart, info.VertexCount);
 	UploadRanges.UniformIndexes.Add(info.VertexStart, info.VertexCount);
@@ -282,9 +282,6 @@ inline UniformsAllocInfo LevelMesh::AllocUniforms(int count)
 			I_FatalError("Could not find space in level mesh uniform buffer");
 	}
 	info.Count = count;
-	info.Uniforms = &Mesh.Uniforms[info.Start];
-	info.LightUniforms = &Mesh.LightUniforms[info.Start];
-	info.Materials = &Mesh.Materials[info.Start];
 
 	UploadRanges.Uniforms.Add(info.Start, info.Count);
 	UploadRanges.LightUniforms.Add(info.Start, info.Count);
@@ -305,7 +302,6 @@ inline LightListAllocInfo LevelMesh::AllocLightList(int count)
 			I_FatalError("Could not find space in level mesh light index buffer");
 	}
 	info.Count = count;
-	info.List = &Mesh.LightIndexes[info.Start];
 	UploadRanges.LightIndex.Add(info.Start, info.Count);
 	return info;
 }
@@ -322,7 +318,6 @@ inline LightAllocInfo LevelMesh::AllocLight()
 		if (info.Index == -1)
 			I_FatalError("Could not find space in level mesh light buffer");
 	}
-	info.Light = &Mesh.Lights[info.Index];
 	UploadRanges.Light.Add(info.Index, 1);
 	return info;
 }
@@ -339,7 +334,6 @@ inline SurfaceAllocInfo LevelMesh::AllocSurface(int count)
 		if (info.Index == -1)
 			I_FatalError("Could not find space in level mesh surface buffer");
 	}
-	info.Surface = &Mesh.Surfaces[info.Index];
 	info.Count = count;
 	UploadRanges.Surface.Add(info.Index, info.Count);
 	return info;

@@ -56,21 +56,23 @@ void LevelMesh::AddEmptyMesh()
 	// Default empty mesh (we can't make it completely empty since vulkan doesn't like that)
 	float minval = -100001.0f;
 	float maxval = -100000.0f;
-	ginfo.Vertices[0] = { minval, minval, minval };
-	ginfo.Vertices[1] = { maxval, minval, minval };
-	ginfo.Vertices[2] = { maxval, maxval, minval };
-	ginfo.Vertices[3] = { minval, minval, minval };
-	ginfo.Vertices[4] = { minval, maxval, minval };
-	ginfo.Vertices[5] = { maxval, maxval, minval };
-	ginfo.Vertices[6] = { minval, minval, maxval };
-	ginfo.Vertices[7] = { maxval, minval, maxval };
-	ginfo.Vertices[8] = { maxval, maxval, maxval };
-	ginfo.Vertices[9] = { minval, minval, maxval };
-	ginfo.Vertices[10] = { minval, maxval, maxval };
-	ginfo.Vertices[11] = { maxval, maxval, maxval };
+	auto vertices = GetVertices(ginfo);
+	vertices[0] = { minval, minval, minval };
+	vertices[1] = { maxval, minval, minval };
+	vertices[2] = { maxval, maxval, minval };
+	vertices[3] = { minval, minval, minval };
+	vertices[4] = { minval, maxval, minval };
+	vertices[5] = { maxval, maxval, minval };
+	vertices[6] = { minval, minval, maxval };
+	vertices[7] = { maxval, minval, maxval };
+	vertices[8] = { maxval, maxval, maxval };
+	vertices[9] = { minval, minval, maxval };
+	vertices[10] = { minval, maxval, maxval };
+	vertices[11] = { maxval, maxval, maxval };
 
+	auto indexes = GetIndexes(ginfo);
 	for (int i = 0; i < 3 * 4; i++)
-		ginfo.Indexes[i] = i;
+		indexes[i] = i;
 
 	Mesh.IndexCount = ginfo.IndexCount;
 

@@ -257,6 +257,14 @@ private:
 	void BuildSideVisibilityLists(FLevelLocals& doomMap);
 	void BuildSubsectorVisibilityLists(FLevelLocals& doomMap);
 
+	DoomSurfaceInfo* GetDoomSurface(const SurfaceAllocInfo& sinfo)
+	{
+		size_t i = (size_t)sinfo.Index;
+		if (DoomSurfaceInfos.size() <= i)
+			DoomSurfaceInfos.resize(i + 1);
+		return &DoomSurfaceInfos[i];
+	}
+
 	TArray<DoomSurfaceInfo> DoomSurfaceInfos;
 
 	TArray<SideSurfaceBlock> Sides;
