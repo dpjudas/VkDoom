@@ -90,7 +90,7 @@ struct sun_trace_cache_t
 enum FShadowCastingTypes
 {
 	SHADOWCASTING_None = 0,
-	SHADOWCASTING_Lightmap,
+	SHADOWCASTING_Static,
 	// Not yet implemented.
 	//SHADOWCASTING_Dynamic
 };

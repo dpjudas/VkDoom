@@ -299,7 +299,7 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 		AActor* thing;
 		while ((thing = it.Next()) != nullptr)
 		{
-			if (thing->IntVar(NAME_ShadowCastingType) == SHADOWCASTING_Lightmap)
+			if (thing->IntVar(NAME_ShadowCastingType) == SHADOWCASTING_Static)
 			{
 				bool isPicnumOverride = thing->picnum.isValid();
 				int spritenum = thing->sprite;
