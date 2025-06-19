@@ -96,26 +96,50 @@ void CPUAccelStruct::Update()
 	DynamicBLASTime.ResetAndClock();
 	InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
 
-	std::vector<bool> needsUpdate(InstanceCount);
-	for (const MeshBufferRange& range : Mesh->UploadRanges.Index.GetRanges())
+	bool reCreated = false;
+
+	if(InstanceCount > DynamicBLAS.size())
 	{
-		int start = range.Start / IndexesPerBLAS;
-		int end = range.End / IndexesPerBLAS;
-		for (int i = start; i < end; i++)
-		{
-			needsUpdate[i] = true;
-		}
+		IndexesPerBLAS = ((Mesh->Mesh.Indexes.size() + 2) / 3 / DynamicBLAS.size() + 1) * 3;
+		InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
+		reCreated = true;
 	}
 
-	for (int instance = 0; instance < InstanceCount; instance++)
+
+	if(reCreated)
 	{
-		if (needsUpdate[instance])
+		for (int instance = 0; instance < InstanceCount; instance++)
 		{
 			int indexStart = instance * IndexesPerBLAS;
 			int indexEnd = std::min(indexStart + IndexesPerBLAS, Mesh->Mesh.IndexCount);
 			DynamicBLAS[instance] = CreateBLAS(indexStart, indexEnd - indexStart);
 		}
 	}
+	else
+	{
+		std::vector<bool> needsUpdate(InstanceCount);
+
+		for (const MeshBufferRange& range : Mesh->UploadRanges.Index.GetRanges())
+		{
+			int start = range.Start / IndexesPerBLAS;
+			int end = range.End / IndexesPerBLAS;
+			for (int i = start; i < end; i++)
+			{
+				needsUpdate[i] = true;
+			}
+		}
+
+		for (int instance = 0; instance < InstanceCount; instance++)
+		{
+			if (needsUpdate[instance])
+			{
+				int indexStart = instance * IndexesPerBLAS;
+				int indexEnd = std::min(indexStart + IndexesPerBLAS, Mesh->Mesh.IndexCount);
+				DynamicBLAS[instance] = CreateBLAS(indexStart, indexEnd - indexStart);
+			}
+		}
+	}
+
 	DynamicBLASTime.Unclock();
 
 	CreateTLAS();
