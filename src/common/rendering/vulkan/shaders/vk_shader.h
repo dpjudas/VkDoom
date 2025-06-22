@@ -94,8 +94,8 @@ public:
 			uint64_t Unused3 : 1;
 			uint64_t UseShadowmap : 1;  // USE_SHADOWMAP
 			uint64_t UseRaytrace : 1;   // USE_RAYTRACE
-			uint64_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
-			uint64_t Unused4 : 1; // formerly PRECISE_MIDTEXTURES
+			uint64_t Unused4 : 1;
+			uint64_t Unused5 : 1; // formerly PRECISE_MIDTEXTURES
 			uint64_t ShadowmapFilter : 4; // SHADOWMAP_FILTER
 			uint64_t FogBeforeLights : 1; // FOG_BEFORE_LIGHTS
 			uint64_t FogAfterLights : 1;  // FOG_AFTER_LIGHTS
@@ -132,7 +132,8 @@ public:
 			uint32_t GBufferPass : 1;   // GBUFFER_PASS
 			uint32_t UseLevelMesh : 1;  // USE_LEVELMESH
 			uint32_t ShadeVertex : 1;   // SHADE_VERTEX
-			uint32_t Unused : 26;
+			uint32_t UseRaytracePrecise : 1; // USE_RAYTRACE_PRECISE
+			uint32_t Unused : 25;
 		};
 		uint32_t AsDWORD = 0;
 	} Layout;

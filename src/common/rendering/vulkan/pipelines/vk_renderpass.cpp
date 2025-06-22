@@ -417,6 +417,7 @@ VkRenderPassSetup::VkRenderPassSetup(VulkanRenderDevice* fb, const VkRenderPassK
 				fkey.DepthTest = (j & 2) != 0;
 				fkey.ShaderKey.Layout.AlphaTest = (j & 4) != 0;
 				fkey.ShaderKey.Layout.ShadeVertex = (j & 8) != 0;
+				fkey.ShaderKey.Layout.UseRaytracePrecise = gl_light_shadows >= 3;
 				PrecompileFragmentShaderLibrary(fkey, true);
 			}
 		}
