@@ -62,8 +62,9 @@ static void PrintUniform(const char * shaderName, const char * uniformName, cons
 	int * i = (int *)uniform.Value;
 	switch(uniform.Type)
 	{
+	default:
 	case UniformType::Undefined:
-		Printf("Shader '%s': could not find uniform '%s': %f %f %f\n", shaderName, uniformName);
+		Printf("Shader '%s': could not find uniform '%s'\n", shaderName, uniformName);
 		break;
 	case UniformType::Int:
 		Printf("Shader '%s' uniform '%s': %d\n", shaderName, uniformName, *i);
@@ -72,13 +73,13 @@ static void PrintUniform(const char * shaderName, const char * uniformName, cons
 		Printf("Shader '%s' uniform '%s': %f\n", shaderName, uniformName, *f);
 		break;
 	case UniformType::Vec2:
-		Printf("Shader '%s' uniform '%s': %f %f\n", shaderName, uniformName, f[0], f[1]);
+		Printf("Shader '%s' uniform '%s': %f %f\n", shaderName, uniformName, (double)f[0], (double)f[1]);
 		break;
 	case UniformType::Vec3:
-		Printf("Shader '%s' uniform '%s': %f %f %f\n", shaderName, uniformName, f[0], f[1], f[2]);
+		Printf("Shader '%s' uniform '%s': %f %f %f\n", shaderName, uniformName, (double)f[0], (double)f[1], (double)f[2]);
 		break;
 	case UniformType::Vec4:
-		Printf("Shader '%s' uniform '%s': %f %f %f %f\n", shaderName, uniformName, f[0], f[1], f[2], f[3]);
+		Printf("Shader '%s' uniform '%s': %f %f %f %f\n", shaderName, uniformName, (double)f[0], (double)f[1], (double)f[2], (double)f[3]);
 		break;
 	}
 }
@@ -106,8 +107,9 @@ CCMD (shaderuniform)
 				int * i = (int *)uniform.Value;
 				switch(uniform.Type)
 				{
+				default:
 				case UniformType::Undefined:
-					Printf("Shader '%s': could not find uniform '%s': %f %f %f\n", shaderName, uniformName);
+					Printf("Shader '%s': could not find uniform '%s'\n", shaderName, uniformName);
 					break;
 				case UniformType::Int:
 					*i = atoi(argv[3]);

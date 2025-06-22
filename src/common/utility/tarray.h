@@ -666,7 +666,7 @@ public:
 
 	void SortedInsertUnique(const T &item)
 	{
-		int foundIndex = SortedFind (item, false);
+		unsigned int foundIndex = SortedFind (item, false);
 		if (foundIndex >= Count || Array[foundIndex] != item)
 		{
 			Insert (foundIndex, item);

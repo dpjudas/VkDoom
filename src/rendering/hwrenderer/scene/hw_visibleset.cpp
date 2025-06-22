@@ -672,7 +672,7 @@ void CameraFrustum::Set(const VSMatrix& worldToProjection, const DVector3& viewp
 	Planes[5] = FarFrustum(worldToProjection);
 
 	// Move back near plane to be slightly behind the camera position
-	Planes[0].W = -(Planes[0].XYZ() | viewpoint.ToXZY() - 1.0);
+	Planes[0].W = -((Planes[0].XYZ() | viewpoint.ToXZY()) - 1.0);
 
 	for (int i = 0; i < 6; i++)
 	{

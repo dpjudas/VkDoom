@@ -459,7 +459,7 @@ static void UpdatePlaneLightmap(FRenderState& renderstate, sector_t* sec, int pl
 	{
 		if (origin->sub)
 		{
-			int lightmap = origin->sub->LightmapTiles[origin->plane].Size() > origin->lightmapSlot ? origin->sub->LightmapTiles[origin->plane][origin->lightmapSlot] : -1;
+			int lightmap = origin->sub->LightmapTiles[origin->plane].Size() > (unsigned int)origin->lightmapSlot ? origin->sub->LightmapTiles[origin->plane][origin->lightmapSlot] : -1;
 			if (lightmap >= 0) // tile may be missing if the subsector is degenerate triangle
 			{
 				const auto& tile = level.levelMesh->Lightmap.Tiles[lightmap];

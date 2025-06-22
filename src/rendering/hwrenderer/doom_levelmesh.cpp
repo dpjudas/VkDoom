@@ -850,7 +850,7 @@ void DoomLevelMesh::ReleaseTiles(int surf)
 
 void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 {
-	if (sideIndex < 0 || sideIndex >= Sides.Size())
+	if (sideIndex >= Sides.Size())
 		return;
 
 	ReleaseTiles(Sides[sideIndex].FirstSurface);
@@ -887,7 +887,7 @@ void DoomLevelMesh::FreeSide(FLevelLocals& doomMap, unsigned int sideIndex)
 
 void DoomLevelMesh::FreeFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 {
-	if (sectorIndex < 0 || sectorIndex >= Flats.Size())
+	if (sectorIndex >= Flats.Size())
 		return;
 
 	for (FSection& section : level.sections.SectionsForSector(&doomMap.sectors[sectorIndex]))
@@ -2023,8 +2023,8 @@ void DoomLevelMesh::GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfa
 			while (surf != -1)
 			{
 				const auto& sinfo = DoomSurfaceInfos[surf];
-				int controlSector = sinfo.ControlSector ? sinfo.ControlSector->Index() : (int)0xffffffffUL;
-				if (sinfo.Type == tile->Binding.Type && controlSector == tile->Binding.ControlSector)
+				uint32_t controlSector = sinfo.ControlSector ? (uint32_t)sinfo.ControlSector->Index() : (uint32_t)0xffffffffUL;
+				if (sinfo.Type == (DoomLevelMeshSurfaceType)tile->Binding.Type && controlSector == tile->Binding.ControlSector)
 				{
 					outSurfaces.Push(surf);
 				}
@@ -2084,7 +2084,7 @@ void DoomLevelMesh::DumpMesh(const FString& objFilename, const FString& mtlFilen
 
 	for (unsigned i = 0, count = Mesh.IndexCount; i + 2 < count; i += 3)
 	{
-		auto index = Mesh.SurfaceIndexes[i / 3];
+		uint32_t index = Mesh.SurfaceIndexes[i / 3];
 
 		if (index != lastSurfaceIndex)
 		{
@@ -2429,7 +2429,7 @@ TArray<MapLump> LoadMapLumps(FileReader* reader, const char* wadType)
 	for (uint32_t i = 0; i < numlumps; i++)
 	{
 		if (reader->Seek(offsets[i], FileReader::SeekSet) == -1) return {};
-		if (reader->Read(lumps[i].Data.data(), lumps[i].Data.size()) != lumps[i].Data.size()) return {};
+		if (reader->Read(lumps[i].Data.data(), lumps[i].Data.size()) != (FileReader::Size)lumps[i].Data.size()) return {};
 	}
 
 	return lumps;

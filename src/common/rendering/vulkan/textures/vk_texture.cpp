@@ -188,7 +188,7 @@ void VkTextureManager::CreateBrdfLutTexture()
 	if (lump == -1) I_FatalError("Unable to load '%s'", lumpname);
 	auto fd = fileSystem.ReadFile(lump);
 	if (fd.size() != 512 * 512 * 2 * sizeof(uint16_t))
-		I_FatalError("Unexpected file size for '%s'");
+		I_FatalError("Unexpected file size for 'bdrf.lut'");
 
 	BrdfLutTexture = ImageBuilder()
 		.Format(VK_FORMAT_R16G16_SFLOAT)

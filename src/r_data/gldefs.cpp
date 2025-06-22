@@ -316,6 +316,8 @@ void setUniformI(UniformField field, int val)
 	case UniformType::Float:
 		((float *)field.Value)[0] = val;
 		break;
+	default:
+		break;
 	}
 }
 
@@ -334,6 +336,8 @@ void setUniformF(UniformField field, float val)
 		((float *)field.Value)[1] = 0.0f;
 	case UniformType::Float:
 		((float *)field.Value)[0] = val;
+		break;
+	default:
 		break;
 	}
 }
@@ -354,6 +358,8 @@ void setUniformF(UniformField field, const FVector2 &val)
 	case UniformType::Float:
 		((float *)field.Value)[0] = val.X;
 		break;
+	default:
+		break;
 	}
 }
 
@@ -373,6 +379,8 @@ void setUniformF(UniformField field, const FVector3 &val)
 	case UniformType::Float:
 		((float *)field.Value)[0] = val.X;
 		break;
+	default:
+		break;
 	}
 }
 
@@ -391,6 +399,8 @@ void setUniformF(UniformField field, const FVector4 &val)
 		((float *)field.Value)[1] = val.Y;
 	case UniformType::Float:
 		((float *)field.Value)[0] = val.X;
+		break;
+	default:
 		break;
 	}
 }
@@ -2535,7 +2545,8 @@ class GLDefsParser
 				sc.MustGetFloat();
 				Values[3] = sc.Float;
 				break;
-
+			default:
+				break;
 			}
 		}
 

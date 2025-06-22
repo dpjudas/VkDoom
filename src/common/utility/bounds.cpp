@@ -259,14 +259,6 @@ BBox &BBox::operator*=(const FVector3 &vec)
 	return *this;
 }
 
-BBox &BBox::operator=(const BBox &bbox)
-{
-	min = bbox.min;
-	max = bbox.max;
-
-	return *this;
-}
-
 FVector3 BBox::operator[](int index) const
 {
 	assert(index >= 0 && index < 2);

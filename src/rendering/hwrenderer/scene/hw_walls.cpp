@@ -1580,9 +1580,9 @@ void HWWall::BuildFFBlock(HWWallDispatcher *di, FRenderState& state, seg_t * seg
 	if (di->di)
 	{
 		if (seg->sidedef == seg->linedef->sidedef[0])
-			lightmaptile = seg->linedef->sidedef[1]->LightmapTiles.Size() > 4 + roverIndex ? seg->linedef->sidedef[1]->LightmapTiles[4 + roverIndex] : -1;
+			lightmaptile = seg->linedef->sidedef[1]->LightmapTiles.Size() > (unsigned int)(4 + roverIndex) ? seg->linedef->sidedef[1]->LightmapTiles[4 + roverIndex] : -1;
 		else
-			lightmaptile = seg->linedef->sidedef[0]->LightmapTiles.Size() > 4 + roverIndex ? seg->linedef->sidedef[0]->LightmapTiles[4 + roverIndex] : -1;
+			lightmaptile = seg->linedef->sidedef[0]->LightmapTiles.Size() > (unsigned int)(4 + roverIndex) ? seg->linedef->sidedef[0]->LightmapTiles[4 + roverIndex] : -1;
 
 		if (lightmaptile >= 0)
 		{

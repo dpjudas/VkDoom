@@ -253,7 +253,7 @@ void VkShaderCache::Load()
 				VkCachedCompile cachedCompile;
 				cachedCompile.LastUsed = readUInt64(fr);
 				cachedCompile.Code.resize(readUInt32(fr));
-				if (fr.Read(cachedCompile.Code.data(), cachedCompile.Code.size() * sizeof(uint32_t)) != (FileReader::Size)cachedCompile.Code.size() * sizeof(uint32_t))
+				if (fr.Read(cachedCompile.Code.data(), cachedCompile.Code.size() * sizeof(uint32_t)) != (FileReader::Size)(cachedCompile.Code.size() * sizeof(uint32_t)))
 					return;
 
 				uint32_t includecount = readUInt32(fr);

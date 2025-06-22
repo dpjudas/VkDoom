@@ -1,4 +1,8 @@
+
+#ifndef NO_SEND_STATS
 #define NO_SEND_STATS
+#endif
+
 #ifdef NO_SEND_STATS
 
 void D_DoAnonStats()

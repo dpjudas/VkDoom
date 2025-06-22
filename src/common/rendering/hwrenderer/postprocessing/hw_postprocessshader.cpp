@@ -55,6 +55,7 @@ static void ShaderSetUniform1f(const FString &shaderName, const FString &uniform
 			int * i = (int *)uniform.Value;
 			switch(uniform.Type)
 			{
+			default:
 			case UniformType::Undefined:
 				break;
 			case UniformType::Int:
@@ -111,6 +112,7 @@ DEFINE_ACTION_FUNCTION(_PPShader, SetUniform2f)
 			int * i = (int *)uniform.Value;
 			switch(uniform.Type)
 			{
+			default:
 			case UniformType::Undefined:
 				break;
 			case UniformType::Int:
@@ -159,6 +161,7 @@ DEFINE_ACTION_FUNCTION(_PPShader, SetUniform3f)
 			int * i = (int *)uniform.Value;
 			switch(uniform.Type)
 			{
+			default:
 			case UniformType::Undefined:
 				break;
 			case UniformType::Int:
@@ -208,6 +211,7 @@ DEFINE_ACTION_FUNCTION(_PPShader, SetUniform4f)
 			int * i = (int *)uniform.Value;
 			switch(uniform.Type)
 			{
+			default:
 			case UniformType::Undefined:
 				break;
 			case UniformType::Int:
@@ -254,6 +258,7 @@ DEFINE_ACTION_FUNCTION(_PPShader, SetUniform1i)
 			int * i = (int *)uniform.Value;
 			switch(uniform.Type)
 			{
+			default:
 			case UniformType::Undefined:
 				break;
 			case UniformType::Int:

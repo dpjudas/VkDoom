@@ -56,7 +56,6 @@ public:
 	BBox& operator-=(const float radius);
 	BBox operator*(const FVector3& vec) const;
 	BBox& operator*=(const FVector3& vec);
-	BBox& operator=(const BBox& bbox);
 	FVector3 operator[](int index) const;
 	FVector3& operator[](int index);
 
