@@ -280,6 +280,10 @@ void VkRenderBuffers::CreateSceneLinearDepth(int width, int height)
 		.Image(SceneLinearDepth.Image.get(), VK_FORMAT_R32_SFLOAT)
 		.DebugName("VkRenderBuffers.SceneLinearDepthView")
 		.Create(fb->GetDevice());
+
+	VkImageTransition()
+		.AddImage(&SceneLinearDepth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true)
+		.Execute(fb->GetCommands()->GetDrawCommands());
 }
 
 void VkRenderBuffers::CreateSceneZMinMax(int width, int height)
