@@ -366,9 +366,33 @@ VkBool32 VulkanInstance::DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT me
 
 	// Attempt to parse the string because the default formatting is totally unreadable and half of what it writes is totally useless!
 	auto parts = SplitString(msg, " | ");
-	if (parts.size() == 3)
+	if (parts.size() == 3) // Old version of the SDK uses pipes
 	{
 		msg = parts[2];
+		size_t pos = msg.find("The Vulkan spec states:");
+		if (pos != std::string::npos)
+			msg = msg.substr(0, pos);
+
+		while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r' || msg.back() == ' '))
+			msg.pop_back();
+
+		if (callbackData->objectCount > 0)
+		{
+			msg += " (";
+			for (uint32_t i = 0; i < callbackData->objectCount; i++)
+			{
+				if (i > 0)
+					msg += ", ";
+				if (callbackData->pObjects[i].pObjectName)
+					msg += callbackData->pObjects[i].pObjectName;
+				else
+					msg += "<noname>";
+			}
+			msg += ")";
+		}
+	}
+	else if (parts.size() == 1) // Newer version does not
+	{
 		size_t pos = msg.find("The Vulkan spec states:");
 		if (pos != std::string::npos)
 			msg = msg.substr(0, pos);
