@@ -908,6 +908,8 @@ void VkRenderPassSetup::AddFragmentShader(GraphicsPipelineBuilder& builder, cons
 	builder.DepthStencilEnable(key.DepthTest, key.DepthWrite, key.StencilTest);
 	builder.DepthFunc(depthfunc2vk[key.DepthFunc]);
 	builder.Stencil(VK_STENCIL_OP_KEEP, op2vk[key.StencilPassOp], VK_STENCIL_OP_KEEP, VK_COMPARE_OP_EQUAL, 0xffffffff, 0xffffffff, 0);
+
+	builder.RasterizationSamples((VkSampleCountFlagBits)PassKey.Samples);
 }
 
 void VkRenderPassSetup::AddFragmentOutputInterface(GraphicsPipelineBuilder& builder, FRenderStyle renderStyle, VkColorComponentFlags colorMask)
