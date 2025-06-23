@@ -1272,16 +1272,21 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	HWMeshHelper result;
 	HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
 
-	sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
-
 	if (side->Flags & WALLF_POLYOBJ)
 	{
+		bool lightlistCreated = false;
 		for (seg_t* polyseg : sideBlock.PolySegs)
 		{
 			// Is there really not a better way of finding the subsector a polyseg resides in?
 			subsector_t* sub = level.PointInRenderSubsector((polyseg->v1->fPos() + polyseg->v2->fPos()) * 0.5);
 			if (sub)
 			{
+				if (!lightlistCreated)
+				{
+					sideBlock.Lights = CreateLightList(sub->section->lighthead, sub->sector->PortalGroup);
+					lightlistCreated = true;
+				}
+
 				sector_t* front = sub->sector;
 				sector_t* back = polyseg->backsector;
 
@@ -1293,6 +1298,8 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	}
 	else
 	{
+		sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
+
 		subsector_t* sub = seg->Subsector;
 		sector_t* front = side->sector;
 		sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
