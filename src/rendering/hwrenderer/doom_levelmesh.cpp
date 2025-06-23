@@ -598,7 +598,35 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 
 	for (side_t* side : PolySides)
 	{
-		UpdateSide(side->Index(), SurfaceUpdateType::Full);
+		int sideIndex = side->Index();
+		Sides[sideIndex].PolySegs.Clear();
+		UpdateSide(sideIndex, SurfaceUpdateType::Full);
+	}
+
+	for (auto& poly : doomMap.Polyobjects)
+	{
+		FPolyNode* pnode = poly.subsectorlinks;
+		while (pnode != nullptr)
+		{
+			subsector_t* sub = pnode->subsector;
+			if (sub->BSP == nullptr || sub->BSP->bDirty)
+				sub->BuildPolyBSP();
+
+			for (subsector_t& polysub : sub->BSP->Subsectors)
+			{
+				int count = polysub.numlines;
+				seg_t* line = polysub.firstline;
+				while (count--)
+				{
+					if (line->sidedef)
+					{
+						Sides[line->sidedef->Index()].PolySegs.Push(line);
+					}
+					line++;
+				}
+			}
+			pnode = pnode->snext;
+		}
 	}
 
 	for (int sideIndex : SideUpdateList)
@@ -1232,38 +1260,47 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	FreeSide(doomMap, sideIndex);
 
 	side_t* side = &doomMap.sides[sideIndex];
-
 	seg_t* seg = side->segs[0];
-	if (!seg)
+	if (!seg) // When can this happen?
 		return;
 
 	auto& sideBlock = Sides[sideIndex];
 
-	sector_t* front;
-	sector_t* back;
-	subsector_t* sub;
-	if (side->Flags & WALLF_POLYOBJ)
-	{
-		sub = level.PointInRenderSubsector((side->V1()->fPos() + side->V2()->fPos()) * 0.5);
-		if (!sub)
-			return;
-		front = sub->sector;
-		back = nullptr;
-		sideBlock.Lights = CreateLightList(sub->section->lighthead, sub->sector->PortalGroup);
-	}
-	else
-	{
-		sub = seg->Subsector;
-		front = side->sector;
-		back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
-		sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
-	}
+	if ((side->Flags & WALLF_POLYOBJ) == WALLF_POLYOBJ && sideBlock.PolySegs.size() == 0)
+		return;
 
 	HWMeshHelper result;
 	HWWallDispatcher disp(&doomMap, &result, getRealLightmode(&doomMap, true));
-	HWWall wall;
-	wall.sub = sub;
-	wall.Process(&disp, state, seg, front, back);
+
+	sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
+
+	if (side->Flags & WALLF_POLYOBJ)
+	{
+		for (seg_t* polyseg : sideBlock.PolySegs)
+		{
+			// Is there really not a better way of finding the subsector a polyseg resides in?
+			subsector_t* sub = level.PointInRenderSubsector((polyseg->v1->fPos() + polyseg->v2->fPos()) * 0.5);
+			if (sub)
+			{
+				sector_t* front = sub->sector;
+				sector_t* back = polyseg->backsector;
+
+				HWWall wall;
+				wall.sub = sub;
+				wall.Process(&disp, state, polyseg, front, back);
+			}
+		}
+	}
+	else
+	{
+		subsector_t* sub = seg->Subsector;
+		sector_t* front = side->sector;
+		sector_t* back = (side->linedef->frontsector == front) ? side->linedef->backsector : side->linedef->frontsector;
+
+		HWWall wall;
+		wall.sub = sub;
+		wall.Process(&disp, state, seg, front, back);
+	}
 
 	// Grab the decals generated
 	sideBlock.Decals = result.decals;

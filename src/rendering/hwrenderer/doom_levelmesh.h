@@ -88,6 +88,7 @@ struct SideSurfaceBlock
 	TArray<DrawRangeInfo> DrawRanges;
 	SurfaceUpdateType UpdateType = SurfaceUpdateType::None;
 	LightListAllocInfo Lights;
+	TArray<seg_t*> PolySegs;
 };
 
 struct FlatSurfaceBlock
