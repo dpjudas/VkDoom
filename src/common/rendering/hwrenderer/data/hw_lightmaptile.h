@@ -57,6 +57,9 @@ struct LightmapTile
 	uint16_t SampleDimension = 0;
 	FVector4 Plane = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
 
+	// Flats must always use XY axis (slopes may change rapidly in a way that causes artifacts otherwise)
+	bool UseXYAxis = false;
+
 	// Initial tile for surfaces that can be baked in the background
 	bool NeedsInitialBake = false;
 
@@ -69,20 +72,20 @@ struct LightmapTile
 	// Used to track if tile has already been added to the VisibleTiles list for this scene
 	int LastSeen = 0;
 
-	FVector2 ToUV(const FVector3& vert) const
+	/*FVector2 ToUV(const FVector3& vert) const
 	{
 		FVector3 localPos = vert - Transform.TranslateWorldToLocal;
 		float u = (localPos | Transform.ProjLocalToU) / AtlasLocation.Width;
 		float v = (localPos | Transform.ProjLocalToV) / AtlasLocation.Height;
 		return FVector2(u, v);
-	}
+	}*/
 
 	FVector2 ToUV(const FVector3& vert, float textureSize) const
 	{
 		// Clamp in case the wall moved outside the tile (happens if a lift moves with a static lightmap on it)
 		FVector3 localPos = vert - Transform.TranslateWorldToLocal;
-		float u = std::max(std::min(localPos | Transform.ProjLocalToU, (float)AtlasLocation.Width), 0.0f);
-		float v = std::max(std::min(localPos | Transform.ProjLocalToV, (float)AtlasLocation.Height), 0.0f);
+		float u = std::max(std::min(localPos | Transform.ProjLocalToU, (float)AtlasLocation.Width - 2.0f), 1.0f);
+		float v = std::max(std::min(localPos | Transform.ProjLocalToV, (float)AtlasLocation.Height - 2.0f), 1.0f);
 		u = (AtlasLocation.X + u) / textureSize;
 		v = (AtlasLocation.Y + v) / textureSize;
 		return FVector2(u, v);
@@ -133,7 +136,8 @@ struct LightmapTile
 
 		FVector3 tCoords[2] = { FVector3(0.0f, 0.0f, 0.0f), FVector3(0.0f, 0.0f, 0.0f) };
 		int width, height;
-		switch (BestAxis(Plane))
+		PlaneAxis planeAxis = UseXYAxis ? AXIS_XY : BestAxis(Plane);
+		switch (planeAxis)
 		{
 		default:
 		case AXIS_YZ:

@@ -8,7 +8,7 @@ vec4 centerFragColor;
 
 vec4 clampedSample(vec4 f)
 {
-	return f != vec4(0, 0, 0, 0) ? f : centerFragColor;
+	return f.a != 0.0 ? f : centerFragColor;
 }
 
 void main()
@@ -18,15 +18,22 @@ void main()
 
 	centerFragColor = textureOffset(tex, texCoord, ivec2(0, 0));
 
+	if (centerFragColor.a != 0.0)
+	{
 #if defined(BLUR_HORIZONTAL)
-	fragcolor =
-		centerFragColor * 0.5 +
-		clampedSample(textureOffset(tex, texCoord, ivec2( 1, 0))) * 0.25 +
-		clampedSample(textureOffset(tex, texCoord, ivec2(-1, 0))) * 0.25;
+		fragcolor =
+			centerFragColor * 0.5 +
+			clampedSample(textureOffset(tex, texCoord, ivec2( 1, 0))) * 0.25 +
+			clampedSample(textureOffset(tex, texCoord, ivec2(-1, 0))) * 0.25;
 #else
-	fragcolor =
-		centerFragColor * 0.5 +
-		clampedSample(textureOffset(tex, texCoord, ivec2(0, 1))) * 0.25 +
-		clampedSample(textureOffset(tex, texCoord, ivec2(0,-1))) * 0.25;
+		fragcolor =
+			centerFragColor * 0.5 +
+			clampedSample(textureOffset(tex, texCoord, ivec2(0, 1))) * 0.25 +
+			clampedSample(textureOffset(tex, texCoord, ivec2(0,-1))) * 0.25;
 #endif
+	}
+	else
+	{
+		fragcolor = centerFragColor;
+	}
 }

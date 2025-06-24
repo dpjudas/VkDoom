@@ -515,6 +515,7 @@ void DoomLevelMesh::BuildSubsectorVisibilityLists(FLevelLocals& doomMap)
 
 		// Always bake the subsector
 		VisibleSubsectors[i].Push(i);
+
 		sub->validcount = validcount;
 		stack.Push(sub);
 
@@ -1465,6 +1466,10 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 			sinfo.NextSubsectorSurface = SubsectorSurfaces[subsectorIndex];
 			SubsectorSurfaces[subsectorIndex] = surf;
 		}
+		else
+		{
+			sinfo.NextSubsectorSurface = -1;
+		}
 		surf = sinfo.NextSurface;
 	}
 }
@@ -1749,6 +1754,7 @@ int DoomLevelMesh::AddSurfaceToTile(const DoomSurfaceInfo& info, const LevelMesh
 		tile.Plane = surf.Plane;
 		tile.SampleDimension = GetSampleDimension(sampleDimension);
 		tile.UseCount = 1;
+		tile.UseXYAxis = (info.Type == ST_CEILING || info.Type == ST_FLOOR);
 
 		int index = AllocTile(tile);
 		Lightmap.AddedTiles.Push(index);

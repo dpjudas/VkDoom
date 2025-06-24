@@ -112,12 +112,13 @@ void VkLightmapper::Raytrace(const TArray<LightmapTile*>& tiles)
 				Blur();
 			CopyResult();
 
-			if (drawindexed.Pos == drawindexed.BufferSize || copytiles.Pos == drawindexed.BufferSize)
+			if (drawindexed.IsFull || copytiles.Pos == drawindexed.BufferSize)
 			{
 				fb->GetCommands()->PopGroup(fb->GetCommands()->GetTransferCommands());
 				fb->WaitForCommands(false);
 				fb->GetCommands()->PushGroup(fb->GetCommands()->GetTransferCommands(), "lightmap.total");
 				drawindexed.Pos = 0;
+				drawindexed.IsFull = false;
 				copytiles.Pos = 0;
 			}
 		}
@@ -218,12 +219,23 @@ void VkLightmapper::Render()
 		pc.ProjLocalToU = SwapYZ(targetTile->Transform.ProjLocalToU);
 		pc.ProjLocalToV = SwapYZ(targetTile->Transform.ProjLocalToV);
 
-		bool buffersFull = false;
-
 		// Paint all surfaces visible in the tile
 
 		visibleSurfaces.Clear();
 		mesh->GetVisibleSurfaces(targetTile, visibleSurfaces);
+
+		if (drawindexed.Pos + (int)visibleSurfaces.Size() >= drawindexed.BufferSize)
+		{
+			// Our indirect draw buffer is full. Mark the remaining tiles as not rendered
+			while (i < count)
+			{
+				selectedTiles[i].Tile->ReceivedNewLight = true;
+				i++;
+			}
+			drawindexed.IsFull = true;
+			break;
+		}
+
 		for (int surfaceIndex : visibleSurfaces)
 		{
 			LevelMeshSurface* surface = &mesh->Mesh.Surfaces[surfaceIndex];
@@ -238,29 +250,13 @@ void VkLightmapper::Render()
 			drawindexed.Constants[drawindexed.Pos] = pc;
 			drawindexed.Commands[drawindexed.Pos] = cmd;
 			drawindexed.Pos++;
-
-			if (drawindexed.Pos == drawindexed.BufferSize)
-			{
-				// Our indirect draw buffer is full. Postpone the rest.
-				buffersFull = true;
-				break;
-			}
-		}
-
-		if (buffersFull)
-		{
-			while (i < count)
-			{
-				selectedTiles[i].Tile->ReceivedNewLight = true;
-				i++;
-			}
-			break;
 		}
 
 		selectedTile.Rendered = true;
 	}
 
-	cmdbuffer->drawIndexedIndirect(drawindexed.CommandsBuffer->buffer, startPos * sizeof(VkDrawIndexedIndirectCommand), drawindexed.Pos - startPos, sizeof(VkDrawIndexedIndirectCommand));
+	if (drawindexed.Pos > startPos)
+		cmdbuffer->drawIndexedIndirect(drawindexed.CommandsBuffer->buffer, startPos * sizeof(VkDrawIndexedIndirectCommand), drawindexed.Pos - startPos, sizeof(VkDrawIndexedIndirectCommand));
 
 	cmdbuffer->endRenderPass();
 
@@ -922,6 +918,9 @@ void VkLightmapper::CreateCopyPipeline()
 		.Create(fb->GetDevice());
 
 	copy.sampler = SamplerBuilder()
+		.MinFilter(VK_FILTER_NEAREST)
+		.MagFilter(VK_FILTER_NEAREST)
+		.MipmapMode(VK_SAMPLER_MIPMAP_MODE_NEAREST)
 		.DebugName("copy.Sampler")
 		.Create(fb->GetDevice());
 }
@@ -1006,7 +1005,7 @@ void VkLightmapper::CreateBakeImage()
 		.AddCombinedImageSampler(bakeImage.resolve.DescriptorSet.get(), 0, bakeImage.raytrace.View.get(), resolve.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		.AddCombinedImageSampler(bakeImage.blur.DescriptorSet[0].get(), 0, bakeImage.resolve.View.get(), blur.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		.AddCombinedImageSampler(bakeImage.blur.DescriptorSet[1].get(), 0, bakeImage.blur.View.get(), blur.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-		.AddCombinedImageSampler(bakeImage.copy.DescriptorSet.get(), 0, bakeImage.resolve.View.get(), blur.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		.AddCombinedImageSampler(bakeImage.copy.DescriptorSet.get(), 0, bakeImage.resolve.View.get(), copy.sampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		.AddBuffer(bakeImage.copy.DescriptorSet.get(), 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, copytiles.Buffer.get())
 		.Execute(fb->GetDevice());
 }

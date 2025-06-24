@@ -175,6 +175,7 @@ private:
 		VkDrawIndexedIndirectCommand* Commands = nullptr;
 		LightmapRaytracePC* Constants = nullptr;
 		int Pos = 0;
+		bool IsFull = false;
 	} drawindexed;
 
 	struct
