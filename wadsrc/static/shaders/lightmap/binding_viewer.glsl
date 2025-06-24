@@ -30,11 +30,16 @@ layout(set = 1, binding = 0) uniform sampler2D textures[];
 
 layout(push_constant) uniform PushConstants
 {
-	mat4 ViewToWorld;
 	vec3 CameraPos;
 	float ProjX;
 	vec3 SunDir;
 	float ProjY;
 	vec3 SunColor;
 	float SunIntensity;
+	vec3 ViewX;
+	float ResolutionScaleX;
+	vec3 ViewY;
+	float ResolutionScaleY;
+	vec3 ViewZ;
+	float Unused;
 };

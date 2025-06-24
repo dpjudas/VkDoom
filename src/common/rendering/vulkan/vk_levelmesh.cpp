@@ -645,13 +645,17 @@ void VkLevelMesh::RaytraceScene(const VkRenderPassKey& renderPassKey, VulkanComm
 	float f = 1.0f / std::tan(fovy * (pi::pif() / 360.0f));
 
 	ViewerPushConstants pushconstants;
-	pushconstants.ViewToWorld = viewToWorld;
 	pushconstants.CameraPos = cameraPos;
 	pushconstants.ProjX = f / aspect;
 	pushconstants.ProjY = f;
 	pushconstants.SunDir = FVector3(Mesh->SunDirection.X, Mesh->SunDirection.Z, Mesh->SunDirection.Y);
 	pushconstants.SunColor = Mesh->SunColor;
 	pushconstants.SunIntensity = Mesh->SunIntensity;
+	pushconstants.ViewX = (viewToWorld * FVector4(1.0f, 0.0f, 0.0f, 1.0f)).XYZ() - cameraPos;
+	pushconstants.ViewY = (viewToWorld * FVector4(0.0f, 1.0f, 0.0f, 1.0f)).XYZ() - cameraPos;
+	pushconstants.ViewZ = (viewToWorld * FVector4(0.0f, 0.0f, 1.0f, 1.0f)).XYZ() - cameraPos;
+	pushconstants.ResolutionScaleX = 2.0f / fb->GetWidth();
+	pushconstants.ResolutionScaleY = 2.0f / fb->GetHeight();
 
 	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 0, Viewer.DescriptorSet.get());
 	commands->bindDescriptorSet(VK_PIPELINE_BIND_POINT_GRAPHICS, Viewer.PipelineLayout.get(), 1, fb->GetDescriptorSetManager()->GetBindlessSet());

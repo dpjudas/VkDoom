@@ -55,13 +55,18 @@ struct LightInfo
 
 struct ViewerPushConstants
 {
-	VSMatrix ViewToWorld;
 	FVector3 CameraPos;
 	float ProjX;
 	FVector3 SunDir;
 	float ProjY;
 	FVector3 SunColor;
 	float SunIntensity;
+	FVector3 ViewX;
+	float ResolutionScaleX;
+	FVector3 ViewY;
+	float ResolutionScaleY;
+	FVector3 ViewZ;
+	float Unused;
 };
 
 static_assert(sizeof(LightInfo) == sizeof(float) * 20);

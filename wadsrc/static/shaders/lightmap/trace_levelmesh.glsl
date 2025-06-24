@@ -6,6 +6,15 @@ SurfaceInfo GetSurface(int primitiveIndex)
 	return surfaces[surfaceIndices[primitiveIndex]];
 }
 
+vec3 GetSurfacePos(int primitiveIndex, vec3 primitiveWeights)
+{
+	int index = primitiveIndex * 3;
+	return
+		vertices[elements[index + 1]].pos * primitiveWeights.x +
+		vertices[elements[index + 2]].pos * primitiveWeights.y +
+		vertices[elements[index + 0]].pos * primitiveWeights.z;
+}
+
 vec2 GetSurfaceUV(int primitiveIndex, vec3 primitiveWeights)
 {
 	int index = primitiveIndex * 3;
