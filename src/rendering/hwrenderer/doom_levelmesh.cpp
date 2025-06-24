@@ -503,15 +503,47 @@ void DoomLevelMesh::BuildSideVisibilityLists(FLevelLocals& doomMap)
 
 void DoomLevelMesh::BuildSubsectorVisibilityLists(FLevelLocals& doomMap)
 {
+	TArray<subsector_t*> stack;
 	VisibleSubsectors.resize(doomMap.subsectors.size());
 	for (size_t i = 0, count = VisibleSubsectors.size(); i < count; i++)
 	{
 		subsector_t* sub = &doomMap.subsectors[i];
+		FBoundingBox bbox = sub->bbox;
+		bbox.extend(32.0);
+
+		validcount++;
 
 		// Always bake the subsector
 		VisibleSubsectors[i].Push(i);
+		sub->validcount = validcount;
+		stack.Push(sub);
 
-		// To do: use sub->firstline to find neighbouring subsectors we want included in a tile bake
+		// Add neighbouring subsectors that touches the bounding box
+		while (stack.size() != 0)
+		{
+			sub = stack.Last();
+			stack.Pop();
+
+			auto lines = sub->firstline;
+			uint32_t count = sub->numlines;
+			for (uint32_t j = 0; j < count; j++)
+			{
+				seg_t* partner = lines[j].PartnerSeg;
+				if (partner && partner->Subsector)
+				{
+					subsector_t* partnersub = partner->Subsector;
+					if (partnersub->validcount != validcount)
+					{
+						partnersub->validcount = validcount;
+						if (partnersub->bbox.CheckOverlap(bbox))
+						{
+							stack.Push(partnersub);
+							VisibleSubsectors[i].Push(partnersub->Index());
+						}
+					}
+				}
+			}
+		}
 	}
 }
 

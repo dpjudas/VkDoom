@@ -1711,7 +1711,7 @@ struct subsector_t
 	uint32_t	numlines;
 	uint16_t	flags;
 	short		mapsection;
-	FBoundingBox	bbox; // [DVR] For alternative space culling in orthographic projection with no fog of war
+	FBoundingBox	bbox;
 
 	// subsector related GL data
 	int				validcount;

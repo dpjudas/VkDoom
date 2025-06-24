@@ -172,9 +172,9 @@ struct LightmapTile
 			height = textureSize;
 		}
 
-		Transform.TranslateWorldToLocal.X = uvMin.X * SampleDimension;
-		Transform.TranslateWorldToLocal.Y = uvMin.Y * SampleDimension;
-		Transform.TranslateWorldToLocal.Z = uvMin.Z * SampleDimension;
+		Transform.TranslateWorldToLocal.X = uvMin.X * SampleDimension + 0.1f;
+		Transform.TranslateWorldToLocal.Y = uvMin.Y * SampleDimension + 0.1f;
+		Transform.TranslateWorldToLocal.Z = uvMin.Z * SampleDimension + 0.1f;
 
 		Transform.ProjLocalToU = tCoords[0];
 		Transform.ProjLocalToV = tCoords[1];

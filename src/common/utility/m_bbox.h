@@ -50,6 +50,14 @@ public:
 		m_Box[BOXBOTTOM] = m_Box[BOXLEFT] = FLT_MAX;
 	}
 
+	void extend(double size)
+	{
+		m_Box[BOXTOP] += size;
+		m_Box[BOXLEFT] -= size;
+		m_Box[BOXRIGHT] += size;
+		m_Box[BOXBOTTOM] -= size;
+	}
+
 	// Returns a bounding box that encloses both bounding boxes
 	FBoundingBox operator | (const FBoundingBox &box2) const
 	{
