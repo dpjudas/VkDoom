@@ -42,7 +42,7 @@ RectPackerItem* RectPacker::Alloc(int width, int height)
 		I_FatalError("Tile too large for RectPacker!");
 
 	// How much wasted space we want to allow per shelf
-	int threshold = width * 2;
+	int threshold = height * 2;
 
 	// Search pages for room
 	for (RectPackerPage& page : Pages)
@@ -50,13 +50,13 @@ RectPackerItem* RectPacker::Alloc(int width, int height)
 		// Look for space on an existing shelf
 		for (auto& shelf : page.Shelves)
 		{
-			if (shelf->Width >= width && shelf->Width <= threshold)
+			if (shelf->Height >= height && shelf->Height <= threshold)
 			{
-				// We found a shelf with an acceptable width
+				// We found a shelf with an acceptable height
 
 				for (RectPackerItem* item = shelf->AvailableList; item; item = item->NextAvailable)
 				{
-					if (height <= item->Height)
+					if (width <= item->Width)
 					{
 						// We found a free slot with room!
 						return AllocateRoom(item, width, height);
@@ -66,12 +66,12 @@ RectPackerItem* RectPacker::Alloc(int width, int height)
 		}
 
 		// No shelf found. Do we have room for a new shelf on the page?
-		int nextX = (page.Shelves.size() != 0) ? page.Shelves.back()->X + page.Shelves.back()->Width : 0;
-		int availableShelfSpace = PageWidth - nextX;
-		if (width <= availableShelfSpace)
+		int nextY = (page.Shelves.size() != 0) ? page.Shelves.back()->Y + page.Shelves.back()->Height : 0;
+		int availableShelfSpace = PageHeight - nextY;
+		if (height <= availableShelfSpace)
 		{
 			// We have room. Create a shelf and allocate room in it
-			return CreateShelf(&page, nextX, width, height);
+			return CreateShelf(&page, nextY, width, height);
 		}
 	}
 
@@ -82,11 +82,11 @@ RectPackerItem* RectPacker::Alloc(int width, int height)
 
 RectPackerItem* RectPacker::AllocateRoom(RectPackerItem* item, int width, int height)
 {
-	if (item->Height == height)
+	if (item->Width == width)
 	{
 		// Perfect fit. Just remove it from the available space list.
 		RemoveFromAvailableList(item);
-		item->Width = width;
+		item->Height = height;
 
 		AddPadding(item);
 		return item;
@@ -103,29 +103,29 @@ RectPackerItem* RectPacker::AllocateRoom(RectPackerItem* item, int width, int he
 		newitem->PageIndex = item->PageIndex;
 
 		// Update the available space item to only contain what is left
-		item->Y += height;
-		item->Height -= height;
+		item->X += width;
+		item->Width -= width;
 
 		AddPadding(newitem);
 		return newitem;
 	}
 }
 
-RectPackerItem* RectPacker::CreateShelf(RectPackerPage* page, int x, int width, int height)
+RectPackerItem* RectPacker::CreateShelf(RectPackerPage* page, int y, int width, int height)
 {
 	// Create shelf object
 	page->Shelves.Push(std::make_unique<RectPackerShelf>());
 	RectPackerShelf* shelf = page->Shelves.back().get();
-	shelf->X = x;
-	shelf->Width = width;
+	shelf->Y = y;
+	shelf->Height = height;
 
 	// Fill it with empty space.
 	RectPackerItem* item = AllocItem(shelf);
 	AddToItemList(item);
-	item->X = x;
-	item->Y = 0;
-	item->Width = 0;
-	item->Height = PageHeight;
+	item->X = 0;
+	item->Y = y;
+	item->Width = PageWidth;
+	item->Height = 0;
 	item->PageIndex = page->PageIndex;
 	AddToAvailableList(item);
 

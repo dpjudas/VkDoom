@@ -36,8 +36,8 @@ private:
 class RectPackerShelf
 {
 public:
-	int X = 0;
-	int Width = 0;
+	int Y = 0;
+	int Height = 0;
 	RectPackerItem* ItemList = nullptr;
 	RectPackerItem* AvailableList = nullptr;
 };
@@ -68,7 +68,7 @@ private:
 	void RemovePadding(RectPackerItem* item);
 
 	RectPackerItem* AllocateRoom(RectPackerItem* item, int width, int height);
-	RectPackerItem* CreateShelf(RectPackerPage* page, int x, int width, int height);
+	RectPackerItem* CreateShelf(RectPackerPage* page, int y, int width, int height);
 
 	RectPackerItem* AllocItem(RectPackerShelf* shelf);
 	void FreeItem(RectPackerItem* item);
