@@ -188,6 +188,7 @@ void VkLevelMesh::CheckBuffers()
 					VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0) |
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("VertexBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -210,6 +211,7 @@ void VkLevelMesh::CheckBuffers()
 					VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0) |
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("IndexBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -228,6 +230,7 @@ void VkLevelMesh::CheckBuffers()
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
 				VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("UniformIndexes")
 			.Create(fb->GetDevice());
 	}
@@ -244,6 +247,7 @@ void VkLevelMesh::CheckBuffers()
 		NodeBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("NodeBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -260,6 +264,7 @@ void VkLevelMesh::CheckBuffers()
 		SurfaceIndexBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("SurfaceBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -276,6 +281,7 @@ void VkLevelMesh::CheckBuffers()
 		SurfaceBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("SurfaceBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -292,6 +298,7 @@ void VkLevelMesh::CheckBuffers()
 		UniformsBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("SurfaceUniformsBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -308,6 +315,7 @@ void VkLevelMesh::CheckBuffers()
 		LightUniformsBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("SurfaceLightUniformsBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -324,6 +332,7 @@ void VkLevelMesh::CheckBuffers()
 		PortalBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("PortalBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -340,6 +349,7 @@ void VkLevelMesh::CheckBuffers()
 		LightBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("LightBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -356,6 +366,7 @@ void VkLevelMesh::CheckBuffers()
 		LightIndexBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("LightIndexBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -372,6 +383,7 @@ void VkLevelMesh::CheckBuffers()
 		DynLightBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(size)
+			.MinAlignment(16)
 			.DebugName("DynLightBuffer")
 			.Create(fb->GetDevice());
 	}
@@ -458,6 +470,7 @@ VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(bool preferFastBuild, int indexOffset,
 	blas.AccelStructBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
 		.Size(sizeInfo.accelerationStructureSize)
+		.MinAlignment(256)
 		.DebugName("BLAS.AccelStructBuffer")
 		.Create(fb->GetDevice());
 
@@ -500,6 +513,7 @@ void VkLevelMesh::CreateTLASInstanceBuffer()
 	TopLevelAS.InstanceBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 		.Size(sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size())
+		.MinAlignment(16)
 		.DebugName("TopLevelAS.InstanceBuffer")
 		.Create(fb->GetDevice());
 }
@@ -528,6 +542,7 @@ void VkLevelMesh::CreateTopLevelAS(int instanceCount)
 	TopLevelAS.AccelStructBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
 		.Size(sizeInfo.accelerationStructureSize)
+		.MinAlignment(256)
 		.DebugName("TopLevelAS.AccelStructBuffer")
 		.Create(fb->GetDevice());
 
@@ -789,6 +804,7 @@ void VkLevelMeshUploader::Upload()
 		Mesh->NodeBuffer = BufferBuilder()
 			.Usage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			.Size(neededNodeBufferSize * 2)
+			.MinAlignment(16)
 			.DebugName("NodeBuffer")
 			.Create(Mesh->fb->GetDevice());
 
