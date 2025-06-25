@@ -88,6 +88,7 @@ CUSTOM_CVAR(Bool, vk_debug, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINI
 }
 
 CVAR(Bool, vk_debug_callstack, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Bool, vk_amd_driver_check, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 CUSTOM_CVAR(Int, vk_device, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
 {
@@ -186,6 +187,26 @@ VulkanRenderDevice::VulkanRenderDevice(void *hMonitor, bool fullscreen, std::sha
 	}
 
 	mUseRayQuery = vk_rayquery && mDevice->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) && mDevice->PhysicalDevice.Features.RayQuery.rayQuery;
+
+	if (vk_amd_driver_check)
+	{
+		// While we found a workaround for the SPIR-V compiler crashing on specialization constants with rayquery,
+		// the AMDVLK driver (but not the Mesa one!) now produces a shader that only the FIRST frame runs for 10
+		// seconds. This produces a device lost on Windows (command buffer killed by OS) and the freeze from hell
+		// on Linux.
+		//
+		// Maybe some day AMD will have a driver that works for us. Until that day their hardware gets demoted to
+		// the legacy path without RT cores, sorry.
+		auto& props = mDevice->PhysicalDevice.Properties.Properties;
+		if (props.vendorID == 0x1002 && VK_VERSION_MAJOR(props.driverVersion) < 10)
+		{
+			if (mUseRayQuery)
+			{
+				Printf("AMD driver detected. Disabling RT cores. You can force RT cores on by setting vk_amd_driver_check to false.\n");
+				mUseRayQuery = false;
+			}
+		}
+	}
 
 	mShaderCache = std::make_unique<VkShaderCache>(this);
 }
