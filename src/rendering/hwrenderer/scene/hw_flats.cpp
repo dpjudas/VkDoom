@@ -385,14 +385,14 @@ void HWFlat::DrawFlat(HWFlatDispatcher *di, FRenderState &state, bool translucen
 			else state.AlphaFunc(Alpha_GEqual, 0.f);
 			state.SetMaterial(texture, UF_Texture, 0, CLAMP_NONE, NO_TRANSLATION, -1);
 			bool texmatrix = SetPlaneTextureRotation(state, &plane, texture);
-			if (di->di && di->di->Viewpoint.IsAllowedOoB())
+			if (di->di) // dpjudas, gl_levelmesh could use zshift for reflective flats. - [DVR]
 			{
 				di->di->VPUniforms.mViewMatrix.translate(0.0, zshift, 0.0);
 				di->di->vpIndex = state.SetViewpoint(di->di->VPUniforms);
 				// screen->mViewpoints->SetViewpoint(state, &di->di->VPUniforms);
 			}
 			DrawSubsectors(di, state);
-			if (di->di && di->di->Viewpoint.IsAllowedOoB())
+			if (di->di)
 			{
 				di->di->VPUniforms.mViewMatrix.translate(0.0, -zshift, 0.0);
 				di->di->vpIndex = state.SetViewpoint(di->di->VPUniforms);
