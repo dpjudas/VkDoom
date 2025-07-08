@@ -415,8 +415,8 @@ void VulkanRenderDevice::RenderEnvironmentMap(std::function<void(IntRect& bounds
 
 void VulkanRenderDevice::UploadEnvironmentMaps(int cubemapCount, const TArray<uint16_t>& irradianceMaps, const TArray<uint16_t>& prefilterMaps)
 {
-	mTextureManager->CreateIrradiancemap(32, cubemapCount, irradianceMaps);
-	mTextureManager->CreatePrefiltermap(128, cubemapCount, prefilterMaps);
+	mTextureManager->UploadIrradiancemap(cubemapCount, irradianceMaps);
+	mTextureManager->UploadPrefiltermap(cubemapCount, prefilterMaps);
 }
 
 void VulkanRenderDevice::PostProcessScene(bool swscene, int fixedcm, float flash, bool palettePostprocess, const std::function<void()> &afterBloomDrawEndScene2D)

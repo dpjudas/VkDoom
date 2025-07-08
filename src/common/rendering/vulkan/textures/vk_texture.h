@@ -31,9 +31,10 @@ public:
 	void SetLightmapCount(int size, int count);
 
 	void CreateLightmap(int size, int count, const TArray<uint16_t>& data);
-	void CreateIrradiancemap(int size, int cubeCount, const TArray<uint16_t>& data);
-	void CreatePrefiltermap(int size, int cubeCount, const TArray<uint16_t>& data);
 	void DownloadLightmap(int arrayIndex, uint16_t* buffer);
+
+	void UploadIrradiancemap(int cubeCount, const TArray<uint16_t>& data);
+	void UploadPrefiltermap(int cubeCount, const TArray<uint16_t>& data);
 
 	void SetGamePalette();
 
@@ -72,6 +73,9 @@ public:
 
 	int CreateUploadID(VkHardwareTexture* tex);
 	bool CheckUploadID(int id);
+
+	static const int PrefiltermapSize = 128;
+	static const int IrradiancemapSize = 32;
 
 private:
 	void CreateNullTexture();

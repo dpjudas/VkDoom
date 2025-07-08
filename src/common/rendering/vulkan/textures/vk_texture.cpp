@@ -395,48 +395,36 @@ void VkTextureManager::CreateLightmap()
 
 void VkTextureManager::CreateIrradiancemap()
 {
-	TArray<uint16_t> data;
-	for (int arrayIndex = 0; arrayIndex < 6; arrayIndex++)
-	{
-		data.Push(0);
-		data.Push(0);
-		data.Push(0);
-	}
-	CreateIrradiancemap(1, 1, std::move(data));
+	TArray<uint16_t> data(IrradiancemapSize * IrradiancemapSize * 6 * 3, true);
+	memset(data.data(), 0, data.size() * sizeof(uint16_t));
+	UploadIrradiancemap(1, std::move(data));
 }
 
 void VkTextureManager::CreatePrefiltermap()
 {
-	TArray<uint16_t> data;
-	int size = 1 << MAX_REFLECTION_LOD;
-	for (int arrayIndex = 0; arrayIndex < 6; arrayIndex++)
+	int texsize = 0;
+	for (int level = 0; level <= MAX_REFLECTION_LOD; level++)
 	{
-		for (int level = 0; level <= MAX_REFLECTION_LOD; level++)
-		{
-			int mipsize = size >> level;
-			for (int i = 0; i < mipsize * mipsize; i++)
-			{
-				data.Push(0);
-				data.Push(0);
-				data.Push(0);
-			}
-		}
+		int mipsize = PrefiltermapSize >> level;
+		texsize += mipsize * mipsize;
 	}
-	CreatePrefiltermap(size, 1, std::move(data));
+
+	TArray<uint16_t> data(texsize * 6 * 3, true);
+	memset(data.data(), 0, data.size() * sizeof(uint16_t));
+	UploadPrefiltermap(1, std::move(data));
 }
 
-void VkTextureManager::CreateIrradiancemap(int size, int cubeCount, const TArray<uint16_t>& srcPixels)
+void VkTextureManager::UploadIrradiancemap(int cubeCount, const TArray<uint16_t>& srcPixels)
 {
-	for (auto& tex : Irradiancemaps)
-		tex.Reset(fb);
-	Irradiancemaps.clear();
-	Irradiancemaps.resize(cubeCount);
+	int createStart = Irradiancemaps.size();
+	if (Irradiancemaps.size() <= (size_t)cubeCount)
+		Irradiancemaps.resize(cubeCount + 1);
 
-	int w = size;
-	int h = size;
+	int w = IrradiancemapSize;
+	int h = IrradiancemapSize;
 	int pixelsize = 8;
 
-	for (int i = 0; i < cubeCount; i++)
+	for (int i = createStart; i < cubeCount; i++)
 	{
 		Irradiancemaps[i].Image = ImageBuilder()
 			.Size(w, h, 1, 6)
@@ -505,19 +493,18 @@ void VkTextureManager::CreateIrradiancemap(int size, int cubeCount, const TArray
 	barrier1.Execute(cmdbuffer);
 }
 
-void VkTextureManager::CreatePrefiltermap(int size, int cubeCount, const TArray<uint16_t>& srcPixels)
+void VkTextureManager::UploadPrefiltermap(int cubeCount, const TArray<uint16_t>& srcPixels)
 {
-	for (auto& tex : Prefiltermaps)
-		tex.Reset(fb);
-	Prefiltermaps.clear();
-	Prefiltermaps.resize(cubeCount);
+	int createStart = Prefiltermaps.size();
+	if (Prefiltermaps.size() <= (size_t)cubeCount)
+		Prefiltermaps.resize(cubeCount + 1);
 
-	int w = size;
-	int h = size;
+	int w = PrefiltermapSize;
+	int h = PrefiltermapSize;
 	int pixelsize = 8;
 	int miplevels = MAX_REFLECTION_LOD + 1;
 
-	for (int i = 0; i < cubeCount; i++)
+	for (int i = createStart; i < cubeCount; i++)
 	{
 		Prefiltermaps[i].Image = ImageBuilder()
 			.Size(w, h, miplevels, 6)
