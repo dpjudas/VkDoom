@@ -26,6 +26,7 @@
 
 #define BrdfLUT 1 // the BRDF convoluted texture is always in this texture slot
 #define PaletteLUT 2 // the RGB666 lookup table from a color to the game palette is always in this texture slot
+#define LightmapsStart 3 // the lightmaps start at this texture slot
 
 #define uObjectColor data[uDataIndex].uObjectColor
 #define uObjectColor2 data[uDataIndex].uObjectColor2

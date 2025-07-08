@@ -150,6 +150,7 @@ protected:
 	int mLightIndex;
 	int mBoneIndexBase;
 	int mFogballIndex;
+	int mLightProbeIndex;
 	int mSpecialEffect;
 	int mTextureMode;
 	int mTextureClamp;
@@ -217,7 +218,7 @@ public:
 		mSurfaceUniforms.uFogDensity = 0.0f;
 		mSurfaceUniforms.uLightLevel = -1.0f;
 		mSurfaceUniforms.uDepthFadeThreshold = 0.0f;
-		mSurfaceUniforms.uLightProbeIndex = 0;
+		mLightProbeIndex = 0;
 		mSpecialEffect = EFF_NONE;
 		mLightIndex = -1;
 		mBoneIndexBase = -1;
@@ -569,7 +570,7 @@ public:
 
 	void SetLightProbeIndex(int index)
 	{
-		mSurfaceUniforms.uLightProbeIndex = index;
+		mLightProbeIndex = index;
 	}
 
 	void SetRenderStyle(FRenderStyle rs)

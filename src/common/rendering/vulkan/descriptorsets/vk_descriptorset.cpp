@@ -144,24 +144,21 @@ void VkDescriptorSetManager::UpdateFixedSet()
 
 	WriteDescriptors update;
 	update.AddCombinedImageSampler(Fixed.Set.get(), 0, fb->GetTextureManager()->Shadowmap.View.get(), fb->GetSamplerManager()->ShadowmapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	update.AddCombinedImageSampler(Fixed.Set.get(), 1, fb->GetTextureManager()->Lightmap.Image.View.get(), fb->GetSamplerManager()->LightmapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	update.AddCombinedImageSampler(Fixed.Set.get(), 2, fb->GetBuffers()->SceneLinearDepth.View.get(), fb->GetSamplerManager()->Get(PPFilterMode::Nearest, PPWrapMode::Clamp), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	update.AddCombinedImageSampler(Fixed.Set.get(), 3, fb->GetTextureManager()->Irradiancemap.Image.View.get(), fb->GetSamplerManager()->IrradiancemapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	update.AddCombinedImageSampler(Fixed.Set.get(), 4, fb->GetTextureManager()->Prefiltermap.Image.View.get(), fb->GetSamplerManager()->PrefiltermapSampler.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	update.AddCombinedImageSampler(Fixed.Set.get(), 1, fb->GetBuffers()->SceneLinearDepth.View.get(), fb->GetSamplerManager()->Get(PPFilterMode::Nearest, PPWrapMode::Clamp), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	if (fb->IsRayQueryEnabled())
 	{
-		update.AddAccelerationStructure(Fixed.Set.get(), 5, fb->GetLevelMesh()->GetAccelStruct());
+		update.AddAccelerationStructure(Fixed.Set.get(), 2, fb->GetLevelMesh()->GetAccelStruct());
 	}
 	else
 	{
-		update.AddBuffer(Fixed.Set.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetNodeBuffer());
+		update.AddBuffer(Fixed.Set.get(), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetNodeBuffer());
 	}
 
-	update.AddBuffer(Fixed.Set.get(), 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetVertexBuffer());
-	update.AddBuffer(Fixed.Set.get(), 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetIndexBuffer());
-	update.AddBuffer(Fixed.Set.get(), 8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceIndexBuffer());
-	update.AddBuffer(Fixed.Set.get(), 9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceBuffer());
-	update.AddBuffer(Fixed.Set.get(), 10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetPortalBuffer());
+	update.AddBuffer(Fixed.Set.get(), 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetVertexBuffer());
+	update.AddBuffer(Fixed.Set.get(), 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetIndexBuffer());
+	update.AddBuffer(Fixed.Set.get(), 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceIndexBuffer());
+	update.AddBuffer(Fixed.Set.get(), 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetSurfaceBuffer());
+	update.AddBuffer(Fixed.Set.get(), 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, fb->GetLevelMesh()->GetPortalBuffer());
 
 	update.Execute(fb->GetDevice());
 }
@@ -175,6 +172,8 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 		colormap->Renderdev.bindIndex = -1;
 	Colormaps.clear();
 
+	LightProbes.clear();
+
 	Bindless.Writer = WriteDescriptors();
 	Bindless.NextIndex = 0;
 
@@ -186,6 +185,9 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 
 	// Slot 2 is always our game palette texture
 	AddBindlessTextureIndex(fb->GetTextureManager()->GetGamePaletteView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
+
+	// Lightmap textures follow
+	Bindless.NextIndex = LightmapsStart + MaxLightmaps;
 }
 
 void VkDescriptorSetManager::AddMaterial(VkMaterial* texture)
@@ -286,22 +288,19 @@ void VkDescriptorSetManager::CreateFixedLayout()
 	DescriptorSetLayoutBuilder builder;
 	builder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 	builder.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-	builder.AddBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-	builder.AddBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-	builder.AddBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 	if (fb->IsRayQueryEnabled())
 	{
-		builder.AddBinding(5, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+		builder.AddBinding(2, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 	}
 	else
 	{
-		builder.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+		builder.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 	}
+	builder.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	builder.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 	builder.AddBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 	builder.AddBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-	builder.AddBinding(8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-	builder.AddBinding(9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-	builder.AddBinding(10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 	builder.DebugName("VkDescriptorSetManager.Fixed.SetLayout");
 	Fixed.Layout = builder.Create(fb->GetDevice());
 }
@@ -367,7 +366,7 @@ void VkDescriptorSetManager::CreateRSBufferPool()
 void VkDescriptorSetManager::CreateFixedPool()
 {
 	DescriptorPoolBuilder poolbuilder;
-	poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5 * MaxFixedSets);
+	poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * MaxFixedSets);
 	if (fb->IsRayQueryEnabled())
 	{
 		poolbuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 * MaxFixedSets);
@@ -406,6 +405,14 @@ void VkDescriptorSetManager::CreateBindlessSet()
 
 void VkDescriptorSetManager::UpdateBindlessDescriptorSet()
 {
+	auto sampler = fb->GetSamplerManager()->LightmapSampler.get();
+	int index = LightmapsStart;
+	for (auto& lightmap : fb->GetTextureManager()->Lightmaps)
+	{
+		Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index, lightmap.View.get(), sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		index++;
+	}
+
 	Bindless.Writer.Execute(fb->GetDevice());
 	Bindless.Writer = WriteDescriptors();
 }
@@ -425,4 +432,18 @@ int VkDescriptorSetManager::GetSWColormapTextureIndex(FSWColormap* colormap)
 	colormap->Renderdev.bindIndex = AddBindlessTextureIndex(fb->GetTextureManager()->GetSWColormapView(colormap), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
 	Colormaps.push_back(colormap);
 	return colormap->Renderdev.bindIndex;
+}
+
+int VkDescriptorSetManager::GetLightProbeTextureIndex(int probeIndex)
+{
+	if ((size_t)probeIndex >= LightProbes.size())
+		LightProbes.resize(probeIndex + 1, -1);
+
+	if (LightProbes[probeIndex] == -1)
+	{
+		LightProbes[probeIndex] = AddBindlessTextureIndex(fb->GetTextureManager()->Irradiancemaps[probeIndex].View.get(), fb->GetSamplerManager()->IrradiancemapSampler.get());
+		AddBindlessTextureIndex(fb->GetTextureManager()->Prefiltermaps[probeIndex].View.get(), fb->GetSamplerManager()->PrefiltermapSampler.get());
+	}
+
+	return LightProbes[probeIndex];
 }

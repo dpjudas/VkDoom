@@ -200,7 +200,7 @@ public:
 	// Lightmap tiles and their locations in the texture atlas
 	struct
 	{
-		int TextureCount = 10; // To do: remove all the limits and instead resize GPU resources if they are exhausted. Too difficult to calculate it all up front.
+		int TextureCount = 1;
 		int TextureSize = 1024;
 		TArray<uint16_t> TextureData;
 		uint16_t SampleDistance = 8;

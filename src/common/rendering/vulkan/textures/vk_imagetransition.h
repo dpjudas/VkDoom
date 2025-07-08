@@ -19,12 +19,8 @@ public:
 		for (auto &it : RSFramebuffers)
 			deletelist->Add(std::move(it.second));
 		RSFramebuffers.clear();
-		for (auto& framebuffer : LMFramebuffers)
-			deletelist->Add(std::move(framebuffer));
-		LMFramebuffers.clear();
-		for (auto& view : LMViews)
-			deletelist->Add(std::move(view));
-		LMViews.clear();
+		deletelist->Add(std::move(LMFramebuffer));
+		deletelist->Add(std::move(LMView));
 		deletelist->Add(std::move(ZMinMaxFramebuffer));
 		deletelist->Add(std::move(DepthOnlyView));
 		deletelist->Add(std::move(View));
@@ -41,8 +37,8 @@ public:
 	std::unique_ptr<VulkanFramebuffer> PPFramebuffer;
 	std::unique_ptr<VulkanFramebuffer> ZMinMaxFramebuffer;
 	std::map<VkRenderPassKey, std::unique_ptr<VulkanFramebuffer>> RSFramebuffers;
-	std::vector<std::unique_ptr<VulkanImageView>> LMViews;
-	std::vector<std::unique_ptr<VulkanFramebuffer>> LMFramebuffers;
+	std::unique_ptr<VulkanImageView> LMView;
+	std::unique_ptr<VulkanFramebuffer> LMFramebuffer;
 };
 
 class VkImageTransition

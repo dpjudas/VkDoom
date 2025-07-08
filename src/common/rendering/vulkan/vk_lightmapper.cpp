@@ -402,8 +402,7 @@ void VkLightmapper::CopyResult()
 	if (pixels == 0)
 		return;
 
-	VkTextureImage* destTexture = &fb->GetTextureManager()->Lightmap.Image;
-	int destSize = fb->GetTextureManager()->Lightmap.Size;
+	std::vector<VkTextureImage>& destTexture = fb->GetTextureManager()->Lightmaps;
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
@@ -415,7 +414,7 @@ void VkLightmapper::CopyResult()
 	for (unsigned int i = 0, count = copylists.Size(); i < count; i++)
 	{
 		if (copylists[i].Size() > 0)
-			barrier0.AddImage(destTexture->Image.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, i, 1);
+			barrier0.AddImage(destTexture[i].Image.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1);
 	}
 	barrier0.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
@@ -428,22 +427,18 @@ void VkLightmapper::CopyResult()
 		if (list.Size() == 0)
 			continue;
 
-		// Create framebuffer object if it doesn't exist
-		if (i >= destTexture->LMFramebuffers.size())
-		{
-			destTexture->LMViews.resize(i + 1);
-			destTexture->LMFramebuffers.resize(i + 1);
-		}
+		int destSize = destTexture[i].Image->width;
 
-		auto& framebuffer = destTexture->LMFramebuffers[i];
+		// Create framebuffer object if it doesn't exist
+		auto& framebuffer = destTexture[i].LMFramebuffer;
 		if (!framebuffer)
 		{
-			auto& view = destTexture->LMViews[i];
+			auto& view = destTexture[i].LMView;
 			if (!view)
 			{
 				view = ImageViewBuilder()
 					.Type(VK_IMAGE_VIEW_TYPE_2D)
-					.Image(destTexture->Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1, 1)
+					.Image(destTexture[i].Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1, 1)
 					.DebugName("LMView")
 					.Create(fb->GetDevice());
 			}
@@ -504,7 +499,7 @@ void VkLightmapper::CopyResult()
 	for (unsigned int i = 0, count = copylists.Size(); i < count; i++)
 	{
 		if (copylists[i].Size() > 0)
-			barrier1.AddImage(destTexture->Image.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, i, 1);
+			barrier1.AddImage(destTexture[i].Image.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1);
 	}
 	barrier1.Execute(cmdbuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 

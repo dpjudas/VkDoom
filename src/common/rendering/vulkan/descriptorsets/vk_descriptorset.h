@@ -46,6 +46,7 @@ public:
 	int AddBindlessTextureIndex(VulkanImageView* imageview, VulkanSampler* sampler);
 
 	int GetSWColormapTextureIndex(FSWColormap* colormap);
+	int GetLightProbeTextureIndex(int probeIndex);
 
 private:
 	void CreateLevelMeshLayout();
@@ -101,6 +102,13 @@ private:
 	struct
 	{
 		std::unique_ptr<VulkanDescriptorPool> Pool;
+		std::unique_ptr<VulkanDescriptorSet> Set;
+		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
+	} Lightmap;
+
+	struct
+	{
+		std::unique_ptr<VulkanDescriptorPool> Pool;
 	} Postprocess;
 
 	struct
@@ -119,7 +127,10 @@ private:
 
 	std::list<VkMaterial*> Materials;
 	std::vector<FSWColormap*> Colormaps;
+	std::vector<int> LightProbes;
 
 	static const int MaxFixedSets = 100;
 	static const int MaxBindlessTextures = 16536;
+	static const int LightmapsStart = 3;
+	static const int MaxLightmaps = 128;
 };

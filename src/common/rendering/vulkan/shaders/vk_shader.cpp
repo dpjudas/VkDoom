@@ -247,9 +247,10 @@ static std::vector<BuiltinFieldDesc> vertexShaderOutputs
 	{"vEyeNormal",		"",		UniformType::Vec4,	FieldCondition::ALWAYS},			//6
 	{"ClipDistanceA",	"",		UniformType::Vec4,	FieldCondition::HAS_CLIPDISTANCE},	//7
 	{"ClipDistanceB",	"",		UniformType::Vec4,	FieldCondition::HAS_CLIPDISTANCE},	//8
-	{"vLightmap",		"",		UniformType::Vec3,	FieldCondition::ALWAYS},			//9
-	{"uDataIndex",		"flat", UniformType::Int,	FieldCondition::USELEVELMESH},		//10
-	{"vLightColor",		"",		UniformType::Vec3,	FieldCondition::SHADE_VERTEX},		//11
+	{"vLightmap",		"",		UniformType::Vec2,	FieldCondition::ALWAYS},			//9
+	{"vLightmapIndex",	"flat",	UniformType::Int,	FieldCondition::ALWAYS},			//10
+	{"uDataIndex",		"flat", UniformType::Int,	FieldCondition::USELEVELMESH},		//11
+	{"vLightColor",		"",		UniformType::Vec3,	FieldCondition::SHADE_VERTEX},		//12
 };
 
 static std::vector<BuiltinFieldDesc> fragShaderOutputs

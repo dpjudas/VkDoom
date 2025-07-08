@@ -415,8 +415,8 @@ void VulkanRenderDevice::RenderEnvironmentMap(std::function<void(IntRect& bounds
 
 void VulkanRenderDevice::UploadEnvironmentMaps(int cubemapCount, const TArray<uint16_t>& irradianceMaps, const TArray<uint16_t>& prefilterMaps)
 {
-	mTextureManager->CreateIrradiancemap(32, 6 * cubemapCount, irradianceMaps);
-	mTextureManager->CreatePrefiltermap(128, 6 * cubemapCount, prefilterMaps);
+	mTextureManager->CreateIrradiancemap(32, cubemapCount, irradianceMaps);
+	mTextureManager->CreatePrefiltermap(128, cubemapCount, prefilterMaps);
 }
 
 void VulkanRenderDevice::PostProcessScene(bool swscene, int fixedcm, float flash, bool palettePostprocess, const std::function<void()> &afterBloomDrawEndScene2D)
@@ -638,7 +638,7 @@ void VulkanRenderDevice::BeginFrame()
 	SetViewportRects(nullptr);
 	mCommands->BeginFrame();
 	mLevelMesh->BeginFrame();
-	mTextureManager->BeginFrame();
+	mTextureManager->BeginFrame(levelMesh->Lightmap.TextureSize, levelMesh->Lightmap.TextureCount);
 	mScreenBuffers->BeginFrame(screen->mScreenViewport.width, screen->mScreenViewport.height, screen->mSceneViewport.width, screen->mSceneViewport.height);
 	mSaveBuffers->BeginFrame(SAVEPICWIDTH, SAVEPICHEIGHT, SAVEPICWIDTH, SAVEPICHEIGHT);
 	mRenderState->BeginFrame();

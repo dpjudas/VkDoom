@@ -458,6 +458,8 @@ void VkRenderState::ApplySurfaceUniforms()
 		mSurfaceUniforms.uColormapIndex = 0;
 	}
 
+	mSurfaceUniforms.uLightProbeIndex = fb->GetDescriptorSetManager()->GetLightProbeTextureIndex(mLightProbeIndex);
+
 	if (mMaterial.mChanged)
 	{
 		if (mMaterial.mMaterial)

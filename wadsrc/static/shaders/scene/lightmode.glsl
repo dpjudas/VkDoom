@@ -52,9 +52,9 @@ vec4 getLightColor(Material material)
 
 		vec4 dynlight = uDynLightColor;
 
-		if (vLightmap.z >= 0.0)
+		if (vLightmapIndex != -1)
 		{
-			dynlight.rgb += texture(LightMap, vLightmap).rgb;
+			dynlight.rgb += texture(textures[nonuniformEXT(vLightmapIndex)], vLightmap.xy).rgb;
 		}
 
 		dynlight.rgb += ProcessSWLight(material);
@@ -103,9 +103,9 @@ vec4 getLightColor(Material material)
 		//
 		// apply lightmaps
 		//
-		if (vLightmap.z >= 0.0)
+		if (vLightmapIndex != -1)
 		{
-			color.rgb += texture(LightMap, vLightmap).rgb;
+			color.rgb += texture(textures[nonuniformEXT(vLightmapIndex)], vLightmap.xy).rgb;
 		}
 
 		//

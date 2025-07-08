@@ -135,7 +135,11 @@ void main()
 	#endif
 
 	#if !defined(SIMPLE) || defined(SIMPLE3D)
-		vLightmap = vec3(aLightmap, aPosition.w);
+		vLightmap = aLightmap;
+		if (aPosition.w >= 0.0)
+			vLightmapIndex = LightmapsStart + int(aPosition.w);
+		else
+			vLightmapIndex = -1;
 
 		pixelpos.xyz = worldcoord.xyz;
 		pixelpos.w = -eyeCoordPos.z/eyeCoordPos.w;

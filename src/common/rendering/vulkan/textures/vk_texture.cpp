@@ -57,13 +57,15 @@ void VkTextureManager::Deinit()
 		RemovePPTexture(PPTextures.back());
 }
 
-void VkTextureManager::BeginFrame()
+void VkTextureManager::BeginFrame(int lightmapTextureSize, int lightmapCount)
 {
 	if (!Shadowmap.Image || Shadowmap.Image->width != gl_shadowmap_quality)
 	{
 		Shadowmap.Reset(fb);
 		CreateShadowmap();
 	}
+
+	SetLightmapCount(lightmapTextureSize, lightmapCount);
 }
 
 void VkTextureManager::AddTexture(VkHardwareTexture* texture)
@@ -400,7 +402,7 @@ void VkTextureManager::CreateIrradiancemap()
 		data.Push(0);
 		data.Push(0);
 	}
-	CreateIrradiancemap(1, 6, std::move(data));
+	CreateIrradiancemap(1, 1, std::move(data));
 }
 
 void VkTextureManager::CreatePrefiltermap()
@@ -420,55 +422,55 @@ void VkTextureManager::CreatePrefiltermap()
 			}
 		}
 	}
-	CreatePrefiltermap(size, 6, std::move(data));
+	CreatePrefiltermap(size, 1, std::move(data));
 }
 
-void VkTextureManager::CreateIrradiancemap(int size, int count, const TArray<uint16_t>& newPixelData)
+void VkTextureManager::CreateIrradiancemap(int size, int cubeCount, const TArray<uint16_t>& srcPixels)
 {
-	if (Irradiancemap.Size == size && Irradiancemap.Count == count && newPixelData.Size() == 0)
-		return;
-
-	Irradiancemap.Size = size;
-	Irradiancemap.Count = count;
+	for (auto& tex : Irradiancemaps)
+		tex.Reset(fb);
+	Irradiancemaps.clear();
+	Irradiancemaps.resize(cubeCount);
 
 	int w = size;
 	int h = size;
 	int pixelsize = 8;
 
-	Irradiancemap.Image.Reset(fb);
+	for (int i = 0; i < cubeCount; i++)
+	{
+		Irradiancemaps[i].Image = ImageBuilder()
+			.Size(w, h, 1, 6)
+			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+			.Flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+			.DebugName("VkTextureManager.Irradiancemap")
+			.Create(fb->GetDevice());
 
-	Irradiancemap.Image.Image = ImageBuilder()
-		.Size(w, h, 1, count)
-		.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
-		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-		.Flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
-		.DebugName("VkTextureManager.Irradiancemap")
-		.Create(fb->GetDevice());
-
-	Irradiancemap.Image.View = ImageViewBuilder()
-		.Type(VK_IMAGE_VIEW_TYPE_CUBE_ARRAY)
-		.Image(Irradiancemap.Image.Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
-		.DebugName("VkTextureManager.IrradiancemapView")
-		.Create(fb->GetDevice());
+		Irradiancemaps[i].View = ImageViewBuilder()
+			.Type(VK_IMAGE_VIEW_TYPE_CUBE)
+			.Image(Irradiancemaps[i].Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
+			.DebugName("VkTextureManager.IrradiancemapView")
+			.Create(fb->GetDevice());
+	}
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
-	assert(newPixelData.Size() == (size_t)w * h * count * 3);
-
-	if (count > 0 && newPixelData.Size() == (size_t)w * h * count * 3)
+	if (srcPixels.size() != 0)
 	{
-		int totalSize = w * h * count * pixelsize;
+		if (srcPixels.size() != w * h * 3 * 6 * cubeCount)
+			I_FatalError("Invalid pixels array passed to VkTextureManager.CreateIrradiancemap");
 
+		int totalSize = w * h * pixelsize * 6 * cubeCount;
 		auto stagingBuffer = BufferBuilder()
 			.Size(totalSize)
 			.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
-			.DebugName("VkRenderBuffers.IrradiancemapStagingBuffer")
+			.DebugName("VkTextureManager.CubeTextureListStagingBuffer")
 			.Create(fb->GetDevice());
 
 		uint16_t one = 0x3c00; // half-float 1.0
-		const uint16_t* src = newPixelData.Data();
+		const uint16_t* src = srcPixels.data();
 		uint16_t* data = (uint16_t*)stagingBuffer->Map(0, totalSize);
-		for (int i = w * h * count; i > 0; i--)
+		for (int i = w * h * 6 * cubeCount; i > 0; i--)
 		{
 			*(data++) = *(src++);
 			*(data++) = *(src++);
@@ -477,77 +479,85 @@ void VkTextureManager::CreateIrradiancemap(int size, int count, const TArray<uin
 		}
 		stagingBuffer->Unmap();
 
-		VkImageTransition()
-			.AddImage(&Irradiancemap.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, 1, 0, count)
-			.Execute(cmdbuffer);
+		VkImageTransition barrier0;
+		for (int i = 0; i < cubeCount; i++)
+			barrier0.AddImage(&Irradiancemaps[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, 1, 0, 6);
+		barrier0.Execute(cmdbuffer);
 
-		VkBufferImageCopy region = {};
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.imageSubresource.layerCount = count;
-		region.imageExtent.depth = 1;
-		region.imageExtent.width = w;
-		region.imageExtent.height = h;
-		cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Irradiancemap.Image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		for (int i = 0; i < cubeCount; i++)
+		{
+			VkBufferImageCopy region = {};
+			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			region.imageSubresource.layerCount = 6;
+			region.imageExtent.depth = 1;
+			region.imageExtent.width = w;
+			region.imageExtent.height = h;
+			region.bufferOffset = w * h * pixelsize * 6 * i;
+			cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Irradiancemaps[i].Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		}
 
 		fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
 	}
 
-	VkImageTransition()
-		.AddImage(&Irradiancemap.Image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, 1, 0, count)
-		.Execute(cmdbuffer);
+	VkImageTransition barrier1;
+	for (int i = 0; i < cubeCount; i++)
+		barrier1.AddImage(&Irradiancemaps[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, 1, 0, 6);
+	barrier1.Execute(cmdbuffer);
 }
 
-void VkTextureManager::CreatePrefiltermap(int size, int count, const TArray<uint16_t>& newPixelData)
+void VkTextureManager::CreatePrefiltermap(int size, int cubeCount, const TArray<uint16_t>& srcPixels)
 {
-	if (Prefiltermap.Size == size && Prefiltermap.Count == count && newPixelData.Size() == 0)
-		return;
-
-	Prefiltermap.Size = size;
-	Prefiltermap.Count = count;
+	for (auto& tex : Prefiltermaps)
+		tex.Reset(fb);
+	Prefiltermaps.clear();
+	Prefiltermaps.resize(cubeCount);
 
 	int w = size;
 	int h = size;
 	int pixelsize = 8;
 	int miplevels = MAX_REFLECTION_LOD + 1;
 
-	Prefiltermap.Image.Reset(fb);
+	for (int i = 0; i < cubeCount; i++)
+	{
+		Prefiltermaps[i].Image = ImageBuilder()
+			.Size(w, h, miplevels, 6)
+			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+			.Flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+			.DebugName("VkTextureManager.Prefiltermap")
+			.Create(fb->GetDevice());
 
-	Prefiltermap.Image.Image = ImageBuilder()
-		.Size(w, h, miplevels, count)
-		.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
-		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-		.Flags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
-		.DebugName("VkTextureManager.Prefiltermap")
-		.Create(fb->GetDevice());
-
-	Prefiltermap.Image.View = ImageViewBuilder()
-		.Type(VK_IMAGE_VIEW_TYPE_CUBE_ARRAY)
-		.Image(Prefiltermap.Image.Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
-		.DebugName("VkTextureManager.PrefiltermapView")
-		.Create(fb->GetDevice());
+		Prefiltermaps[i].View = ImageViewBuilder()
+			.Type(VK_IMAGE_VIEW_TYPE_CUBE)
+			.Image(Prefiltermaps[i].Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
+			.DebugName("VkTextureManager.PrefiltermapView")
+			.Create(fb->GetDevice());
+	}
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
-	int totalSize = 0;
-	for (int level = 0; level < miplevels; level++)
+	if (srcPixels.size() != 0)
 	{
-		int mipwidth = std::max(w >> level, 1);
-		int mipheight = std::max(h >> level, 1);
-		totalSize += mipwidth * mipheight * count;
-	}
-	assert(newPixelData.Size() == (size_t)totalSize * 3);
+		int totalSize = 0;
+		for (int level = 0; level < miplevels; level++)
+		{
+			int mipwidth = std::max(w >> level, 1);
+			int mipheight = std::max(h >> level, 1);
+			totalSize += mipwidth * mipheight * 6 * cubeCount;
+		}
 
-	if (count > 0 && newPixelData.Size() == (size_t)totalSize * 3)
-	{
+		if (srcPixels.size() != totalSize * 3)
+			I_FatalError("Invalid pixels array passed to VkTextureManager.CreatePrefiltermap");
+
 		auto stagingBuffer = BufferBuilder()
 			.Size(totalSize * pixelsize)
 			.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
-			.DebugName("VkTextureManager.PrefiltermapStagingBuffer")
+			.DebugName("VkTextureManager.CreatePrefiltermap")
 			.Create(fb->GetDevice());
 
 		uint16_t one = 0x3c00; // half-float 1.0
-		const uint16_t* src = newPixelData.Data();
-		uint16_t* data = (uint16_t*)stagingBuffer->Map(0, totalSize * pixelsize);
+		const uint16_t* src = srcPixels.data();
+		uint16_t* data = (uint16_t*)stagingBuffer->Map(0, totalSize);
 		for (int i = 0; i < totalSize; i++)
 		{
 			*(data++) = *(src++);
@@ -557,95 +567,121 @@ void VkTextureManager::CreatePrefiltermap(int size, int count, const TArray<uint
 		}
 		stagingBuffer->Unmap();
 
-		VkImageTransition()
-			.AddImage(&Prefiltermap.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, miplevels, 0, count)
-			.Execute(cmdbuffer);
+		VkImageTransition barrier0;
+		for (int i = 0; i < cubeCount; i++)
+			barrier0.AddImage(&Prefiltermaps[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, miplevels, 0, 6);
+		barrier0.Execute(cmdbuffer);
 
 		int offset = 0;
-		for (int i = 0; i < count; ++i)
+		for (int i = 0; i < cubeCount; i++)
 		{
-			for (int level = 0; level < miplevels; level++)
+			for (int side = 0; side < 6; side++)
 			{
-				int mipwidth = std::max(w >> level, 1);
-				int mipheight = std::max(h >> level, 1);
+				for (int level = 0; level < miplevels; level++)
+				{
+					int mipwidth = std::max(w >> level, 1);
+					int mipheight = std::max(h >> level, 1);
 
-				VkBufferImageCopy region = {};
-				region.bufferOffset = offset;
-				region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				region.imageSubresource.layerCount = 1;
-				region.imageSubresource.baseArrayLayer = i;
-				region.imageSubresource.mipLevel = level;
-				region.imageExtent.depth = 1;
-				region.imageExtent.width = mipwidth;
-				region.imageExtent.height = mipheight;
-				cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Prefiltermap.Image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+					VkBufferImageCopy region = {};
+					region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+					region.imageSubresource.baseArrayLayer = side;
+					region.imageSubresource.layerCount = 1;
+					region.imageSubresource.mipLevel = level;
+					region.imageExtent.depth = 1;
+					region.imageExtent.width = mipwidth;
+					region.imageExtent.height = mipheight;
+					region.bufferOffset = offset;
+					cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Prefiltermaps[i].Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-				offset += mipwidth * mipheight * pixelsize;
+					offset += mipwidth * mipheight * pixelsize;
+				}
 			}
 		}
 
 		fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
 	}
 
-	VkImageTransition()
-		.AddImage(&Prefiltermap.Image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, miplevels, 0, count)
-		.Execute(cmdbuffer);
+	VkImageTransition barrier1;
+	for (int i = 0; i < cubeCount; i++)
+		barrier1.AddImage(&Prefiltermaps[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, miplevels, 0, 6);
+	barrier1.Execute(cmdbuffer);
 }
 
-void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCount, TArray<uint16_t>&& newPixelData)
+void VkTextureManager::SetLightmapCount(int size, int count)
 {
-	if (newLMTextureCount == 0) // If there is no lightmap we create a dummy texture to simplify code elsewhere
-	{
-		newLMTextureSize = 1;
-		newLMTextureCount = 1;
-		newPixelData = {};
-	}
-
-	if (Lightmap.Size == newLMTextureSize && Lightmap.Count == newLMTextureCount + 1 && newPixelData.Size() == 0)
+	int startIndex = Lightmaps.size();
+	if (startIndex >= count)
 		return;
 
-	Lightmap.Size = newLMTextureSize;
+	Lightmaps.resize(count);
 
-	// Always create minimum 16 textures with 4 additional than the initial watermark
-	// To do: add support for expanding the texture dynamically instead
-	Lightmap.Count = std::max(newLMTextureCount, 12) + 4;
-	
-	int w = newLMTextureSize;
-	int h = newLMTextureSize;
-	int count = newLMTextureCount;
-	int pixelsize = 8;
+	for (int i = startIndex; i < count; i++)
+	{
+		Lightmaps[i].Image = ImageBuilder()
+			.Size(size, size)
+			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+			.DebugName("VkTextureManager.Lightmap")
+			.Create(fb->GetDevice());
 
-	Lightmap.Image.Reset(fb);
-
-	Lightmap.Image.Image = ImageBuilder()
-		.Size(w, h, 1, Lightmap.Count)
-		.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
-		.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-		.DebugName("VkTextureManager.Lightmap")
-		.Create(fb->GetDevice());
-
-	Lightmap.Image.View = ImageViewBuilder()
-		.Type(VK_IMAGE_VIEW_TYPE_2D_ARRAY)
-		.Image(Lightmap.Image.Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
-		.DebugName("VkTextureManager.LightmapView")
-		.Create(fb->GetDevice());
+		Lightmaps[i].View = ImageViewBuilder()
+			.Type(VK_IMAGE_VIEW_TYPE_2D)
+			.Image(Lightmaps[i].Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
+			.DebugName("VkTextureManager.LightmapView")
+			.Create(fb->GetDevice());
+	}
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
-	if (count > 0 && newPixelData.Size() >= (size_t)w * h * count * 3)
+	VkImageTransition barrier;
+	for (int i = startIndex; i < count; i++)
+		barrier.AddImage(&Lightmaps[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
+	barrier.Execute(cmdbuffer);
+}
+
+void VkTextureManager::CreateLightmap(int size, int count, const TArray<uint16_t>& srcPixels)
+{
+	for (auto& tex : Lightmaps)
+		tex.Reset(fb);
+	Lightmaps.clear();
+	Lightmaps.resize(count);
+
+	int w = size;
+	int h = size;
+	int pixelsize = 8;
+
+	for (int i = 0; i < count; i++)
 	{
-		assert(newPixelData.Size() == (size_t)w * h * count * 3);
+		Lightmaps[i].Image = ImageBuilder()
+			.Size(w, h)
+			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+			.DebugName("VkTextureManager.Lightmap")
+			.Create(fb->GetDevice());
 
-		int totalSize = w * h * count * pixelsize;
+		Lightmaps[i].View = ImageViewBuilder()
+			.Type(VK_IMAGE_VIEW_TYPE_2D)
+			.Image(Lightmaps[i].Image.get(), VK_FORMAT_R16G16B16A16_SFLOAT)
+			.DebugName("VkTextureManager.LightmapView")
+			.Create(fb->GetDevice());
+	}
 
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	if (srcPixels.size() != 0)
+	{
+		if (srcPixels.size() != w * h * 3 * count)
+			I_FatalError("Invalid pixels array passed to VkTextureManager.CreateLightmap");
+
+		int totalSize = w * h * pixelsize * count;
 		auto stagingBuffer = BufferBuilder()
 			.Size(totalSize)
 			.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
-			.DebugName("VkTextureManager.LightmapStagingBuffer")
+			.DebugName("VkTextureManager.TextureListStagingBuffer")
 			.Create(fb->GetDevice());
 
 		uint16_t one = 0x3c00; // half-float 1.0
-		const uint16_t* src = newPixelData.Data();
+		const uint16_t* src = srcPixels.data();
 		uint16_t* data = (uint16_t*)stagingBuffer->Map(0, totalSize);
 		for (int i = w * h * count; i > 0; i--)
 		{
@@ -656,31 +692,42 @@ void VkTextureManager::CreateLightmap(int newLMTextureSize, int newLMTextureCoun
 		}
 		stagingBuffer->Unmap();
 
-		VkImageTransition()
-			.AddImage(&Lightmap.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true, 0, 1, 0, Lightmap.Count)
-			.Execute(cmdbuffer);
+		VkImageTransition barrier0;
+		for (int i = 0; i < count; i++)
+			barrier0.AddImage(&Lightmaps[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
+		barrier0.Execute(cmdbuffer);
 
-		VkBufferImageCopy region = {};
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.imageSubresource.layerCount = count;
-		region.imageExtent.depth = 1;
-		region.imageExtent.width = w;
-		region.imageExtent.height = h;
-		cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Lightmap.Image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		for (int i = 0; i < count; i++)
+		{
+			VkBufferImageCopy region = {};
+			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			region.imageSubresource.layerCount = 1;
+			region.imageExtent.depth = 1;
+			region.imageExtent.width = w;
+			region.imageExtent.height = h;
+			region.bufferOffset = w * h * pixelsize * i;
+			cmdbuffer->copyBufferToImage(stagingBuffer->buffer, Lightmaps[i].Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		}
 
 		fb->GetCommands()->TransferDeleteList->Add(std::move(stagingBuffer));
-	
-		newPixelData.Clear();
 	}
 
-	VkImageTransition()
-		.AddImage(&Lightmap.Image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false, 0, 1, 0, Lightmap.Count)
-		.Execute(cmdbuffer);
+	VkImageTransition barrier1;
+	for (int i = 0; i < count; i++)
+		barrier1.AddImage(&Lightmaps[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
+	barrier1.Execute(cmdbuffer);
 }
 
 void VkTextureManager::DownloadLightmap(int arrayIndex, uint16_t* buffer)
 {
-	unsigned int totalSize = Lightmap.Size * Lightmap.Size * 4;
+	DownloadTexture(&Lightmaps[arrayIndex], buffer);
+}
+
+void VkTextureManager::DownloadTexture(VkTextureImage* texture, uint16_t* buffer)
+{
+	int width = texture->Image->width;
+	int height = texture->Image->height;
+	int totalSize = width * height * 4;
 
 	auto stagingBuffer = BufferBuilder()
 		.Size(totalSize * sizeof(uint16_t))
@@ -690,23 +737,22 @@ void VkTextureManager::DownloadLightmap(int arrayIndex, uint16_t* buffer)
 
 	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
 
-	PipelineBarrier()
-		.AddImage(Lightmap.Image.Image.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arrayIndex, 1)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	VkImageTransition()
+		.AddImage(texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, false)
+		.Execute(cmdbuffer);
 
 	VkBufferImageCopy region = {};
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.baseArrayLayer = arrayIndex;
 	region.imageSubresource.layerCount = 1;
 	region.imageSubresource.mipLevel = 0;
-	region.imageExtent.width = Lightmap.Size;
-	region.imageExtent.height = Lightmap.Size;
+	region.imageExtent.width = width;
+	region.imageExtent.height = height;
 	region.imageExtent.depth = 1;
-	cmdbuffer->copyImageToBuffer(Lightmap.Image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer->buffer, 1, &region);
+	cmdbuffer->copyImageToBuffer(texture->Image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer->buffer, 1, &region);
 
-	PipelineBarrier()
-		.AddImage(Lightmap.Image.Image.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arrayIndex, 1)
-		.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	VkImageTransition()
+		.AddImage(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false)
+		.Execute(cmdbuffer);
 
 	fb->GetCommands()->WaitForCommands(false);
 
