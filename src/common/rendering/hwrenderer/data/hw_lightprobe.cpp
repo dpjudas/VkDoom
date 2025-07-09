@@ -1,15 +1,14 @@
 #include "hw_lightprobe.h"
+#include "v_video.h"
 
-void LightProbeIncrementalBuilder::Step(const TArray<LightProbe>& probes, std::function<void(const LightProbe&, TArrayView<uint16_t>&, TArrayView<uint16_t>&)> renderScene, std::function<void(const TArray<uint16_t>&, const TArray<uint16_t>&)> uploadEnv)
+void LightProbeIncrementalBuilder::Step(const TArray<LightProbe>& probes, std::function<void(int probeIndex, const LightProbe& probe)> renderScene)
 {
+	if (probes.size() == 0)
+		return;
+
 	if (lastIndex >= probes.size())
 	{
 		lastIndex = 0;
-
-		if (!probes.size())
-		{
-			return;
-		}
 	}
 
 	if (cubemapsAllocated != probes.size())
@@ -17,39 +16,35 @@ void LightProbeIncrementalBuilder::Step(const TArray<LightProbe>& probes, std::f
 		int newSegments = probes.size();
 		int lastSegments = cubemapsAllocated;
 
-		irradianceMaps.resize(probes.size() * irradianceBytes);
-		prefilterMaps.resize(probes.size() * prefilterBytes);
 		cubemapsAllocated = probes.size();
 
 		lastIndex = 0;
 		collected = 0;
+		iterations = 0;
 
-		// needed because otherwise it somehow gets corrupted
-		memset(irradianceMaps.Data(), 0, irradianceMaps.Size() * sizeof(uint16_t));
-		memset(prefilterMaps.Data(), 0, prefilterMaps.Size() * sizeof(uint16_t));
-
-		// workaround for lack of boundary checking in GPU
-		uploadEnv(this->irradianceMaps, this->prefilterMaps);
+		screen->ResetLightProbes();
 		return;
 	}
 
-	auto irradianceBuffer = TArrayView<uint16_t>(irradianceMaps.data() + lastIndex * irradianceBytes, irradianceBytes);
-	auto prefilterBuffer = TArrayView<uint16_t>(prefilterMaps.data() + lastIndex * prefilterBytes, prefilterBytes);
+	if (iterations >= 5)
+		return; // We are done baking
 
-	renderScene(probes[lastIndex++], irradianceBuffer, prefilterBuffer);
-	++collected;
+	renderScene(lastIndex, probes[lastIndex]);
+	lastIndex++;
+	collected++;
 
 	if (lastIndex >= probes.size())
 	{
 		if (collected == probes.size())
 		{
-			uploadEnv(this->irradianceMaps, this->prefilterMaps);
+			screen->EndLightProbePass();
 		}
 		collected = 0;
+		iterations++;
 	}
 }
 
-void LightProbeIncrementalBuilder::Full(const TArray<LightProbe>& probes, std::function<void(const LightProbe&, TArrayView<uint16_t>&, TArrayView<uint16_t>&)> renderScene, std::function<void(const TArray<uint16_t>&, const TArray<uint16_t>&)> uploadEnv)
+void LightProbeIncrementalBuilder::Full(const TArray<LightProbe>& probes, std::function<void(int probeIndex, const LightProbe& probe)> renderScene)
 {
 	if (lastIndex >= probes.size())
 	{
@@ -63,6 +58,6 @@ void LightProbeIncrementalBuilder::Full(const TArray<LightProbe>& probes, std::f
 
 	while (lastIndex < probes.size())
 	{
-		Step(probes, renderScene, uploadEnv);
+		Step(probes, renderScene);
 	}
 }

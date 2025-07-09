@@ -252,20 +252,8 @@ void VkLightprober::CreateIrradianceMap()
 	}
 }
 
-bool VkLightprober::GenerateIrradianceMap(TArrayView<uint16_t>& databuffer)
+void VkLightprober::GenerateIrradianceMap(int probeIndex)
 {
-	const int texelCount = DFrameBuffer::irrandiaceMapTexelCount;
-
-	if (databuffer.Size() < texelCount)
-	{
-		return false;
-	}
-
-	auto staging = BufferBuilder()
-		.Size(32 * 32 * 8 * 6)
-		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU)
-		.Create(fb->GetDevice());
-
 	WriteDescriptors write;
 	for (int i = 0; i < 6; i++)
 	{
@@ -317,37 +305,40 @@ bool VkLightprober::GenerateIrradianceMap(TArrayView<uint16_t>& databuffer)
 		cmdbuffer->dispatch(32, 32, 1);
 	}
 
+	if (irradianceMap.probes.size() <= (size_t)probeIndex)
+		irradianceMap.probes.resize(probeIndex + 1);
+	if (!irradianceMap.probes[probeIndex])
+	{
+		irradianceMap.probes[probeIndex] = ImageBuilder()
+			.Size(32, 32, 1, 6)
+			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+			.Create(fb->GetDevice());
+	}
+
 	PipelineBarrier barrier1;
 	for (int i = 0; i < 6; i++)
 		barrier1.AddImage(irradianceMap.images[i].get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+	barrier1.AddImage(irradianceMap.probes[probeIndex].get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6);
 	barrier1.Execute(cmdbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	for (int i = 0; i < 6; i++)
 	{
-		VkBufferImageCopy region = { };
-		region.bufferOffset = 32 * 32 * 8 * i;
-		region.imageExtent.width = irradianceMap.images[i]->width;
-		region.imageExtent.height = irradianceMap.images[i]->height;
-		region.imageExtent.depth = 1;
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.imageSubresource.layerCount = 1;
-		cmdbuffer->copyImageToBuffer(irradianceMap.images[i]->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, staging->buffer, 1, &region);
+		VkImageCopy region = {};
+		region.extent.width = irradianceMap.images[i]->width;
+		region.extent.height = irradianceMap.images[i]->height;
+		region.extent.depth = 1;
+		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.layerCount = 1;
+		region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.dstSubresource.layerCount = 1;
+		region.dstSubresource.baseArrayLayer = i;
+		cmdbuffer->copyImage(irradianceMap.images[i]->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, irradianceMap.probes[probeIndex]->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	}
 
-	fb->GetCommands()->WaitForCommands(false);
-
-	// Copy while dropping the alpha channel
-	auto dst = databuffer.Data();
-	auto src = (uint16_t*)staging->Map(0, texelCount * 8);
-	for (int i = 0; i < texelCount; i++)
-	{
-		*(dst++) = *(src++);
-		*(dst++) = *(src++);
-		*(dst++) = *(src++);
-		src++;
-	}
-	staging->Unmap();
-	return true;
+	PipelineBarrier barrier2;
+	barrier2.AddImage(irradianceMap.probes[probeIndex].get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6);
+	barrier2.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 }
 
 void VkLightprober::CreatePrefilterMap()
@@ -397,20 +388,8 @@ void VkLightprober::CreatePrefilterMap()
 	}
 }
 
-bool VkLightprober::GeneratePrefilterMap(TArrayView<uint16_t>& databuffer)
+void VkLightprober::GeneratePrefilterMap(int probeIndex)
 {
-	const int texelCount = DFrameBuffer::prefilterMapTexelCount;
-
-	if (databuffer.Size() < texelCount)
-	{
-		return false;
-	}
-
-	auto staging = BufferBuilder()
-		.Size(prefilterMap.levelsSize * 6 * 8)
-		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU)
-		.Create(fb->GetDevice());
-
 	WriteDescriptors write;
 	for (int i = 0; i < 6 * prefilterMap.maxlevels; i++)
 	{
@@ -467,40 +446,47 @@ bool VkLightprober::GeneratePrefilterMap(TArrayView<uint16_t>& databuffer)
 		}
 	}
 
+	if (prefilterMap.probes.size() <= (size_t)probeIndex)
+		prefilterMap.probes.resize(probeIndex + 1);
+	if (!prefilterMap.probes[probeIndex])
+	{
+		prefilterMap.probes[probeIndex] = ImageBuilder()
+			.Size(128, 128, prefilterMap.maxlevels, 6)
+			.Format(VK_FORMAT_R16G16B16A16_SFLOAT)
+			.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+			.Create(fb->GetDevice());
+	}
+
 	PipelineBarrier barrier1;
 	for (int i = 0; i < 6 * prefilterMap.maxlevels; i++)
 		barrier1.AddImage(prefilterMap.images[i].get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+	barrier1.AddImage(prefilterMap.probes[probeIndex].get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, prefilterMap.maxlevels, 0, 6);
 	barrier1.Execute(cmdbuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-	int offset = 0;
 	for (int i = 0; i < 6 * prefilterMap.maxlevels; i++)
 	{
-		VkBufferImageCopy region = { };
-		region.bufferOffset = offset;
-		region.imageExtent.width = prefilterMap.images[i]->width;
-		region.imageExtent.height = prefilterMap.images[i]->height;
-		region.imageExtent.depth = 1;
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.imageSubresource.layerCount = 1;
-		cmdbuffer->copyImageToBuffer(prefilterMap.images[i]->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, staging->buffer, 1, &region);
-
-		offset += prefilterMap.images[i]->width * prefilterMap.images[i]->height * 8;
+		VkImageCopy region = {};
+		region.extent.width = prefilterMap.images[i]->width;
+		region.extent.height = prefilterMap.images[i]->height;
+		region.extent.depth = 1;
+		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.layerCount = 1;
+		region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.dstSubresource.layerCount = 1;
+		region.dstSubresource.baseArrayLayer = i / prefilterMap.maxlevels;
+		region.dstSubresource.mipLevel = i % prefilterMap.maxlevels;
+		cmdbuffer->copyImage(prefilterMap.images[i]->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, prefilterMap.probes[probeIndex]->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	}
 
-	fb->GetCommands()->WaitForCommands(false);
+	PipelineBarrier barrier2;
+	barrier2.AddImage(prefilterMap.probes[probeIndex].get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT, 0, prefilterMap.maxlevels, 0, 6);
+	barrier2.Execute(cmdbuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+}
 
-	// Copy while dropping the alpha channel
-	auto dst = databuffer.Data();
-	auto src = (uint16_t*)staging->Map(0, texelCount * 8);
-	for (int i = 0; i < texelCount; i++)
-	{
-		*(dst++) = *(src++);
-		*(dst++) = *(src++);
-		*(dst++) = *(src++);
-		src++;
-	}
-	staging->Unmap();
-	return true;
+void VkLightprober::EndLightProbePass()
+{
+	fb->GetTextureManager()->CopyIrradiancemap(irradianceMap.probes);
+	fb->GetTextureManager()->CopyPrefiltermap(prefilterMap.probes);
 }
 
 std::vector<uint32_t> VkLightprober::CompileShader(const std::string& filename)

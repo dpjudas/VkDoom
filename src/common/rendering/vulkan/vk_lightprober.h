@@ -35,8 +35,9 @@ public:
 	~VkLightprober();
 
 	void RenderEnvironmentMap(std::function<void(IntRect& bounds, int side)> renderFunc);
-	bool GenerateIrradianceMap(TArrayView<uint16_t>& databuffer);
-	bool GeneratePrefilterMap(TArrayView<uint16_t>& databuffer);
+	void GenerateIrradianceMap(int probeIndex);
+	void GeneratePrefilterMap(int probeIndex);
+	void EndLightProbePass();
 
 private:
 	void CreateBrdfLutResources();
@@ -85,6 +86,7 @@ private:
 		std::unique_ptr<VulkanSampler> sampler;
 		std::unique_ptr<VulkanImage> images[6];
 		std::unique_ptr<VulkanImageView> views[6];
+		std::vector<std::unique_ptr<VulkanImage>> probes;
 	} irradianceMap;
 
 	struct PrefilterMap
@@ -102,6 +104,7 @@ private:
 		std::unique_ptr<VulkanSampler> sampler;
 		std::unique_ptr<VulkanImage> images[6 * maxlevels];
 		std::unique_ptr<VulkanImageView> views[6 * maxlevels];
+		std::vector<std::unique_ptr<VulkanImage>> probes;
 	} prefilterMap;
 
 	VulkanRenderDevice* fb = nullptr;
