@@ -907,25 +907,22 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 
 	if (r_showlights && !IsEnvironmentMapRendering)
 	{
-		auto it_lightprobe = level.GetThinkerIterator<AActor>(NAME_LightProbe, STAT_INFO);
-		while (AActor* probe = it_lightprobe.Next())
+		for (auto& probe : level.lightProbes)
 		{
-			DrawIcosahedron(state, probe->Pos(), 10.0f, false, 0xff00ff00);
+			DrawIcosahedron(state, probe.position, 10.0f, false, 0xff00ff00);
 		}
 
 		for (FDynamicLight* light = Level->lights; light; light = light->next)
 		{
-			DrawIcosahedron(state, light->Pos, 10.0f, false, 0xffffffff);
+			DrawIcosahedron(state, FVector3((float)light->Pos.X, (float)light->Pos.Y, (float)light->Pos.Z), 10.0f, false, 0xffffffff);
 		}
 	}
 
 	RenderAll.Unclock();
 }
 
-void HWDrawInfo::DrawIcosahedron(FRenderState& state, DVector3 pos, float radius, bool useRadiusOfInscribedSphere, PalEntry color)
+void HWDrawInfo::DrawIcosahedron(FRenderState& state, FVector3 pos, float radius, bool useRadiusOfInscribedSphere, PalEntry color)
 {
-	FVector3 fPos((float)pos.X, (float)pos.Y, (float)pos.Z);
-
 	// radius of a circumscribed sphere (one that touches the icosahedron at all vertices)
 	float x = 0.525731112119133606f;
 	float z = 0.850650808352039932f;
@@ -979,7 +976,7 @@ void HWDrawInfo::DrawIcosahedron(FRenderState& state, DVector3 pos, float radius
 	auto verts = state.AllocVertices(20 * 3);
 	for (int i = 0; i < 20 * 3; i++)
 	{
-		const FVector3& v = vertices[elements[i]] * radius + fPos;
+		const FVector3& v = vertices[elements[i]] * radius + pos;
 		verts.first[i].Set(v.X, v.Z, v.Y, 0.0f, 0.0f);
 	}
 

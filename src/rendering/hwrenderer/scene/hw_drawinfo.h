@@ -429,7 +429,7 @@ private:
 	void AddSpecialPortalLines(subsector_t* sub, sector_t* sector, linebase_t* line, FRenderState& state);
 
 	void UpdateLightmaps();
-	void DrawIcosahedron(FRenderState& state, DVector3 pos, float radius, bool useRadiusOfInscribedSphere, PalEntry color);
+	void DrawIcosahedron(FRenderState& state, FVector3 pos, float radius, bool useRadiusOfInscribedSphere, PalEntry color);
 };
 
 void CleanSWDrawer();
