@@ -441,8 +441,19 @@ int VkDescriptorSetManager::GetLightProbeTextureIndex(int probeIndex)
 
 	if (LightProbes[probeIndex] == -1)
 	{
-		LightProbes[probeIndex] = AddBindlessTextureIndex(fb->GetTextureManager()->Irradiancemaps[probeIndex].View.get(), fb->GetSamplerManager()->IrradiancemapSampler.get());
-		AddBindlessTextureIndex(fb->GetTextureManager()->Prefiltermaps[probeIndex].View.get(), fb->GetSamplerManager()->PrefiltermapSampler.get());
+		auto textures = fb->GetTextureManager();
+
+		// Seems we might be rendering a probe before we have data for it
+		if (textures->Irradiancemaps.size() > (size_t)probeIndex && textures->Irradiancemaps[probeIndex].View &&
+			textures->Prefiltermaps.size() > (size_t)probeIndex && textures->Prefiltermaps[probeIndex].View)
+		{
+			LightProbes[probeIndex] = AddBindlessTextureIndex(textures->Irradiancemaps[probeIndex].View.get(), fb->GetSamplerManager()->IrradiancemapSampler.get());
+			AddBindlessTextureIndex(textures->Prefiltermaps[probeIndex].View.get(), fb->GetSamplerManager()->PrefiltermapSampler.get());
+		}
+		else
+		{
+			return 0;
+		}
 	}
 
 	return LightProbes[probeIndex];

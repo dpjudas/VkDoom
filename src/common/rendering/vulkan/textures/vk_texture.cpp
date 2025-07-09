@@ -418,7 +418,7 @@ void VkTextureManager::UploadIrradiancemap(int cubeCount, const TArray<uint16_t>
 {
 	int createStart = Irradiancemaps.size();
 	if (Irradiancemaps.size() <= (size_t)cubeCount)
-		Irradiancemaps.resize(cubeCount + 1);
+		Irradiancemaps.resize(cubeCount);
 
 	int w = IrradiancemapSize;
 	int h = IrradiancemapSize;
@@ -497,7 +497,7 @@ void VkTextureManager::UploadPrefiltermap(int cubeCount, const TArray<uint16_t>&
 {
 	int createStart = Prefiltermaps.size();
 	if (Prefiltermaps.size() <= (size_t)cubeCount)
-		Prefiltermaps.resize(cubeCount + 1);
+		Prefiltermaps.resize(cubeCount);
 
 	int w = PrefiltermapSize;
 	int h = PrefiltermapSize;
