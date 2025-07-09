@@ -159,6 +159,8 @@ sector_t* RenderViewpoint(FRenderViewpoint& mainvp, AActor* camera, IntRect* bou
 		auto di = HWDrawInfo::StartDrawInfo(&mainthread_drawctx, mainvp.ViewLevel, nullptr, mainvp, nullptr);
 		auto& vp = di->Viewpoint;
 
+		di->IsEnvironmentMapRendering = side != -1;
+
 		di->Set3DViewport(RenderState);
 		di->SetViewArea();
 		auto cm = di->SetFullbrightFlags(mainview ? vp.camera->player : nullptr);

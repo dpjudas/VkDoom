@@ -26,6 +26,7 @@
 */
 
 #include "a_sharedglobal.h"
+#include "a_dynlight.h"
 #include "r_utility.h"
 #include "r_sky.h"
 #include "d_player.h"
@@ -75,6 +76,7 @@ CVAR(Float, gl_mask_sprite_threshold, 0.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, gl_coronas, true, CVAR_ARCHIVE);
 
 CVAR(Bool, gl_levelmesh, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+CVARD(Bool, r_showlights, false, CVAR_GLOBALCONFIG | CVAR_CHEAT, "show light spheres")
 
 extern TArray<AActor*> Coronas;
 
@@ -903,8 +905,97 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 	state.SetDepthFunc(DF_LEqual);
 	DrawDecals(state, Decals[0]);
 
+	if (r_showlights && !IsEnvironmentMapRendering)
+	{
+		auto it_lightprobe = level.GetThinkerIterator<AActor>(NAME_LightProbe, STAT_INFO);
+		while (AActor* probe = it_lightprobe.Next())
+		{
+			DrawIcosahedron(state, probe->Pos(), 10.0f, false, 0xff00ff00);
+		}
+
+		for (FDynamicLight* light = Level->lights; light; light = light->next)
+		{
+			DrawIcosahedron(state, light->Pos, 10.0f, false, 0xffffffff);
+		}
+	}
+
 	RenderAll.Unclock();
 }
+
+void HWDrawInfo::DrawIcosahedron(FRenderState& state, DVector3 pos, float radius, bool useRadiusOfInscribedSphere, PalEntry color)
+{
+	FVector3 fPos((float)pos.X, (float)pos.Y, (float)pos.Z);
+
+	// radius of a circumscribed sphere (one that touches the icosahedron at all vertices)
+	float x = 0.525731112119133606f;
+	float z = 0.850650808352039932f;
+
+	if (useRadiusOfInscribedSphere) // tangent to each of the icosahedron's faces
+	{
+		x *= 1.32316908f;
+		z *= 1.32316908f;
+	}
+
+	static FVector3 vertices[12] =
+	{
+		FVector3(-x, 0.0f, z),
+		FVector3(x, 0.0f, z),
+		FVector3(-x, 0.0f, -z),
+		FVector3(x, 0.0f, -z),
+		FVector3(0.0f, z, x),
+		FVector3(0.0f, z, -x),
+		FVector3(0.0f, -z, x),
+		FVector3(0.0f, -z, -x),
+		FVector3(z, x, 0.0f),
+		FVector3(-z, x, 0.0f),
+		FVector3(z, -x, 0.0f),
+		FVector3(-z, -x, 0.0f)
+	};
+
+	static unsigned int elements[20 * 3] =
+	{
+		0,4,1,
+		0,9,4,
+		9,5,4,
+		4,5,8,
+		4,8,1,
+		8,10,1,
+		8,3,10,
+		5,3,8,
+		5,2,3,
+		2,7,3,
+		7,10,3,
+		7,6,10,
+		7,11,6,
+		11,0,6,
+		0,1,6,
+		6,1,10,
+		9,0,11,
+		9,11,2,
+		9,2,5,
+		7,2,11
+	};
+
+	auto verts = state.AllocVertices(20 * 3);
+	for (int i = 0; i < 20 * 3; i++)
+	{
+		const FVector3& v = vertices[elements[i]] * radius + fPos;
+		verts.first[i].Set(v.X, v.Z, v.Y, 0.0f, 0.0f);
+	}
+
+	state.EnableTexture(false);
+	state.SetTextureMode(TM_NORMAL);
+	state.SetRenderStyle(STYLE_Normal);
+	state.SetMaterial(TexMan.GetGameTexture(skyflatnum), UF_Texture, 0, CLAMP_XY, NO_TRANSLATION, -1);
+	state.SetColor(1.0f, 1.0f, 1.0f);
+	state.SetObjectColor(color);
+	state.SetSoftLightLevel(255, 0);
+	state.SetLightIndex(-1);
+	state.Draw(DT_Triangles, verts.second, 20 * 3);
+	state.SetObjectColor(0xffffffff);
+	state.EnableTexture(gl_texture);
+}
+
 
 //-----------------------------------------------------------------------------
 //
