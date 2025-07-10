@@ -3587,6 +3587,8 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 		}
 	}
 
+	Level->RecalculateLightProbeTargets();
+
 	InitLevelMesh(map);
 
 	UpdateVBOLightmap(*screen->RenderState(), Level->sectors);

@@ -723,6 +723,55 @@ public:
 
 	TObjPtr<DSpotState *> SpotState = MakeObjPtr<DSpotState*>(nullptr);
 
+	int FindClosestProbe(FVector3 pos)
+	{
+		float bestDist = std::numeric_limits<float>::max();
+		int best = 0;
+
+		for (int i = 0, size = lightProbes.size(); i < size; ++i)
+		{
+			const auto& probe = lightProbes[i];
+
+			const auto probeDist = (probe.position - pos).LengthSquared();
+
+			if (probeDist < bestDist)
+			{
+				best = i;
+				bestDist = probeDist;
+			}
+		}
+
+		return best;
+	}
+
+	void RecalculateLightProbeTargets()
+	{
+		for (int i = 0, size = sectors.size(); i < size; ++i)
+		{
+			auto& sector = sectors[i];
+			const auto origin = FVector3(sector.centerspot.X, sector.centerspot.Y, float(sector.floorplane.ZatPoint(sector.centerspot) + 64.0));
+
+			sector.lightProbe.index = FindClosestProbe(origin);
+		}
+
+		for (int i = 0, size = sides.size(); i < size; ++i)
+		{
+			auto& side = sides[i];
+
+			const auto sector = side.sector;
+
+			if (!sector) // better safe than sorry
+			{
+				continue;
+			}
+
+			const auto xy = side.linedef->v1->fPos() + side.linedef->delta * 0.5;
+			const auto origin = FVector3(xy.X, xy.Y, float(sector->floorplane.ZatPoint(sector->centerspot) + 64.0));
+
+			side.lightProbe.index = FindClosestProbe(origin);
+		}
+	}
+
 	//==========================================================================
 	//
 	//
