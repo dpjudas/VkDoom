@@ -916,6 +916,13 @@ public:
 			Level->SunDirection = -FVector3 { pc * angle.Cos(), pc * angle.Sin(), -pitch.Sin() }; // [RaveYard]: is there a dedicated function for this?
 			Level->lightmaps = true;
 		}
+		else if (th->EdNum == 9892) // PBR lightprobe thing
+		{
+			LightProbe probe;
+			probe.position = FVector3((float)th->pos.X, (float)th->pos.Y, (float)th->pos.Z);
+			probe.index = Level->lightProbes.size();
+			Level->lightProbes.Push(probe);
+		}
 	}
 
 	//===========================================================================

@@ -56,7 +56,7 @@ EXTERN_CVAR(Bool, gl_bandedswlight)
 EXTERN_CVAR(Bool, lm_dynlights);
 
 CVAR(Bool, gl_raytrace, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
-CVAR(Bool, gl_lightprobe, false, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
+CVAR(Bool, gl_lightprobe, true, 0/*CVAR_ARCHIVE | CVAR_GLOBALCONFIG*/)
 
 extern bool NoInterpolateView;
 
@@ -405,10 +405,9 @@ sector_t* RenderView(player_t* player)
 				});
 		}
 
-		if (gl_lightprobe)
+		if (gl_lightprobe && level.lightProbes.size() > 0)
 		{
 			// Render the light probes if not found in a lump
-			// To do: we need light probe actors
 
 			AActor* lightprobe = level.GetThinkerIterator<AActor>(NAME_LightProbe, STAT_INFO).Next();
 			if (lightprobe)
@@ -432,7 +431,6 @@ sector_t* RenderView(player_t* player)
 			}
 			else
 			{
-				Printf("Warning: spawning LightProbe\n");
 				auto probe = Spawn(&level, NAME_LightProbe);
 				probe->ChangeStatNum(STAT_INFO);
 			}

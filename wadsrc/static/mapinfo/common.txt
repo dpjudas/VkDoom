@@ -147,6 +147,7 @@ DoomEdNums
   9884 = SpotLightFlickerRandomTraceAttenuated		// ZDRay lightmap spotlight (random flickering)
   9890 = None										// ZDRayInfo
   9891 = Fogball
+  9892 = None										// PBR lightprobe
   9982 = SecActEyesAboveC
   9983 = SecActEyesBelowC
   9988 = CustomSprite
