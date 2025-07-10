@@ -119,7 +119,7 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 	int rel = fullbright ? 0 : getExtraLight();
 	auto &vp = di->Viewpoint;	
 
-	state.SetLightProbeIndex(actor->Sector ? actor->Sector->lightProbe.index : 0);
+	state.SetLightProbeIndex(actor && actor->Sector ? actor->Sector->lightProbe.index : 0);
 
 	if (translucent)
 	{
