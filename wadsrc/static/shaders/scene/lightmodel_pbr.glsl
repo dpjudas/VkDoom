@@ -48,6 +48,8 @@ vec3 ProcessLight(const DynLightInfo light, vec3 albedo, float metallic, float r
 {
 	vec3 L = normalize(light.pos.xyz - pixelpos.xyz);
 	vec3 H = normalize(V + L);
+
+	const float brightnessScale = 2.5; // For making non-PBR and PBR lights roughly the same intensity
 	
 	float attenuation = distanceAttenuation(distance(light.pos.xyz, pixelpos.xyz), light.radius, light.strength, light.linearity);
 	if ((light.flags & LIGHTINFO_SPOT) != 0)
@@ -69,7 +71,7 @@ vec3 ProcessLight(const DynLightInfo light, vec3 albedo, float metallic, float r
 			attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius, light.flags);
 		}
 		
-		vec3 radiance = light.color.rgb * attenuation;
+		vec3 radiance = light.color.rgb * attenuation * brightnessScale;
 		
 		// cook-torrance brdf
 		float NDF = DistributionGGX(N, H, roughness);
