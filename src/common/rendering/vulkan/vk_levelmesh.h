@@ -119,6 +119,7 @@ private:
 	void UpdateTopLevelAS(int instanceCount);
 
 	BLAS CreateBLAS(bool preferFastBuild, int indexOffset, int indexCount);
+	BLAS CreateSphereBLAS();
 
 	void CreateViewerObjects();
 
@@ -130,6 +131,8 @@ private:
 	bool useRayQuery = true;
 
 	LevelMesh* Mesh = nullptr;
+
+	std::unique_ptr<VulkanBuffer> AabbPositionsBuffer;
 
 	std::unique_ptr<VulkanBuffer> VertexBuffer;
 	std::unique_ptr<VulkanBuffer> UniformIndexBuffer;
@@ -145,6 +148,7 @@ private:
 
 	std::unique_ptr<VulkanBuffer> NodeBuffer;
 
+	BLAS SphereBLAS;
 	std::vector<BLAS> DynamicBLAS;
 	int IndexesPerBLAS = 0;
 	int InstanceCount = 0;

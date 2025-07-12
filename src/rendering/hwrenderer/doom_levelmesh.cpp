@@ -728,44 +728,19 @@ void DoomLevelMesh::BeginFrame(FLevelLocals& doomMap)
 
 void DoomLevelMesh::UploadDynLights(FLevelLocals& doomMap)
 {
-	lightdata.Clear();
+	Mesh.ActiveLights.Clear();
 	for (auto light = doomMap.lights; light; light = light->next)
 	{
 		if (!light->IsActive())
 			continue;
 
-		if (light->Trace() || lm_dynlights)
+		//if (light->Trace())
 		{
+			int lightIndex = GetLightIndex(light, 0);
+			Mesh.ActiveLights.Push(lightIndex);
 			UpdateLight(light);
 		}
-		else
-		{
-			int portalGroup = 0; // What value should this have?
-			AddLightToList(lightdata, portalGroup, light, false, false);
-			CurFrameStats.DynLights++;
-		}
 	}
-
-	// All meaasurements here are in vec4's.
-	int size0 = lightdata.arrays[LIGHTARRAY_NORMAL].Size();
-	int size1 = lightdata.arrays[LIGHTARRAY_SUBTRACTIVE].Size();
-	int size2 = lightdata.arrays[LIGHTARRAY_ADDITIVE].Size();
-	int totalsize = size0 + size1 + size2;
-	int maxLightData = Mesh.DynLights.Size();
-
-	int parmcnt[] = { 0, size0, size0 + size1, size0 + size1 + size2 };
-
-	int* indexptr = (int*)Mesh.DynLights.Data();
-
-	memcpy(indexptr, parmcnt, sizeof(int) * 4);
-
-	FDynLightInfo* dataptr = (FDynLightInfo*)(indexptr + 4);
-
-	memcpy(dataptr, &lightdata.arrays[0][0], size0 * sizeof(FDynLightInfo));
-	memcpy(dataptr + size0, &lightdata.arrays[1][0], size1 * sizeof(FDynLightInfo));
-	memcpy(dataptr + (size0 + size1), &lightdata.arrays[2][0], size2 * sizeof(FDynLightInfo));
-
-	UploadRanges.DynLight.Add(0, sizeof(int) * 4 + totalsize * sizeof(FDynLightInfo));
 }
 
 TArray<HWWall>& DoomLevelMesh::GetSidePortals(int sideIndex)
@@ -782,8 +757,7 @@ int DoomLevelMesh::GetLightIndex(FDynamicLight* light, int portalgroup)
 			return light->levelmesh[index].index - 1;
 	}
 	if (index == FDynamicLight::max_levelmesh_entries)
-		return 0;
-
+		return -1;
 
 	LightAllocInfo info = AllocLight();
 	CopyToMeshLight(light, *GetLight(info), portalgroup);

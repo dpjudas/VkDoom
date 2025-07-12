@@ -154,7 +154,8 @@ public:
 
 		// Lights
 		TArray<LevelMeshLight> Lights;
-		TArray<uint8_t> DynLights;
+		TArray<uint8_t> DynLights; // To do: remove this. Was only used by LightTiles
+		TArray<int> ActiveLights;
 
 		// Index data
 		TArray<uint32_t> Indexes;

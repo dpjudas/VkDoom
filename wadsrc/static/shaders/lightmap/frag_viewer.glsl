@@ -5,6 +5,7 @@
 #include <shaders/lightmap/trace_sunlight.glsl>
 #include <shaders/lightmap/trace_light.glsl>
 #include <shaders/lightmap/trace_ambient_occlusion.glsl>
+#include <shaders/lightmap/montecarlo.glsl>
 
 layout(location = 0) out vec4 fragcolor;
 
@@ -29,10 +30,58 @@ float stepAndOutputRNGFloat(inout uint rngState)
 	return float(word) / 4294967295.0f;
 }
 
+TraceResult TraceRay(vec3 origin, float tmin, vec3 dir, float tmax, bool primaryTrace)
+{
+	TraceResult result;
+
+	rayQueryEXT rayQuery;
+	rayQueryInitializeEXT(rayQuery, acc, gl_RayFlagsCullBackFacingTrianglesEXT, 0xFF, origin, tmin, dir, tmax);
+
+	while(rayQueryProceedEXT(rayQuery))
+	{
+		if (rayQueryGetIntersectionTypeEXT(rayQuery, false) == gl_RayQueryCandidateIntersectionTriangleEXT)
+		{
+			rayQueryConfirmIntersectionEXT(rayQuery);
+		}
+		else if (!primaryTrace) // gl_RayQueryCandidateIntersectionAABBEXT
+		{
+			int lightIndex = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, false);
+			float t = RaySphereIntersect(origin, tmin, dir, tmax, lights[lightIndex].Origin, lights[lightIndex].SoftShadowRadius);
+			if (t < tmax)
+				rayQueryGenerateIntersectionEXT(rayQuery, t);
+		}
+	}
+
+	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT)
+	{
+		result.t = rayQueryGetIntersectionTEXT(rayQuery, true);
+
+		result.primitiveWeights.xy = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
+		result.primitiveWeights.z = 1.0 - result.primitiveWeights.x - result.primitiveWeights.y;
+
+		result.primitiveIndex =
+			rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true) +
+			rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+	}
+	else if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionGeneratedEXT)
+	{
+		result.t = rayQueryGetIntersectionTEXT(rayQuery, true);
+		result.primitiveWeights = vec3(0.0);
+		result.primitiveIndex = 0x10000000 + rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
+	}
+	else
+	{
+		result.t = tmax;
+		result.primitiveIndex = -1;
+	}
+
+	return result;
+}
+
 void main()
 {
-	const int NUM_SAMPLES = 64;//64;
-	const int MAX_BOUNCES = 8;//32;
+	const int NUM_SAMPLES = 8;
+	const int MAX_BOUNCES = 16;
 
 	uint rngState = uint(gl_FragCoord.x) + 8720 * uint(gl_FragCoord.y);
 	vec3 summedPixelColor = vec3(0.0);
@@ -50,8 +99,15 @@ void main()
 		vec3 accumulatedRayColor = vec3(1.0);
 		for(int tracedSegments = 0; tracedSegments < MAX_BOUNCES; tracedSegments++)
 		{
-			TraceResult result = TraceFirstHit(rayOrigin, 0.0, rayDirection, 100000.0);
-			if (result.primitiveIndex != -1)
+			TraceResult result = TraceRay(rayOrigin, 0.0, rayDirection, 100000.0, tracedSegments == 0);
+			if (result.primitiveIndex >= 0x10000000)
+			{
+				// Hit a light
+				LightInfo light = lights[result.primitiveIndex - 0x10000000];
+				summedPixelColor += accumulatedRayColor * (light.Color.rgb * 1000.0/* * light.Intensity * light.Radius*/);
+				break;
+			}
+			else if (result.primitiveIndex >= 0)
 			{
 				SurfaceInfo surface = GetSurface(result.primitiveIndex);
 				if (surface.Sky == 0.0)

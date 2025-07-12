@@ -35,6 +35,8 @@
 VkLevelMesh::VkLevelMesh(VulkanRenderDevice* fb) : fb(fb)
 {
 	useRayQuery = fb->IsRayQueryEnabled();
+	if (useRayQuery)
+		SphereBLAS = CreateSphereBLAS();
 	CreateViewerObjects();
 }
 
@@ -402,7 +404,8 @@ void VkLevelMesh::CheckAccelStruct()
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 		// Find out how many segments we should split the map into
-		DynamicBLAS.resize(32); // fb->GetDevice()->PhysicalDevice.Properties.AccelerationStructure.maxInstanceCount is 65 or 382 on current devices (aug 2024)
+
+		DynamicBLAS.resize(32);
 		IndexesPerBLAS = ((Mesh->Mesh.Indexes.size() + 2) / 3 / DynamicBLAS.size() + 1) * 3;
 		InstanceCount = (Mesh->Mesh.IndexCount + IndexesPerBLAS - 1) / IndexesPerBLAS;
 
@@ -436,6 +439,102 @@ void VkLevelMesh::CheckAccelStruct()
 			.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT)
 			.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	}
+}
+
+VkLevelMesh::BLAS VkLevelMesh::CreateSphereBLAS()
+{
+	auto cmdbuffer = fb->GetCommands()->GetTransferCommands();
+
+	BLAS blas;
+
+	VkAabbPositionsKHR positions[1] = {};
+	positions[0].minX = -1.0;
+	positions[0].minY = -1.0;
+	positions[0].minZ = -1.0;
+	positions[0].maxX = 1.0;
+	positions[0].maxY = 1.0;
+	positions[0].maxZ = 1.0;
+
+	AabbPositionsBuffer = BufferBuilder()
+		.Usage(
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
+		.Size(sizeof(VkAabbPositionsKHR))
+		.MinAlignment(16)
+		.DebugName("AabbPositionsBuffer")
+		.Create(fb->GetDevice());
+
+	auto transferBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
+		.Size(sizeof(VkAabbPositionsKHR))
+		.DebugName("AabbPositionsBuffer.Transfer")
+		.Create(fb->GetDevice());
+	void* dest = transferBuffer->Map(0, sizeof(VkAabbPositionsKHR));
+	memcpy(dest, positions, sizeof(VkAabbPositionsKHR));
+	transferBuffer->Unmap();
+
+	cmdbuffer->copyBuffer(transferBuffer.get(), AabbPositionsBuffer.get());
+
+	fb->GetCommands()->TransferDeleteList->Add(std::move(transferBuffer));
+
+	PipelineBarrier()
+		.AddMemory(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT)
+		.Execute(fb->GetCommands()->GetTransferCommands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
+	VkAccelerationStructureGeometryKHR accelStructBLDesc = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
+	VkAccelerationStructureGeometryKHR* geometries[] = { &accelStructBLDesc };
+
+	accelStructBLDesc.geometryType = VK_GEOMETRY_TYPE_AABBS_KHR;
+	accelStructBLDesc.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+	accelStructBLDesc.geometry.aabbs = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR };
+	accelStructBLDesc.geometry.aabbs.data.deviceAddress = AabbPositionsBuffer->GetDeviceAddress();
+	accelStructBLDesc.geometry.aabbs.stride = sizeof(VkAabbPositionsKHR);
+
+	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+	buildInfo.geometryCount = 1;
+	buildInfo.ppGeometries = geometries;
+
+	uint32_t maxPrimitiveCount = 1;
+
+	VkAccelerationStructureBuildSizesInfoKHR sizeInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+	vkGetAccelerationStructureBuildSizesKHR(fb->GetDevice()->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxPrimitiveCount, &sizeInfo);
+
+	blas.AccelStructBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+		.Size(sizeInfo.accelerationStructureSize)
+		.MinAlignment(256)
+		.DebugName("BLAS.AccelStructBuffer")
+		.Create(fb->GetDevice());
+
+	blas.AccelStruct = AccelerationStructureBuilder()
+		.Type(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR)
+		.Buffer(blas.AccelStructBuffer.get(), sizeInfo.accelerationStructureSize)
+		.DebugName("BLAS.AccelStruct")
+		.Create(fb->GetDevice());
+
+	blas.ScratchBuffer = BufferBuilder()
+		.Usage(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+		.Size(sizeInfo.buildScratchSize)
+		.MinAlignment(fb->GetDevice()->PhysicalDevice.Properties.AccelerationStructure.minAccelerationStructureScratchOffsetAlignment)
+		.DebugName("BLAS.ScratchBuffer")
+		.Create(fb->GetDevice());
+
+	blas.DeviceAddress = blas.AccelStruct->GetDeviceAddress();
+
+	buildInfo.dstAccelerationStructure = blas.AccelStruct->accelstruct;
+	buildInfo.scratchData.deviceAddress = blas.ScratchBuffer->GetDeviceAddress();
+
+	VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {};
+	VkAccelerationStructureBuildRangeInfoKHR* rangeInfos[] = { &rangeInfo };
+	rangeInfo.primitiveCount = maxPrimitiveCount;
+
+	cmdbuffer->buildAccelerationStructures(1, &buildInfo, rangeInfos);
+
+	return blas;
 }
 
 VkLevelMesh::BLAS VkLevelMesh::CreateBLAS(bool preferFastBuild, int indexOffset, int indexCount)
@@ -506,13 +605,13 @@ void VkLevelMesh::CreateTLASInstanceBuffer()
 {
 	TopLevelAS.TransferBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY)
-		.Size(sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size())
+		.Size(sizeof(VkAccelerationStructureInstanceKHR) * (DynamicBLAS.size() + Mesh->Mesh.ActiveLights.size()))
 		.DebugName("TopLevelAS.TransferBuffer")
 		.Create(fb->GetDevice());
 
 	TopLevelAS.InstanceBuffer = BufferBuilder()
 		.Usage(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-		.Size(sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size())
+		.Size(sizeof(VkAccelerationStructureInstanceKHR) * (DynamicBLAS.size() + Mesh->Mesh.ActiveLights.size()))
 		.MinAlignment(16)
 		.DebugName("TopLevelAS.InstanceBuffer")
 		.Create(fb->GetDevice());
@@ -534,7 +633,7 @@ void VkLevelMesh::CreateTopLevelAS(int instanceCount)
 	accelStructTLDesc.geometry.instances = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR };
 	accelStructTLDesc.geometry.instances.data.deviceAddress = TopLevelAS.InstanceBuffer->GetDeviceAddress();
 
-	uint32_t maxInstanceCount = (uint32_t)DynamicBLAS.size();
+	uint32_t maxInstanceCount = (uint32_t)(DynamicBLAS.size() + Mesh->Mesh.ActiveLights.size());
 
 	VkAccelerationStructureBuildSizesInfoKHR sizeInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 	vkGetAccelerationStructureBuildSizesKHR(fb->GetDevice()->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &maxInstanceCount, &sizeInfo);
@@ -564,7 +663,7 @@ void VkLevelMesh::CreateTopLevelAS(int instanceCount)
 
 	VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {};
 	VkAccelerationStructureBuildRangeInfoKHR* rangeInfos[] = { &rangeInfo };
-	rangeInfo.primitiveCount = instanceCount;
+	rangeInfo.primitiveCount = (uint32_t)(instanceCount + Mesh->Mesh.ActiveLights.size());
 
 	fb->GetCommands()->GetTransferCommands()->buildAccelerationStructures(1, &buildInfo, rangeInfos);
 }
@@ -590,7 +689,7 @@ void VkLevelMesh::UpdateTopLevelAS(int instanceCount)
 
 	VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {};
 	VkAccelerationStructureBuildRangeInfoKHR* rangeInfos[] = { &rangeInfo };
-	rangeInfo.primitiveCount = instanceCount;
+	rangeInfo.primitiveCount = (uint32_t)(instanceCount + Mesh->Mesh.ActiveLights.size());
 
 	fb->GetCommands()->GetTransferCommands()->buildAccelerationStructures(1, &buildInfo, rangeInfos);
 }
@@ -604,15 +703,37 @@ void VkLevelMesh::UploadTLASInstanceBuffer()
 	instance.mask = 0xff;
 	instance.flags = 0;
 
-	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * DynamicBLAS.size());
-	for (BLAS& blas : DynamicBLAS)
+	auto data = (uint8_t*)TopLevelAS.TransferBuffer->Map(0, sizeof(VkAccelerationStructureInstanceKHR) * (DynamicBLAS.size() + Mesh->Mesh.ActiveLights.size()));
+	for (int index = 0; index < InstanceCount; index++)
 	{
+		BLAS& blas = DynamicBLAS[index];
 		instance.instanceCustomIndex = blas.InstanceCustomIndex;
 		instance.accelerationStructureReference = blas.DeviceAddress;
 
 		memcpy(data, &instance, sizeof(VkAccelerationStructureInstanceKHR));
 		data += sizeof(VkAccelerationStructureInstanceKHR);
 	}
+
+	int lightIndex = 0;
+	for (int activeLight : Mesh->Mesh.ActiveLights)
+	{
+		const auto& light = Mesh->Mesh.Lights[activeLight];
+		instance.instanceCustomIndex = activeLight;
+		instance.accelerationStructureReference = SphereBLAS.DeviceAddress;
+
+		float radius = light.SoftShadowRadius * 2.0f;
+		instance.transform.matrix[0][0] = radius;
+		instance.transform.matrix[1][1] = radius;
+		instance.transform.matrix[2][2] = radius;
+		instance.transform.matrix[0][3] = light.Origin.X;
+		instance.transform.matrix[1][3] = light.Origin.Z;
+		instance.transform.matrix[2][3] = light.Origin.Y;
+
+		memcpy(data, &instance, sizeof(VkAccelerationStructureInstanceKHR));
+		data += sizeof(VkAccelerationStructureInstanceKHR);
+		lightIndex++;
+	}
+
 	TopLevelAS.TransferBuffer->Unmap();
 
 	fb->GetCommands()->GetTransferCommands()->copyBuffer(TopLevelAS.TransferBuffer.get(), TopLevelAS.InstanceBuffer.get());
