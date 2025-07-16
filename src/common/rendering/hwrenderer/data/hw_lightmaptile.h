@@ -82,10 +82,14 @@ struct LightmapTile
 
 	FVector2 ToUV(const FVector3& vert, float textureSize) const
 	{
-		// Clamp in case the wall moved outside the tile (happens if a lift moves with a static lightmap on it)
 		FVector3 localPos = vert - Transform.TranslateWorldToLocal;
-		float u = std::max(std::min(localPos | Transform.ProjLocalToU, (float)AtlasLocation.Width - 2.0f), 1.0f);
-		float v = std::max(std::min(localPos | Transform.ProjLocalToV, (float)AtlasLocation.Height - 2.0f), 1.0f);
+		float u = localPos | Transform.ProjLocalToU;
+		float v = localPos | Transform.ProjLocalToV;
+
+		// Clamp in case the wall moved outside the tile (happens if a lift moves with a static lightmap on it)
+		u = std::max(std::min(u, (float)AtlasLocation.Width - 1.0f), 1.0f);
+		v = std::max(std::min(v, (float)AtlasLocation.Height - 1.0f), 1.0f);
+
 		u = (AtlasLocation.X + u) / textureSize;
 		v = (AtlasLocation.Y + v) / textureSize;
 		return FVector2(u, v);
@@ -141,22 +145,22 @@ struct LightmapTile
 		{
 		default:
 		case AXIS_YZ:
-			width = (int)(uvMax.Y - uvMin.Y);
-			height = (int)(uvMax.Z - uvMin.Z);
+			width = (int)std::round(uvMax.Y - uvMin.Y);
+			height = (int)std::round(uvMax.Z - uvMin.Z);
 			tCoords[0].Y = 1.0f / SampleDimension;
 			tCoords[1].Z = 1.0f / SampleDimension;
 			break;
 
 		case AXIS_XZ:
-			width = (int)(uvMax.X - uvMin.X);
-			height = (int)(uvMax.Z - uvMin.Z);
+			width = (int)std::round(uvMax.X - uvMin.X);
+			height = (int)std::round(uvMax.Z - uvMin.Z);
 			tCoords[0].X = 1.0f / SampleDimension;
 			tCoords[1].Z = 1.0f / SampleDimension;
 			break;
 
 		case AXIS_XY:
-			width = (int)(uvMax.X - uvMin.X);
-			height = (int)(uvMax.Y - uvMin.Y);
+			width = (int)std::round(uvMax.X - uvMin.X);
+			height = (int)std::round(uvMax.Y - uvMin.Y);
 			tCoords[0].X = 1.0f / SampleDimension;
 			tCoords[1].Y = 1.0f / SampleDimension;
 			break;
