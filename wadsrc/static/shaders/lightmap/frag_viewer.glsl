@@ -31,6 +31,76 @@ float stepAndOutputRNGFloat(inout uint rngState)
 
 void main()
 {
+#if 1
+
+	vec3 rayOrigin = CameraPos;
+
+	vec4 viewpos = vec4(gl_FragCoord.xy * vec2(ResolutionScaleX, ResolutionScaleY) - 1.0, -1.0, 1.0);
+	viewpos.x /= ProjX;
+	viewpos.y /= ProjY;
+	vec3 rayDirection = normalize(ViewX * viewpos.x + ViewY * viewpos.y - ViewZ);
+
+	for (int i = 0; i < 4; i++)
+	{
+		TraceResult result = TraceFirstHit(rayOrigin, 0.0, rayDirection, 100000.0);
+		if (result.primitiveIndex != -1)
+		{
+			SurfaceInfo surface = GetSurface(result.primitiveIndex);
+			if (surface.Sky == 0.0)
+			{
+				vec4 color;
+				if (surface.TextureIndex != 0)
+				{
+					vec2 uv = GetSurfaceUV(result.primitiveIndex, result.primitiveWeights);
+					color = texture(textures[surface.TextureIndex], uv);
+				}
+				else
+				{
+					// Hit a surface without a texture
+					color = vec4(0.0);
+				}
+
+				vec3 worldPos = GetSurfacePos(result.primitiveIndex, result.primitiveWeights);
+				vec3 lightRayOrigin = worldPos + 0.001 * surface.Normal;
+
+				if (color.a > 0.5)
+				{
+					vec3 incoming = vec3(0.2);
+					uint LightStart = surface.LightStart;
+					uint LightEnd = surface.LightEnd;
+					if (LightStart != LightEnd)
+					{
+						incoming += TraceSunLight(lightRayOrigin, surface.Normal);
+						for (uint j = LightStart; j < LightEnd; j++)
+							incoming += TraceLight(lightRayOrigin, surface.Normal, lights[lightIndexes[j]], 0.0, false);
+					}
+
+					color.rgb *= incoming;
+					fragcolor = color;
+					break;
+				}
+				else
+				{
+					// Transparent
+					rayOrigin = worldPos - 0.001 * surface.Normal;
+				}
+			}
+			else
+			{
+				// Hit the sky
+				fragcolor = vec4(skyColor(rayDirection), 1.0);
+				break;
+			}
+		}
+		else
+		{
+			// Ray hit nothing
+			fragcolor = vec4(1.0, 1.0, 0.0, 1.0);
+			break;
+		}
+	}
+
+#else // Silly path tracing test
 	const int NUM_SAMPLES = 64;//64;
 	const int MAX_BOUNCES = 8;//32;
 
@@ -133,4 +203,5 @@ void main()
 	}
 
 	fragcolor = vec4(summedPixelColor / float(NUM_SAMPLES), 1.0);
+#endif
 }
