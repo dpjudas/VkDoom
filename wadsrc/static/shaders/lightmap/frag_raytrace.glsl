@@ -24,11 +24,12 @@ void main()
 	vec3 origin = worldpos;
 
 #if defined(USE_SUNLIGHT)
-	vec3 incoming = TraceSunLight(origin, normal);
+	float sunAttenuation = TraceSunAttenuation(origin, normal);
 #else
-	vec3 incoming = vec3(0.0);
+	float sunAttenuation = 0.0;
 #endif
 
+	vec3 incoming = vec3(0.0);
 	for (uint j = LightStart; j < LightEnd; j++)
 	{
 		incoming += TraceLight(origin, normal, lights[lightIndexes[j]], 0.0, false);
@@ -42,5 +43,5 @@ void main()
 	incoming.rgb *= TraceAmbientOcclusion(origin, normal);
 #endif
 
-	fragcolor = vec4(incoming, 1.0);
+	fragcolor = vec4(incoming, sunAttenuation);
 }

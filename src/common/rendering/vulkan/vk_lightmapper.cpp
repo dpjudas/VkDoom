@@ -185,7 +185,7 @@ void VkLightmapper::Render()
 		.RenderPass(raytrace.renderPass.get())
 		.RenderArea(0, 0, bakeImage.maxX, bakeImage.maxY)
 		.Framebuffer(bakeImage.raytrace.Framebuffer.get())
-		.AddClearColor(0.0f, 0.0f, 0.0f, 0.0f)
+		.AddClearColor(0.0f, 0.0f, 0.0f, -1.0f)
 		.Execute(cmdbuffer);
 
 	VkDeviceSize offset = 0;

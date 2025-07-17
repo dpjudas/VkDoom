@@ -24,6 +24,19 @@ vec2 GetSurfaceUV(int primitiveIndex, vec3 primitiveWeights)
 		vertices[elements[index + 0]].uv * primitiveWeights.z;
 }
 
+float PassAttenuationThroughSurface(SurfaceInfo surface, vec2 uv, float attentuation)
+{
+	if (surface.TextureIndex == 0)
+	{
+		return attentuation;
+	}
+	else
+	{
+		vec4 color = texture(textures[surface.TextureIndex], uv);
+		return attentuation * (1.0 - color.a * surface.Alpha);
+	}
+}
+
 vec3 PassRayThroughSurface(SurfaceInfo surface, vec2 uv, vec3 rayColor)
 {
 	if (surface.TextureIndex == 0)

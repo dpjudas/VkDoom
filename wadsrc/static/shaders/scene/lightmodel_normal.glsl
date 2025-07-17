@@ -51,10 +51,16 @@
 		}
 	}
 	
-	vec3 ProcessMaterialLight(Material material, vec3 color)
+	vec3 ProcessMaterialLight(Material material, vec3 color, float sunlightAttenuation)
 	{
 		vec4 dynlight = uDynLightColor;
 		vec3 normal = material.Normal;
+
+		if (sunlightAttenuation > 0.0)
+		{
+			sunlightAttenuation *= clamp(dot(normal, SunDir), 0.0, 1.0);
+			dynlight.rgb += SunColor.rgb * SunIntensity * sunlightAttenuation;
+		}
 
 		#ifndef UBERSHADER
 		
@@ -160,7 +166,7 @@
 	}
 
 #else
-	vec3 ProcessMaterialLight(Material material, vec3 color)
+	vec3 ProcessMaterialLight(Material material, vec3 color, float sunlightAttenuation)
 	{
 		return material.Base.rgb;
 	}

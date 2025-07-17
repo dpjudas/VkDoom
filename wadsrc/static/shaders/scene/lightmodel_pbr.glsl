@@ -1,4 +1,5 @@
 const float PI = 3.14159265359;
+const float PBRBrightnessScale = 2.5; // For making non-PBR and PBR lights roughly the same intensity
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
@@ -49,8 +50,6 @@ vec3 ProcessLight(const DynLightInfo light, vec3 albedo, float metallic, float r
 	vec3 L = normalize(light.pos.xyz - pixelpos.xyz);
 	vec3 H = normalize(V + L);
 
-	const float brightnessScale = 2.5; // For making non-PBR and PBR lights roughly the same intensity
-	
 	float attenuation = distanceAttenuation(distance(light.pos.xyz, pixelpos.xyz), light.radius, light.strength, light.linearity);
 	if ((light.flags & LIGHTINFO_SPOT) != 0)
 	{
@@ -71,7 +70,7 @@ vec3 ProcessLight(const DynLightInfo light, vec3 albedo, float metallic, float r
 			attenuation *= shadowAttenuation(light.pos.xyz, light.shadowIndex, light.softShadowRadius, light.flags);
 		}
 		
-		vec3 radiance = light.color.rgb * attenuation * brightnessScale;
+		vec3 radiance = light.color.rgb * attenuation * PBRBrightnessScale;
 		
 		// cook-torrance brdf
 		float NDF = DistributionGGX(N, H, roughness);
@@ -91,7 +90,7 @@ vec3 ProcessLight(const DynLightInfo light, vec3 albedo, float metallic, float r
 	return vec3(0.0);
 }
 
-vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
+vec3 ProcessMaterialLight(Material material, vec3 ambientLight, float sunlightAttenuation)
 {
 	vec3 albedo = material.Base.rgb;
 
@@ -105,6 +104,27 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 	vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
 	vec3 Lo = uDynLightColor.rgb;
+
+	if (sunlightAttenuation > 0.0)
+	{
+		vec3 L = SunDir;
+		vec3 H = normalize(V + L);
+
+		sunlightAttenuation *= clamp(dot(N, L), 0.0, 1.0);
+
+		vec3 radiance = SunColor * SunIntensity * PBRBrightnessScale * sunlightAttenuation;
+		
+		// cook-torrance brdf
+		float NDF = DistributionGGX(N, H, roughness);
+		float G = GeometrySmith(N, V, L, roughness);
+		vec3 F = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+		vec3 kS = F;
+		vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+		vec3 nominator = NDF * G * F;
+		float denominator = 4.0 * clamp(dot(N, V), 0.0, 1.0) * clamp(dot(N, L), 0.0, 1.0);
+		vec3 specular = nominator / max(denominator, 0.001);
+		Lo += (kD * albedo / PI + specular) * radiance;
+	}
 
 #ifndef UBERSHADER
 	if (uLightIndex >= 0)

@@ -138,6 +138,9 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 			VPUniforms.mPalLightLevels = static_cast<int>(gl_bandedswlight) | (static_cast<int>(gl_fogmode) << 8) | ((int)lightmode << 16);
 		}
 		VPUniforms.mClipLine.X = -10000000.0f;
+		VPUniforms.SunDir = FVector3(level.SunDirection.X, level.SunDirection.Z, level.SunDirection.Y);
+		VPUniforms.SunColor = level.SunColor;
+		VPUniforms.SunIntensity = level.SunIntensity;
 	}
 	mClipper->SetViewpoint(Viewpoint);
 	vClipper->SetViewpoint(Viewpoint);

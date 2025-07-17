@@ -36,13 +36,24 @@ vec2 lightAttenuation(DynLightInfo light, vec3 normal, vec3 viewdir, float gloss
 	return vec2(attenuation, attenuation * specularLevel * pow(specAngle, phExp));
 }
 
-vec3 ProcessMaterialLight(Material material, vec3 color)
+vec3 ProcessMaterialLight(Material material, vec3 color, float sunlightAttenuation)
 {
 	vec4 dynlight = uDynLightColor;
 	vec4 specular = vec4(0.0, 0.0, 0.0, 1.0);
 
 	vec3 normal = material.Normal;
 	vec3 viewdir = normalize(uCameraPos.xyz - pixelpos.xyz);
+
+	if (sunlightAttenuation > 0.0)
+	{
+		sunlightAttenuation *= clamp(dot(normal, SunDir), 0.0, 1.0);
+		vec3 color = SunColor.rgb * SunIntensity * sunlightAttenuation;
+		vec3 halfdir = normalize(viewdir + SunDir);
+		float specAngle = clamp(dot(halfdir, normal), 0.0f, 1.0f);
+		float phExp = material.Glossiness * 4.0f;
+		dynlight.rgb += color;
+		specular.rgb += color * material.SpecularLevel * pow(specAngle, phExp);
+	}
 
 #ifndef UBERSHADER
 	if (uLightIndex >= 0)

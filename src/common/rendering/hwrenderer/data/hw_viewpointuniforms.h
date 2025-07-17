@@ -40,6 +40,11 @@ struct HWViewpointUniforms
 
 	int mLightTilesWidth = 0;
 
+	FVector3 SunDir;
+	float Padding = 0.0f;
+	FVector3 SunColor;
+	float SunIntensity = 0.0f;
+
 	FVector3 mCameraNormal;
 
 	void CalcDependencies()
