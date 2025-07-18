@@ -169,25 +169,23 @@ void VkDescriptorSetManager::ResetHWTextureSets()
 		mat->DeleteDescriptors();
 
 	for (FSWColormap* colormap : Colormaps)
-		colormap->Renderdev.bindIndex = -1;
+	{
+		if (colormap->Renderdev.bindIndex != -1)
+		{
+			FreeBindlessSlot(colormap->Renderdev.bindIndex);
+			colormap->Renderdev.bindIndex = -1;
+		}
+	}
 	Colormaps.clear();
 
+	for (int index : LightProbes)
+		FreeBindlessSlot(index);
 	LightProbes.clear();
 
-	Bindless.Writer = WriteDescriptors();
-	Bindless.NextIndex = 0;
-
-	// Slot zero always needs to be the null texture
-	AddBindlessTextureIndex(fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
-
-	// And slot 1 is always our BRDF LUT texture
-	AddBindlessTextureIndex(fb->GetTextureManager()->GetBrdfLutTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
-
-	// Slot 2 is always our game palette texture
-	AddBindlessTextureIndex(fb->GetTextureManager()->GetGamePaletteView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
-
-	// Lightmap textures follow
-	Bindless.NextIndex = LightmapsStart + MaxLightmaps;
+	// Fixed indexes the shaders can always access
+	SetBindlessTexture(0, fb->GetTextureManager()->GetNullTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
+	SetBindlessTexture(1, fb->GetTextureManager()->GetBrdfLutTextureView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
+	SetBindlessTexture(2, fb->GetTextureManager()->GetGamePaletteView(), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
 }
 
 void VkDescriptorSetManager::AddMaterial(VkMaterial* texture)
@@ -406,7 +404,7 @@ void VkDescriptorSetManager::CreateBindlessSet()
 void VkDescriptorSetManager::UpdateBindlessDescriptorSet()
 {
 	auto sampler = fb->GetSamplerManager()->LightmapSampler.get();
-	int index = LightmapsStart;
+	int index = FixedBindlessSlots;
 	for (auto& lightmap : fb->GetTextureManager()->Lightmaps)
 	{
 		Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index, lightmap.View.get(), sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -417,11 +415,47 @@ void VkDescriptorSetManager::UpdateBindlessDescriptorSet()
 	Bindless.Writer = WriteDescriptors();
 }
 
-int VkDescriptorSetManager::AddBindlessTextureIndex(VulkanImageView* imageview, VulkanSampler* sampler)
+int VkDescriptorSetManager::AllocBindlessSlot(int count)
 {
-	int index = Bindless.NextIndex++;
+	if (count <= 0)
+		return 0;
+
+	int bucket = count - 1;
+
+	if (Bindless.FreeSlots.size() <= (size_t)bucket)
+		Bindless.FreeSlots.resize(bucket + 1);
+
+	if (!Bindless.FreeSlots[bucket].empty())
+	{
+		int index = Bindless.FreeSlots[bucket].back();
+		Bindless.FreeSlots[bucket].pop_back();
+		return index;
+	}
+	else
+	{
+		if (Bindless.NextIndex + count > MaxBindlessTextures)
+			I_FatalError("Out of bindless texture slots!");
+		int index = Bindless.NextIndex;
+		if (Bindless.AllocSizes.size() < index + count)
+			Bindless.AllocSizes.resize(index + count, 0);
+		Bindless.AllocSizes[index] = count;
+		Bindless.NextIndex += count;
+		return index;
+	}
+}
+
+void VkDescriptorSetManager::FreeBindlessSlot(int index)
+{
+	if (index <= 0)
+		return;
+
+	int bucket = Bindless.AllocSizes[index] - 1;
+	Bindless.FreeSlots[bucket].push_back(index);
+}
+
+void VkDescriptorSetManager::SetBindlessTexture(int index, VulkanImageView* imageview, VulkanSampler* sampler)
+{
 	Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index, imageview, sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	return index;
 }
 
 int VkDescriptorSetManager::GetSWColormapTextureIndex(FSWColormap* colormap)
@@ -429,7 +463,8 @@ int VkDescriptorSetManager::GetSWColormapTextureIndex(FSWColormap* colormap)
 	if (colormap->Renderdev.bindIndex != -1)
 		return colormap->Renderdev.bindIndex;
 
-	colormap->Renderdev.bindIndex = AddBindlessTextureIndex(fb->GetTextureManager()->GetSWColormapView(colormap), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
+	colormap->Renderdev.bindIndex = AllocBindlessSlot(1);
+	SetBindlessTexture(colormap->Renderdev.bindIndex, fb->GetTextureManager()->GetSWColormapView(colormap), fb->GetSamplerManager()->Get(CLAMP_XY_NOMIP));
 	Colormaps.push_back(colormap);
 	return colormap->Renderdev.bindIndex;
 }
@@ -447,8 +482,10 @@ int VkDescriptorSetManager::GetLightProbeTextureIndex(int probeIndex)
 		if (textures->Irradiancemaps.size() > (size_t)probeIndex && textures->Irradiancemaps[probeIndex].View &&
 			textures->Prefiltermaps.size() > (size_t)probeIndex && textures->Prefiltermaps[probeIndex].View)
 		{
-			LightProbes[probeIndex] = AddBindlessTextureIndex(textures->Irradiancemaps[probeIndex].View.get(), fb->GetSamplerManager()->IrradiancemapSampler.get());
-			AddBindlessTextureIndex(textures->Prefiltermaps[probeIndex].View.get(), fb->GetSamplerManager()->PrefiltermapSampler.get());
+			int bindIndex = AllocBindlessSlot(2);
+			LightProbes[probeIndex] = bindIndex;
+			SetBindlessTexture(bindIndex, textures->Irradiancemaps[probeIndex].View.get(), fb->GetSamplerManager()->IrradiancemapSampler.get());
+			SetBindlessTexture(bindIndex + 1, textures->Prefiltermaps[probeIndex].View.get(), fb->GetSamplerManager()->PrefiltermapSampler.get());
 		}
 		else
 		{

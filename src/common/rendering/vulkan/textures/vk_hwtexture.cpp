@@ -399,6 +399,11 @@ VkMaterial::~VkMaterial()
 
 void VkMaterial::DeleteDescriptors()
 {
+	auto descriptors = fb->GetDescriptorSetManager();
+	for (auto& set : mDescriptorSets)
+	{
+		descriptors->FreeBindlessSlot(set.bindlessIndex);
+	}
 	mDescriptorSets.clear();
 }
 
@@ -432,15 +437,38 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 		if (set.clampmode == clampmode && set.remap == translationp && set.globalShaderAddr == globalShaderAddr && set.indexed == state.mPaletteMode) return set;
 	}
 
-	auto globalshader = GetGlobalShader(globalShaderAddr);
-	int numLayersMat = *globalshader ? NumNonMaterialLayers() : NumLayers();
+	const GlobalShaderDesc& globalshader = *GetGlobalShader(globalShaderAddr);
+	int numLayersMat = globalshader ? NumNonMaterialLayers() : NumLayers();
 	auto descriptors = fb->GetDescriptorSetManager();
 	auto* sampler = fb->GetSamplerManager()->Get(clampmode);
 
-	MaterialLayerInfo *layer;
+	MaterialLayerInfo *layer = nullptr;
 	auto systex = static_cast<VkHardwareTexture*>(GetLayer(0, state.mTranslation, &layer));
+
+	// How many textures do we need?
+	int textureCount;
+	if (!(layer->scaleFlags & CTF_Indexed))
+	{
+		textureCount = numLayersMat;
+		if (globalshader)
+		{
+			for (auto& texture : globalshader.CustomShaderTextures)
+			{
+				if (texture != nullptr)
+					textureCount++;
+			}
+		}
+	}
+	else
+	{
+		textureCount = 3;
+	}
+
+	int bindlessIndex = descriptors->AllocBindlessSlot(textureCount);
+	int texIndex = bindlessIndex;
+
 	auto systeximage = systex->GetImage(layer->layerTexture, state.mTranslation, layer->scaleFlags | paletteFlags);
-	int bindlessIndex = descriptors->AddBindlessTextureIndex(systeximage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(0), clampmode));
+	descriptors->SetBindlessTexture(texIndex++, systeximage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(0), clampmode));
 
 	if (!(layer->scaleFlags & CTF_Indexed))
 	{
@@ -448,19 +476,19 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, 0, &layer));
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags | paletteFlags);
-			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
+			descriptors->SetBindlessTexture(texIndex++, syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 
-		if(*globalshader)
+		if(globalshader)
 		{
 			size_t i = 0;
-			for (auto& texture : globalshader->CustomShaderTextures)
+			for (auto& texture : globalshader.CustomShaderTextures)
 			{
 				if (texture != nullptr)
 				{
 					VkHardwareTexture *tex = static_cast<VkHardwareTexture*>(texture.get()->GetHardwareTexture(0, 0));
 					VkTextureImage *img = tex->GetImage(texture.get(), 0, paletteFlags);
-					descriptors->AddBindlessTextureIndex(img->View.get(), fb->GetSamplerManager()->Get(globalshader->CustomShaderTextureSampling[i], clampmode));
+					descriptors->SetBindlessTexture(texIndex++, img->View.get(), fb->GetSamplerManager()->Get(globalshader.CustomShaderTextureSampling[i], clampmode));
 				}
 				i++;
 			}
@@ -472,9 +500,12 @@ VkMaterial::DescriptorEntry& VkMaterial::GetDescriptorEntry(const FMaterialState
 		{
 			auto syslayer = static_cast<VkHardwareTexture*>(GetLayer(i, translation, &layer));
 			auto syslayerimage = syslayer->GetImage(layer->layerTexture, 0, layer->scaleFlags | paletteFlags);
-			descriptors->AddBindlessTextureIndex(syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
+			descriptors->SetBindlessTexture(texIndex++, syslayerimage->View.get(), fb->GetSamplerManager()->Get(GetLayerFilter(i), clampmode));
 		}
 	}
+
+	if (texIndex != bindlessIndex + textureCount)
+		I_FatalError("VkMaterial.GetDescriptorEntry: texIndex != bindlessIndex + textureCount");
 
 	mDescriptorSets.emplace_back(clampmode, translationp, bindlessIndex, globalShaderAddr, state.mPaletteMode);
 	return mDescriptorSets.back();
