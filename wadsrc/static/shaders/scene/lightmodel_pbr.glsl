@@ -171,17 +171,52 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight, float sunlightAt
 	vec3 kS = F;
 	vec3 kD = 1.0 - kS;
 
-	const float environmentScaleFactor = 1.0;
-
-	vec3 irradiance = texture(cubeTextures[uLightProbeIndex], N).rgb * environmentScaleFactor;
-	vec3 diffuse = irradiance * albedo;
-
-	kD *= 1.0 - metallic;
 	const float MAX_REFLECTION_LOD = 4.0;
 	vec3 R = reflect(-V, N); 
-	vec3 prefilteredColor = textureLod(cubeTextures[uLightProbeIndex + 1], R, roughness * MAX_REFLECTION_LOD).rgb * environmentScaleFactor;
+
+	vec3 irradiance, prefilteredColor;
+
+	/*if (vLightmapIndex != -1)
+	{
+		uvec4 probeIndexes = textureGather(uintTextures[nonuniformEXT(vLightmapIndex + 1)], vLightmap.xy);
+
+		vec2 t = frac(vLightmap.xy);
+		vec2 invt = 1.0 - t;
+		float t00 = invt.x * invt.y;
+		float t10 = t.x * invt.y;
+		float t01 = invt.x * t.y;
+		float t11 = t.x * t.y;
+
+		vec3 irradiance0 = texture(cubeTextures[probeIndexes.x], N).rgb;
+		vec3 irradiance1 = texture(cubeTextures[probeIndexes.y], N).rgb;
+		vec3 irradiance2 = texture(cubeTextures[probeIndexes.z], N).rgb;
+		vec3 irradiance3 = texture(cubeTextures[probeIndexes.w], N).rgb;
+		
+		vec3 prefilteredColor0 = textureLod(cubeTextures[probeIndexes.x + 1], R, roughness * MAX_REFLECTION_LOD).rgb;
+		vec3 prefilteredColor1 = textureLod(cubeTextures[probeIndexes.y + 1], R, roughness * MAX_REFLECTION_LOD).rgb;
+		vec3 prefilteredColor2 = textureLod(cubeTextures[probeIndexes.z + 1], R, roughness * MAX_REFLECTION_LOD).rgb;
+		vec3 prefilteredColor3 = textureLod(cubeTextures[probeIndexes.w + 1], R, roughness * MAX_REFLECTION_LOD).rgb;
+
+		irradiance = irradiance0 * t00 + irradiance1 * t10 + irradiance2 * t01 + irradiance3 * t11;
+		prefilteredColor = prefilteredColor0 * t00 + prefilteredColor1 * t10 + prefilteredColor2 * t01 + prefilteredColor3 * t11;
+	}
+	else*/
+	{
+		irradiance = texture(cubeTextures[uLightProbeIndex], N).rgb;
+		prefilteredColor = textureLod(cubeTextures[uLightProbeIndex + 1], R, roughness * MAX_REFLECTION_LOD).rgb;
+	}
+
+	/*
+	const float environmentScaleFactor = 1.0;
+	prefilteredColor *= environmentScaleFactor;
+	irradiance *= environmentScaleFactor;
+	*/
+
 	vec2 envBRDF = texture(textures[BrdfLUT], vec2(clamp(dot(N, V), 0.0, 1.0), roughness)).rg;
 	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+	vec3 diffuse = irradiance * albedo;
+	kD *= 1.0 - metallic;
 
 	vec3 ambient = (kD * diffuse + specular) * ao;
 
