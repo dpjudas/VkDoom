@@ -137,7 +137,7 @@ void main()
 	#if !defined(SIMPLE) || defined(SIMPLE3D)
 		vLightmap = aLightmap;
 		if (aPosition.w >= 0.0)
-			vLightmapIndex = LightmapsStart + int(aPosition.w);
+			vLightmapIndex = LightmapsStart + int(aPosition.w) * 2;
 		else
 			vLightmapIndex = -1;
 

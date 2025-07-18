@@ -68,8 +68,14 @@ public:
 
 	int GetHWTextureCount() { return (int)Textures.size(); }
 
+	struct Lightmap
+	{
+		VkTextureImage Light;
+		VkTextureImage Probe;
+	};
+
 	VkTextureImage Shadowmap;
-	std::vector<VkTextureImage> Lightmaps;
+	std::vector<Lightmap> Lightmaps;
 	std::vector<VkTextureImage> Irradiancemaps;
 	std::vector<VkTextureImage> Prefiltermaps;
 

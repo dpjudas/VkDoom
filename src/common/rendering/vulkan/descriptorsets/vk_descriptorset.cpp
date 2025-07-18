@@ -407,8 +407,9 @@ void VkDescriptorSetManager::UpdateBindlessDescriptorSet()
 	int index = FixedBindlessSlots;
 	for (auto& lightmap : fb->GetTextureManager()->Lightmaps)
 	{
-		Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index, lightmap.View.get(), sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		index++;
+		Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index, lightmap.Light.View.get(), sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		Bindless.Writer.AddCombinedImageSampler(Bindless.Set.get(), 0, index + 1, lightmap.Probe.View.get(), sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		index += 2;
 	}
 
 	Bindless.Writer.Execute(fb->GetDevice());
