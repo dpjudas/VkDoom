@@ -48,6 +48,14 @@ struct LightmapTile
 		FVector3 ProjLocalToV = { 0.0f, 0.0f, 0.0f };
 	} Transform;
 
+	// Calculate world coordinates from UV coordinates
+	struct
+	{
+		FVector3 WorldOrigin;
+		FVector3 WorldU;
+		FVector3 WorldV;
+	} InverseTransform;
+
 	int UseCount = 0;
 	bool AddedThisFrame = false;
 
@@ -180,14 +188,43 @@ struct LightmapTile
 			height = textureSize;
 		}
 
-		Transform.TranslateWorldToLocal.X = uvMin.X * SampleDimension + 0.1f;
-		Transform.TranslateWorldToLocal.Y = uvMin.Y * SampleDimension + 0.1f;
-		Transform.TranslateWorldToLocal.Z = uvMin.Z * SampleDimension + 0.1f;
+		uvMin *= (float)SampleDimension;
+		uvMax *= (float)SampleDimension;
+
+		Transform.TranslateWorldToLocal.X = uvMin.X + 0.1f;
+		Transform.TranslateWorldToLocal.Y = uvMin.Y + 0.1f;
+		Transform.TranslateWorldToLocal.Z = uvMin.Z + 0.1f;
 
 		Transform.ProjLocalToU = tCoords[0];
 		Transform.ProjLocalToV = tCoords[1];
 
+		switch (planeAxis)
+		{
+		default:
+		case AXIS_YZ:
+			InverseTransform.WorldOrigin = PointAtYZ(uvMin.Y, uvMin.Z);
+			InverseTransform.WorldU = PointAtYZ(uvMax.Y, uvMin.Z);
+			InverseTransform.WorldV = PointAtYZ(uvMin.Y, uvMax.Z);
+			break;
+
+		case AXIS_XZ:
+			InverseTransform.WorldOrigin = PointAtXZ(uvMin.X, uvMin.Z);
+			InverseTransform.WorldU = PointAtXZ(uvMax.X, uvMin.Z);
+			InverseTransform.WorldV = PointAtXZ(uvMin.X, uvMax.Z);
+			break;
+
+		case AXIS_XY:
+			InverseTransform.WorldOrigin = PointAtXY(uvMin.X, uvMin.Y);
+			InverseTransform.WorldU = PointAtXY(uvMax.X, uvMin.Y);
+			InverseTransform.WorldV = PointAtXY(uvMin.X, uvMax.Y);
+			break;
+		}
+
 		AtlasLocation.Width = width;
 		AtlasLocation.Height = height;
 	}
+
+	FVector3 PointAtYZ(float y, float z) const { return FVector3(-(Plane.Y * y + Plane.Z * z + Plane.W) / Plane.X, y, z); }
+	FVector3 PointAtXZ(float x, float z) const { return FVector3(x, -(Plane.X * x + Plane.Z * z + Plane.W) / Plane.Y, z); }
+	FVector3 PointAtXY(float x, float y) const { return FVector3(x, y, -(Plane.X * x + Plane.Y * y + Plane.W) / Plane.Z); }
 };

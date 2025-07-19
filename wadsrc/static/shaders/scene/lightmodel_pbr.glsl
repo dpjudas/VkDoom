@@ -176,11 +176,11 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight, float sunlightAt
 
 	vec3 irradiance, prefilteredColor;
 
-	/*if (vLightmapIndex != -1)
+	if (vLightmapIndex != -1)
 	{
 		uvec4 probeIndexes = textureGather(uintTextures[nonuniformEXT(vLightmapIndex + 1)], vLightmap.xy);
 
-		vec2 t = frac(vLightmap.xy);
+		vec2 t = fract(vLightmap.xy);
 		vec2 invt = 1.0 - t;
 		float t00 = invt.x * invt.y;
 		float t10 = t.x * invt.y;
@@ -200,7 +200,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight, float sunlightAt
 		irradiance = irradiance0 * t00 + irradiance1 * t10 + irradiance2 * t01 + irradiance3 * t11;
 		prefilteredColor = prefilteredColor0 * t00 + prefilteredColor1 * t10 + prefilteredColor2 * t01 + prefilteredColor3 * t11;
 	}
-	else*/
+	else
 	{
 		irradiance = texture(cubeTextures[uLightProbeIndex], N).rgb;
 		prefilteredColor = textureLod(cubeTextures[uLightProbeIndex + 1], R, roughness * MAX_REFLECTION_LOD).rgb;
