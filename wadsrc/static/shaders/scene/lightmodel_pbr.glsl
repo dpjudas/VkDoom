@@ -176,7 +176,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight, float sunlightAt
 
 	vec3 irradiance, prefilteredColor;
 
-	if (vLightmapIndex != -1)
+	if (vLightmapIndex != -1 && uLightProbeIndex == 0)
 	{
 		uvec4 probeIndexes = textureGather(uintTextures[nonuniformEXT(vLightmapIndex + 1)], vLightmap.xy);
 
