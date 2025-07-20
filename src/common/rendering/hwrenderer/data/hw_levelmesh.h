@@ -4,6 +4,7 @@
 #include "tarray.h"
 #include "vectors.h"
 #include "hw_collision.h"
+#include "hw_lightprobe.h"
 #include "flatvertices.h"
 #include "hw_levelmeshlight.h"
 #include "hw_levelmeshportal.h"
@@ -164,6 +165,10 @@ public:
 		// Acceleration structure nodes for when the GPU doesn't support rayquery
 		TArray<CollisionNode> Nodes;
 		int RootNode = 0;
+
+		// Light probe AABB binary tree
+		TArray<ProbeNode> ProbeNodes;
+		int ProbeRootNode = 0;
 	} Mesh;
 
 	// Ranges in mesh that have changed since last upload
@@ -196,6 +201,9 @@ public:
 
 	// Data structure for doing mesh traces on the CPU
 	std::unique_ptr<CPUAccelStruct> Collision;
+
+	// For finding light probes
+	std::unique_ptr<LightProbeAABBTree> LightProbeAABB;
 
 	// Lightmap tiles and their locations in the texture atlas
 	struct
