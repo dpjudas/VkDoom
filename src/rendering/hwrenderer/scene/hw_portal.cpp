@@ -234,11 +234,11 @@ void HWPortal::DrawPortalStencil(FRenderState &state, int pass)
 
 		if (mBottomCap != ~0u)
 		{
-			state.Draw(DT_TriangleStrip, mBottomCap, 4, false);
+			state.Draw(DT_TriangleStrip, mBottomCap, 4, true);
 		}
 		if (mTopCap != ~0u)
 		{
-			state.Draw(DT_TriangleStrip, mTopCap, 4, false);
+			state.Draw(DT_TriangleStrip, mTopCap, 4, true);
 		}
 
 		if (pass == STP_DepthRestore) state.SetDepthRange(0, 1);
@@ -835,7 +835,7 @@ bool HWSectorStackPortal::Setup(HWDrawInfo *di, FRenderState &rstate, Clipper *c
 
 void HWSectorStackPortal::DrawPortalStencil(FRenderState &state, int pass)
 {
-	if (true) // mState->vpIsAllowedOoB)
+	if (mState->vpIsAllowedOoB)
 	{
 		bool isceiling = planesused & (1 << sector_t::ceiling);
 		for (unsigned i = 0; i<subsectors.Size(); i++)
