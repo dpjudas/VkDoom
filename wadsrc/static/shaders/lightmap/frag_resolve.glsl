@@ -33,7 +33,7 @@ void main()
 	if (c.a == -1.0)
 	{
 		float count = 0.0;
-		c = vec4(0.0, 0.0, 0.0, -1.0);
+		c = vec4(0.0);
 		for (int y = -1; y <= 1; y++)
 		{
 			for (int x = -1; x <= 1; x++)
@@ -54,6 +54,8 @@ void main()
 		}
 		if (count != 0.0)
 			c /= count;
+		else
+			c = vec4(0.0, 0.0, 0.0, -1.0);
 	}
 
 	fragcolor = c;
