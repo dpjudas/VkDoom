@@ -786,6 +786,7 @@ struct sector_t
 	int	health3dgroup;
 
 	LightProbeTarget lightProbe; // TODO split individual flats in the sector including 3d floors
+	int lightmapHeightGroup[2];
 
 	// Member functions
 

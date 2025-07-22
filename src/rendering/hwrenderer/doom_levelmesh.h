@@ -257,6 +257,7 @@ private:
 
 	void BuildSideVisibilityLists(FLevelLocals& doomMap);
 	void BuildSubsectorVisibilityLists(FLevelLocals& doomMap);
+	void BuildHeightGroups(FLevelLocals& doomMap);
 
 	DoomSurfaceInfo* GetDoomSurface(const SurfaceAllocInfo& sinfo)
 	{

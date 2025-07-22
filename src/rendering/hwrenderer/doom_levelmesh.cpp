@@ -271,6 +271,7 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	r_viewpoint.extralight = 0;
 	r_viewpoint.camera = nullptr;
 
+	BuildHeightGroups(doomMap);
 	BuildSideVisibilityLists(doomMap);
 	BuildSubsectorVisibilityLists(doomMap);
 
@@ -498,6 +499,62 @@ void DoomLevelMesh::BuildSideVisibilityLists(FLevelLocals& doomMap)
 		VisibleSides[i].Push(i);
 
 		// To do: use side->LeftSide and side->RightSide or maybe blockmap to find sides closeby we also want included in the bake
+	}
+}
+
+void DoomLevelMesh::BuildHeightGroups(FLevelLocals& doomMap)
+{
+	// Reset groups
+	for (sector_t& sector : doomMap.sectors)
+		for (int plane = 0; plane < 2; plane++)
+			sector.lightmapHeightGroup[plane] = -1;
+
+	// Try to group sector flats into continous planes while taking slopes into account
+	int nextGroup = 0;
+	TArray<sector_t*> stack;
+	for (sector_t& sector : doomMap.sectors)
+	{
+		for (int plane = 0; plane < 2; plane++)
+		{
+			if (sector.lightmapHeightGroup[plane] != -1)
+				continue;
+
+			int group = nextGroup++;
+			sector.lightmapHeightGroup[plane] = group;
+
+			stack.Push(&sector);
+			while (stack.Size() != 0)
+			{
+				sector_t* cur = stack.Last();
+				stack.Pop();
+
+				for (line_t* line : cur->Lines)
+				{
+					if (!line->backsector)
+						continue;
+
+					auto fs = line->frontsector;
+					auto bs = line->backsector;
+					auto& fsplane = fs->GetSecPlane(plane);
+					auto& bsplane = bs->GetSecPlane(plane);
+
+					if (std::abs(fsplane.ZatPoint(line->v1) - bsplane.ZatPoint(line->v1)) < 16.0 &&
+						std::abs(fsplane.ZatPoint(line->v2) - bsplane.ZatPoint(line->v2)) < 16.0)
+					{
+						if (fs == cur && bs->lightmapHeightGroup[plane] == -1)
+						{
+							cur->lightmapHeightGroup[plane] = group;
+							stack.Push(bs);
+						}
+						else if (bs == cur && fs->lightmapHeightGroup[plane] == -1)
+						{
+							cur->lightmapHeightGroup[plane] = group;
+							stack.Push(fs);
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -2099,8 +2156,13 @@ void DoomLevelMesh::GetVisibleSurfaces(LightmapTile* tile, TArray<int>& outSurfa
 	}
 	else if (tile->Binding.Type == ST_CEILING || tile->Binding.Type == ST_FLOOR)
 	{
+		int heightGroup = level.subsectors[tile->Binding.TypeIndex].sector->lightmapHeightGroup[ST_FLOOR - tile->Binding.Type];
 		for (int subsectorIndex : VisibleSubsectors[tile->Binding.TypeIndex])
 		{
+			int heightGroup2 = level.subsectors[subsectorIndex].sector->lightmapHeightGroup[ST_FLOOR - tile->Binding.Type];
+			if (heightGroup != heightGroup2)
+				continue;
+
 			int surf = SubsectorSurfaces[subsectorIndex];
 			while (surf != -1)
 			{
