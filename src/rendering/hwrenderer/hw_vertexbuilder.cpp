@@ -33,9 +33,9 @@ struct SectorVertexOrigin
 {
 	SectorVertexOrigin() = default;
 	SectorVertexOrigin(subsector_t* sub, int plane, int lightmapSlot) : sub(sub), plane(plane), lightmapSlot(lightmapSlot) { }
-	subsector_t* sub;
-	int plane;
-	int lightmapSlot;
+	subsector_t* sub = nullptr;
+	int plane = 0;
+	int lightmapSlot = 0;
 };
 
 static TArray<SectorVertexOrigin> sector_origins;
