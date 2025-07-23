@@ -52,12 +52,15 @@ vec4 getLightColor(Material material)
 
 		vec4 dynlight = uDynLightColor;
 
+		float sunlightAttenuation = 0.0;
 		if (vLightmapIndex != -1)
 		{
-			dynlight.rgb += texture(textures[nonuniformEXT(vLightmapIndex)], vLightmap.xy).rgb;
+			vec4 lightmap = texture(textures[nonuniformEXT(vLightmapIndex)], vLightmap.xy);
+			dynlight.rgb += lightmap.rgb;
+			sunlightAttenuation = lightmap.a;
 		}
 
-		dynlight.rgb += ProcessSWLight(material);
+		dynlight.rgb += ProcessSWLight(material, sunlightAttenuation);
 
 		frag.rgb = PickGamePaletteColor(frag.rgb + matColor * dynlight.rgb);
 		return frag;

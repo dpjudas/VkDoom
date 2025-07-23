@@ -11,7 +11,7 @@ vec3 ProcessMaterialLight(Material material, vec3 color, float sunlightAttenuati
 	return material.Base.rgb * clamp(color + desaturate(dynlight).rgb, 0.0, 1.4);
 }
 
-vec3 ProcessSWLight(Material material)
+vec3 ProcessSWLight(Material material, float sunlightAttenuation)
 {
 	return vec3(0.0);
 }

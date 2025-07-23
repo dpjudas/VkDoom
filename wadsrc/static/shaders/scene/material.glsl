@@ -21,7 +21,7 @@ struct Material
 vec4 Process(vec4 color);
 void SetupMaterial(inout Material mat);
 vec3 ProcessMaterialLight(Material material, vec3 color, float sunlightAttenuation);
-vec3 ProcessSWLight(Material material);
+vec3 ProcessSWLight(Material material, float sunlightAttenuation);
 vec2 GetTexCoord();
 
 Material CreateMaterial()

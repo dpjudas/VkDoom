@@ -224,7 +224,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight, float sunlightAt
 	return color;
 }
 
-vec3 ProcessSWLight(Material material)
+vec3 ProcessSWLight(Material material, float sunlightAttenuation)
 {
 	return vec3(0.0);
 }
