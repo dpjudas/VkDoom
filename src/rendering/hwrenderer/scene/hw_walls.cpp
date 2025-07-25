@@ -44,6 +44,7 @@
 #include "hw_renderstate.h"
 #include "hw_skydome.h"
 #include "hw_walldispatcher.h"
+#include "d_main.h"
 
 EXTERN_CVAR(Bool, lm_dynlights);
 
@@ -358,6 +359,13 @@ void HWWall::RenderTranslucentWall(HWWallDispatcher*di, FRenderState &state)
 //==========================================================================
 void HWWall::DrawWall(HWWallDispatcher*di, FRenderState &state, bool translucent)
 {
+	bool paletteModeDisabled = false;
+	if (texture && texture->isHardwareCanvas() && !V_IsTrueColor())
+	{
+		paletteModeDisabled = true;
+		state.SetPaletteMode(false);
+	}
+
 	if (di->di && di->Level->HasDynamicLights && !di->isFullbrightScene() && texture != nullptr && !lm_dynlights)
 	{
 		SetupLights(di->di, state, lightdata);
@@ -386,6 +394,9 @@ void HWWall::DrawWall(HWWallDispatcher*di, FRenderState &state, bool translucent
 			break;
 		}
 	}
+
+	if (paletteModeDisabled)
+		state.SetPaletteMode(true);
 }
 
 //==========================================================================
