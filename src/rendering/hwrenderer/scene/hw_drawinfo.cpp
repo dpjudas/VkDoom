@@ -900,7 +900,7 @@ void HWDrawInfo::RenderScene(FRenderState &state)
 
 	drawlists[GLDL_MODELS].Draw(this, state, false);
 
-	state.SetPaletteMode(false); // Translucent stuff uses other rules in the software renderer. We don't support that right now.
+	state.SetPaletteMode(false); // Decals run with some renderstyle that is still not correctly handled
 
 	state.SetRenderStyle(STYLE_Translucent);
 
@@ -1007,6 +1007,15 @@ void HWDrawInfo::RenderTranslucent(FRenderState &state)
 {
 	RenderAll.Clock();
 
+	if (!V_IsTrueColor())
+	{
+		state.SetPaletteMode(!V_IsTrueColor());
+
+		FColormap cm;
+		cm.Clear();
+		state.SetSWColormap(GetColorTable(cm));
+	}
+
 	// final pass: translucent stuff
 	state.AlphaFunc(Alpha_GEqual, gl_mask_sprite_threshold);
 	state.SetRenderStyle(STYLE_Translucent);
@@ -1031,6 +1040,7 @@ void HWDrawInfo::RenderTranslucent(FRenderState &state)
 	drawlists[GLDL_TRANSLUCENT].DrawSorted(this, state);
 	state.EnableBrightmap(false);
 
+	state.SetPaletteMode(false);
 
 	state.AlphaFunc(Alpha_GEqual, 0.5f);
 	state.SetDepthMask(true);

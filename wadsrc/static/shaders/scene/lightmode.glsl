@@ -48,7 +48,7 @@ vec4 getLightColor(Material material)
 		int light = clamp(int((shade - vis) * 32), 0, 31);
 
 		vec3 matColor = texelFetch(textures[uColormapIndex], ivec2(color, 32), 0).rgb;
-		vec4 frag = vec4(texelFetch(textures[uColormapIndex], ivec2(color, light), 0).rgb, 1.0);
+		vec4 frag = vec4(texelFetch(textures[uColormapIndex], ivec2(color, light), 0).rgb, material.Base.a * vColor.a);
 
 		vec4 dynlight = uDynLightColor;
 

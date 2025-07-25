@@ -43,6 +43,7 @@
 #include "vectors.h"
 #include "texturemanager.h"
 #include "basics.h"
+#include "d_main.h"
 
 #include "hw_models.h"
 #include "hwrenderer/scene/hw_drawstructs.h"
@@ -109,6 +110,13 @@ CVARD(Bool, r_showhitbox, false, CVAR_GLOBALCONFIG | CVAR_CHEAT, "show actor hit
 
 void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 {
+	bool paletteModeDisabled = false;
+	if ((OverrideShader != -1 || RenderStyle.BlendOp >= STYLEOP_Fuzz) && !V_IsTrueColor()) // We can't do these in palette mode with current shaders
+	{
+		paletteModeDisabled = true;
+		state.SetPaletteMode(false);
+	}
+
 	int gl_spritelight = get_gl_spritelight();
 
 	if(!actor && gl_spritelight > 1) gl_spritelight = 1;
@@ -432,6 +440,9 @@ void HWSprite::DrawSprite(HWDrawInfo *di, FRenderState &state, bool translucent)
 	state.EnableTexture(true);
 	state.SetDynLight(0, 0, 0);
 	state.SetShadeVertex(false);
+
+	if (paletteModeDisabled)
+		state.SetPaletteMode(true);
 }
 
 //==========================================================================

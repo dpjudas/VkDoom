@@ -346,6 +346,18 @@ FTextureBuffer FTexture::CreateTexBuffer(int translation, int flags)
 		result.mHeight = h;
 		result.mContentId = 0;
 		ImageHelpers::FlipNonSquareBlock(result.mBuffer, p, h, w, h);
+
+		auto remap = translation <= 0 || IsLuminosityTranslation(translation) ? nullptr : GPalette.TranslationToTable(translation);
+		if (remap && remap->Inactive) remap = nullptr;
+		if (remap) translation = remap->Index;
+
+		if (remap)
+		{
+			for (int i = 0, count = w * h; i < count; i++)
+			{
+				result.mBuffer[i] = remap->Remap[result.mBuffer[i]];
+			}
+		}
 	}
 	else
 	{
