@@ -149,6 +149,9 @@ void ListView::OnPaint(Canvas* canvas)
 	Colorf textColor = GetStyleColor("color");
 	Colorf selectionColor = GetStyleColor("selection-color");
 
+	// Make sure the text doesn't enter the scrollbar's area.
+	canvas->pushClip({ 0.0, 0.0, w, GetHeight() });
+
 	int index = 0;
 	for (const std::vector<std::string>& item : items)
 	{
@@ -169,6 +172,8 @@ void ListView::OnPaint(Canvas* canvas)
 		y += h;
 		index++;
 	}
+
+	canvas->popClip();
 }
 
 bool ListView::OnMouseDown(const Point& pos, InputKey key)
