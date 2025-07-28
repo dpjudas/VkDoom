@@ -384,8 +384,7 @@ void Win32DisplayWindow::PresentBitmap(int width, int height, const uint32_t* pi
 	HDC dc = PaintDC;
 	if (dc != 0)
 	{
-		int result = SetDIBitsToDevice(dc, 0, 0, width, height, 0, 0, 0, height, pixels, (const BITMAPINFO*)&header, BI_RGB);
-		ReleaseDC(WindowHandle.hwnd, dc);
+		SetDIBitsToDevice(dc, 0, 0, width, height, 0, 0, 0, height, pixels, (const BITMAPINFO*)&header, BI_RGB);
 	}
 }
 

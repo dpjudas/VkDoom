@@ -115,6 +115,11 @@ private:
 	bool isFullscreen = false;
 	double dpiScale = 1.0;
 
+	int ClientSizeX = 0;
+	int ClientSizeY = 0;
+	int MouseX = -1;
+	int MouseY = -1;
+
 	Pixmap cursor_bitmap = None;
 	Cursor hidden_cursor = None;
 
