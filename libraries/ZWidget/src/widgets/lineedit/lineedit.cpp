@@ -950,11 +950,6 @@ void LineEdit::OnGeometryChanged()
 {
 	Canvas* canvas = GetCanvas();
 
-	for (auto& line : lines)
-	{
-		line.invalidated = true;
-	}
-
 	vertical_text_align = canvas->verticalTextAlign();
 
 	clip_start_offset = 0;
