@@ -389,7 +389,8 @@ Uint32 SDL2DisplayWindow::ExecTimer(Uint32 interval, void* execID)
 
 void* SDL2DisplayWindow::StartTimer(int timeoutMilliseconds, std::function<void()> onTimer)
 {
-	CheckInitSDL();
+	// is this guard needed?
+	// CheckInitSDL();
 
 	void* execID = (void*)(uintptr_t)++TimerIDs;
 	void* id = (void*)(uintptr_t)SDL_AddTimer(timeoutMilliseconds, SDL2DisplayWindow::ExecTimer, execID);
@@ -404,7 +405,8 @@ void* SDL2DisplayWindow::StartTimer(int timeoutMilliseconds, std::function<void(
 
 void SDL2DisplayWindow::StopTimer(void* timerID)
 {
-	CheckInitSDL();
+	// is this guard needed?
+	// CheckInitSDL();
 
 	SDL_RemoveTimer((SDL_TimerID)(uintptr_t)timerID);
 
