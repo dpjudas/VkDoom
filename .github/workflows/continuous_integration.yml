@@ -21,7 +21,7 @@ jobs:
         - name: macOS
           os: macos-14
           deps_cmdline: brew install libvpx
-          build_type: Release
+          build_type: RelWithDebInfo
 
         - name: macOS
           os: macos-14
@@ -51,7 +51,7 @@ jobs:
           os: ubuntu-latest
           extra_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           deps_cmdline: sudo apt-get update && sudo apt-get install clang libsdl2-dev libvpx-dev libwebp-dev
-          build_type: Release
+          build_type: RelWithDebInfo
 
     steps:
     - uses: actions/checkout@v4
@@ -65,21 +65,11 @@ jobs:
           eval ${{ matrix.config.deps_cmdline }}
         fi
         mkdir build
-        if [[ "${{ runner.os }}" == 'macOS' ]]; then
-          export ZMUSIC_PACKAGE=zmusic-1.1.14-macos-arm.tar.xz
-        elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          export ZMUSIC_PACKAGE=zmusic-1.1.14-linux.tar.xz
-        fi
-        if [[ -n "${ZMUSIC_PACKAGE}" ]]; then
-          cd build
-          wget -q "https://github.com/coelckers/gzdoom/releases/download/ci_deps/${ZMUSIC_PACKAGE}"
-          tar -xf "${ZMUSIC_PACKAGE}"
-        fi
 
     - name: Configure
       shell: bash
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} -DCMAKE_PREFIX_PATH=`pwd`/build/zmusic -DPK3_QUIET_ZIPDIR=ON ${{ matrix.config.extra_options }} .
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} -DPK3_QUIET_ZIPDIR=ON ${{ matrix.config.extra_options }} .
 
     - name: Build
       shell: bash
@@ -88,14 +78,21 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
-      if: (runner.os == 'Windows' || matrix.config.name == 'Linux GCC 12') && matrix.config.build_type == 'RelWithDebInfo'
+      if: (runner.os == 'Windows' || matrix.config.name == 'Linux GCC Latest') && matrix.config.build_type == 'RelWithDebInfo'
       shell: bash
       run: |
         cd build
         mkdir package
         if [[ "${{ runner.os }}" == 'Windows' ]]; then
-          cp -r ${{ matrix.config.build_type }}/vkdoom.exe ${{ matrix.config.build_type }}/vktool.exe ${{ matrix.config.build_type }}/*.pk3 ${{ matrix.config.build_type }}/fm_banks ${{ matrix.config.build_type }}/soundfonts package
-          cp ../bin/licenses.zip ../bin/windows/libsndfile/64bit/libsndfile-1.dll ../bin/windows/openal/64bit/openal32.dll ../bin/windows/zmusic/64bit/zmusic.dll package
+          echo ${{ matrix.config.build_type }}/vkdoom.exe
+          ls ${{ matrix.config.build_type }}
+          cp -r ${{ matrix.config.build_type }}/vkdoom.exe \
+                ${{ matrix.config.build_type }}/vktool.exe \
+                ${{ matrix.config.build_type }}/*.pk3      \
+                ${{ matrix.config.build_type }}/fm_banks   \
+                ${{ matrix.config.build_type }}/soundfonts \
+                ${{ matrix.config.build_type }}/zmusic.dll \
+                package
           cp ${{ matrix.config.build_type }}/vkdoom-stripped.pdb package/vkdoom.pdb
           cp ${{ matrix.config.build_type }}/vkdoom-stripped.pdb package/vktool.pdb
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
@@ -108,7 +105,7 @@ jobs:
         fi
 
     - name: Upload Package
-      if: runner.os == 'Windows' || matrix.config.name == 'Linux GCC 12'
+      if: runner.os == 'Windows' || matrix.config.name == 'Linux GCC Latest'
       uses: actions/upload-artifact@v4
       with:
         path: build/package

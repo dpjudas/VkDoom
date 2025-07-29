@@ -270,7 +270,7 @@ if( DEM_CMAKE_COMPILER_IS_GNUCXX_COMPATIBLE )
 		set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC" )
 		set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC" )
 	endif()
-	
+
 	if(${CMAKE_SYSTEM_NAME} MATCHES "NetBSD")
 		set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ljemalloc")
 	endif()
@@ -289,8 +289,8 @@ endif()
 
 # Check for functions that may or may not exist.
 
-require_stricmp()
-require_strnicmp()
+Mrequire_stricmp()
+Mrequire_strnicmp()
 
 if( NOT MSVC )
 	add_definitions( -D__forceinline=inline )
@@ -327,31 +327,32 @@ endif()
 
 list( APPEND PROJECT_LIBRARIES "zwidget" )
 list( APPEND PROJECT_LIBRARIES "webp" )
+list( APPEND PROJECT_LIBRARIES "zmusic" )
 
 # ZMUSIC
 
-if( MSVC )
-	find_package( ZMusic )
-else()
-	find_package( ZMusic REQUIRED )
-endif()
+# if( MSVC )
+# 	find_package( ZMusic )
+# else()
+# 	find_package( ZMusic REQUIRED )
+# endif()
 
-message("Building for target architecture: ${TARGET_ARCHITECTURE}")
+# message("Building for target architecture: ${TARGET_ARCHITECTURE}")
 
-if( MSVC AND NOT ZMUSIC_FOUND )
-	# Use prebuilt library
-	set( ZMUSIC_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../bin/windows/zmusic" )
-	set( ZMUSIC_INCLUDE_DIR ${ZMUSIC_ROOT_PATH}/include )
-	set( ZMUSIC_LIBRARIES zmusic )
-	if( X64 )
-		link_directories( ${ZMUSIC_ROOT_PATH}/64bit )
-	elseif( ARM64 )
-		link_directories( ${ZMUSIC_ROOT_PATH}/arm64 )
-	else()
-		link_directories( ${ZMUSIC_ROOT_PATH}/32bit )
-	endif()
-	set( ZMUSIC_FOUND TRUE )
-endif()
+# if( MSVC AND NOT ZMUSIC_FOUND )
+# 	# Use prebuilt library
+# 	set( ZMUSIC_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../bin/windows/zmusic" )
+# 	set( ZMUSIC_INCLUDE_DIR ${ZMUSIC_ROOT_PATH}/include )
+# 	set( ZMUSIC_LIBRARIES zmusic )
+# 	if( X64 )
+# 		link_directories( ${ZMUSIC_ROOT_PATH}/64bit )
+# 	elseif( ARM64 )
+# 		link_directories( ${ZMUSIC_ROOT_PATH}/arm64 )
+# 	else()
+# 		link_directories( ${ZMUSIC_ROOT_PATH}/32bit )
+# 	endif()
+# 	set( ZMUSIC_FOUND TRUE )
+# endif()
 
 
 # VPX
@@ -384,7 +385,7 @@ else()
 	message( SEND_ERROR "Could not find libvpx" )
 endif()
 
-include_directories( SYSTEM "${BZIP2_INCLUDE_DIR}" "${LZMA_INCLUDE_DIR}" "${ZMUSIC_INCLUDE_DIR}" "${DRPC_INCLUDE_DIR}")
+include_directories( SYSTEM "${BZIP2_INCLUDE_DIR}" "${LZMA_INCLUDE_DIR}" "${DRPC_INCLUDE_DIR}")
 
 if( ${HAVE_VM_JIT} )
 	add_definitions( -DHAVE_VM_JIT )
@@ -419,7 +420,7 @@ endif()
 if (MSVC AND ${TARGET_ARCHITECTURE} MATCHES "arm")
 	add_definitions( -DNO_SSE -D__ARM__ -DRAPIDJSON_ENDIAN=RAPIDJSON_LITTLEENDIAN)
 endif()
-	
+
 set( PLAT_POSIX_SOURCES
 	posix/i_steam.cpp
 	common/platform/posix/i_system_posix.cpp )
@@ -733,7 +734,7 @@ set( FASTMATH_SOURCES
 	rendering/hwrenderer/scene/hw_weapon.cpp
 	common/utility/matrix.cpp
 )
-	
+
 #Vulkan stuff must go into a separate list because it needs to be disabled for some platforms
 set (VULKAN_SOURCES
 	common/rendering/vulkan/vk_renderdevice.cpp
@@ -746,7 +747,7 @@ set (VULKAN_SOURCES
 	common/rendering/vulkan/commands/vk_commandbuffer.cpp
 	common/rendering/vulkan/buffers/vk_rsbuffers.cpp
 	common/rendering/vulkan/buffers/vk_hwbuffer.cpp
-	common/rendering/vulkan/buffers/vk_buffer.cpp	
+	common/rendering/vulkan/buffers/vk_buffer.cpp
 	common/rendering/vulkan/samplers/vk_samplers.cpp
 	common/rendering/vulkan/descriptorsets/vk_descriptorset.cpp
 	common/rendering/vulkan/pipelines/vk_renderpass.cpp
@@ -996,7 +997,7 @@ set (PCH_SOURCES
 	common/fonts/ttffont.cpp
 	common/fonts/schrift.cpp
 	common/fonts/v_font.cpp
-	common/fonts/v_text.cpp	
+	common/fonts/v_text.cpp
 	common/textures/hw_ihwtexture.cpp
 	common/textures/hw_material.cpp
 	common/textures/bitmap.cpp
@@ -1107,7 +1108,7 @@ set (PCH_SOURCES
 	common/menu/menudef.cpp
 	common/menu/savegamemanager.cpp
 	common/statusbar/base_sbar.cpp
-	
+
 	common/rendering/v_framebuffer.cpp
 	common/rendering/v_video.cpp
 	common/rendering/r_thread.cpp
@@ -1147,7 +1148,7 @@ set (PCH_SOURCES
 	common/scripting/frontend/zcc_parser.cpp
 	common/scripting/backend/vmbuilder.cpp
 	common/scripting/backend/codegen.cpp
-	
+
 	utility/nodebuilder/nodebuild.cpp
 	utility/nodebuilder/nodebuild_classify_nosse2.cpp
 	utility/nodebuilder/nodebuild_events.cpp
@@ -1215,7 +1216,6 @@ set( GAME_SOURCES
 	common/filesystem/source/fs_stringpool.cpp
 	common/filesystem/source/unicode.cpp
 	common/filesystem/source/critsec.cpp
-
 )
 
 set( APP_SOURCES
@@ -1319,6 +1319,7 @@ include_directories(
 	../libraries/ZVulkan/include
 	../libraries/ZWidget/include
 	../libraries/webp/include
+	../libraries/ZMusic/include
 	${SYSTEM_SOURCES_DIR}
 )
 
@@ -1407,18 +1408,6 @@ if( NOT WIN32 AND NOT APPLE )
 	add_custom_command( TARGET ztool POST_BUILD
 		COMMAND chmod +x ${CMAKE_CURRENT_BINARY_DIR}/link-make
 		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/link-make )
-	IF ("${INSTALL_RPATH}" STREQUAL "")
-		set_target_properties(zdoom PROPERTIES
-			#allow libzmusic.so.1 library in same folder as executable at runtime
-			INSTALL_RPATH "\$ORIGIN:\$ORIGIN/zmusic/build/source"
-			BUILD_WITH_INSTALL_RPATH ON
-		)
-		set_target_properties(ztool PROPERTIES
-			#allow libzmusic.so.1 library in same folder as executable at runtime
-			INSTALL_RPATH "\$ORIGIN:\$ORIGIN/zmusic/build/source"
-			BUILD_WITH_INSTALL_RPATH ON
-		)
-	endif()
 endif()
 
 add_custom_command(TARGET zdoom POST_BUILD

@@ -1,3 +1,6 @@
 [submodule "libraries/ZWidget"]
 	path = libraries/ZWidget
 	url = git@github.com:dpjudas/ZWidget.git
+[submodule "libraries/ZMusic"]
+	path = libraries/ZMusic
+	url = git@github.com:ZDoom/ZMusic.git
