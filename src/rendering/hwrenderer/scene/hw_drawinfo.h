@@ -96,6 +96,50 @@ enum DrawListType
 	GLDL_TYPES,
 };
 
+struct CameraFrustum
+{
+	void Set(const VSMatrix& worldToProjection, const DVector3& viewpoint);
+
+	bool IsSphereVisible(const DVector3& point, double radius) const
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			if ((Planes[i].XYZ() | point) < -radius)
+				return false;
+		}
+		return true;
+	}
+
+	bool IsAABBVisible(const DVector3& aabbMin, const DVector3& aabbMax) const
+	{
+		DVector3 aabbCenter = (aabbMin + aabbMax) * 0.5;
+		DVector3 aabbExtents = (aabbMax - aabbMin) * 0.5;
+		for (int i = 0; i < 6; i++)
+		{
+			double distance = Planes[i] | DVector4(aabbCenter, 1.0);
+			double radius = AbsPlaneNormals[i] | aabbExtents;
+			bool outside = distance < -radius;
+			//bool inside = distance > radius;
+			//bool intersect = distance > -radius && distance < radius;
+			if (outside)
+				return false;
+		}
+		return true;
+	}
+
+private:
+	static DVector4 LeftFrustum(const VSMatrix& matrix);
+	static DVector4 RightFrustum(const VSMatrix& matrix);
+	static DVector4 TopFrustum(const VSMatrix& matrix);
+	static DVector4 BottomFrustum(const VSMatrix& matrix);
+	static DVector4 NearFrustum(const VSMatrix& matrix);
+	static DVector4 FarFrustum(const VSMatrix& matrix);
+	static DVector4 Normalize(DVector4 v);
+
+	DVector3 AbsPlaneNormals[6];
+	DVector4 Planes[6];
+};
+
 struct HWDrawInfo
 {
 	struct wallseg
@@ -149,6 +193,7 @@ struct HWDrawInfo
 	Clipper *mClipper;
 	Clipper *vClipper; // Vertical clipper
 	Clipper *rClipper; // Radar clipper
+	CameraFrustum ClipFrustum;
 	FRenderViewpoint Viewpoint;
 	HWViewpointUniforms VPUniforms;	// per-viewpoint uniform state
 	VSMatrix ProjectionMatrix2;

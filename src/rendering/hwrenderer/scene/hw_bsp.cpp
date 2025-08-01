@@ -371,7 +371,7 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 
 			backsector = hw_FakeFlat(drawctx, seg->backsector, in_area, true);
 
-			if (hw_CheckClip(seg->sidedef, currentsector, backsector))
+			if (hw_CheckClip(seg->sidedef, currentsector, backsector, &ClipFrustum))
 			{
 				if(!Viewpoint.IsAllowedOoB() && !(seg->sidedef->Flags & WALLF_DITHERTRANS_MID))
 					clipper.SafeAddClipRange(startAngle, endAngle);
@@ -1047,6 +1047,10 @@ void HWDrawInfo::RenderBSP(void *node, bool drawpsprites, FRenderState& state)
 		viewx = FLOAT2FIXED(Viewpoint.OffPos.X);
 		viewy = FLOAT2FIXED(Viewpoint.OffPos.Y);
 	}
+
+	VSMatrix m = VPUniforms.mProjectionMatrix;
+	m.multMatrix(VPUniforms.mViewMatrix);
+	ClipFrustum.Set(m, Viewpoint.Pos);
 
 	validcount++;	// used for processing sidedefs only once by the renderer.
 
