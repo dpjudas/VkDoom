@@ -20,7 +20,7 @@ project(VkDoom)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF) 
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 list( APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake )
@@ -173,14 +173,14 @@ endmacro()
 
 include( CheckFunctionExists )
 
-macro( require_stricmp )
+macro( Mrequire_stricmp ) # renamed due to conflict
 	CHECK_FUNCTION_EXISTS( stricmp STRICMP_EXISTS )
 	if( NOT STRICMP_EXISTS )
 		add_definitions( -Dstricmp=strcasecmp )
 	endif()
 endmacro()
 
-macro( require_strnicmp )
+macro( Mrequire_strnicmp ) # renamed due to conflict
 	CHECK_FUNCTION_EXISTS( strnicmp STRNICMP_EXISTS )
 	if( NOT STRNICMP_EXISTS )
 		add_definitions( -Dstrnicmp=strncasecmp )
@@ -307,7 +307,13 @@ if (HAVE_VULKAN)
 	add_subdirectory( libraries/ZVulkan )
 endif()
 
+add_subdirectory( libraries/ZMusic )
+if(WIN32)
+	set_target_properties(zmusic PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+endif()
+
 add_subdirectory( libraries/ZWidget )
+
 add_subdirectory( libraries/webp )
 
 add_subdirectory( libraries/discordrpc EXCLUDE_FROM_ALL )
@@ -373,7 +379,6 @@ install(DIRECTORY docs/
 option( DYN_OPENAL "Dynamically load OpenAL" ON )
 
 add_subdirectory( libraries/lzma )
-add_subdirectory( libraries/miniz )
 add_subdirectory( tools )
 add_subdirectory( wadsrc )
 add_subdirectory( wadsrc_bm )
