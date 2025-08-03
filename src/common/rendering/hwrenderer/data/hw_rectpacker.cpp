@@ -172,14 +172,14 @@ void RectPacker::Free(RectPackerItem* item)
 	// If next item is available space we can merge them
 	if (item->NextItem && item->NextItem->IsAvailable)
 	{
-		item->Height += item->NextItem->Height;
+		item->Width += item->NextItem->Width;
 		FreeItem(item->NextItem);
 	}
 
 	// If previous item is available space we can merge them
 	if (item->PrevItem && item->PrevItem->IsAvailable)
 	{
-		item->PrevItem->Height += item->Height;
+		item->PrevItem->Width += item->Width;
 		FreeItem(item);
 	}
 }
