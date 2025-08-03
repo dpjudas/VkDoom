@@ -100,7 +100,7 @@ jobs:
           cp -r vkdoom.app package
           cp -r vktool package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          cp vkdoom vktool *.pk3 libzmusic.so.1 package
+          cp vkdoom vktool *.pk3 zmusic/lib/libzmusic.so package
           strip package/vkdoom
           strip package/vktool
         fi
