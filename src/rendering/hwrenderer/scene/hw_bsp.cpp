@@ -371,7 +371,7 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 
 			backsector = hw_FakeFlat(drawctx, seg->backsector, in_area, true);
 
-			if (hw_CheckClip(seg->sidedef, currentsector, backsector, &ClipFrustum))
+			if (hw_CheckClip(seg->sidedef, currentsector, backsector, !outer ? &ClipFrustum : nullptr))
 			{
 				if(!Viewpoint.IsAllowedOoB() && !(seg->sidedef->Flags & WALLF_DITHERTRANS_MID))
 					clipper.SafeAddClipRange(startAngle, endAngle);
