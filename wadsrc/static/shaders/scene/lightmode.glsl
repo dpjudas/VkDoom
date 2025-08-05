@@ -114,6 +114,10 @@ vec4 getLightColor(Material material)
 			sunlightAttenuation = lightmap.a;
 		}
 
+		// Force sunlight flag
+		if (uDynLightColor.w == -1)
+			sunlightAttenuation = 1.0;
+
 		//
 		// apply dynamic lights
 		//

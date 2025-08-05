@@ -477,9 +477,15 @@ public:
 		mSurfaceUniforms.uDynLightColor.Z = b;
 	}
 
+	void SetForceSunlight(bool enable)
+	{
+		// Note: this uses the same field as SetScreenFade (both can't be active at the same time)
+		mSurfaceUniforms.uDynLightColor.W = enable ? -1.0f : 1.0f;
+	}
+
 	void SetScreenFade(float f)
 	{
-		// This component is otherwise unused.
+		// Note: this component is shared with SetForceSunlight and is otherwise unused.
 		mSurfaceUniforms.uDynLightColor.W = f;
 	}
 
