@@ -83,7 +83,7 @@ EXTERN_CVAR(Bool, gl_aalines)
 //==========================================================================
 
 CVAR(Bool, gl_usecolorblending, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Bool, gl_sprite_blend, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
+CVAR(Bool, gl_sprite_blend, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG);
 CVAR(Int, gl_spriteclip, 2, CVAR_ARCHIVE)
 CVAR(Bool, r_debug_nolimitanamorphoses, false, 0)
 CVAR(Float, r_spriteclipanamorphicminbias, 0.6, CVAR_ARCHIVE)
