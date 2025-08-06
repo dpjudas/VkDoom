@@ -1032,6 +1032,10 @@ OptionMenu "AppearOptions" protected
 	Option "$HUDMNU_CROSSHAIRHEALTH",		"crosshairhealth", "CrosshairHealthTypes"
 	Slider "$HUDMNU_CROSSHAIRSCALE",		"crosshairscale", 0.0, 2.0, 0.05, 2
 	StaticText " "
+	Option "$DSPLYMNU_CUSTOMINVERTMAP",			"cl_customizeinvulmap", 		"OnOff"
+	ColorPicker "$DSPLYMNU_CUSTOMINVERTC1",		"cl_custominvulmapcolor1"
+	ColorPicker "$DSPLYMNU_CUSTOMINVERTC2",		"cl_custominvulmapcolor2"
+	StaticText " "
 	Option "$MISCMNU_CLEANMENU",				"m_cleanscale", "OffOn"
 	Option "$MISCMNU_CLEANSTAT",				"wi_cleantextscale", "OnOff"
 	Option "$MISCMNU_WIPERCENT",				"wi_percents", "OnOff"
@@ -1079,10 +1083,6 @@ OptionMenu "LightOptions" protected
 	StaticText " "
 	Option "$GLPREFMNU_ENV",					gl_enhanced_nightvision,		"OnOff"
 	Option "$GLPREFMNU_ENVSTEALTH",				gl_enhanced_nv_stealth,			"EnhancedStealth"
-	StaticText " "
-	Option "$DSPLYMNU_CUSTOMINVERTMAP",			"cl_customizeinvulmap", 		"OnOff"
-	ColorPicker "$DSPLYMNU_CUSTOMINVERTC1",		"cl_custominvulmapcolor1"
-	ColorPicker "$DSPLYMNU_CUSTOMINVERTC2",		"cl_custominvulmapcolor2"
 }
 
 OptionMenu "SpriteOptions" protected
