@@ -5,7 +5,6 @@
 #include "v_video.h"
 
 void G_SetMap(const char* mapname, int mode);
-void D_SingleTick();
 
 LightmapCmdletGroup::LightmapCmdletGroup()
 {
@@ -37,7 +36,9 @@ void LightmapBuildCmdlet::OnCommand(FArgs args)
 		G_SetMap(mapname.GetChars(), 0);
 		for (int i = 0; i < 100; i++)
 		{
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 			D_SingleTick();
+#endif
 			if (gameaction == ga_nothing)
 				break;
 		}
@@ -125,7 +126,9 @@ void LightmapDeleteCmdlet::OnCommand(FArgs args)
 		G_SetMap(mapname.GetChars(), 0);
 		for (int i = 0; i < 100; i++)
 		{
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 			D_SingleTick();
+#endif
 			if (gameaction == ga_nothing)
 				break;
 		}

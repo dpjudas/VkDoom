@@ -84,6 +84,7 @@
 #include "events.h"
 #include "vm.h"
 #include "d_main.h"
+#include "gi.h"
 
 #include "decallib.h"
 
@@ -113,6 +114,8 @@ static FRandom pr_crunch("DoCrunch");
 // but don't process them until the move is proven valid
 TArray<spechit_t> spechit;
 TArray<spechit_t> portalhit;
+
+EXTERN_CVAR(Bool, net_limitconversations)
 
 //==========================================================================
 //
@@ -1546,7 +1549,7 @@ bool PIT_CheckThing(FMultiBlockThingsIterator &it, FMultiBlockThingsIterator::Ch
 	// Check for skulls slamming into things
 	if (tm.thing->flags & MF_SKULLFLY)
 	{
-		bool res = tm.thing->CallSlam(tm.thing->BlockingMobj);
+		bool res = tm.thing->CallSlam(tm.thing->BlockingMobj.ForceGet());
 		tm.thing->BlockingMobj = NULL;
 		return res;
 	}
@@ -1893,7 +1896,7 @@ bool P_CheckPosition(AActor *thing, const DVector2 &pos, FCheckPosition &tm, boo
 				// other things in the blocks and see if we hit something that is
 				// definitely blocking. Otherwise, we need to check the lines, or we
 				// could end up stuck inside a wall.
-				AActor* BlockingMobj = thing->BlockingMobj;
+				AActor* BlockingMobj = thing->BlockingMobj.ForceGet();
 
 				// If this blocks through a restricted line portal, it will always completely block.
 				if (BlockingMobj == NULL || (thing->Level->i_compatflags & COMPATF_NO_PASSMOBJ) || (tcres.portalflags & FFCF_RESTRICTEDPORTAL))
@@ -2057,7 +2060,7 @@ AActor *P_CheckOnmobj(AActor *thing)
 	good = P_TestMobjZ(thing, false, &onmobj);
 
 	// Make sure we don't double call a collision with it.
-	if (!good && onmobj != nullptr && onmobj != thing->BlockingMobj
+	if (!good && onmobj != nullptr && onmobj != thing->BlockingMobj.ForceGet()
 		&& (thing->player == nullptr || !(thing->player->cheats & CF_PREDICTING)))
 	{
 		P_CollidedWith(thing, onmobj);
@@ -2357,7 +2360,7 @@ bool P_TryMove(AActor *thing, const DVector2 &pos,
 	thing->flags6 |= MF6_INTRYMOVE;
 	if (!P_CheckPosition(thing, pos, tm))
 	{
-		AActor *BlockingMobj = thing->BlockingMobj;
+		AActor *BlockingMobj = thing->BlockingMobj.ForceGet();
 		// This gets called regardless of whether or not the following checks allow the thing to pass. This is because a player
 		// could step on top of an enemy but we still want it to register as a collision.
 		if (BlockingMobj != nullptr && (thing->player == nullptr || !(thing->player->cheats & CF_PREDICTING)))
@@ -2643,8 +2646,9 @@ bool P_TryMove(AActor *thing, const DVector2 &pos,
 				thing->SetXYZ(thingpos.X, thingpos.Y, pos.Z);
 				if (!P_CheckPosition(thing, pos.XY(), true))	// check if some actor blocks us on the other side. (No line checks, because of the mess that'd create.)
 				{
-					if (thing->BlockingMobj != nullptr && (thing->player == nullptr || !(thing->player->cheats && CF_PREDICTING)))
-						P_CollidedWith(thing, thing->BlockingMobj);
+					auto blocking = thing->BlockingMobj.ForceGet();
+					if (blocking != nullptr && (thing->player == nullptr || !(thing->player->cheats && CF_PREDICTING)))
+						P_CollidedWith(thing, blocking);
 
 					thing->SetXYZ(oldthingpos);
 					thing->flags6 &= ~MF6_INTRYMOVE;
@@ -2884,7 +2888,7 @@ bool P_CheckMove(AActor *thing, const DVector2 &pos, FCheckPosition& tm, int fla
 		{
 			return false;
 		}
-		if (!(flags & PCM_NOACTORS) && thing->BlockingMobj)
+		if (!(flags & PCM_NOACTORS) && thing->BlockingMobj.ForceGet())
 		{
 			return false;
 		}
@@ -5262,7 +5266,11 @@ void P_TraceBleed(int damage, const DVector3 &pos, AActor *actor, DAngle angle, 
 		double cosp = bleedpitch.Cos();
 		DVector3 vdir = DVector3(cosp * bleedang.Cos(), cosp * bleedang.Sin(), -bleedpitch.Sin());
 
-		if (Trace(pos, actor->Sector, vdir, 172, 0, ML_BLOCKEVERYTHING, actor, bleedtrace, TRACE_NoSky))
+		double bleedDist = gameinfo.BloodSplatDecalDistance;
+		if (bleedDist <= 0.0)
+			bleedDist = (double)172.0;
+
+		if (Trace(pos, actor->Sector, vdir, bleedDist, 0, ML_BLOCKEVERYTHING, actor, bleedtrace, TRACE_NoSky))
 		{
 			if (bleedtrace.HitType == TRACE_HitWall)
 			{
@@ -5587,7 +5595,7 @@ void P_RailAttack(FRailParams *p)
 			if (puffDefaults->flags7 & MF7_FOILBUDDHA) dmgFlagPass |= DMG_FOILBUDDHA;
 		}
 		// [RK] If the attack source is a player, send the DMG_PLAYERATTACK flag.
-		int newdam = P_DamageMobj(hitactor, hitpuff ? hitpuff : source, source, p->damage, damagetype, dmgFlagPass | DMG_USEANGLE | (source->player ? DMG_PLAYERATTACK : 0), hitangle);
+		int newdam = P_DamageMobj(hitactor, hitpuff ? hitpuff : source, source, p->damage, damagetype, dmgFlagPass | DMG_USEANGLE | (source->player ? DMG_PLAYERATTACK : 0) | DMG_RAILGUN, hitangle);
 
 		if (bleed)
 		{
@@ -5630,7 +5638,7 @@ void P_RailAttack(FRailParams *p)
 		}
 	}
 
-	source->Level->localEventManager->WorldRailgunFired(source, start, trace.HitPos, thepuff, flags);
+	source->Level->localEventManager->WorldRailgunFired(source, start, trace.HitPos, thepuff, p->flags);
 
 	if (thepuff != NULL)
 	{
@@ -5733,10 +5741,17 @@ DEFINE_ACTION_FUNCTION_NATIVE(AActor, HasConversation, HasConversation)
 	ACTION_RETURN_BOOL(HasConversation(self));
 }
 
-static int NativeStartConversation(AActor *self, AActor *player, bool faceTalker, bool saveAngle)
+int NativeStartConversation(AActor *self, AActor *player, bool faceTalker, bool saveAngle)
 {
 	if (!CanTalk(self))
 		return false;
+
+	if (netgame && net_limitconversations && player->player != nullptr && player->player->mo == player && !player->player->settings_controller)
+	{
+		if (player == players[consoleplayer].mo)
+			Printf("Only settings controllers can start conversations with NPCs\n");
+		return false;
+	}
 
 	self->ConversationAnimation(0);
 	P_StartConversation(self, player, faceTalker, saveAngle);

@@ -388,7 +388,6 @@ public:
 	void SetScale();
 	virtual void Tick ();
 	void CallTick();
-	virtual void Draw (EHudState state, double ticFrac);
 	void CallDraw(EHudState state, double ticFrac);
     void DrawBottomStuff (EHudState state);
     void DrawTopStuff (EHudState state);
@@ -413,6 +412,10 @@ public:
 		return SBarTop;
 	}
 	void DoDrawAutomapHUD(int crdefault, int highlight);
+	void ClearInterpolation()
+	{
+		PrevCrosshairSize = CrosshairSize;
+	}
 
 //protected:
 	void DrawPowerups ();
@@ -447,8 +450,8 @@ public:
 private:
 	bool RepositionCoords (int &x, int &y, int xo, int yo, const int w, const int h) const;
 	void DrawMessages (int layer, int bottom);
-	void DrawConsistancy () const;
-	void DrawWaiting () const;
+	double DrawConsistancy (double yOfs) const;
+	double DrawWaiting (double yOfs) const;
 
 	TObjPtr<DHUDMessageBase*> Messages[NUM_HUDMSGLAYERS];
 };

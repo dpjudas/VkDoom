@@ -316,6 +316,8 @@ enum EFxType
 	EFX_LocalArrayDeclaration,
 	EFX_OutVarDereference,
 	EFX_ToVector,
+	EFX_FStateOffset,
+
 	EFX_COUNT
 };
 
@@ -396,7 +398,7 @@ public:
 
 	FxIdentifier(FName i, const FScriptPosition &p);
 	FxExpression *Resolve(FCompileContext&);
-	FxExpression *ResolveMember(FCompileContext&, PContainerType*, FxExpression*&, PContainerType*);
+	FxExpression *ResolveMember(FCompileContext&, PContainerType*, FxExpression*&, PContainerType*, bool isConst = false);
 };
 
 
@@ -1475,8 +1477,9 @@ class FxStructMember : public FxMemberBase
 {
 public:
 	FxExpression *classx;
+	bool IsConst;
 
-	FxStructMember(FxExpression*, PField*, const FScriptPosition&);
+	FxStructMember(FxExpression*, PField*, const FScriptPosition&, bool isConst = false);
 	~FxStructMember();
 	FxExpression *Resolve(FCompileContext&);
 	bool RequestAddress(FCompileContext &ctx, bool *writable);
@@ -1494,7 +1497,7 @@ class FxClassMember : public FxStructMember
 {
 public:
 
-	FxClassMember(FxExpression*, PField*, const FScriptPosition&);
+	FxClassMember(FxExpression*, PField*, const FScriptPosition&, bool isConst = false);
 };
 
 //==========================================================================
@@ -2387,7 +2390,7 @@ public:
 struct CompileEnvironment
 {
 	FxExpression* (*SpecialTypeCast)(FxTypeCast* func, FCompileContext& ctx);
-	bool (*CheckForCustomAddition)(FxAddSub* func, FCompileContext& ctx);
+	FxExpression* (*CheckForCustomAddition)(FxAddSub* func, FCompileContext& ctx);
 	FxExpression* (*CheckSpecialIdentifier)(FxIdentifier* func, FCompileContext& ctx);
 	FxExpression* (*CheckSpecialGlobalIdentifier)(FxIdentifier* func, FCompileContext& ctx);
 	FxExpression* (*ResolveSpecialIdentifier)(FxIdentifier* func, FxExpression*& object, PContainerType* objtype, FCompileContext& ctx);

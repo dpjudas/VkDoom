@@ -60,6 +60,8 @@ struct FThinkerList
 	bool IsEmpty() const;
 	void DestroyThinkers();
 	bool DoDestroyThinkers();
+	void RemoveTravellers(bool saveGame);
+	void OnLoad();
 	int TickThinkers(FThinkerList *dest);	// Returns: # of thinkers ticked
 	int ProfileThinkers(FThinkerList *dest);
 	void SaveList(FSerializer &arc);
@@ -79,9 +81,12 @@ struct FThinkerCollection
 	}
 
 	void RunThinkers(FLevelLocals *Level);	// The level is needed to tick the lights
+	void RunClientsideThinkers(FLevelLocals* Level);
 	void DestroyAllThinkers(bool fullgc = true);
+	void CleanUpTravellers(bool saveGame);
 	void SerializeThinkers(FSerializer &arc, bool keepPlayers);
 	void MarkRoots();
+	void OnLoad();
 	DThinker *FirstThinker(int statnum);
 	void Link(DThinker *thinker, int statnum);
 
@@ -91,6 +96,8 @@ private:
 
 	friend class FThinkerIterator;
 };
+
+extern bool bTravelling;
 
 class DThinker : public DObject
 {
@@ -109,6 +116,7 @@ public:
 	size_t PropagateMark();
 	
 	void ChangeStatNum (int statnum);
+	inline int GetStatNum() const { return _statNum; }
 
 private:
 	void Remove();
@@ -119,6 +127,7 @@ private:
 	friend class DObject;
 	friend class FDoomSerializer;
 
+	int8_t _statNum = -1;
 	DThinker *NextThinker = nullptr, *PrevThinker = nullptr;
 
 public:
@@ -127,12 +136,20 @@ public:
 	friend struct FLevelLocals;	// Needs access to FreshThinkers until the thinker storage gets refactored.
 };
 
+enum class FThinkerIteratorMode
+{
+	normal,
+	forceSearch,
+	clientside
+};
+
 class FThinkerIterator
 {
 protected:
 	const PClass *m_ParentType;
 private:
 	FLevelLocals *Level;
+	FThinkerCollection* m_ThinkerPool;
 	DThinker *m_CurrThinker;
 	uint8_t m_Stat;
 	bool m_SearchStats;
@@ -140,8 +157,8 @@ private:
 	bool m_SkipOne;
 
 public:
-	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum=MAX_STATNUM+1, bool forceSearch = false);
-	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum, DThinker *prev, bool forceSearch = false);
+	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum=MAX_STATNUM+1, FThinkerIteratorMode mode = FThinkerIteratorMode::normal);
+	FThinkerIterator (FLevelLocals *Level, const PClass *type, int statnum, DThinker *prev, FThinkerIteratorMode mode = FThinkerIteratorMode::normal);
 	DThinker *Next (bool exact = false);
 	void Reinit ();
 };
@@ -149,19 +166,19 @@ public:
 template <class T> class TThinkerIterator : public FThinkerIterator
 {
 public:
-	TThinkerIterator (FLevelLocals *Level, int statnum=MAX_STATNUM+1) : FThinkerIterator (Level, RUNTIME_CLASS(T), statnum)
+	TThinkerIterator (FLevelLocals *Level, int statnum=MAX_STATNUM+1, FThinkerIteratorMode mode = FThinkerIteratorMode::normal) : FThinkerIterator (Level, RUNTIME_CLASS(T), statnum, mode)
 	{
 	}
-	TThinkerIterator (FLevelLocals *Level, int statnum, DThinker *prev) : FThinkerIterator (Level, RUNTIME_CLASS(T), statnum, prev)
+	TThinkerIterator (FLevelLocals *Level, int statnum, DThinker *prev, FThinkerIteratorMode mode = FThinkerIteratorMode::normal) : FThinkerIterator (Level, RUNTIME_CLASS(T), statnum, prev, mode)
 	{
 	}
-	TThinkerIterator (FLevelLocals *Level, const PClass *subclass, int statnum=MAX_STATNUM+1, bool forceSearch = false) : FThinkerIterator(Level, subclass, statnum, forceSearch)
+	TThinkerIterator (FLevelLocals *Level, const PClass *subclass, int statnum=MAX_STATNUM+1, FThinkerIteratorMode mode = FThinkerIteratorMode::normal) : FThinkerIterator(Level, subclass, statnum, mode)
 	{
 	}
-	TThinkerIterator (FLevelLocals *Level, FName subclass, int statnum=MAX_STATNUM+1) : FThinkerIterator(Level, PClass::FindClass(subclass), statnum)
+	TThinkerIterator (FLevelLocals *Level, FName subclass, int statnum=MAX_STATNUM+1, FThinkerIteratorMode mode = FThinkerIteratorMode::normal) : FThinkerIterator(Level, PClass::FindClass(subclass), statnum, mode)
 	{
 	}
-	TThinkerIterator (FLevelLocals *Level, FName subclass, int statnum, DThinker *prev) : FThinkerIterator(Level, PClass::FindClass(subclass), statnum, prev)
+	TThinkerIterator (FLevelLocals *Level, FName subclass, int statnum, DThinker *prev, FThinkerIteratorMode mode = FThinkerIteratorMode::normal) : FThinkerIterator(Level, PClass::FindClass(subclass), statnum, prev, mode)
 	{
 	}
 	T *Next (bool exact = false)

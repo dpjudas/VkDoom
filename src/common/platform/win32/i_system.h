@@ -8,8 +8,8 @@
 #include "zstring.h"
 #include "utf8.h"
 
-struct ticcmd_t;
 struct WadStuff;
+struct FStartupSelectionInfo;
 
 // [RH] Detects the OS the game is running under.
 void I_DetectOS (void);
@@ -38,7 +38,8 @@ void I_PrintStr (const char *cp);
 void I_SetIWADInfo ();
 
 // Pick from multiple IWADs to use
-int I_PickIWad(WadStuff* wads, int numwads, bool queryiwad, int defaultiwad, int& autoloadflags, FString &extraArgs);
+bool HoldingQueryKey(const char* key);
+bool I_PickIWad(bool showwin, FStartupSelectionInfo& info);
 
 // The ini could not be saved at exit
 bool I_WriteIniFailed (const char* filename);

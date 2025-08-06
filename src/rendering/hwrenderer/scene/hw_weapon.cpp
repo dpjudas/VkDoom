@@ -54,6 +54,8 @@ EXTERN_CVAR(Bool, r_drawplayersprites)
 EXTERN_CVAR(Bool, r_deathcamera)
 
 
+CVARD(Bool, gl_weapon_purelightlevel, false, CVAR_GLOBALCONFIG | CVAR_ARCHIVE, "Makes the lighting on weapon sprites (or models) purely match the sector's light level you're standing in");
+
 //==========================================================================
 //
 // R_DrawPSprite
@@ -94,6 +96,7 @@ void HWDrawInfo::DrawPSprite(HUDSprite *huds, FRenderState &state)
 
 		FHWModelRenderer renderer(this, state, huds->lightindex);
 		RenderHUDModel(&renderer, huds->weapon, huds->translation, huds->rotation + FVector3(huds->mx / 4., (huds->my - WEAPONTOP) / -4., 0), huds->pivot, huds->mframe, Viewpoint.TicFrac);
+
 		state.SetFlatVertexBuffer();
 		state.SetShadeVertex(false);
 	}
@@ -326,7 +329,7 @@ static FVector2 BobWeapon3D(WeaponPosition3D &weap, DPSprite *psp, FVector3 &tra
 //
 //==========================================================================
 
-WeaponLighting HWDrawInfo::GetWeaponLighting(sector_t *viewsector, const DVector3 &pos, int cm, area_t in_area, const DVector3 &playerpos)
+WeaponLighting HWDrawInfo::GetWeaponLighting(sector_t *viewsector, const DVector3 &pos, int cm, area_t in_area, const DVector3 &playerpos, bool weaponPureLightLevel = false)
 {
 	WeaponLighting l;
 
@@ -374,7 +377,7 @@ WeaponLighting HWDrawInfo::GetWeaponLighting(sector_t *viewsector, const DVector
 			if (Level->flags3 & LEVEL3_NOCOLOREDSPRITELIGHTING) l.cm.ClearColor();
 		}
 
-		l.lightlevel = CalcLightLevel(lightmode, l.lightlevel, getExtraLight(), true, 0);
+		l.lightlevel = CalcLightLevel(lightmode, l.lightlevel, getExtraLight(), true, 0, weaponPureLightLevel);
 
 		if (isSoftwareLighting(lightmode) || l.lightlevel < 92)
 		{
@@ -706,7 +709,7 @@ void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area, F
 	AActor *camera = vp.camera;
 
 	WeaponPosition2D weap = GetWeaponPosition2D(camera->player, vp.TicFrac);
-	WeaponLighting light = GetWeaponLighting(viewsector, vp.Pos, isFullbrightScene(), in_area, camera->Pos());
+	WeaponLighting light = GetWeaponLighting(viewsector, vp.Pos, isFullbrightScene(), in_area, camera->Pos(), gl_weapon_purelightlevel);
 
 	VMFunction * ModifyBobLayer = nullptr;
 	DVector2 bobxy = DVector2(weap.bobx , weap.boby);
@@ -796,7 +799,7 @@ void HWDrawInfo::PreparePlayerSprites3D(sector_t * viewsector, area_t in_area, F
 	AActor *camera = vp.camera;
 
 	WeaponPosition3D weap = GetWeaponPosition3D(camera->player, vp.TicFrac);
-	WeaponLighting light = GetWeaponLighting(viewsector, vp.Pos, isFullbrightScene(), in_area, camera->Pos());
+	WeaponLighting light = GetWeaponLighting(viewsector, vp.Pos, isFullbrightScene(), in_area, camera->Pos(), gl_weapon_purelightlevel);
 
 	VMFunction * ModifyBobLayer3D = nullptr;
 	VMFunction * ModifyBobPivotLayer3D = nullptr;

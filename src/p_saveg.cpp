@@ -603,7 +603,7 @@ void FLevelLocals::SerializeSounds(FSerializer &arc)
 void FLevelLocals::SerializePlayers(FSerializer &arc, bool skipload)
 {
 	int numPlayers, numPlayersNow;
-	int i;
+	unsigned int i;
 
 	// Count the number of players present right now.
 	for (numPlayersNow = 0, i = 0; i < MAXPLAYERS; ++i)
@@ -690,7 +690,7 @@ void FLevelLocals::ReadOnePlayer(FSerializer &arc, bool fromHub)
 	player_t temp = {};
 	temp.Serialize(arc);
 
-	for (int i = 0; i < MAXPLAYERS; ++i)
+	for (unsigned int i = 0; i < MAXPLAYERS; ++i)
 	{
 		if (!PlayerInGame(i))
 			continue;
@@ -734,8 +734,7 @@ void FLevelLocals::ReadMultiplePlayers(FSerializer &arc, int numPlayers, bool fr
 {
 	TArray<NetworkPlayerInfo> tempPlayers = {};
 	tempPlayers.Reserve(numPlayers);
-	TArray<bool> assignedPlayers = {};
-	assignedPlayers.Reserve(MAXPLAYERS);
+	bool assignedPlayers[MAXPLAYERS] = {};
 
 	// Read all the save game players into a temporary array
 	for (auto& p : tempPlayers)
@@ -752,7 +751,7 @@ void FLevelLocals::ReadMultiplePlayers(FSerializer &arc, int numPlayers, bool fr
 	// based on their names. If two players in the savegame have the
 	// same name, then they are assigned to players in the current game
 	// on a first-come, first-served basis.
-	for (int i = 0; i < MAXPLAYERS; ++i)
+	for (unsigned int i = 0; i < MAXPLAYERS; ++i)
 	{
 		if (!PlayerInGame(i))
 			continue;
@@ -781,7 +780,7 @@ void FLevelLocals::ReadMultiplePlayers(FSerializer &arc, int numPlayers, bool fr
 
 	// Any players that didn't have matching names are assigned to existing
 	// players on a first-come, first-served basis.
-	for (int i = 0; i < MAXPLAYERS; ++i)
+	for (unsigned int i = 0; i < MAXPLAYERS; ++i)
 	{
 		if (!PlayerInGame(i) || assignedPlayers[i])
 			continue;
@@ -894,7 +893,7 @@ void FLevelLocals::SpawnExtraPlayers()
 {
 	// If there are more players now than there were in the savegame,
 	// be sure to spawn the extra players.
-	int i;
+	unsigned int i;
 
 	if (deathmatch || !isPrimaryLevel())
 	{
@@ -949,6 +948,7 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 	if (arc.isReading())
 	{
 		Thinkers.DestroyAllThinkers();
+		ClientsideThinkers.DestroyAllThinkers();
 		interpolator.ClearInterpolations();
 		arc.ReadObjects(hubload);
 		// If there have been object deserialization errors we must absolutely not continue here because scripted objects can do unpredictable things.
@@ -964,6 +964,7 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 		("fadeto", fadeto)
 		("skyspeed1", skyspeed1)
 		("skyspeed2", skyspeed2)
+		("skymistspeed", skymistspeed)
 		("found_secrets", found_secrets)
 		("found_items", found_items)
 		("killed_monsters", killed_monsters)
@@ -977,9 +978,12 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 		("totaltime", i)
 		("skytexture1", skytexture1)
 		("skytexture2", skytexture2)
+		("skymisttexture", skymisttexture)
 		("fogdensity", fogdensity)
 		("outsidefogdensity", outsidefogdensity)
 		("skyfog", skyfog)
+		("thickfogdistance", thickfogdistance)
+		("thickfogmultiplier", thickfogmultiplier)
 		("deathsequence", deathsequence)
 		("bodyqueslot", bodyqueslot)
 		("spawnindex", spawnindex)
@@ -993,7 +997,7 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 		("interpolator", interpolator)
 		("frozenstate", frozenstate)
 		("visualthinkerhead", VisualThinkerHead)
-
+		("actorbehaviors", ActorBehaviors)
 		("suncolor", SunColor)
 		("sundirection", SunDirection)
 		("sunintensity", SunIntensity);
@@ -1051,7 +1055,7 @@ void FLevelLocals::Serialize(FSerializer &arc, bool hubload)
 		{
 			P_Recalculate3DFloors(&sec);
 		}
-		for (int i = 0; i < MAXPLAYERS; ++i)
+		for (unsigned int i = 0; i < MAXPLAYERS; ++i)
 		{
 			if (PlayerInGame(i) && Players[i]->mo != nullptr)
 			{
@@ -1130,7 +1134,7 @@ void FLevelLocals::UnSnapshotLevel(bool hubLoad)
 			next = it.Next();
 			if (pawn->player == nullptr || pawn->player->mo == nullptr || !PlayerInGame(pawn->player))
 			{
-				int i;
+				unsigned int i;
 
 				// If this isn't the unmorphed original copy of a player, destroy it, because it's extra.
 				for (i = 0; i < MAXPLAYERS; ++i)

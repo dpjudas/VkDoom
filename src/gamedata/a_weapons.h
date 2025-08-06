@@ -120,11 +120,11 @@ public:
 
 void P_PlaybackKeyConfWeapons(FWeaponSlots *slots);
 void Net_WriteWeapon(PClassActor *type);
-PClassActor *Net_ReadWeapon(uint8_t **stream);
+PClassActor *Net_ReadWeapon(TArrayView<uint8_t>& stream);
 
 void P_SetupWeapons_ntohton();
-void P_WriteDemoWeaponsChunk(uint8_t **demo);
-void P_ReadDemoWeaponsChunk(uint8_t **demo);
+void P_WriteDemoWeaponsChunk(TArrayView<uint8_t>& demo);
+void P_ReadDemoWeaponsChunk(TArrayView<uint8_t>& demo);
 
 
 enum class EBobStyle
@@ -159,5 +159,7 @@ enum
 	WIF_NODEATHINPUT =		0x00020000, // The weapon cannot be fired/reloaded/whatever when the player is dead
 	WIF_CHEATNOTWEAPON	=	0x00040000,	// Give cheat considers this not a weapon (used by Sigil)
 	WIF_NOAUTOSWITCHTO =	0x00080000, // cannot be switched to when autoswitching weapons.
+	WIF_BFG	=				0x00100000, // BFG tier weapon
+	WIF_EXPLOSIVE =			0x00200000, // Weapon is explosive
 };
 

@@ -63,8 +63,8 @@ struct FLineTraceData
 
 struct LinkContext
 {
-	voidptr sector_list;	// really msecnode but that's not exported yet.
-	voidptr render_list;
+	readonly voidptr sector_list;	// really msecnode but that's not exported yet.
+	readonly voidptr render_list;
 }
 
 class ViewPosition native
@@ -73,6 +73,26 @@ class ViewPosition native
 	native readonly int Flags;
 }
 
+class Behavior native play abstract version("4.15.1")
+{
+	native readonly Actor Owner;
+	native readonly LevelLocals Level;
+
+	virtual void Initialize() {}
+	virtual void Reinitialize() {}
+	virtual void TransferredOwner(Actor oldOwner) {}
+	virtual void Tick() {}
+}
+
+class BehaviorIterator native abstract final version("4.15.1")
+{
+	native static BehaviorIterator CreateFrom(Actor mobj, class<Behavior> type = null);
+	native static BehaviorIterator Create(class<Behavior> type = null, class<Actor> ownerType = null);
+	native static BehaviorIterator CreateClientSide(class<Behavior> type = null, class<Actor> ownerType = null);
+
+	native Behavior Next();
+	native void Reinit();
+}
 
 class Actor : Thinker native
 {
@@ -109,6 +129,7 @@ class Actor : Thinker native
 	native double Angle;
 	native double Pitch;
 	native double Roll;
+	native double AngledRollOffset;
 	native vector3 Vel;
 	native double Speed;
 	native double FloatSpeed;
@@ -244,7 +265,7 @@ class Actor : Thinker native
 	native readonly State SeeState;
 	native State MeleeState;
 	native State MissileState;
-	native voidptr /*DecalBase*/ DecalGenerator;
+	native DecalBase DecalGenerator;
 	native uint8 fountaincolor;
 	native double CameraHeight;	// Height of camera when used as such
 	native double CameraFOV;
@@ -268,6 +289,7 @@ class Actor : Thinker native
 
 	meta String Obituary;		// Player was killed by this actor
 	meta String HitObituary;		// Player was killed by this actor in melee
+	meta String SelfObituary;	// Player killed himself using this actor
 	meta double DeathHeight;	// Height on normal death
 	meta double BurnHeight;		// Height on burning death
 	meta int GibHealth;			// Negative health below which this monster dies an extreme death
@@ -297,6 +319,7 @@ class Actor : Thinker native
 	Property prefix: none;
 	Property Obituary: Obituary;
 	Property HitObituary: HitObituary;
+	Property SelfObituary: SelfObituary;
 	Property MeleeDamage: MeleeDamage;
 	Property MeleeSound: MeleeSound;
 	Property MissileHeight: MissileHeight;
@@ -446,6 +469,7 @@ class Actor : Thinker native
 		MissileHeight 32;
 		SpriteAngle 0;
 		SpriteRotation 0;
+		AngledRollOffset 0;
 		StencilColor "00 00 00";
 		VisibleAngles 0, 0;
 		VisiblePitch 0, 0;
@@ -503,6 +527,13 @@ class Actor : Thinker native
 	{
 		return sin(fb * (180./32)) * 8;
 	}
+
+	native version("4.15.1") clearscope Behavior FindBehavior(class<Behavior> type) const;
+	native version("4.15.1") bool RemoveBehavior(class<Behavior> type);
+	native version("4.15.1") Behavior AddBehavior(class<Behavior> type);
+	native version("4.15.1") void TickBehaviors();
+	native version("4.15.1") void ClearBehaviors(class<Behavior> type = null);
+	native version("4.15.1") void MoveBehaviors(Actor from);
 
 	native clearscope bool isFrozen() const;
 	virtual native void BeginPlay();
@@ -570,6 +601,9 @@ class Actor : Thinker native
 	{
 		return true;
 	}
+
+	// Called after an Actor has been resurrected.
+	virtual void OnRevive() {}
 
 	// Called when an actor is to be reflected by a disc of repulsion.
 	// Returns true to continue normal blast processing.
@@ -671,6 +705,11 @@ class Actor : Thinker native
 		}
 		return Obituary;
 	}
+
+	virtual String GetSelfObituary(Actor inflictor, Name mod)
+	{
+		return SelfObituary;
+	}
 	
 	virtual int OnDrain(Actor victim, int damage, Name dmgtype)
 	{
@@ -757,6 +796,7 @@ class Actor : Thinker native
 	native bool CheckPosition(Vector2 pos, bool actorsonly = false, FCheckPosition tm = null);
 	native bool TestMobjLocation();
 	native static Actor Spawn(class<Actor> type, vector3 pos = (0,0,0), int replace = NO_REPLACE);
+	native static clearscope Actor SpawnClientside(class<Actor> type, vector3 pos = (0,0,0), int replace = NO_REPLACE);
 	native Actor SpawnMissile(Actor dest, class<Actor> type, Actor owner = null);
 	native Actor SpawnMissileXYZ(Vector3 pos, Actor dest, Class<Actor> type, bool checkspawn = true, Actor owner = null);
 	native Actor SpawnMissileZ (double z, Actor dest, class<Actor> type);
@@ -793,6 +833,7 @@ class Actor : Thinker native
 	native bool CheckMeleeRange(double range = -1);
 	native bool TriggerPainChance(Name mod, bool forcedPain = false);
 	native virtual int DamageMobj(Actor inflictor, Actor source, int damage, Name mod, int flags = 0, double angle = 0);
+	native virtual bool ReactToDamage(Actor inflictor, Actor source, int damage, Name mod, int flags, int originaldamage);
 	native void PoisonMobj (Actor inflictor, Actor source, int damage, int duration, int period, Name type);
 	native double AimLineAttack(double angle, double distance, out FTranslatedLineTarget pLineTarget = null, double vrange = 0., int flags = 0, Actor target = null, Actor friender = null);
 	native Actor, int LineAttack(double angle, double distance, double pitch, int damage, Name damageType, class<Actor> pufftype, int flags = 0, out FTranslatedLineTarget victim = null, double offsetz = 0., double offsetforward = 0., double offsetside = 0.);

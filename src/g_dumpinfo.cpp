@@ -347,7 +347,7 @@ CCMD(dumplinktable)
 
 CCMD(printinv)
 {
-	int pnum = consoleplayer;
+	unsigned int pnum = consoleplayer;
 
 #ifdef _DEBUG
 	// Only allow peeking on other players' inventory in debug builds.
@@ -430,6 +430,7 @@ CCMD(skyfog)
 		// Do this only on the primary level.
 		primaryLevel->skyfog = max(0, (int)strtoull(argv[1], NULL, 0));
 	}
+	Printf("%d\n", primaryLevel->skyfog);
 }
 
 
@@ -445,7 +446,7 @@ CCMD(listsnapshots)
 		FCompressedBuffer *snapshot = &wadlevelinfos[i].Snapshot;
 		if (snapshot->mBuffer != nullptr)
 		{
-			Printf("%s (%u -> %u bytes)\n", wadlevelinfos[i].MapName.GetChars(), snapshot->mCompressedSize, snapshot->mSize);
+			Printf("%s (%lu -> %lu bytes)\n", wadlevelinfos[i].MapName.GetChars(), snapshot->mCompressedSize, snapshot->mSize);
 		}
 	}
 }

@@ -57,6 +57,13 @@
 #include "doom_aabbtree.h"
 #include "doom_levelmesh.h"
 #include "p_visualthinker.h"
+#include <memory>
+
+struct FGlobalDLightLists
+{
+	TMap<FSection*, TMap<FDynamicLight*, std::unique_ptr<FLightNode>>> flat_dlist;
+	TMap<side_t*, TMap<FDynamicLight*, std::unique_ptr<FLightNode>>> wall_dlist;
+};
 
 #include "common/rendering/hwrenderer/data/hw_lightprobe.h"
 
@@ -140,8 +147,8 @@ struct FLevelLocals
 	void ClearAllSubsectorLinks();
 	void TranslateLineDef (line_t *ld, maplinedef_t *mld, int lineindexforid = -1);
 	int TranslateSectorSpecial(int special);
-	bool IsTIDUsed(int tid);
-	int FindUniqueTID(int start_tid, int limit);
+	bool IsTIDUsed(int tid, bool clientside);
+	int FindUniqueTID(int start_tid, int limit, bool clientside);
 	int GetConversation(int conv_id);
 	int GetConversation(FName classname);
 	void SetConversation(int convid, PClassActor *Class, int dlgindex);
@@ -251,6 +258,7 @@ public:
 	void SpawnExtraPlayers();
 	void Serialize(FSerializer &arc, bool hubload);
 	DThinker *FirstThinker (int statnum);
+	DThinker* FirstClientsideThinker(int statnum);
 
 	// g_Game
 	void PlayerReborn (int player);
@@ -264,7 +272,11 @@ public:
 	FPlayerStart *PickPlayerStart(int playernum, int flags = 0);
 	bool DoCompleted(FString nextlevel, wbstartstruct_t &wminfo);
 	void StartTravel();
+	void AddToTravellingList(DThinker* th);
+	void MoveTravellers();
 	int FinishTravel();
+	void UnlinkActorFromLevel(AActor& mo);
+	void LinkActorToLevel(AActor& mo);
 	void ChangeLevel(const char *levelname, int position, int flags, int nextSkill = -1);
 	const char *GetSecretExitMap();
 	void ExitLevel(int position, bool keepFacing);
@@ -297,17 +309,26 @@ public:
 	}
 	template<class T> TThinkerIterator<T> GetThinkerIterator(FName subtype = NAME_None, int statnum = MAX_STATNUM+1)
 	{
-		if (subtype == NAME_None) return TThinkerIterator<T>(this, statnum);
-		else return TThinkerIterator<T>(this, subtype, statnum);
+		if (subtype == NAME_None) return TThinkerIterator<T>(this, statnum, FThinkerIteratorMode::normal);
+		else return TThinkerIterator<T>(this, subtype, statnum, FThinkerIteratorMode::normal);
 	}
 	template<class T> TThinkerIterator<T> GetThinkerIterator(FName subtype, int statnum, AActor *prev)
 	{
-		return TThinkerIterator<T>(this, subtype, statnum, prev);
+		return TThinkerIterator<T>(this, subtype, statnum, prev, FThinkerIteratorMode::normal);
+	}
+	template<class T> TThinkerIterator<T> GetClientsideThinkerIterator(FName subtype = NAME_None, int statnum = MAX_STATNUM + 1)
+	{
+		if (subtype == NAME_None) return TThinkerIterator<T>(this, statnum, FThinkerIteratorMode::clientside);
+		else return TThinkerIterator<T>(this, subtype, statnum, FThinkerIteratorMode::clientside);
+	}
+	template<class T> TThinkerIterator<T> GetClientsideThinkerIterator(FName subtype, int statnum, AActor* prev)
+	{
+		return TThinkerIterator<T>(this, subtype, statnum, prev, FThinkerIteratorMode::clientside);
 	}
 	template<class T> TThinkerIterator<T> GetThinkerIterator(PClass * subtype, int statnum = MAX_STATNUM+1, bool forceSearch = false)
 	{
 		assert(subtype);
-		return TThinkerIterator<T>(this, subtype, statnum, forceSearch);
+		return TThinkerIterator<T>(this, subtype, statnum, forceSearch ? FThinkerIteratorMode::forceSearch : FThinkerIteratorMode::normal);
 	}
 	FActorIterator GetActorIterator(int tid)
 	{
@@ -320,6 +341,18 @@ public:
 	NActorIterator GetActorIterator(FName type, int tid)
 	{
 		return NActorIterator(TIDHash, type, tid);
+	}
+	FActorIterator GetClientSideActorIterator(int tid)
+	{
+		return FActorIterator(ClientSideTIDHash, tid);
+	}
+	FActorIterator GetClientSideActorIterator(int tid, AActor* start)
+	{
+		return FActorIterator(ClientSideTIDHash, tid, start);
+	}
+	NActorIterator GetClientSideActorIterator(FName type, int tid)
+	{
+		return NActorIterator(ClientSideTIDHash, type, tid);
 	}
 	AActor *SingleActorFromTID(int tid, AActor *defactor)
 	{
@@ -418,6 +451,7 @@ public:
 	void ClearTIDHashes ()
 	{
 		memset(TIDHash, 0, sizeof(TIDHash));
+		memset(ClientSideTIDHash, 0, sizeof(ClientSideTIDHash));
 	}
 
 
@@ -433,6 +467,8 @@ public:
 
 	DThinker *CreateThinker(PClass *cls, int statnum = STAT_DEFAULT)
 	{
+		if (bPredictionGuard)
+			DPrintf(DMSG_WARNING, TEXTCOLOR_RED "Spawned non-client-side Thinker %s while predicting\n", cls->TypeName.GetChars());
 		DThinker *thinker = static_cast<DThinker*>(cls->CreateNew());
 		assert(thinker->IsKindOf(RUNTIME_CLASS(DThinker)));
 		thinker->ObjectFlags |= OF_JustSpawned;
@@ -445,6 +481,24 @@ public:
 	T* CreateThinker(Args&&... args)
 	{
 		auto thinker = static_cast<T*>(CreateThinker(RUNTIME_CLASS(T), T::DEFAULT_STAT));
+		thinker->Construct(std::forward<Args>(args)...);
+		return thinker;
+	}
+
+	DThinker* CreateClientsideThinker(PClass* cls, int statnum = STAT_DEFAULT)
+	{
+		DThinker* thinker = static_cast<DThinker*>(cls->CreateNew());
+		assert(thinker->IsKindOf(RUNTIME_CLASS(DThinker)));
+		thinker->ObjectFlags |= OF_JustSpawned | OF_ClientSide | OF_Transient;
+		ClientsideThinkers.Link(thinker, statnum);
+		thinker->Level = this;
+		return thinker;
+	}
+
+	template<typename T, typename... Args>
+	T* CreateClientsideThinker(Args&&... args)
+	{
+		auto thinker = static_cast<T*>(CreateClientsideThinker(RUNTIME_CLASS(T), T::DEFAULT_STAT));
 		thinker->Construct(std::forward<Args>(args)...);
 		return thinker;
 	}
@@ -517,6 +571,7 @@ public:
 
 	FBehaviorContainer Behaviors;
 	AActor *TIDHash[128];
+	AActor* ClientSideTIDHash[128];
 
 	TArray<FStrifeDialogueNode *> StrifeDialogues;
 	FDialogueIDMap DialogueRoots;
@@ -579,7 +634,7 @@ public:
 	// This needs to be done better, but for now it should be good enough.
 	bool PlayerInGame(player_t *player)
 	{
-		for (int i = 0; i < MAXPLAYERS; i++)
+		for (unsigned int i = 0; i < MAXPLAYERS; i++)
 		{
 			if (player == Players[i]) return PlayerInGame(i);
 		}
@@ -588,7 +643,7 @@ public:
 
 	int PlayerNum(player_t *player)
 	{
-		for (int i = 0; i < MAXPLAYERS; i++)
+		for (unsigned int i = 0; i < MAXPLAYERS; i++)
 		{
 			if (player == Players[i]) return i;
 		}
@@ -647,12 +702,14 @@ public:
 	unsigned int cdid;
 	FTextureID	skytexture1;
 	FTextureID	skytexture2;
+	FTextureID	skymisttexture;
 
 	float		skyspeed1;				// Scrolling speed of sky textures, in pixels per ms
 	float		skyspeed2;
+	float		skymistspeed;
 
 	double		sky1pos, sky2pos;
-	float		hw_sky1pos, hw_sky2pos;
+	float		hw_sky1pos, hw_sky2pos, hw_skymistpos;
 	bool		skystretch;
 	uint32_t	globalcolormap;
 
@@ -683,6 +740,8 @@ public:
 	TArray<particle_t>	Particles;
 	TArray<uint16_t>	ParticlesInSubsec;
 	FThinkerCollection Thinkers;
+	FThinkerCollection ClientsideThinkers;
+	TArray<DThinker*> TravellingThinkers;
 
 	TArray<DVector2>	Scrolls;		// NULL if no DScrollers in this level
 
@@ -712,14 +771,20 @@ public:
 	bool		lightadditivesurfaces;
 	bool		notexturefill;
 	int			ImpactDecalCount;
+	float		thickfogdistance;
+	float		thickfogmultiplier;
+
+	FGlobalDLightLists lightlists;
 
 	FDynamicLight *lights;
 	DVisualThinker* VisualThinkerHead = nullptr;
 
 	// links to global game objects
+	TArray<DBehavior*> ActorBehaviors, ClientSideActorBehaviors;
 	TArray<TObjPtr<AActor *>> CorpseQueue;
 	TObjPtr<DFraggleThinker *> FraggleScriptThinker = MakeObjPtr<DFraggleThinker*>(nullptr);
 	TObjPtr<DACSThinker*> ACSThinker = MakeObjPtr<DACSThinker*>(nullptr);
+	TObjPtr<DACSThinker*> ClientSideACSThinker = MakeObjPtr<DACSThinker*>(nullptr);
 
 	TObjPtr<DSpotState *> SpotState = MakeObjPtr<DSpotState*>(nullptr);
 
@@ -769,6 +834,35 @@ public:
 			const auto origin = FVector3(xy.X, xy.Y, float(sector->floorplane.ZatPoint(sector->centerspot) + 64.0));
 
 			side.lightProbe.index = FindClosestProbe(origin);
+		}
+	}
+
+	//==========================================================================
+	//
+	//
+	//==========================================================================
+
+	void AddActorBehavior(DBehavior& b)
+	{
+		if (b.Level == nullptr)
+		{
+			b.Level = this;
+			if (b.IsClientside())
+				ClientSideActorBehaviors.Push(&b);
+			else
+				ActorBehaviors.Push(&b);
+		}
+	}
+
+	void RemoveActorBehavior(DBehavior& b)
+	{
+		if (b.Level == this)
+		{
+			b.Level = nullptr;
+			if (b.IsClientside())
+				ClientSideActorBehaviors.Delete(ClientSideActorBehaviors.Find(&b));
+			else
+				ActorBehaviors.Delete(ActorBehaviors.Find(&b));
 		}
 	}
 

@@ -209,6 +209,12 @@ struct FLightNode
 	};
 };
 
+struct FDynamicLightTouchLists
+{
+	TMap<FSection*, FSection*> flat_tlist;
+	TMap<side_t*, side_t*> wall_tlist;
+};
+
 struct FDynamicLight
 {
 	friend class FLightDefaults;
@@ -265,6 +271,7 @@ struct FDynamicLight
 
 	void Tick();
 	bool UpdateLocation();
+	void AddLightNode(FSection *section, side_t *sidedef);
 	void LinkLight();
 	void UnlinkLight();
 	void ReleaseLight();
@@ -329,6 +336,8 @@ public:
 		int index;
 		int portalgroup;
 	} levelmesh[max_levelmesh_entries];
+
+	FDynamicLightTouchLists touchlists;
 };
 
 

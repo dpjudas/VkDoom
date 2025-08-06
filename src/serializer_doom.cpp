@@ -52,6 +52,7 @@
 #include "g_levellocals.h"
 #include "p_conversation.h"
 #include "p_terrain.h"
+#include "decallib.h"
 
 #include "serializer_internal.h"
 
@@ -225,6 +226,37 @@ FSerializer& FDoomSerializer::StatePointer(const char* key, void* ptraddr, bool 
 	return *this;
 }
 
+
+FSerializer& Serialize(FSerializer& arc, const char* key, TMap<FName, TObjPtr<DBehavior*>>& value, TMap<FName, TObjPtr<DBehavior*>>* def)
+{
+	if (!arc.BeginObject(key))
+		return arc;
+
+	if (arc.isWriting())
+	{
+		TMap<FName, TObjPtr<DBehavior*>>::Iterator it = { value };
+		TMap<FName, TObjPtr<DBehavior*>>::Pair* pair = nullptr;
+		while (it.NextPair(pair))
+		{
+			auto b = pair->Value.Get();
+			if (b != nullptr)
+				arc(pair->Key.GetChars(), b);
+		}
+	}
+	else
+	{
+		const char* k = nullptr;
+		while ((k = arc.GetKey()) != nullptr)
+		{
+			DBehavior* obj = nullptr;
+			arc(k, obj);
+			value[k] = obj;
+		}
+	}
+
+	arc.EndObject();
+	return arc;
+}
 
 
 template<> FSerializer &Serialize(FSerializer &ar, const char *key, FPolyObj *&value, FPolyObj **defval)
@@ -416,6 +448,34 @@ FSerializer &Serialize(FSerializer &arc, const char *key, FState *&state, FState
 	}
 	return arc;
 
+}
+
+template<> FSerializer& Serialize(FSerializer& arc, const char* key, FDecalBase*& decal, FDecalBase** def)
+{
+	if (arc.isWriting())
+	{
+		if (!arc.w->inObject() || def == nullptr || decal != *def)
+		{
+			arc.WriteKey(key);
+			if (decal == nullptr)
+				arc.w->Null();
+			else
+				arc.w->String(decal->GetDecalName().GetChars());
+		}
+	}
+	else
+	{
+		auto d = arc.r->FindKey(key);
+		if (d != nullptr)
+		{
+			if (!d->IsString())
+				decal = nullptr;
+			else
+				decal = DecalLibrary.GetDecalBaseByName(d->GetString());
+		}
+	}
+
+	return arc;
 }
 
 //==========================================================================

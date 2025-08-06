@@ -141,6 +141,8 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		VPUniforms.SunDir = FVector3(level.SunDirection.X, level.SunDirection.Z, level.SunDirection.Y);
 		VPUniforms.SunColor = level.SunColor;
 		VPUniforms.SunIntensity = level.SunIntensity;
+		VPUniforms.mThickFogDistance = Level->thickfogdistance;
+		VPUniforms.mThickFogMultiplier = Level->thickfogmultiplier;
 	}
 	mClipper->SetViewpoint(Viewpoint);
 	vClipper->SetViewpoint(Viewpoint);
@@ -1139,17 +1141,6 @@ void HWDrawInfo::DrawCorona(FRenderState& state, AActor* corona, float coronaFad
 	state.Draw(DT_TriangleStrip, vertexindex, 4);
 }
 
-static ETraceStatus CheckForViewpointActor(FTraceResults& res, void* userdata)
-{
-	FRenderViewpoint* data = (FRenderViewpoint*)userdata;
-	if (res.HitType == TRACE_HitActor && res.Actor && res.Actor == data->ViewActor)
-	{
-		return TRACE_Skip;
-	}
-
-	return TRACE_Stop;
-}
-
 //==========================================================================
 //
 // TraceCallbackForDitherTransparency
@@ -1189,7 +1180,7 @@ static ETraceStatus TraceCallbackForDitherTransparency(FTraceResults& res, void*
 					res.Line->sidedef[res.Side]->dithertranscount = 1;
 				}
 			}
- 		}
+		}
 		break;
 	case TRACE_HitFloor:
 		if (res.Sector->subsectorcount > 0 && (*CurMapSections)[res.Sector->subsectors[0]->mapsection] && res.HitVector.dot(res.Sector->floorplane.Normal()) < 0.0)
@@ -1298,6 +1289,16 @@ void HWDrawInfo::SetDitherTransFlags(AActor* actor)
 	}
 }
 
+static ETraceStatus CheckForViewpointActor(FTraceResults& res, void* userdata)
+{
+	FRenderViewpoint* data = (FRenderViewpoint*)userdata;
+	if (res.HitType == TRACE_HitActor && res.Actor && res.Actor == data->ViewActor)
+	{
+		return TRACE_Skip;
+	}
+
+	return TRACE_Stop;
+}
 
 void HWDrawInfo::DrawCoronas(FRenderState& state)
 {

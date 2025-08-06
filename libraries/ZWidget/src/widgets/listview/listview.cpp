@@ -85,7 +85,7 @@ void ListView::RemoveItem(int index)
 		return;
 
 	if (index < 0)
-		index = items.size() - 1;
+		index = static_cast<int>(items.size()) - 1;
 
 	if (selectedItem == index)
 		SetSelectedItem(0);

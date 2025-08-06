@@ -269,6 +269,66 @@ void FThinkerCollection::RunThinkers(FLevelLocals *Level)
 
 //==========================================================================
 //
+// This version doesn't modify the level since that's already been done by
+// the networked ticking. This also runs while the player is predicting
+// to make sure it keeps ticking regardless of network game status.
+//
+//==========================================================================
+
+void FThinkerCollection::RunClientsideThinkers(FLevelLocals* Level)
+{
+	int i, count;
+
+	bool dolights;
+	if ((gl_lights && vid_rendermode == 4) || (r_dynlights && vid_rendermode != 4))
+	{
+		dolights = true;// Level->lights || (Level->flags3 & LEVEL3_LIGHTCREATED);
+	}
+	else
+	{
+		dolights = false;
+	}
+
+	auto recreateLights = [=]() {
+		auto it = Level->GetClientsideThinkerIterator<AActor>();
+
+		// Set dynamic lights at the end of the tick, so that this catches all changes being made through the last frame.
+		while (auto ac = it.Next())
+		{
+			if (ac->flags8 & MF8_RECREATELIGHTS)
+			{
+				ac->flags8 &= ~MF8_RECREATELIGHTS;
+				if (dolights) ac->SetDynamicLights();
+			}
+			// This was merged from P_RunEffects to eliminate the costly duplicate ThinkerIterator loop.
+			if ((ac->effects || ac->fountaincolor) && ac->ShouldRenderLocally() && !Level->isFrozen())
+			{
+				P_RunEffect(ac, ac->effects);
+			}
+		}
+	};
+
+	// Tick every thinker left from last time
+	for (i = STAT_FIRST_THINKING; i <= MAX_STATNUM; ++i)
+	{
+		Thinkers[i].TickThinkers(nullptr);
+	}
+
+	// Keep ticking the fresh thinkers until there are no new ones.
+	do
+	{
+		count = 0;
+		for (i = STAT_FIRST_THINKING; i <= MAX_STATNUM; ++i)
+		{
+			count += FreshThinkers[i].TickThinkers(&Thinkers[i]);
+		}
+	} while (count != 0);
+
+	recreateLights();
+}
+
+//==========================================================================
+//
 // Destroy every thinker
 //
 //==========================================================================
@@ -294,6 +354,36 @@ void FThinkerCollection::DestroyAllThinkers(bool fullgc)
 		if (fullgc) I_Error("DestroyAllThinkers failed");
 		else I_FatalError("DestroyAllThinkers failed");
 	}
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+void FThinkerCollection::CleanUpTravellers(bool saveGame)
+{
+	DestroyThinkersInList(STAT_TRAVELLING);
+	for (size_t i = 0u; i <= MAX_STATNUM; ++i)
+	{
+		FreshThinkers[i].RemoveTravellers(saveGame);
+		Thinkers[i].RemoveTravellers(saveGame);
+	}
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+void FThinkerCollection::OnLoad()
+{
+	for (auto& list : FreshThinkers)
+		list.OnLoad();
+	for (auto& list : Thinkers)
+		list.OnLoad();
 }
 
 //==========================================================================
@@ -585,6 +675,56 @@ void FThinkerList::SaveList(FSerializer &arc)
 //
 //==========================================================================
 
+void FThinkerList::RemoveTravellers(bool saveGame)
+{
+	DThinker* node = GetHead();
+	if (node == nullptr)
+		return;
+
+	while (node != Sentinel)
+	{
+		NextToThink = node->NextThinker;
+		if ((node->ObjectFlags & OF_Travelling) && !(node->ObjectFlags & OF_EuthanizeMe))
+		{
+			if (saveGame)
+				node->ObjectFlags &= ~OF_Travelling;
+			else
+				node->Destroy();
+		}
+		node = NextToThink;
+	}
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+void FThinkerList::OnLoad()
+{
+	DThinker* node = GetHead();
+	if (node == nullptr)
+		return;
+
+	while (node != Sentinel)
+	{
+		NextToThink = node->NextThinker;
+		if (!(node->ObjectFlags & OF_EuthanizeMe))
+		{
+			IFOVERRIDENVIRTUALPTRNAME(node, NAME_Thinker, OnLoad)
+				VMCallVoid<DThinker*>(func, node);
+		}
+		node = NextToThink;
+	}
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
 int FThinkerList::TickThinkers(FThinkerList *dest)
 {
 	int count = 0;
@@ -682,12 +822,12 @@ int FThinkerList::ProfileThinkers(FThinkerList *dest)
 //
 //==========================================================================
 
-DThinker::~DThinker ()
+DThinker::~DThinker()
 {
 	assert(NextThinker == nullptr && PrevThinker == nullptr);
 }
 
-void DThinker::OnDestroy ()
+void DThinker::OnDestroy()
 {
 	assert((NextThinker != nullptr && PrevThinker != nullptr) ||
 		   (NextThinker == nullptr && PrevThinker == nullptr));
@@ -695,13 +835,32 @@ void DThinker::OnDestroy ()
 	{
 		Remove();
 	}
+	_statNum = -1;
 	Super::OnDestroy();
 }
 
 void DThinker::Serialize(FSerializer &arc)
 {
 	Super::Serialize(arc);
-	arc("level", Level);
+	arc("level", Level)
+		("statnum", _statNum);
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+static int GetStatNum(DThinker* self)
+{
+	return self->GetStatNum();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DThinker, GetStatNum, GetStatNum)
+{
+	PARAM_SELF_PROLOGUE(DThinker);
+	ACTION_RETURN_INT(self->GetStatNum());
 }
 
 //==========================================================================
@@ -737,11 +896,16 @@ void DThinker::Remove()
 //
 //==========================================================================
 
-void DThinker::PostBeginPlay ()
+void DThinker::PostBeginPlay()
 {
 }
 
-DEFINE_ACTION_FUNCTION(DThinker, PostBeginPlay)
+static void NativePostBeginPlay(DThinker* self)
+{
+	self->PostBeginPlay();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DThinker, PostBeginPlay, NativePostBeginPlay)
 {
 	PARAM_SELF_PROLOGUE(DThinker);
 	self->PostBeginPlay();
@@ -752,15 +916,9 @@ void DThinker::CallPostBeginPlay()
 {
 	ObjectFlags |= OF_Spawned;
 	IFVIRTUAL(DThinker, PostBeginPlay)
-	{
-		// Without the type cast this picks the 'void *' assignment...
-		VMValue params[1] = { (DObject*)this };
-		VMCall(func, params, 1, nullptr, 0);
-	}
+		VMCallVoid<DThinker*>(func, this);
 	else
-	{
 		PostBeginPlay();
-	}
 }
 
 //==========================================================================
@@ -789,38 +947,116 @@ void DThinker::CallPostSerialize()
 //
 //==========================================================================
 
-DThinker *FLevelLocals::FirstThinker (int statnum)
+DThinker *FLevelLocals::FirstThinker(int statnum)
 {
 	return Thinkers.FirstThinker(statnum);
 }
 
-//==========================================================================
-//
-//
-//
-//==========================================================================
-
-void DThinker::ChangeStatNum (int statnum)
+DThinker* FLevelLocals::FirstClientsideThinker(int statnum)
 {
-	if ((unsigned)statnum > MAX_STATNUM)
-	{
-		statnum = MAX_STATNUM;
-	}
-	Remove();
-	Level->Thinkers.Link(this, statnum);
+	return ClientsideThinkers.FirstThinker(statnum);
 }
 
-static void ChangeStatNum(DThinker *thinker, int statnum)
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+void DThinker::ChangeStatNum(int statnum)
 {
-	thinker->ChangeStatNum(statnum);
+	if ((unsigned)statnum > MAX_STATNUM)
+		statnum = MAX_STATNUM;
+	Remove();
+	if (IsClientside())
+		Level->ClientsideThinkers.Link(this, statnum);
+	else
+		Level->Thinkers.Link(this, statnum);
+	// Let us relink it back properly when we're done travelling.
+	if (statnum != STAT_TRAVELLING)
+		_statNum = statnum;
+}
+
+static void ChangeStatNum(DThinker *self, int statnum)
+{
+	if (self->ObjectFlags & OF_Travelling)
+	{
+		Printf(TEXTCOLOR_RED "Thinkers cannot be moved while travelling\n");
+		return;
+	}
+
+	// This will always break Actors, they should use STAT_TRAVELLING instead to
+	// transition between levels.
+	if (statnum == STAT_STATIC && self->IsKindOf(NAME_Actor))
+	{
+		Printf(TEXTCOLOR_RED "Actors cannot be added to STAT_STATIC\n");
+		return;
+	}
+	else if (statnum == STAT_TRAVELLING)
+	{
+		Printf(TEXTCOLOR_RED "Thinkers cannot be added to STAT_TRAVELLING manually\n");
+		return;
+	}
+
+	self->ChangeStatNum(statnum);
 }
 
 DEFINE_ACTION_FUNCTION_NATIVE(DThinker, ChangeStatNum, ChangeStatNum)
 {
 	PARAM_SELF_PROLOGUE(DThinker);
 	PARAM_INT(stat);
-
 	ChangeStatNum(self, stat);
+	return 0;
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+bool bTravelling = false;
+
+static void AddToTravellingList(DThinker* self)
+{
+	if (!bTravelling)
+	{
+		Printf(TEXTCOLOR_RED "Thinkers can only be set to travel on level change\n");
+		return;
+	}
+	// These should be handled by the owning Actor, otherwise they'll lose them and become useless anyway.
+	if (self->IsKindOf(NAME_Inventory) && self->PointerVar<AActor>(NAME_Owner) != nullptr)
+	{
+		Printf(TEXTCOLOR_RED "Owned Inventory items must travel with their owner on level change\n");
+		return;
+	}
+	if (self->IsKindOf(NAME_Bot))
+	{
+		Printf(TEXTCOLOR_RED "Bot Thinkers must travel with their owner on level change\n");
+		return;
+	}
+	auto mo = dyn_cast<AActor>(self);
+	if (mo != nullptr && (mo->flags & MF_UNMORPHED))
+	{
+		Printf(TEXTCOLOR_RED "Unmorphed Actors must travel with their owner on level change\n");
+		return;
+	}
+	// These need to be locked down since they have native fields that won't be cleared
+	// properly at the moment.
+	auto cls = self->GetClass()->NativeClass();
+	if (cls->TypeName != NAME_Thinker && cls->TypeName != NAME_Actor)
+	{
+		Printf(TEXTCOLOR_RED "Native thinkers cannot travel\n");
+		return;
+	}
+
+	self->Level->AddToTravellingList(self);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DThinker, AddToTravellingList, AddToTravellingList)
+{
+	PARAM_SELF_PROLOGUE(DThinker);
+	AddToTravellingList(self);
 	return 0;
 }
 
@@ -886,11 +1122,16 @@ CCMD(profilethinkers)
 //
 //==========================================================================
 
-void DThinker::Tick ()
+void DThinker::Tick()
 {
 }
 
-DEFINE_ACTION_FUNCTION(DThinker, Tick)
+static void NativeTick(DThinker* self)
+{
+	self->Tick();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DThinker, Tick, NativeTick)
 {
 	PARAM_SELF_PROLOGUE(DThinker);
 	self->Tick();
@@ -900,12 +1141,9 @@ DEFINE_ACTION_FUNCTION(DThinker, Tick)
 void DThinker::CallTick()
 {
 	IFVIRTUAL(DThinker, Tick)
-	{
-		// Without the type cast this picks the 'void *' assignment...
-		VMValue params[1] = { (DObject*)this };
-		VMCall(func, params, 1, nullptr, 0);
-	}
-	else Tick();
+		VMCallVoid<DThinker*>(func, this);
+	else
+		Tick();
 }
 
 //==========================================================================
@@ -933,8 +1171,9 @@ size_t DThinker::PropagateMark()
 //
 //==========================================================================
 
-FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum, bool forceSearch) : Level(l)
+FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum, FThinkerIteratorMode mode) : Level(l)
 {
+	m_ThinkerPool = mode == FThinkerIteratorMode::clientside ? &Level->ClientsideThinkers : &Level->Thinkers;
 	if ((unsigned)statnum > MAX_STATNUM)
 	{
 		m_Stat = STAT_FIRST_THINKING;
@@ -944,8 +1183,8 @@ FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int sta
 	else
 	{
 		m_Stat = statnum;
-		m_SearchStats = forceSearch;
-		m_SkipOne = (forceSearch && statnum <= STAT_FIRST_THINKING);
+		m_SearchStats = mode == FThinkerIteratorMode::forceSearch;
+		m_SkipOne = (mode == FThinkerIteratorMode::forceSearch && statnum <= STAT_FIRST_THINKING);
 	}
 	m_ParentType = type;
 	Reinit();
@@ -957,8 +1196,9 @@ FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int sta
 //
 //==========================================================================
 
-FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum, DThinker *prev, bool forceSearch) : Level(l)
+FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int statnum, DThinker *prev, FThinkerIteratorMode mode) : Level(l)
 {
+	m_ThinkerPool = mode == FThinkerIteratorMode::clientside ? &Level->ClientsideThinkers : &Level->Thinkers;
 	if ((unsigned)statnum > MAX_STATNUM)
 	{
 		m_Stat = STAT_FIRST_THINKING;
@@ -968,8 +1208,8 @@ FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int sta
 	else
 	{
 		m_Stat = statnum;
-		m_SearchStats = forceSearch;
-		m_SkipOne = (forceSearch && statnum <= STAT_FIRST_THINKING);
+		m_SearchStats = mode == FThinkerIteratorMode::forceSearch;
+		m_SkipOne = (mode == FThinkerIteratorMode::forceSearch && statnum <= STAT_FIRST_THINKING);
 	}
 	m_ParentType = type;
 	if (prev == nullptr || (prev->NextThinker->ObjectFlags & OF_Sentinel))
@@ -991,7 +1231,7 @@ FThinkerIterator::FThinkerIterator (FLevelLocals *l, const PClass *type, int sta
 
 void FThinkerIterator::Reinit ()
 {
-	m_CurrThinker = Level->Thinkers.Thinkers[m_Stat].GetHead();
+	m_CurrThinker = m_ThinkerPool->Thinkers[m_Stat].GetHead();
 	m_SearchingFresh = false;
 }
 
@@ -1034,7 +1274,7 @@ DThinker *FThinkerIterator::Next (bool exact)
 			}
 			if ((m_SearchingFresh = !m_SearchingFresh))
 			{
-				m_CurrThinker = Level->Thinkers.FreshThinkers[m_Stat].GetHead();
+				m_CurrThinker = m_ThinkerPool->FreshThinkers[m_Stat].GetHead();
 			}
 		} while (m_SearchingFresh);
 		if (m_SearchStats)
@@ -1045,7 +1285,7 @@ DThinker *FThinkerIterator::Next (bool exact)
 				m_Stat = STAT_FIRST_THINKING;
 			}
 		}
-		m_CurrThinker = Level->Thinkers.Thinkers[m_Stat].GetHead();
+		m_CurrThinker = m_ThinkerPool->Thinkers[m_Stat].GetHead();
 		m_SearchingFresh = false;
 	} while (m_SearchStats && (m_SkipOne || m_Stat != STAT_FIRST_THINKING));
 	return nullptr;

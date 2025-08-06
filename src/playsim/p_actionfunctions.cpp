@@ -1745,7 +1745,7 @@ DEFINE_ACTION_FUNCTION(AActor, CheckIfSeen)
 	PARAM_SELF_PROLOGUE(AActor);
 
 	auto Level = self->Level;
-	for (int i = 0; i < MAXPLAYERS; i++) 
+	for (unsigned int i = 0; i < MAXPLAYERS; i++)
 	{
 		if (Level->PlayerInGame(i))
 		{
@@ -1818,7 +1818,7 @@ DEFINE_ACTION_FUNCTION(AActor, CheckSightOrRange)
 
 	range *= range;
 	auto Level = self->Level;
-	for (int i = 0; i < MAXPLAYERS; i++)
+	for (unsigned int i = 0; i < MAXPLAYERS; i++)
 	{
 		if (Level->PlayerInGame(i))
 		{
@@ -1848,7 +1848,7 @@ DEFINE_ACTION_FUNCTION(AActor, CheckRange)
 
 	range *= range;
 	auto Level = self->Level;
-	for (int i = 0; i < MAXPLAYERS; i++)
+	for (unsigned int i = 0; i < MAXPLAYERS; i++)
 	{
 		if (Level->PlayerInGame(i))
 		{
@@ -4757,14 +4757,15 @@ DEFINE_ACTION_FUNCTION(AActor, CheckBlock)
 		ACTION_RETURN_BOOL(false);
 	}
 
-	if (mobj->BlockingMobj)
+	auto blocking = mobj->BlockingMobj.ForceGet();
+	if (blocking != nullptr && !(blocking->ObjectFlags & OF_EuthanizeMe))
 	{
 		AActor *setter = (flags & CBF_SETONPTR) ? mobj : self;
 		if (setter)
 		{
-			if (flags & CBF_SETTARGET)	setter->target = mobj->BlockingMobj;
-			if (flags & CBF_SETMASTER)	setter->master = mobj->BlockingMobj;
-			if (flags & CBF_SETTRACER)	setter->tracer = mobj->BlockingMobj;
+			if (flags & CBF_SETTARGET)	setter->target = blocking;
+			if (flags & CBF_SETMASTER)	setter->master = blocking;
+			if (flags & CBF_SETTRACER)	setter->tracer = blocking;
 		}
 	}
 
@@ -4772,7 +4773,7 @@ DEFINE_ACTION_FUNCTION(AActor, CheckBlock)
 	//If an actor is loaded with pointers, they don't really have any options to spare.
 	//Also, fail if a dropoff or a step is too great to pass over when checking for dropoffs.
 	
-	ACTION_RETURN_BOOL((!(flags & CBF_NOACTORS) && (mobj->BlockingMobj)) || (!(flags & CBF_NOLINES) && mobj->BlockingLine != NULL) ||
+	ACTION_RETURN_BOOL((!(flags & CBF_NOACTORS) && blocking != nullptr) || (!(flags & CBF_NOLINES) && mobj->BlockingLine != NULL) ||
 		((flags & CBF_DROPOFF) && !checker));
 }
 

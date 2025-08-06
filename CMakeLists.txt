@@ -22,6 +22,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF) 
 
+find_package(Threads REQUIRED)
 
 list( APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake )
 include( FindPackageHandleStandardArgs )
@@ -173,14 +174,14 @@ endmacro()
 
 include( CheckFunctionExists )
 
-macro( require_stricmp )
+macro( gz_require_stricmp )
 	CHECK_FUNCTION_EXISTS( stricmp STRICMP_EXISTS )
 	if( NOT STRICMP_EXISTS )
 		add_definitions( -Dstricmp=strcasecmp )
 	endif()
 endmacro()
 
-macro( require_strnicmp )
+macro( gz_require_strnicmp )
 	CHECK_FUNCTION_EXISTS( strnicmp STRNICMP_EXISTS )
 	if( NOT STRNICMP_EXISTS )
 		add_definitions( -Dstrnicmp=strncasecmp )
@@ -191,6 +192,12 @@ option( NO_OPENAL "Disable OpenAL sound support" OFF )
 
 find_package( BZip2 )
 find_package( VPX )
+if (NOT FORCE_INTERNAL_CPPDAP)
+	find_package( cppdap CONFIG )
+endif()
+if (NOT FORCE_INTERNAL_ZMUSIC)
+	find_package( ZMusic )
+endif()
 
 include( TargetArch )
 
@@ -269,14 +276,13 @@ else()
 	set( REL_C_FLAGS "" )
 	set( DEB_C_FLAGS "" )
 
-
 	if( APPLE )
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15")
 		if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
 			# If we're compiling with a custom GCC on the Mac (which we know since g++-4.2 doesn't support C++11) statically link libgcc.
 			set( ALL_C_FLAGS "-static-libgcc" )
 		endif()
-	elseif( NOT MINGW AND NOT HAIKU )
+	elseif( NOT MINGW AND NOT HAIKU AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS" )
 		# Generic GCC/Clang requires position independent executable to be enabled explicitly
 		set( ALL_C_FLAGS "${ALL_C_FLAGS} -fPIE" )
 		set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie" )
@@ -300,7 +306,10 @@ set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${REL_C_F
 set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEB_C_FLAGS} -D_DEBUG" )
 
 option(FORCE_INTERNAL_BZIP2 "Use internal bzip2")
+option(FORCE_INTERNAL_ZMUSIC "Use internal zmusic")
 option(FORCE_INTERNAL_ASMJIT "Use internal asmjit" ON)
+option(FORCE_INTERNAL_CPPDAP "Use internal cppdap" ON)
+
 mark_as_advanced( FORCE_INTERNAL_ASMJIT )
 
 if (HAVE_VULKAN)
@@ -352,6 +361,30 @@ else()
 	set( BZIP2_LIBRARY bz2 )
 endif()
 
+if ( CPPDAP_FOUND AND NOT FORCE_INTERNAL_CPPDAP )
+	message( STATUS "Using system cppdap library, includes found at ${CPPDAP_INCLUDE_DIR}" )
+else()
+	message( STATUS "Using internal cppdap library" )
+	add_subdirectory( libraries/cppdap )
+	set( CPPDAP_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libraries/cppdap" )
+	set( CPPDAP_LIBRARIES cppdap )
+	set( CPPDAP_LIBRARY cppdap )
+	set( CPPDAP_FOUND TRUE )
+endif()
+
+# ZMUSIC
+if( ZMUSIC_FOUND AND NOT FORCE_INTERNAL_ZMUSIC )
+	message( STATUS "Using system zmusic library, includes found at ${ZMUSIC_INCLUDE_DIR}" )
+	set( ZMUSIC_SYSTEM_INSTALL TRUE )
+else()
+	message( STATUS "Using internal zmusic library" )
+	add_subdirectory( libraries/ZMusic )
+	set( ZMUSIC_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libraries/zmusic" )
+	set( ZMUSIC_INCLUDE_DIR ${ZMUSIC_ROOT_PATH}/include )
+	set( ZMUSIC_LIBRARIES zmusic )
+	set( ZMUSIC_FOUND TRUE )
+endif()
+
 set( LZMA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libraries/lzma/C" )
 
 if( NOT CMAKE_CROSSCOMPILING )
@@ -373,7 +406,6 @@ install(DIRECTORY docs/
 option( DYN_OPENAL "Dynamically load OpenAL" ON )
 
 add_subdirectory( libraries/lzma )
-add_subdirectory( libraries/miniz )
 add_subdirectory( tools )
 add_subdirectory( wadsrc )
 add_subdirectory( wadsrc_bm )
@@ -381,6 +413,12 @@ add_subdirectory( wadsrc_lights )
 add_subdirectory( wadsrc_extra )
 add_subdirectory( wadsrc_widepix )
 add_subdirectory( src )
+
+if( ZMUSIC_SYSTEM_INSTALL )
+	# Internal ZMusic library provides miniz target, miniz.h file in partuclar
+	# It's not the case with system-wide ZMusic installation
+	add_subdirectory( libraries/miniz )
+endif()
 
 if( NOT CMAKE_CROSSCOMPILING )
 	export(TARGETS ${CROSS_EXPORTS} FILE "${CMAKE_BINARY_DIR}/ImportExecutables.cmake" )

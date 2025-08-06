@@ -287,8 +287,10 @@ struct HWDrawInfo
 	void AddSpecialPortalLines(subsector_t * sub, sector_t * sector, linebase_t *line);
 public:
 	void DoSubsector(subsector_t * sub);
-	void DrawPSprite(HUDSprite* huds, FRenderState& state);
-	WeaponLighting GetWeaponLighting(sector_t* viewsector, const DVector3& pos, int cm, area_t in_area, const DVector3& playerpos);
+	int SetupLightsForOtherPlane(subsector_t * sub, FDynLightData &lightdata, const secplane_t *plane);
+	int CreateOtherPlaneVertices(subsector_t *sub, const secplane_t *plane);
+	void DrawPSprite(HUDSprite *huds, FRenderState &state);
+	WeaponLighting GetWeaponLighting(sector_t *viewsector, const DVector3 &pos, int cm, area_t in_area, const DVector3 &playerpos, bool weaponPureLightLevel);
 
 	void PreparePlayerSprites2D(sector_t* viewsector, area_t in_area, FRenderState& state);
 	void PreparePlayerSprites3D(sector_t* viewsector, area_t in_area, FRenderState& state);
@@ -413,7 +415,7 @@ public:
 	void AddOtherFloorPlane(int sector, gl_subsectorrendernode * node, FRenderState& state);
 	void AddOtherCeilingPlane(int sector, gl_subsectorrendernode * node, FRenderState& state);
 
-	void GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache, double x, double y, double z, FLightNode *node, int portalgroup, float *out, bool fullbright);
+	void GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache, double x, double y, double z, FSection *sec, int portalgroup, float *out, bool fullbright);
 	void GetDynSpriteLight(AActor *thing, particle_t *particle, sun_trace_cache_t * traceCache, float *out);
 
 	void GetDynSpriteLightList(AActor *self, double x, double y, double z, sun_trace_cache_t * traceCache, FDynLightData &modellightdata, bool isModel);
@@ -503,7 +505,7 @@ inline bool isDarkLightMode(ELightMode lightmode)
 	return lightmode == ELightMode::Doom || lightmode == ELightMode::DoomDark;
 }
 
-int CalcLightLevel(ELightMode lightmode, int lightlevel, int rellight, bool weapon, int blendfactor);
+int CalcLightLevel(ELightMode lightmode, int lightlevel, int rellight, bool weapon, int blendfactor, bool weaponPureLightLevel = false);
 PalEntry CalcLightColor(ELightMode lightmode, int light, PalEntry pe, int blendfactor);
 float GetFogDensity(FLevelLocals* Level, ELightMode lightmode, int lightlevel, PalEntry fogcolor, int sectorfogdensity, int blendfactor);
 bool CheckFog(FLevelLocals* Level, sector_t* frontsector, sector_t* backsector, ELightMode lightmode);

@@ -756,6 +756,13 @@ void ZCCCompiler::CreateStructTypes()
 			s->strct->Type->mVersion = s->strct->Version;
 		}
 
+		if (s->strct->Flags & ZCC_Deprecated)
+		{
+			s->strct->Type->mVersion = s->strct->Version;
+			s->strct->Type->TypeDeprecated = true;
+			s->strct->Type->mDeprecationMessage = s->strct->DeprecationMessage ? *s->strct->DeprecationMessage : "";
+		}
+
 		if (s->strct->Flags & ZCC_VMInternalStruct)
 		{
 			if(fileSystem.GetFileContainer(Lump) == 0)
@@ -909,6 +916,7 @@ void ZCCCompiler::CreateClassTypes()
 						else
 						{
 							c->cls->Type = NewClassType(newclass, AST.FileNo);
+							newclass->SourceLumpName = *c->cls->SourceName;
 							DPrintf(DMSG_SPAMMY, "Created class %s with parent %s\n", c->Type()->TypeName.GetChars(), c->ClassType()->ParentClass->TypeName.GetChars());
 						}
 					}
@@ -930,6 +938,13 @@ void ZCCCompiler::CreateClassTypes()
 				if (c->cls->Flags & ZCC_Version)
 				{
 					c->Type()->mVersion = c->cls->Version;
+				}
+
+				if (c->cls->Flags & ZCC_Deprecated)
+				{
+					c->Type()->mVersion = c->cls->Version;
+					c->Type()->TypeDeprecated = true;
+					c->Type()->mDeprecationMessage = c->cls->DeprecationMessage ? *c->cls->DeprecationMessage : "";
 				}
 				
 
@@ -1500,8 +1515,8 @@ bool ZCCCompiler::CompileFields(PContainerType *type, TArray<ZCC_VarDeclarator *
 
 		// For structs only allow 'deprecated', for classes exclude function qualifiers.
 		int notallowed = forstruct? 
-			ZCC_Latent | ZCC_Final | ZCC_Action | ZCC_Static | ZCC_FuncConst | ZCC_Abstract | ZCC_Virtual | ZCC_Override | ZCC_Meta | ZCC_Extension | ZCC_VirtualScope | ZCC_ClearScope :
-			ZCC_Latent | ZCC_Final | ZCC_Action | ZCC_Static | ZCC_FuncConst | ZCC_Abstract | ZCC_Virtual | ZCC_Override | ZCC_Extension | ZCC_VirtualScope | ZCC_ClearScope;
+			ZCC_Latent | ZCC_Final | ZCC_Action | ZCC_Static | ZCC_FuncConst | ZCC_FuncConstUnsafe | ZCC_Abstract | ZCC_Virtual | ZCC_Override | ZCC_Meta | ZCC_Extension | ZCC_VirtualScope | ZCC_ClearScope :
+			ZCC_Latent | ZCC_Final | ZCC_Action | ZCC_Static | ZCC_FuncConst | ZCC_FuncConstUnsafe | ZCC_Abstract | ZCC_Virtual | ZCC_Override | ZCC_Extension | ZCC_VirtualScope | ZCC_ClearScope;
 
 		// Some internal fields need to be set to clearscope.
 		if (fileSystem.GetFileContainer(Lump) == 0) notallowed &= ~ZCC_ClearScope;
@@ -1533,7 +1548,7 @@ bool ZCCCompiler::CompileFields(PContainerType *type, TArray<ZCC_VarDeclarator *
 				varflags = FScopeBarrier::ChangeSideInFlags(varflags, FScopeBarrier::Side_UI);
 			if (field->Flags & ZCC_Play)
 				varflags = FScopeBarrier::ChangeSideInFlags(varflags, FScopeBarrier::Side_Play);
-			if (field->Flags & ZCC_ClearScope)
+			if (field->Flags & (ZCC_ClearScope | ZCC_UnsafeClearScope))
 				varflags = FScopeBarrier::ChangeSideInFlags(varflags, FScopeBarrier::Side_PlainData);
 		}
 		else
@@ -2189,7 +2204,16 @@ PType *ZCCCompiler::ResolveUserType(PType *outertype, ZCC_BasicType *type, ZCC_I
 	if (sym != nullptr && sym->IsKindOf(RUNTIME_CLASS(PSymbolType)))
 	{
 		auto ptype = static_cast<PSymbolType *>(sym)->Type;
-		if (ptype->mVersion > mVersion)
+
+		if (ptype->TypeDeprecated)
+		{
+			if(ptype->mVersion <= mVersion && !outertype->TypeDeprecated && fileSystem.GetFileContainer(Lump) > 0)
+			{
+				Warn(type, "Type %s is deprecated since ZScript version %d.%d.%d%s%s",
+					FName(type->UserType->Id).GetChars(), mVersion.major, mVersion.minor, mVersion.revision, ptype->mDeprecationMessage.IsEmpty() ? "" : ": ", ptype->mDeprecationMessage.GetChars());
+			}
+		}
+		else if (ptype->mVersion > mVersion)
 		{
 			Error(type, "Type %s not accessible to ZScript version %d.%d.%d", FName(type->UserType->Id).GetChars(), mVersion.major, mVersion.minor, mVersion.revision);
 			return TypeError;
@@ -2348,7 +2372,7 @@ void ZCCCompiler::SetImplicitArgs(TArray<PType*>* args, TArray<uint32_t>* argfla
 	if (funcflags & VARF_Method)
 	{
 		// implied self pointer
-		if (args != nullptr)		args->Push(NewPointer(cls, !!(funcflags & VARF_ReadOnly)));
+		if (args != nullptr)		args->Push(NewPointer(cls, (funcflags & VARF_SafeConst)));
 		if (argflags != nullptr)	argflags->Push(VARF_Implicit | VARF_ReadOnly);
 		if (argnames != nullptr)	argnames->Push(NAME_self);
 	}
@@ -2479,7 +2503,9 @@ void ZCCCompiler::CompileFunction(ZCC_StructWork *c, ZCC_FuncDeclarator *f, bool
 		if (f->Flags & ZCC_Override) varflags |= VARF_Override;
 		if (f->Flags & ZCC_Abstract) varflags |= VARF_Abstract;
 		if (f->Flags & ZCC_VarArg) varflags |= VARF_VarArg;
-		if (f->Flags & ZCC_FuncConst) varflags |= VARF_ReadOnly; // FuncConst method is internally marked as VARF_ReadOnly
+		if (f->Flags & ZCC_FuncConst) varflags |= (mVersion >= MakeVersion(4, 15, 1) ? VARF_ReadOnly | VARF_SafeConst : VARF_ReadOnly); // FuncConst method is internally marked as VARF_ReadOnly
+		if (f->Flags & ZCC_FuncConstUnsafe) varflags |= VARF_ReadOnly;
+
 		if (mVersion >= MakeVersion(2, 4, 0))
 		{
 			if (c->Type()->ScopeFlags & Scope_UI)

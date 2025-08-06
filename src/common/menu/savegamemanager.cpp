@@ -48,10 +48,13 @@
 #include "savegamemanager.h"
 #include "m_argv.h"
 #include "i_specialpaths.h"
+#include "i_interface.h"
 
 CVAR(String, save_dir, "", CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_SYSTEM_ONLY);
 FString SavegameFolder;
 CVAR(Int, save_sort_order, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+extern bool netgame;
 
 //=============================================================================
 //
@@ -111,6 +114,11 @@ DEFINE_ACTION_FUNCTION(FSavegameManager, RemoveSaveSlot)
 {
 	PARAM_SELF_STRUCT_PROLOGUE(FSavegameManagerBase);
 	PARAM_INT(sel);
+	if (!DMenu::InMenu)
+	{
+		Printf("Saves can only be deleted from within a menu\n");
+		ACTION_RETURN_INT(-1);
+	}
 	ACTION_RETURN_INT(self->RemoveSaveSlot(sel));
 }
 
@@ -184,6 +192,7 @@ void FSavegameManagerBase::NotifyNewSave(const FString &file, const FString &tit
 		{
 			node->SaveTitle = title;
 			node->CreationTime = myasctime();
+			node->UUID = GameUUID;
 			node->bOldVersion = false;
 			node->bMissingWads = false;
 
@@ -203,6 +212,7 @@ void FSavegameManagerBase::NotifyNewSave(const FString &file, const FString &tit
 	auto node = new FSaveGameNode;
 	node->SaveTitle = title;
 	node->CreationTime = myasctime();
+	node->UUID = GameUUID;
 	node->Filename = file;
 	node->bOldVersion = false;
 	node->bMissingWads = false;
@@ -264,12 +274,47 @@ void FSavegameManagerBase::DoSave(int Selected, const char *savegamestring)
 		FString filename;
 		int i;
 
-		for (i = 0;; ++i)
+		if (netgame)
 		{
-			filename = BuildSaveName("save", i);
-			if (!FileExists(filename))
+			// For netgames it's usually a bad idea to use the default savexx names, so instead
+			// sanitize the description to use as a name.
+			filename = savegamestring;
+			FixPathSeperator(filename);
+			bool failed = false;
+			if (filename[0] == '/')
 			{
-				break;
+				Printf("saving to an absolute path is not allowed\n");
+				failed = true;
+			}
+			else if (filename.IndexOf("..") >= 0)
+			{
+				Printf("'..' not allowed in file names\n");
+				failed = true;
+			}
+#ifdef _WIN32
+			// block all invalid characters for Windows file names
+			else if (filename.IndexOfAny(":?*<>|") >= 0)
+			{
+				Printf("file name contains invalid characters\n");
+				failed = true;
+			}
+#endif
+			if (failed)
+			{
+				M_ClearMenus();
+				return;
+			}
+			filename = G_BuildSaveName(filename.GetChars());
+		}
+		else
+		{
+			for (i = 0;; ++i)
+			{
+				filename = BuildSaveName("save", i);
+				if (!FileExists(filename))
+				{
+					break;
+				}
 			}
 		}
 		PerformSaveGame(filename.GetChars(), savegamestring);
@@ -518,6 +563,27 @@ bool FSavegameManagerBase::RemoveNewSaveNode()
 	return false;
 }
 
+int FSavegameManagerBase::RemoveUUIDSaveSlots()
+{
+	if (GameUUID.IsEmpty())
+		return -1;
+
+	// Make sure there's any saves in the list first.
+	if (!SaveGames.Size())
+		ReadSaveStrings();
+
+	int index = -1;
+	for (int i = SaveGames.Size() - 1; i >= 0; --i)
+	{
+		auto& save = SaveGames[i];
+		if (save == &NewSaveNode || save->UUID.Compare(GameUUID))
+			continue;
+
+		index = RemoveSaveSlot(i);
+	}
+	return index;
+}
+
 DEFINE_ACTION_FUNCTION(FSavegameManager, RemoveNewSaveNode)
 {
 	PARAM_SELF_STRUCT_PROLOGUE(FSavegameManagerBase);
@@ -539,9 +605,15 @@ DEFINE_ACTION_FUNCTION(FSavegameManager, ExtractSaveData)
 	ACTION_RETURN_INT(self->ExtractSaveData(sel));
 }
 
+DEFINE_ACTION_FUNCTION(FSavegameManager, RemoveUUIDSaveSlots)
+{
+	PARAM_SELF_STRUCT_PROLOGUE(FSavegameManagerBase);
+	ACTION_RETURN_INT(self->RemoveUUIDSaveSlots());
+}
 
 DEFINE_FIELD(FSaveGameNode, SaveTitle);
 DEFINE_FIELD(FSaveGameNode, Filename);
+DEFINE_FIELD(FSaveGameNode, UUID);
 DEFINE_FIELD(FSaveGameNode, bOldVersion);
 DEFINE_FIELD(FSaveGameNode, bMissingWads);
 DEFINE_FIELD(FSaveGameNode, bNoDelete);
@@ -561,7 +633,15 @@ FString G_GetSavegamesFolder()
 	FString name;
 	bool usefilter;
 
-	if (const char* const dir = Args->CheckValue("-savedir"))
+	// Always use the netgame folder for multiplayer games to prevent any singleplayer saves
+	// from being overridden by someone else. Also makes it easier for everyone to load from
+	// it.
+	if (netgame)
+	{
+		name = M_GetSavegamesPath();
+		usefilter = true;
+	}
+	else if (const char* const dir = Args->CheckValue("-savedir"))
 	{
 		name = dir;
 		usefilter = false; //-savedir specifies an absolute save directory path.

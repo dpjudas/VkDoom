@@ -296,7 +296,7 @@ DoomLevelMesh::DoomLevelMesh(FLevelLocals& doomMap)
 	// Collect all the models we want to bake into the level mesh
 	if (lm_models)
 	{
-		TThinkerIterator<AActor> it(&doomMap, PClass::FindClass("Actor"), STAT_STATIC, true);
+		TThinkerIterator<AActor> it(&doomMap, PClass::FindClass("Actor"), STAT_STATIC, FThinkerIteratorMode::forceSearch);
 		AActor* thing;
 		while ((thing = it.Next()) != nullptr)
 		{
@@ -650,7 +650,9 @@ void DoomLevelMesh::AddSidesToDrawLists(const TArray<int>& sides, LevelMeshDrawL
 				int dynlightindex = -1;
 				if (di->Level->HasDynamicLights && !di->isFullbrightScene() && decals[0].texture != nullptr && !lm_dynlights)
 				{
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 					dynlightindex = decals[0].SetupLights(di, state, lightdata, level.sides[sideIndex].lighthead);
+#endif
 				}
 
 				for (const HWDecalCreateInfo& info : decals)
@@ -1046,7 +1048,7 @@ void DoomLevelMesh::UpdateLightShadows(sector_t* sector)
 {
 	for (FSection& section : level.sections.SectionsForSector(sector))
 	{
-		int lightcount = 0;
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 		FLightNode* cur = section.lighthead;
 		while (cur)
 		{
@@ -1057,6 +1059,7 @@ void DoomLevelMesh::UpdateLightShadows(sector_t* sector)
 			}
 			cur = cur->nextLight;
 		}
+#endif
 	}
 }
 
@@ -1182,12 +1185,16 @@ void DoomLevelMesh::UpdateSideLightList(FLevelLocals& doomMap, unsigned int side
 			return;
 
 		FreeLightList(sideBlock.Lights.Start, sideBlock.Lights.Count);
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 		sideBlock.Lights = CreateLightList(sub->section->lighthead, sub->sector->PortalGroup);
+#endif
 	}
 	else
 	{
 		FreeLightList(sideBlock.Lights.Start, sideBlock.Lights.Count);
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 		sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
+#endif
 	}
 
 	int surf = Sides[sideIndex].FirstSurface;
@@ -1215,7 +1222,9 @@ void DoomLevelMesh::UpdateFlatLightList(FLevelLocals& doomMap, unsigned int sect
 	sector_t* sector = &doomMap.sectors[sectorIndex];
 	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
 	{
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 		Flats[sectorIndex].Lights.Push(CreateLightList(section.lighthead, section.sector->PortalGroup));
+#endif
 	}
 
 	int surf = Flats[sectorIndex].FirstSurface;
@@ -1373,7 +1382,9 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 			{
 				if (!lightlistCreated)
 				{
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 					sideBlock.Lights = CreateLightList(sub->section->lighthead, sub->sector->PortalGroup);
+#endif
 					lightlistCreated = true;
 				}
 
@@ -1388,7 +1399,9 @@ void DoomLevelMesh::CreateSide(FLevelLocals& doomMap, unsigned int sideIndex)
 	}
 	else
 	{
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 		sideBlock.Lights = CreateLightList(side->lighthead, side->sector->PortalGroup);
+#endif
 
 		subsector_t* sub = seg->Subsector;
 		sector_t* front = side->sector;
@@ -1480,7 +1493,11 @@ void DoomLevelMesh::CreateFlat(FLevelLocals& doomMap, unsigned int sectorIndex)
 	int lightlistSection = 0;
 	for (FSection& section : doomMap.sections.SectionsForSector(sectorIndex))
 	{
+#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 		Flats[sectorIndex].Lights.Push(CreateLightList(section.lighthead, section.sector->PortalGroup));
+#else
+		Flats[sectorIndex].Lights.Push({});
+#endif
 		const auto& lightlist = Flats[sectorIndex].Lights.Last();
 
 		HWFlatMeshHelper result;

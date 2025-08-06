@@ -41,8 +41,8 @@ class DThinkerIterator : public DObject, public FThinkerIterator
 	DECLARE_ABSTRACT_CLASS(DThinkerIterator, DObject)
 
 public:
-	DThinkerIterator(FLevelLocals *Level, PClass *cls, int statnum = MAX_STATNUM + 1)
-		: FThinkerIterator(Level, cls, statnum)
+	DThinkerIterator(FLevelLocals *Level, PClass *cls, int statnum = MAX_STATNUM + 1, FThinkerIteratorMode mode = FThinkerIteratorMode::normal)
+		: FThinkerIterator(Level, cls, statnum, mode)
 	{
 	}
 };
@@ -60,6 +60,19 @@ DEFINE_ACTION_FUNCTION_NATIVE(DThinkerIterator, Create, CreateThinkerIterator)
 	PARAM_CLASS(type, DThinker);
 	PARAM_INT(statnum);
 	ACTION_RETURN_OBJECT(CreateThinkerIterator(type, statnum));
+}
+
+static DThinkerIterator* CreateClientsideThinkerIterator(PClass* type, int statnum)
+{
+	return Create<DThinkerIterator>(currentVMLevel, type, statnum, FThinkerIteratorMode::clientside);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DThinkerIterator, CreateClientside, CreateClientsideThinkerIterator)
+{
+	PARAM_PROLOGUE;
+	PARAM_CLASS(type, DThinker);
+	PARAM_INT(statnum);
+	ACTION_RETURN_OBJECT(CreateClientsideThinkerIterator(type, statnum));
 }
 
 static DThinker *NextThinker(DThinkerIterator *self, bool exact)
@@ -365,6 +378,19 @@ DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, CreateActorIterator, CreateActI)
 	ACTION_RETURN_OBJECT(CreateActI(self, tid, type));
 }
 
+static DActorIterator* CreateClientSideActI(FLevelLocals* Level, int tid, PClassActor* type)
+{
+	return Create<DActorIterator>(Level->ClientSideTIDHash, type, tid);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, CreateClientSideActorIterator, CreateClientSideActI)
+{
+	PARAM_SELF_STRUCT_PROLOGUE(FLevelLocals);
+	PARAM_INT(tid);
+	PARAM_CLASS(type, AActor);
+	ACTION_RETURN_OBJECT(CreateClientSideActI(self, tid, type));
+}
+
 static AActor *NextActI(DActorIterator *self)
 {
 	return self->Next();
@@ -384,6 +410,138 @@ static void ReinitActI(DActorIterator *self)
 DEFINE_ACTION_FUNCTION_NATIVE(DActorIterator, Reinit, ReinitActI)
 {
 	PARAM_SELF_PROLOGUE(DActorIterator);
+	self->Reinit();
+	return 0;
+}
+
+//===========================================================================
+//
+// Behavior iterator. This can be created in two ways;
+// -Across an Actor's behaviors
+// -Across all behaviors of a given type
+//
+//===========================================================================
+
+class DBehaviorIterator : public DObject
+{
+	DECLARE_ABSTRACT_CLASS(DBehaviorIterator, DObject)
+	size_t _index;
+	TArray<TObjPtr<DBehavior*>> _behaviors;
+
+public:
+	DBehaviorIterator(const AActor& mobj, PClass* type)
+	{
+		TMap<FName, TObjPtr<DBehavior*>>::ConstIterator it = { mobj.Behaviors };
+		TMap<FName, TObjPtr<DBehavior*>>::ConstPair* pair = nullptr;
+		while (it.NextPair(pair))
+		{
+			auto b = pair->Value.Get();
+			if (b == nullptr)
+				continue;
+
+			if (type == nullptr || b->IsKindOf(type))
+				_behaviors.Push(pair->Value);
+		}
+
+		Reinit();
+	}
+
+	DBehaviorIterator(const FLevelLocals& level, PClass* type, PClass* ownerType, bool clientSide)
+	{
+		auto& list = clientSide ? level.ClientSideActorBehaviors : level.ActorBehaviors;
+		for (auto& b : list)
+		{
+			if (ownerType != nullptr && !b->Owner->IsKindOf(ownerType))
+				continue;
+
+			if (type == nullptr || b->IsKindOf(type))
+				_behaviors.Push(MakeObjPtr<DBehavior*>(b));
+		}
+
+		Reinit();
+	}
+
+	DBehavior* Next()
+	{
+		while (_index < _behaviors.Size())
+		{
+			auto b = _behaviors[_index++].Get();
+			if (b != nullptr)
+				return b;
+		}
+
+		return nullptr;
+	}
+
+	void Reinit() { _index = 0u; }
+
+	void OnDestroy() override
+	{
+		_behaviors.Reset();
+		Super::OnDestroy();
+	}
+};
+
+IMPLEMENT_CLASS(DBehaviorIterator, true, false);
+
+static DBehaviorIterator* CreateBehaviorItFromActor(AActor* mobj, PClass* type)
+{
+	return Create<DBehaviorIterator>(*mobj, type);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DBehaviorIterator, CreateFrom, CreateBehaviorItFromActor)
+{
+	PARAM_PROLOGUE;
+	PARAM_OBJECT_NOT_NULL(mobj, AActor);
+	PARAM_CLASS(type, DBehavior);
+	ACTION_RETURN_OBJECT(CreateBehaviorItFromActor(mobj, type));
+}
+
+static DBehaviorIterator* CreateBehaviorIt(PClass* type, PClass* ownerType)
+{
+	return Create<DBehaviorIterator>(*primaryLevel, type, ownerType, false);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DBehaviorIterator, Create, CreateBehaviorIt)
+{
+	PARAM_PROLOGUE;
+	PARAM_CLASS(type, DBehavior);
+	PARAM_CLASS(ownerType, AActor);
+	ACTION_RETURN_OBJECT(CreateBehaviorIt(type, ownerType));
+}
+
+static DBehaviorIterator* CreateClientSideBehaviorIt(PClass* type, PClass* ownerType)
+{
+	return Create<DBehaviorIterator>(*primaryLevel, type, ownerType, true);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DBehaviorIterator, CreateClientSide, CreateClientSideBehaviorIt)
+{
+	PARAM_PROLOGUE;
+	PARAM_CLASS(type, DBehavior);
+	PARAM_CLASS(ownerType, AActor);
+	ACTION_RETURN_OBJECT(CreateClientSideBehaviorIt(type, ownerType));
+}
+
+static DBehavior* NextBehavior(DBehaviorIterator* self)
+{
+	return self->Next();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DBehaviorIterator, Next, NextBehavior)
+{
+	PARAM_SELF_PROLOGUE(DBehaviorIterator);
+	ACTION_RETURN_OBJECT(self->Next());
+}
+
+static void ReinitBehavior(DBehaviorIterator* self)
+{
+	self->Reinit();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DBehaviorIterator, Reinit, ReinitBehavior)
+{
+	PARAM_SELF_PROLOGUE(DBehaviorIterator);
 	self->Reinit();
 	return 0;
 }

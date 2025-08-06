@@ -254,7 +254,7 @@ CCMD (chase)
 {
 	if (demoplayback)
 	{
-		int i;
+		unsigned int i;
 
 		if (chasedemo)
 		{
@@ -719,7 +719,7 @@ UNSAFE_CCMD(save)
 		Printf("saving to an absolute path is not allowed\n");
 		return;
 	}
-	if (fname.IndexOf("..") > 0)
+	if (fname.IndexOf("..") >= 0)
 	{
 		Printf("'..' not allowed in file names\n");
 		return;
@@ -946,6 +946,46 @@ CCMD(changesky)
 		}
 	}
 	InitSkyMap (primaryLevel);
+}
+
+//-----------------------------------------------------------------------------
+//
+//
+//
+//-----------------------------------------------------------------------------
+CCMD(skymisttoggle)
+{
+	primaryLevel->flags3 ^= LEVEL3_SKYMIST;
+}
+
+//-----------------------------------------------------------------------------
+//
+//
+//
+//-----------------------------------------------------------------------------
+CCMD(thickfogdistance)
+{
+	if (argv.argc() > 1)
+	{
+		// Do this only on the primary level.
+		primaryLevel->thickfogdistance = (float)strtod(argv[1], NULL);
+	}
+	Printf("%f (positive means enabled)\n", primaryLevel->thickfogdistance);
+}
+
+//-----------------------------------------------------------------------------
+//
+//
+//
+//-----------------------------------------------------------------------------
+CCMD(thickfogmultiplier)
+{
+	if (argv.argc() > 1)
+	{
+		// Do this only on the primary level.
+		primaryLevel->thickfogmultiplier = max(0.f, (float)strtod(argv[1], NULL));
+	}
+	Printf("%f\n", primaryLevel->thickfogmultiplier);
 }
 
 //-----------------------------------------------------------------------------

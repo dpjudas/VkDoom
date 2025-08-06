@@ -63,11 +63,6 @@ const char *GetVersionString();
 #define ENG_MINOR 0
 #define ENG_REVISION 0
 
-// Version identifier for network games.
-// Bump it every time you do a release unless you're certain you
-// didn't change anything that will affect sync.
-#define NETGAMEVERSION 235
-
 // Version stored in the ini's [LastRun] section.
 // Bump it if you made some configuration change that you want to
 // be able to migrate in FGameConfigFile::DoGlobalSetup().
@@ -117,6 +112,8 @@ const char *GetVersionString();
 
 #if defined(__APPLE__) || defined(_WIN32)
 #define GAME_DIR GAMENAME
+#elif defined(__HAIKU__)
+#define GAME_DIR "config/settings/" GAMENAME
 #else
 #define GAME_DIR ".config/" GAMENAMELOWERCASE
 #endif

@@ -111,7 +111,7 @@ void I_DetectOS()
 		break;
 	}
 
-	utsname unameInfo;
+	struct utsname unameInfo;
 
 	if (uname(&unameInfo) == 0)
 	{

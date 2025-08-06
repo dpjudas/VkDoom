@@ -925,6 +925,25 @@ class Inventory : Actor
 
 	//===========================================================================
 	//
+	// Inventory :: DepleteBy
+	//
+	// Handles item depletion when using or taking items
+	//
+	//===========================================================================
+	virtual void DepleteBy(int by)
+	{
+		if (by < 1 || amount < 1 || by >= amount)
+		{
+			DepleteOrDestroy();
+		}
+		else
+		{
+			amount -= by;
+		}
+	}
+
+	//===========================================================================
+	//
 	// Inventory :: DepleteOrDestroy
 	//
 	// If the item is depleted, just change its amount to 0, otherwise it's destroyed.
@@ -948,28 +967,6 @@ class Inventory : Actor
 			Destroy();
 		}
 	}
-
-	//===========================================================================
-	//
-	// Inventory :: PreTravelled
-	//
-	// Called when an item in somebody's inventory is about to be carried
-	// over to another map, in case it needs to do special clean-up.
-	//
-	//===========================================================================
-
-	virtual void PreTravelled() {}
-
-	//===========================================================================
-	//
-	// Inventory :: Travelled
-	//
-	// Called when an item in somebody's inventory is carried over to another
-	// map, in case it needs to do special reinitialization.
-	//
-	//===========================================================================
-
-	virtual void Travelled() {}
 
 	//===========================================================================
 	//

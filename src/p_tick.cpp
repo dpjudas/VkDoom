@@ -38,10 +38,69 @@
 #include "events.h"
 #include "actorinlines.h"
 #include "g_game.h"
+#include "am_map.h"
 #include "i_interface.h"
 
 extern gamestate_t wipegamestate;
 extern uint8_t globalfreeze, globalchangefreeze;
+
+void C_Ticker();
+void M_Ticker();
+void D_RunCutscene();
+
+//==========================================================================
+//
+// P_RunClientsideLogic
+//
+// Handles all logic that should be ran every tick including while
+// predicting. Only put non-playsim behaviors in here to avoid desyncs
+// when playing online.
+//
+//==========================================================================
+
+void P_RunClientsideLogic()
+{
+	C_Ticker();
+	M_Ticker();
+
+	// [ZZ] also tick the UI part of the events
+	primaryLevel->localEventManager->UiTick();
+
+	if (gamestate == GS_LEVEL || gamestate == GS_TITLELEVEL)
+	{
+		for (unsigned int i = 0; i < MAXPLAYERS; ++i)
+		{
+			if (playeringame[i] && players[i].inventorytics > 0)
+				--players[i].inventorytics;
+		}
+
+		for (auto level : AllLevels())
+		{
+			auto it = level->GetClientsideThinkerIterator<AActor>();
+			AActor* ac = nullptr;
+			while ((ac = it.Next()) != nullptr)
+			{
+				ac->ClearInterpolation();
+				ac->ClearFOVInterpolation();
+			}
+
+			level->ClientsideThinkers.RunClientsideThinkers(level);
+		}
+
+		StatusBar->CallTick();
+
+		// TODO: Should this be called on all maps...?
+		if (gamestate == GS_LEVEL)
+			primaryLevel->automap->Ticker();
+	}
+	else if (gamestate == GS_CUTSCENE || gamestate == GS_INTRO)
+	{
+		D_RunCutscene();
+	}
+
+	// [MK] Additional ticker for UI events right after all others
+	primaryLevel->localEventManager->PostUiTick();
+}
 
 //==========================================================================
 //
@@ -72,12 +131,47 @@ bool P_CheckTickerPaused ()
 	return false;
 }
 
+void P_ClearLevelInterpolation()
+{
+	for (auto Level : AllLevels())
+	{
+		Level->interpolator.UpdateInterpolations();
+
+		auto it = Level->GetThinkerIterator<AActor>();
+		AActor* ac;
+
+		while ((ac = it.Next()))
+		{
+			ac->ClearInterpolation();
+			ac->ClearFOVInterpolation();
+		}
+	}
+
+	for (unsigned int i = 0; i < MAXPLAYERS; i++)
+	{
+		if (playeringame[i])
+		{
+			DPSprite* pspr = players[i].psprites;
+			while (pspr)
+			{
+				pspr->ResetInterpolation();
+
+				pspr = pspr->Next;
+			}
+		}
+	}
+
+	R_ClearInterpolationPath();
+	if (StatusBar != nullptr)
+		StatusBar->ClearInterpolation();
+}
+
 //
 // P_Ticker
 //
 void P_Ticker (void)
 {
-	int i;
+	unsigned int i;
 
 	for (auto Level : AllLevels())
 	{
@@ -187,5 +281,4 @@ void P_Ticker (void)
 		if (players[consoleplayer].mo->Vel.Length() > primaryLevel->max_velocity) { primaryLevel->max_velocity = players[consoleplayer].mo->Vel.Length(); }
 		primaryLevel->avg_velocity += (players[consoleplayer].mo->Vel.Length() - primaryLevel->avg_velocity) / primaryLevel->maptime;
 	}
-	StatusBar->CallTick();		// Status bar should tick AFTER the thinkers to properly reflect the level's state at this time.
 }

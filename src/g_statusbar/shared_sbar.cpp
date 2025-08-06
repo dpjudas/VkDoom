@@ -71,6 +71,8 @@
 #define XHAIRPICKUPSIZE		(2+XHAIRSHRINKSIZE)
 #define POWERUPICONSIZE		32
 
+int WorldPaused();
+
 IMPLEMENT_CLASS(DBaseStatusBar, false, true)
 
 IMPLEMENT_POINTERS_START(DBaseStatusBar)
@@ -682,31 +684,34 @@ int DBaseStatusBar::GetPlayer ()
 
 void DBaseStatusBar::Tick ()
 {
-	PrevCrosshairSize = CrosshairSize;
-
-	for (size_t i = 0; i < countof(Messages); ++i)
+	if (!WorldPaused())
 	{
-		DHUDMessageBase *msg = Messages[i];
+		PrevCrosshairSize = CrosshairSize;
 
-		while (msg)
+		for (size_t i = 0; i < countof(Messages); ++i)
 		{
-			DHUDMessageBase *next = msg->Next;
+			DHUDMessageBase* msg = Messages[i];
 
-			if (msg->CallTick ())
+			while (msg)
 			{
-				DetachMessage(msg);
-				msg->Destroy();
+				DHUDMessageBase* next = msg->Next;
+
+				if (msg->CallTick())
+				{
+					DetachMessage(msg);
+					msg->Destroy();
+				}
+				msg = next;
 			}
-			msg = next;
-		}
 
-		// If the crosshair has been enlarged, shrink it.
-		if (CrosshairSize > 1.)
-		{
-			CrosshairSize -= XHAIRSHRINKSIZE;
-			if (CrosshairSize < 1.)
+			// If the crosshair has been enlarged, shrink it.
+			if (CrosshairSize > 1.)
 			{
-				CrosshairSize = 1.;
+				CrosshairSize -= XHAIRSHRINKSIZE;
+				if (CrosshairSize < 1.)
+				{
+					CrosshairSize = 1.;
+				}
 			}
 		}
 	}
@@ -987,6 +992,18 @@ void DBaseStatusBar::RefreshBackground () const
 	}
 }
 
+static void RefreshBackground(DBaseStatusBar* self)
+{
+	self->RefreshBackground();
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DBaseStatusBar, RefreshBackground, RefreshBackground)
+{
+	PARAM_SELF_PROLOGUE(DBaseStatusBar);
+	self->RefreshBackground();
+	return 0;
+}
+
 //---------------------------------------------------------------------------
 //
 // DrawCrosshair
@@ -1017,6 +1034,19 @@ void DBaseStatusBar::DrawCrosshair (double ticFrac)
 
 	const double size = PrevCrosshairSize * (1.0 - ticFrac) + CrosshairSize * ticFrac;
 	ST_DrawCrosshair(health, viewwidth / 2 + viewwindowx, viewheight / 2 + viewwindowy, size);
+}
+
+static void DrawCrosshair(DBaseStatusBar* self, double ticFrac)
+{
+	self->DrawCrosshair(ticFrac);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DBaseStatusBar, DrawCrosshair, DrawCrosshair)
+{
+	PARAM_SELF_PROLOGUE(DBaseStatusBar);
+	PARAM_FLOAT(ticFrac);
+	self->DrawCrosshair(ticFrac);
+	return 0;
 }
 
 //---------------------------------------------------------------------------
@@ -1063,44 +1093,6 @@ void DBaseStatusBar::DrawMessages (int layer, int bottom)
 //
 //---------------------------------------------------------------------------
 
-void DBaseStatusBar::Draw (EHudState state, double ticFrac)
-{
-	// HUD_AltHud state is for popups only
-	if (state == HUD_AltHud)
-		return;
-
-	if (state == HUD_StatusBar)
-	{
-		RefreshBackground ();
-	}
-
-	if (idmypos)
-	{ 
-		// Draw current coordinates
-		IFVIRTUAL(DBaseStatusBar, DrawMyPos)
-		{
-			VMValue params[] = { (DObject*)this };
-			VMCall(func, params, countof(params), nullptr, 0);
-		}
-	}
-
-	if (viewactive)
-	{
-		if (CPlayer && CPlayer->camera && CPlayer->camera->player)
-		{
-			DrawCrosshair (ticFrac);
-		}
-	}
-	else if (automapactive)
-	{
-		IFVIRTUAL(DBaseStatusBar, DrawAutomapHUD)
-		{
-			VMValue params[] = { (DObject*)this, r_viewpoint.TicFrac };
-			VMCall(func, params, countof(params), nullptr, 0);
-		}
-	}
-}
-
 void DBaseStatusBar::CallDraw(EHudState state, double ticFrac)
 {
 	IFVIRTUAL(DBaseStatusBar, Draw)
@@ -1108,7 +1100,6 @@ void DBaseStatusBar::CallDraw(EHudState state, double ticFrac)
 		VMValue params[] = { (DObject*)this, state, ticFrac };
 		VMCall(func, params, countof(params), nullptr, 0);
 	}
-	else Draw(state, ticFrac);
 	twod->ClearClipRect();	// make sure the scripts don't leave a valid clipping rect behind.
 	BeginStatusBar(BaseSBarHorizontalResolution, BaseSBarVerticalResolution, BaseRelTop, false);
 }
@@ -1231,33 +1222,42 @@ void DBaseStatusBar::DrawTopStuff (EHudState state)
 	DrawMessages (HUDMSGLayer_OverHUD, (state == HUD_StatusBar) ? GetTopOfStatusbar() : twod->GetHeight());
 	primaryLevel->localEventManager->RenderOverlay(state);
 
-	DrawConsistancy ();
-	DrawWaiting ();
+	double yOfs = DrawConsistancy (0.0);
+	DrawWaiting (yOfs);
 	if ((ShowLog && MustDrawLog(state)) || (inter_subtitles && CPlayer->SubtitleCounter > 0)) DrawLog ();
 }
 
 
-void DBaseStatusBar::DrawConsistancy () const
+double DBaseStatusBar::DrawConsistancy(double yOfs) const
 {
 	if (!netgame)
-		return;
+		return yOfs;
 
 	bool desync = false;
 	FString text = "Out of sync with:";
-	for (int i = 0; i < MAXPLAYERS; i++)
+	for (auto client : NetworkClients)
 	{
-		if (playeringame[i] && players[i].inconsistant)
+		if (players[client].inconsistant)
 		{
 			desync = true;
-			text.AppendFormat(" %s (%d)", players[i].userinfo.GetName(10u), i + 1);
+			// Fell out of sync with the host in packet server mode. Which specific user it is doesn't really matter.
+			if (NetMode == NET_PacketServer && consoleplayer != Net_Arbitrator)
+			{
+				text = "Out of sync with host";
+				break;
+			}
+			else
+			{
+				text.AppendFormat(" %s (%d)", players[client].userinfo.GetName(10u), client);
+			}
 		}
 	}
 
+	double y = yOfs;
 	if (desync)
 	{
 		auto lines = V_BreakLines(SmallFont, twod->GetWidth() / CleanXfac - 40, text.GetChars());
 		const int height = SmallFont->GetHeight() * CleanYfac;
-		double y = 0.0;
 		for (auto& line : lines)
 		{
 			DrawText(twod, SmallFont, CR_GREEN,
@@ -1266,29 +1266,39 @@ void DBaseStatusBar::DrawConsistancy () const
 			y += height;
 		}
 	}
+
+	return y;
 }
 
-void DBaseStatusBar::DrawWaiting () const
+double DBaseStatusBar::DrawWaiting(double yOfs) const
 {
 	if (!netgame)
-		return;
+		return yOfs;
 
 	FString text = "Waiting for:";
 	bool isWaiting = false;
-	for (int i = 0; i < MAXPLAYERS; i++)
+	for (auto client : NetworkClients)
 	{
-		if (playeringame[i] && players[i].waiting)
+		if (players[client].waiting)
 		{
 			isWaiting = true;
-			text.AppendFormat(" %s (%d)", players[i].userinfo.GetName(10u), i + 1);
+			if (NetMode == NET_PacketServer && consoleplayer != Net_Arbitrator)
+			{
+				text = "Waiting for host";
+				break;
+			}
+			else
+			{
+				text.AppendFormat(" %s (%d)", players[client].userinfo.GetName(10u), client);
+			}
 		}
 	}
 
+	double y = yOfs;
 	if (isWaiting)
 	{
 		auto lines = V_BreakLines(SmallFont, twod->GetWidth() / CleanXfac - 40, text.GetChars());
 		const int height = SmallFont->GetHeight() * CleanYfac;
-		double y = 0.0;
 		for (auto& line : lines)
 		{
 			DrawText(twod, SmallFont, CR_ORANGE,
@@ -1297,6 +1307,8 @@ void DBaseStatusBar::DrawWaiting () const
 			y += height;
 		}
 	}
+
+	return y;
 }
 
 void DBaseStatusBar::NewGame ()

@@ -505,7 +505,7 @@ void MapLoader::LoadGLZSegs (FileReader &data, int type)
 
 			if (partner != 0xffffffffu && partner >= Level->segs.Size())
 			{
-				I_Error("partner seg index out of range for subsector %d, seg %d", i, j);
+				I_Error("partner seg index out of range for subsector %d, seg %lu", i, j);
 			}
 
 			if (type >= 2)
@@ -3517,7 +3517,13 @@ void MapLoader::LoadLevel(MapData *map, const char *lumpname, int position)
 
 	SpawnThings(position);
 
-	for (int i = 0; i < MAXPLAYERS; ++i)
+	// Load and link lightmaps - must be done after P_Spawn3DFloors (and SpawnThings? Potentially for baking static model actors?)
+	if (!ForceNodeBuild)
+	{
+		LoadLightmap(map);
+	}
+
+	for (unsigned int i = 0; i < MAXPLAYERS; ++i)
 	{
 		if (Level->PlayerInGame(i) && Level->Players[i]->mo != nullptr)
 			Level->Players[i]->health = Level->Players[i]->mo->health;

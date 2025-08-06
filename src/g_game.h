@@ -64,7 +64,7 @@ void G_LoadGame (const char* name, bool hidecon=false);
 void G_DoLoadGame (void);
 
 // Called by M_Responder.
-void G_SaveGame (const char *filename, const char *description);
+void G_SaveGame (const char *filename, const char *description, bool quick = false);
 // Called by messagebox
 void G_DoQuickSave ();
 
@@ -116,7 +116,7 @@ FBaseCVar* G_GetUserCVar(int playernum, const char* cvarname);
 
 class DIntermissionController;
 struct level_info_t;
-void RunIntermission(level_info_t* oldlevel, level_info_t* newlevel, DIntermissionController* intermissionScreen, DObject* statusScreen, std::function<void(bool)> completionf);
+void RunIntermission(level_info_t* oldlevel, level_info_t* newlevel, DIntermissionController* intermissionScreen, DObject* statusScreen, bool ending, std::function<void(bool)> completionf);
 
 extern const AActor *SendItemUse, *SendItemDrop;
 extern int SendItemDropAmount;

@@ -164,7 +164,7 @@ bool DBot::Check_LOS (AActor *to, DAngle vangle)
 //-------------------------------------
 //The bot will check if it's time to fire
 //and do so if that is the case.
-void DBot::Dofire (ticcmd_t *cmd)
+void DBot::Dofire (usercmd_t *cmd)
 {
 	bool no_fire; //used to prevent bot from pumping rockets into nearby walls.
 	int aiming_penalty=0; //For shooting at shading target, if screen is red, MAKEME: When screen red.
@@ -276,14 +276,14 @@ void DBot::Dofire (ticcmd_t *cmd)
 	}
 	if (!no_fire) //If going to fire weapon
 	{
-		cmd->ucmd.buttons |= BT_ATTACK;
+		cmd->buttons |= BT_ATTACK;
 	}
 	//Prevents bot from jerking, when firing automatic things with low skill.
 }
 
 bool FCajunMaster::IsLeader (player_t *player)
 {
-	for (int count = 0; count < MAXPLAYERS; count++)
+	for (unsigned int count = 0; count < MAXPLAYERS; count++)
 	{
 		if (players[count].Bot != NULL
 			&& players[count].Bot->mate == player->mo)
@@ -301,7 +301,7 @@ void FCajunMaster::BotTick(AActor *mo)
 {
 	BotSupportCycles.Clock();
 	m_Thinking = true;
-	for (int i = 0; i < MAXPLAYERS; i++)
+	for (unsigned int i = 0; i < MAXPLAYERS; i++)
 	{
 		if (!playeringame[i] || players[i].Bot == NULL)
 			continue;
@@ -342,7 +342,7 @@ void FCajunMaster::BotTick(AActor *mo)
 //the mate (teammate coop mate).
 AActor *DBot::Choose_Mate ()
 {
-	int count;
+	unsigned int count;
 	double closest_dist, test;
 	AActor *target;
 
@@ -413,7 +413,7 @@ AActor *DBot::Choose_Mate ()
 //MAKEME: Make this a smart decision
 AActor *DBot::Find_enemy ()
 {
-	int count;
+	unsigned int count;
 	double closest_dist, temp; //To target.
 	AActor *target;
 	DAngle vangle;
@@ -503,7 +503,7 @@ void FCajunMaster::SetBodyAt (FLevelLocals *Level, const DVector3 &pos, int host
 
 
 //Emulates missile travel. Returns distance travelled.
-double FCajunMaster::FakeFire (AActor *source, AActor *dest, ticcmd_t *cmd)
+double FCajunMaster::FakeFire (AActor *source, AActor *dest, usercmd_t *cmd)
 {
 	AActor *th = Spawn (source->Level, "CajunTrace", source->PosPlusZ(4*8.), NO_REPLACE);
 	
@@ -525,7 +525,7 @@ double FCajunMaster::FakeFire (AActor *source, AActor *dest, ticcmd_t *cmd)
 	return dist;
 }
 
-DAngle DBot::FireRox (AActor *enemy, ticcmd_t *cmd)
+DAngle DBot::FireRox (AActor *enemy, usercmd_t *cmd)
 {
 	double dist;
 	AActor *actor;
@@ -580,7 +580,7 @@ bool FCajunMaster::SafeCheckPosition (AActor *actor, double x, double y, FCheckP
 
 void FCajunMaster::StartTravel ()
 {
-	for (int i = 0; i < MAXPLAYERS; ++i)
+	for (unsigned int i = 0; i < MAXPLAYERS; ++i)
 	{
 		if (players[i].Bot != NULL)
 		{
@@ -591,7 +591,7 @@ void FCajunMaster::StartTravel ()
 
 void FCajunMaster::FinishTravel ()
 {
-	for (int i = 0; i < MAXPLAYERS; ++i)
+	for (unsigned int i = 0; i < MAXPLAYERS; ++i)
 	{
 		if (players[i].Bot != NULL)
 		{

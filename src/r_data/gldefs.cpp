@@ -560,9 +560,9 @@ static const char *LightTags[]=
    "noshadowmap",
    "dontlightothers",
    "dontlightmap",
+   "intensity",
    "trace",
    "shadowminquality",
-   "intensity",
    "softshadowradius",
    "linearity",
    nullptr
@@ -591,9 +591,9 @@ enum {
    LIGHTTAG_NOSHADOWMAP,
    LIGHTTAG_DONTLIGHTOTHERS,
    LIGHTTAG_DONTLIGHTMAP,
+   LIGHTTAG_INTENSITY,
    LIGHTTAG_TRACE,
    LIGHTTAG_SHADOW_MINQUALITY,
-   LIGHTTAG_INTENSITY,
    LIGHTTAG_SOFTSHADOWRADIUS,
    LIGHTTAG_LINEARITY,
 };

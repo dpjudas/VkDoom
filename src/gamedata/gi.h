@@ -151,6 +151,7 @@ struct gameinfo_t
 	FName BasicArmorClass;
 	FName HexenArmorClass;
 	FString PauseSign;
+	bool UsePauseString;
 	FString Endoom;
 	double Armor2Percent;
 	FString quitSound;
@@ -217,6 +218,8 @@ struct gameinfo_t
 	bool nomergepickupmsg;
 	bool mHideParTimes;
 	CutsceneDef IntroScene;
+	double BloodSplatDecalDistance;
+
 	bool forceEnableLightmaps = false;
 	FVector3 defaultSunColor = FVector3(1.f, 1.f, 1.f);
 	FVector3 defaultSunDirection = FVector3(0.45f, 0.3f, 0.9f);

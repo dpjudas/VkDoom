@@ -321,7 +321,7 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 	{
 		if (!(currentsubsector->flags & SSECMF_DRAWN))
 		{
-			if (clipper.SafeCheckRange(startAngle, endAngle) && (!r_radarclipper || (Level->flags3 & LEVEL3_NOFOGOFWAR)))
+			if (clipper.SafeCheckRange(startAngle, endAngle) && !Viewpoint.IsAllowedOoB())
 			{
 			  currentsubsector->flags |= SSECMF_DRAWN;
 			}
@@ -338,7 +338,7 @@ void HWDrawInfo::AddLine (seg_t *seg, bool portalclip, FRenderState& state)
 		return;
 	}
 
-	if (Viewpoint.IsAllowedOoB() && (!r_radarclipper || (Level->flags3 & LEVEL3_NOFOGOFWAR) || clipperr.SafeCheckRange(startAngleR, endAngleR)))
+	if (!Viewpoint.IsAllowedOoB() || (!r_radarclipper || (Level->flags3 & LEVEL3_NOFOGOFWAR) || clipperr.SafeCheckRange(startAngleR, endAngleR)))
 		currentsubsector->flags |= SSECMF_DRAWN;
 
 	uint8_t ispoly = uint8_t(seg->sidedef->Flags & WALLF_POLYOBJ);

@@ -82,6 +82,92 @@ bool isActor(PContainerType *type)
 //
 //==========================================================================
 
+static FState* NativeStateOffset(FState* state, int offset)
+{
+	const PClassActor* cls = FState::StaticFindStateOwner(state);
+	const ptrdiff_t i = state - cls->ActorInfo()->OwnedStates;
+	if (i + offset < 0 || i + offset >= cls->ActorInfo()->NumOwnedStates)
+		I_Error("Tried to fetch out-of-bounds state from Actor %s", cls->TypeName.GetChars());
+
+	return &cls->ActorInfo()->OwnedStates[i + offset];
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(DObject, BuiltinStateOffset, NativeStateOffset)
+{
+	PARAM_PROLOGUE;
+	PARAM_POINTER(st, FState);
+	PARAM_INT(offset);
+	ACTION_RETURN_STATE(NativeStateOffset(st, offset));
+}
+
+ExpEmit FxFStateOffset::Emit(VMFunctionBuilder* build)
+{
+	auto sym = FindBuiltinFunction(NAME_BuiltinStateOffset);
+
+	assert(sym);
+	VMFunction* callfunc = sym->Variants[0].Implementation;
+	assert(State && Offset);
+
+	FunctionCallEmitter emitters(callfunc);
+	emitters.AddParameter(build, State);
+	emitters.AddParameter(build, Offset);
+	emitters.AddReturn(REGT_POINTER);
+	return emitters.EmitCall(build);
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+FxExpression* FxFStateOffset::Resolve(FCompileContext& ctx)
+{
+	CHECKRESOLVED();
+	if (State && Offset)
+	{
+		RESOLVE(State, ctx);
+		RESOLVE(Offset, ctx);
+		ABORT(State && Offset);
+		assert(State->ValueType == ValueType);
+		assert(Offset->IsInteger());
+	}
+	return this;
+};
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+FxFStateOffset::FxFStateOffset(FxExpression* state, FxExpression* offset, const FScriptPosition& pos)
+	: FxExpression(EFX_FStateOffset, pos)
+{
+	assert(state && offset);
+	State = state;
+	Offset = offset;
+	ValueType = TypeState;
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
+FxFStateOffset::~FxFStateOffset()
+{
+	SAFE_DELETE(State);
+	SAFE_DELETE(Offset);
+}
+
+//==========================================================================
+//
+//
+//
+//==========================================================================
+
 static FxExpression *CustomTypeCast(FxTypeCast *func, FCompileContext &ctx)
 {
 	if (func->ValueType == TypeStateLabel)
@@ -159,17 +245,17 @@ static FxExpression *CustomTypeCast(FxTypeCast *func, FCompileContext &ctx)
 //
 //==========================================================================
 
-static bool CheckForCustomAddition(FxAddSub *func, FCompileContext &ctx)
+static FxExpression* CheckForCustomAddition(FxAddSub *func, FCompileContext &ctx)
 {
 	if (func->left->ValueType == TypeState && func->right->IsInteger() && func->Operator == '+' && !func->left->isConstant())
 	{
-		// This is the only special case of pointer addition that will be accepted - because it is used quite often in the existing game code.
-		func->ValueType = TypeState;
-		func->right = new FxMulDiv('*', func->right, new FxConstant((int)sizeof(FState), func->ScriptPosition));	// multiply by size here, so that constants can be better optimized.
-		func->right = func->right->Resolve(ctx);
-		return true;
+		// This has to be locked down unlike previously. As such it's now a significiantly slower builtin. :)
+		auto expr = new FxFStateOffset(func->left, func->right, func->ScriptPosition);
+		func->left = nullptr;
+		func->right = nullptr;
+		return expr;
 	}
-	return false;
+	return nullptr;
 }
 
 //==========================================================================
@@ -936,12 +1022,18 @@ static DObject *BuiltinNewDoom(PClass *cls, int outerside, int backwardscompatib
 	// Creating actors here must be outright prohibited,
 	if (cls->IsDescendantOf(NAME_Actor))
 	{
-		ThrowAbortException(X_OTHER, "Cannot create actors with 'new'");
+		ThrowAbortException(X_OTHER, "Cannot create actors with 'new'. Use Actor.Spawn instead.");
 		return nullptr;
 	}
 	if (cls->IsDescendantOf(NAME_VisualThinker)) // Same for VisualThinkers.
 	{
 		ThrowAbortException(X_OTHER, "Cannot create VisualThinker or inheriting classes with 'new'. Use 'VisualThinker.Spawn' instead.");
+		return nullptr;
+	}
+	// These don't make sense without an owning Actor so don't allow creating them.
+	if (cls->IsDescendantOf(NAME_Behavior))
+	{
+		ThrowAbortException(X_OTHER, "Behaviors must be added to existing Actors and cannot be created with 'new'");
 		return nullptr;
 	}
 	if ((vm_warnthinkercreation || !backwardscompatible) && cls->IsDescendantOf(NAME_Thinker))
@@ -1027,6 +1119,10 @@ FxExpression *FxCastForEachLoop::Resolve(FCompileContext &ctx)
 	else if(itType->TypeName == NAME_ThinkerIterator)
 	{
 		fieldName = "Thinker";
+	}
+	else if (itType->TypeName == NAME_BehaviorIterator)
+	{
+		fieldName = "Behavior";
 	}
 	else
 	{
@@ -1212,6 +1308,7 @@ bool IsGameSpecificForEachLoop(FxForEachLoop * loop)
 			 || ((PObjectPointer*)vt)->PointedClass()->TypeName == NAME_BlockThingsIterator
 			 || ((PObjectPointer*)vt)->PointedClass()->TypeName == NAME_ActorIterator
 			 || ((PObjectPointer*)vt)->PointedClass()->TypeName == NAME_ThinkerIterator
+			 || ((PObjectPointer*)vt)->PointedClass()->TypeName == NAME_BehaviorIterator
 			));
 }
 
@@ -1226,7 +1323,7 @@ FxExpression * ResolveGameSpecificForEachLoop(FxForEachLoop * loop)
 		delete loop;
 		return blockIt;
 	}
-	else if(cname == NAME_ActorIterator || cname == NAME_ThinkerIterator)
+	else if(cname == NAME_ActorIterator || cname == NAME_ThinkerIterator || cname == NAME_BehaviorIterator)
 	{
 		auto castIt = new FxCastForEachLoop(NAME_None, loop->loopVarName, loop->Array, loop->Code, loop->ScriptPosition);
 		loop->Array = loop->Code = nullptr;
@@ -1318,13 +1415,14 @@ bool IsGameSpecificTypedForEachLoop(FxTypedForEachLoop * loop)
 	return (vt->isObjectPointer() && (
 		((PObjectPointer*)vt)->PointedClass()->TypeName == NAME_ActorIterator
 		|| ((PObjectPointer*)vt)->PointedClass()->TypeName == NAME_ThinkerIterator
+		|| ((PObjectPointer*)vt)->PointedClass()->TypeName == NAME_BehaviorIterator
 		));
 }
 
 FxExpression * ResolveGameSpecificTypedForEachLoop(FxTypedForEachLoop * loop)
 {
 	assert(loop->Expr->ValueType->isObjectPointer());
-	assert(((PObjectPointer*)loop->Expr->ValueType)->PointedClass()->TypeName == NAME_ActorIterator || ((PObjectPointer*)loop->Expr->ValueType)->PointedClass()->TypeName == NAME_ThinkerIterator);
+	assert(((PObjectPointer*)loop->Expr->ValueType)->PointedClass()->TypeName == NAME_ActorIterator || ((PObjectPointer*)loop->Expr->ValueType)->PointedClass()->TypeName == NAME_ThinkerIterator || ((PObjectPointer*)loop->Expr->ValueType)->PointedClass()->TypeName == NAME_BehaviorIterator);
 
 	FxExpression * castIt = new FxCastForEachLoop(loop->className, loop->varName, loop->Expr, loop->Code, loop->ScriptPosition);
 	loop->Expr = loop->Code = nullptr;

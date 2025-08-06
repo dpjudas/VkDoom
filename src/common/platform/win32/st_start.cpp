@@ -92,8 +92,6 @@ FStartupScreen *FStartupScreen::CreateInstance(int max_progress)
 FBasicStartupScreen::FBasicStartupScreen(int max_progress)
 : FStartupScreen(max_progress)
 {
-	NetMaxPos = 0;
-	NetCurPos = 0;
 }
 
 //==========================================================================
@@ -137,14 +135,43 @@ void FBasicStartupScreen::Progress()
 //
 //==========================================================================
 
-void FBasicStartupScreen::NetInit(const char *message, int numplayers)
+void FBasicStartupScreen::NetInit(const char *message, bool host)
 {
-	NetMaxPos = numplayers;
-	NetStartWindow::ShowNetStartPane(message, numplayers);
+	NetStartWindow::NetInit(message, host);
+}
 
-	NetMaxPos = numplayers;
-	NetCurPos = 0;
-	NetProgress(1);	// You always know about yourself
+void FBasicStartupScreen::NetMessage(const char* message)
+{
+	NetStartWindow::NetMessage(message);
+}
+
+void FBasicStartupScreen::NetConnect(int client, const char* name, unsigned flags, int status)
+{
+	NetStartWindow::NetConnect(client, name, flags, status);
+}
+
+void FBasicStartupScreen::NetUpdate(int client, int status)
+{
+	NetStartWindow::NetUpdate(client, status);
+}
+
+void FBasicStartupScreen::NetDisconnect(int client)
+{
+	NetStartWindow::NetDisconnect(client);
+}
+
+//==========================================================================
+//
+// FBasicStartupScreen :: NetProgress
+//
+// Sets the network progress meter. If count is 0, it gets bumped by 1.
+// Otherwise, it is set to count.
+//
+//==========================================================================
+
+void FBasicStartupScreen::NetProgress(int cur, int limit)
+{
+	NetStartWindow::NetProgress(cur, limit);
 }
 
 //==========================================================================
@@ -157,30 +184,27 @@ void FBasicStartupScreen::NetInit(const char *message, int numplayers)
 
 void FBasicStartupScreen::NetDone()
 {
-	NetStartWindow::HideNetStartPane();
+	NetStartWindow::NetDone();
 }
 
-//==========================================================================
-//
-// FBasicStartupScreen :: NetProgress
-//
-// Sets the network progress meter. If count is 0, it gets bumped by 1.
-// Otherwise, it is set to count.
-//
-//==========================================================================
-
-void FBasicStartupScreen::NetProgress(int count)
+void FBasicStartupScreen::NetClose()
 {
-	if (count == 0)
-	{
-		NetCurPos++;
-	}
-	else
-	{
-		NetCurPos = count;
-	}
+	NetStartWindow::NetClose();
+}
 
-	NetStartWindow::SetNetStartProgress(count);
+bool FBasicStartupScreen::ShouldStartNet()
+{
+	return NetStartWindow::ShouldStartNet();
+}
+
+int FBasicStartupScreen::GetNetKickClient()
+{
+	return NetStartWindow::GetNetKickClient();
+}
+
+int FBasicStartupScreen::GetNetBanClient()
+{
+	return NetStartWindow::GetNetBanClient();
 }
 
 //==========================================================================
@@ -197,12 +221,7 @@ void FBasicStartupScreen::NetProgress(int count)
 //
 //==========================================================================
 
-bool FBasicStartupScreen::NetLoop(bool (*timer_callback)(void *), void *userdata)
+bool FBasicStartupScreen::NetLoop(bool (*loopCallback)(void*), void* data)
 {
-	return NetStartWindow::RunMessageLoop(timer_callback, userdata);
-}
-
-void FBasicStartupScreen::NetClose()
-{
-	NetStartWindow::CloseNetStartPane();
+	return NetStartWindow::NetLoop(loopCallback, data);
 }

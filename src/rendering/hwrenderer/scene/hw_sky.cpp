@@ -118,6 +118,9 @@ void HWSkyInfo::init(HWDrawInfo *di, sector_t* sec, int skypos, int sky1, PalEnt
 	}
 	else fadecolor = 0;
 
+	texture[2] = TexMan.GetGameTexture(di->Level->skymisttexture, true);
+	x_offset[2] = di->Level->hw_skymistpos;
+
 }
 
 
@@ -319,7 +322,7 @@ void HWWall::SkyTop(HWWallDispatcher *di, FRenderState& state, seg_t * seg,secto
 			// float backreflect = bs->GetReflect(sector_t::ceiling);
 			// if (backreflect > 0 && bs->ceilingplane.fD() == fs->ceilingplane.fD() && !bs->isClosed())
 			// {
-			// 	// Don't add intra-portal line to the portal.
+			// 	Don't add intra-portal line to the portal.
 			// 	if (!(di->di && di->di->Viewpoint.IsAllowedOoB()))
 			// 	{
 			// 		return;

@@ -1299,9 +1299,10 @@ struct side_t
 	int16_t		TierLights[3];	// per-tier light levels
 	uint16_t	Flags;
 	int			UDMFIndex;		// needed to access custom UDMF fields which are stored in loading order.
-	FLightNode * lighthead;		// all dynamic lights that may affect this wall
+
 	TArrayView<int> LightmapTiles; // all lightmap tiles belonging to this sidedef
 	LightProbeTarget lightProbe; // TODO use different probe per each part (and 3D floors)
+
 	seg_t **segs;	// all segs belonging to this sidedef in ascending order. Used for precise rendering
 	int numsegs;
 	int sidenum;

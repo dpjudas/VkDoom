@@ -266,12 +266,23 @@ void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translatio
 	// but we need to position it correctly in the world for light to work properly.
 	VSMatrix objectToWorldMatrix = renderer->GetViewToWorldMatrix();
 
-	// [Nash] Optional scale weapon FOV
 	float fovscale = 1.0f;
-	if (smf_flags & MDL_SCALEWEAPONFOV)
+	if (smf->viewModelFOV <= 0.0f)
 	{
-		fovscale = tan(players[consoleplayer].DesiredFOV * (0.5f * M_PI / 180.f));
-		fovscale = 1.f + (fovscale - 1.f) * cl_scaleweaponfov;
+		if (smf->viewModelFOV < 0.0f)
+			fovscale = 1.0f / fabs(smf->viewModelFOV);
+
+		// [Nash] Optional scale weapon FOV
+		if (smf_flags & MDL_SCALEWEAPONFOV)
+		{
+			float newScale = tan(players[consoleplayer].DesiredFOV * (0.5f * M_PI / 180.f));
+			newScale = 1.f + (newScale - 1.f) * cl_scaleweaponfov;
+			fovscale *= newScale;
+		}
+	}
+	else if (players[consoleplayer].DesiredFOV != smf->viewModelFOV)
+	{
+		fovscale = tan(players[consoleplayer].DesiredFOV * (0.5f * M_PI / 180.f)) / tan(smf->viewModelFOV * (0.5f * M_PI / 180.f));
 	}
 
 	// Scaling model (y scale for a sprite means height, i.e. z in the world!).
@@ -563,7 +574,7 @@ bool CalcModelOverrides(int i, const FSpriteModelFrame *smf, DActorModelData* da
 		out.skinid = smf->skinIDs[i];
 	}
 
-	return (out.modelid >= 0 && out.modelid < Models.size());
+	return (out.modelid >= 0 && out.modelid < Models.SSize());
 }
 
 
@@ -950,6 +961,13 @@ void ParseModelDefLump(int Lump)
 				else if (sc.Compare("modelsareattachments"))
 				{
 					smf.flags |= MDL_MODELSAREATTACHMENTS;
+				}
+				else if (sc.Compare("viewmodelfov"))
+				{
+					sc.MustGetFloat();
+					smf.viewModelFOV = sc.Float;
+					if (smf.viewModelFOV > 0.0f)
+						smf.viewModelFOV = min<float>(smf.viewModelFOV, 175.0f);
 				}
 				else if (sc.Compare("rotating"))
 				{

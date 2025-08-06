@@ -22,6 +22,7 @@ class PlayerPawn : Actor
 	int			MaxHealth;
 	int			BonusHealth;
 	int			MugShotMaxHealth;
+	int			MaxPickupHealth; // overrides MaxAmount of pickups and BonusHealth.
 	int			RunHealth;
 	private int	PlayerFlags;
 	clearscope Inventory	InvFirst;		// first inventory item displayed on inventory bar
@@ -316,6 +317,22 @@ class PlayerPawn : Actor
 			}
 			return message;
 		}
+	}
+
+	override String GetSelfObituary(Actor inflictor, Name mod)
+	{
+		String message;
+
+		if (inflictor && inflictor != self)
+		{
+			message = inflictor.GetSelfObituary(inflictor, mod);
+		}
+		if (message.Length() == 0)
+		{
+			message = SelfObituary;
+		}
+
+		return message;
 	}
 	
 	//----------------------------------------------------------------------------
@@ -617,7 +634,7 @@ class PlayerPawn : Actor
 		{
 			if (player.health > 0)
 			{
-				angle = Level.maptime / (120 * TICRATE / 35.) * 360.;
+				angle = player.BobTimer / (120 * TICRATE / 35.) * 360.;
 				bob = player.GetStillBob() * sin(angle);
 			}
 			else
@@ -627,7 +644,7 @@ class PlayerPawn : Actor
 		}
 		else
 		{
-			angle = Level.maptime / (ViewBobSpeed * TICRATE / 35.) * 360.;
+			angle = player.BobTimer / (ViewBobSpeed * TICRATE / 35.) * 360.;
 			bob = player.bob * sin(angle) * (waterlevel > 1 ? 0.25f : 0.5f);
 		}
 
@@ -1653,10 +1670,6 @@ class PlayerPawn : Actor
 		
 		CheckFOV();
 
-		if (player.inventorytics)
-		{
-			player.inventorytics--;
-		}
 		CheckCheats();
 
 		if (bJustAttacked)
@@ -2258,15 +2271,6 @@ class PlayerPawn : Actor
 			me.ClearInventory();
 			me.GiveDefaultInventory();
 		}
-
-		// [MK] notify self and inventory that we're about to travel
-		// this must be called here so these functions can still have a
-		// chance to alter the world before a snapshot is done in hubs
-		me.PreTravelled();
-		for (item = me.Inv; item != NULL; item = item.Inv)
-		{
-			item.PreTravelled();
-		}
 	}
 	 
 	//===========================================================================
@@ -2529,7 +2533,7 @@ class PlayerPawn : Actor
 		for (int i = 0; i < 2; i++)
 		{
 			// Bob the weapon based on movement speed. ([SP] And user's bob speed setting)
-			double angle = (BobSpeed * player.GetWBobSpeed() * 35 /	TICRATE*(Level.maptime - 1 + i)) * (360. / 8192.);
+			double angle = (BobSpeed * player.GetWBobSpeed() * 35 /	TICRATE*(player.BobTimer - 1 + i)) * (360. / 8192.);
 
 			// [RH] Smooth transitions between bobbing and not-bobbing frames.
 			// This also fixes the bug where you can "stick" a weapon off-center by
@@ -2650,30 +2654,6 @@ class PlayerPawn : Actor
 		else player.air_finished = int.max;
 		return wasdrowning;
 	}
-
-	//===========================================================================
-	//
-	// PlayerPawn :: PreTravelled
-	//
-	// Called before the player moves to another map, in case it needs to do
-	// special clean-up. This is called right before all carried items
-	// execute their respective PreTravelled() virtuals.
-	//
-	//===========================================================================
-
-	virtual void PreTravelled() {}
-
-	//===========================================================================
-	//
-	// PlayerPawn :: Travelled
-	//
-	// Called when the player moves to another map, in case it needs to do
-	// special reinitialization. This is called after all carried items have
-	// executed their respective Travelled() virtuals too.
-	//
-	//===========================================================================
-
-	virtual void Travelled() {}
 
 	//----------------------------------------------------------------------------
 	//
@@ -2880,6 +2860,7 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 	native double viewheight;
 	native double deltaviewheight;
 	native double bob;
+	native int BobTimer;
 	native vector2 vel;
 	native bool centering;
 	native uint8 turnticks;
@@ -2988,6 +2969,11 @@ struct PlayerInfo native play	// self is what internally is known as player_t
 	native clearscope bool GetClassicFlight() const;
 	native void SendPitchLimits();
 	native clearscope bool HasWeaponsInSlot(int slot) const;
+	
+	native clearscope int GetAverageLatency() const;
+
+	native clearscope static PlayerInfo GetNextPlayer(PlayerInfo p, bool noBots = false);
+	native clearscope static int GetNextPlayerNumber(int pNum, bool noBots = false);
 
 	// The actual implementation is on PlayerPawn where it can be overridden. Use that directly in the future.
 	deprecated("3.7", "MorphPlayer() should be used on a PlayerPawn object") bool MorphPlayer(PlayerInfo activator, class<PlayerPawn> spawnType, int duration, EMorphFlags style, class<Actor> enterFlash = "TeleportFog", class<Actor> exitFlash = "TeleportFog")

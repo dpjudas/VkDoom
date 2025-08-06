@@ -23,6 +23,60 @@ extend struct _
 	native readonly bool playeringame[MAXPLAYERS];
 	native play LevelLocals Level;
 
+	native readonly Array<@EpisodeInfo> AllEpisodes;
+	native readonly Array<@SkillInfo> AllSkills;
+}
+
+struct EpisodeInfo native
+{
+	native readonly string mEpisodeName;
+	native readonly string mEpisodeMap;
+	native readonly string mPicName;
+	native readonly int8 mShortcut;
+	native readonly bool mNoSkill;
+}
+
+struct SkillInfo native
+{
+	native readonly Name SkillName;
+	native readonly double AmmoFactor, DoubleAmmoFactor, DropAmmoFactor;
+	native readonly double DamageFactor;
+	native readonly double ArmorFactor;
+	native readonly double HealthFactor;
+	native readonly double KickbackFactor;
+
+	native readonly bool FastMonsters;
+	native readonly bool SlowMonsters;
+	native readonly bool DisableCheats;
+	native readonly bool AutoUseHealth;
+
+	native readonly bool EasyBossBrain;
+	native readonly bool EasyKey;
+	native readonly bool NoMenu;
+	native readonly int RespawnCounter;
+	native readonly int RespawnLimit;
+	native readonly double Aggressiveness;
+	native readonly int SpawnFilter;
+	native readonly bool SpawnMulti;
+	native readonly bool InstantReaction;
+	native readonly bool SpawnMultiCoopOnly;
+	native readonly int ACSReturn;
+	native readonly string MenuName;
+	native readonly string PicName;
+	native readonly Map<Name, string> MenuNamesForPlayerClass;
+	native readonly bool MustConfirm;
+	native readonly string MustConfirmText;
+	native readonly int8 Shortcut;
+	native readonly string TextColor;
+	native readonly Map<Name, Name> Replace;
+	native readonly Map<Name, Name> Replaced;
+	native readonly double MonsterHealth;
+	native readonly double FriendlyHealth;
+	native readonly bool NoPain;
+	native readonly int Infighting;
+	native readonly bool PlayerRespawn;
+
+	native int GetTextColor() const;
 }
 
 extend struct TexMan
@@ -109,6 +163,7 @@ extend struct GameInfoStruct
 	native double normforwardmove[2];
 	native double normsidemove[2];
 	native bool mHideParTimes;
+	native readonly double BloodSplatDecalDistance;
 	native bool forceEnableLightmaps;
 	native FVector3 defaultSunColor;
 	native FVector3 defaultSunDirection;
@@ -121,6 +176,7 @@ extend class Object
 	private native static Object BuiltinNewDoom(Class<Object> cls, int outerclass, int compatibility);
 	private native static TranslationID BuiltinFindTranslation(Name nm);
 	private native static int BuiltinCallLineSpecial(int special, Actor activator, int arg1, int arg2, int arg3, int arg4, int arg5);
+	private native static State BuiltinStateOffset(State st, int offset);
 	// These really should be global functions...
 	native static String G_SkillName();
 	native static int G_SkillPropertyInt(int p);
@@ -145,9 +201,6 @@ extend class Object
 	native static void MarkSound(Sound snd);
 	native static uint BAM(double angle);
 	native static void SetMusicVolume(float vol);
-	native clearscope static Object GetNetworkEntity(uint id);
-	native play void EnableNetworking(bool enable);
-	native clearscope uint GetNetworkID() const;
 }
 
 class Thinker : Object native play
@@ -193,18 +246,39 @@ class Thinker : Object native play
 	virtual native void Tick();
 	virtual native void PostBeginPlay();
 	virtual void OnLoad() {}
+	native void AddToTravellingList();
 	native void ChangeStatNum(int stat);
+	native clearscope int GetStatNum() const;
 	
 	static clearscope int Tics2Seconds(int tics)
 	{
 		return int(tics / TICRATE);
 	}
 
+	//===========================================================================
+	//
+	// Called before the Thinker moves to another map, in case it needs to do
+	// special clean-up.
+	//
+	//===========================================================================
+
+	virtual void PreTravelled() {}
+
+	//===========================================================================
+	//
+	// Called after the Thinker moved to another map, in case it needs to do
+	// special reinitialization.
+	//
+	//===========================================================================
+
+	virtual void Travelled() {}
+
 }
 
 class ThinkerIterator : Object native
 {
 	native static ThinkerIterator Create(class<Object> type = "Actor", int statnum=Thinker.MAX_STATNUM+1);
+	native static ThinkerIterator CreateClientside(class<Thinker> type = "Actor", int statnum=Thinker.MAX_STATNUM+1);
 	native Thinker Next(bool exact = false);
 	native void Reinit();
 }
@@ -342,6 +416,7 @@ struct LevelInfo native
 	native readonly String NextSecretMap;
 	native readonly String SkyPic1;
 	native readonly String SkyPic2;
+	native readonly String SkyMistPic;
 	native readonly String F1Pic;
 	native readonly int cluster;
 	native readonly int partime;
@@ -358,6 +433,7 @@ struct LevelInfo native
 	native readonly int musicorder;
 	native readonly float skyspeed1;
 	native readonly float skyspeed2;
+	native readonly float skymistspeed;
 	native readonly int cdtrack;
 	native readonly double gravity;
 	native readonly double aircontrol;
@@ -368,6 +444,8 @@ struct LevelInfo native
 	native readonly int fogdensity;
 	native readonly int outsidefogdensity;
 	native readonly int skyfog;
+	native readonly float thickfogdistance;
+	native readonly float thickfogmultiplier;
 	native readonly float pixelstretch;
 	native readonly name RedirectType;
 	native readonly String RedirectMapName;
@@ -448,8 +526,10 @@ struct LevelLocals native
 	native readonly int musicorder;
 	native readonly TextureID skytexture1;
 	native readonly TextureID skytexture2;
+	native readonly TextureID skymisttexture;
 	native float skyspeed1;
 	native float skyspeed2;
+	native float skymistspeed;
 	native int total_secrets;
 	native int found_secrets;
 	native int total_items;
@@ -481,6 +561,8 @@ struct LevelLocals native
 	native readonly int fogdensity;
 	native readonly int outsidefogdensity;
 	native readonly int skyfog;
+	native readonly float thickfogdistance;
+	native readonly float thickfogmultiplier;
 	native readonly float pixelstretch;
 	native readonly float MusicVolume;
 	native name deathsequence;
@@ -509,7 +591,7 @@ struct LevelLocals native
 	native bool IsFreelookAllowed() const;
 	native void StartIntermission(Name type, int state) const;
 	native play SpotState GetSpotState(bool create = true);
-	native int FindUniqueTid(int start = 0, int limit = 0);
+	native int FindUniqueTid(int start = 0, int limit = 0, bool clientside = false);
 	native uint GetSkyboxPortal(Actor actor);
 	native void ReplaceTextures(String from, String to, int flags);
     clearscope native HealthGroup FindHealthGroup(int id);
@@ -540,14 +622,21 @@ struct LevelLocals native
 	native clearscope int ActorOnLineSide(Actor mo, Line l) const;
 	native clearscope int BoxOnLineSide(Vector2 pos, double radius, Line l) const;
 
+	native clearscope int PlayerNum(PlayerInfo player) const;
+
 	native String GetChecksum() const;
 
 	native void ChangeSky(TextureID sky1, TextureID sky2 );
+	native void ChangeSkyMist(TextureID skymist, bool usemist = true);
+	native void SetSkyFog(int fogdensity);
+	native void SetThickFog(float distance, float multiplier);
 	native void ForceLightning(int mode = 0, sound tempSound = "");
 
+	native clearscope Thinker CreateClientsideThinker(class<Thinker> type, int statnum = Thinker.STAT_DEFAULT);
 	native SectorTagIterator CreateSectorTagIterator(int tag, line defline = null);
 	native LineIdIterator CreateLineIdIterator(int tag);
 	native ActorIterator CreateActorIterator(int tid, class<Actor> type = "Actor");
+	native ActorIterator CreateClientSideActorIterator(int tid, class<Actor> type = "Actor");
 
 	String TimeFormatted(bool totals = false)
 	{
@@ -566,7 +655,9 @@ struct LevelLocals native
 	native String GetEpisodeName();
 
 	native void SpawnParticle(FSpawnParticleParams p);
-	native VisualThinker SpawnVisualThinker(Class<VisualThinker> type);
+	native VisualThinker SpawnVisualThinker(Class<VisualThinker> type, bool clientSide = false);
+
+	clearscope native static bool WorldPaused();
 }
 
 // a few values of this need to be readable by the play code.
@@ -966,7 +1057,6 @@ struct FRailParams
 	native int limit;
 };	// [RH] Shoot a railgun
 
-
 struct Lightmap
 {
 	// Mark lightmap tiles for update. Prefer this over Invalidate() as the latter can crash weak graphics cards.
@@ -983,9 +1073,9 @@ struct Lightmap
 	// Calling this does NOT recalculate the lightmap.
 	native static void SetSunColor(Vector3 color);
 
-    // Multiplier for the sun's intensity (or brightness)
-    // Calling this does NOT recalculate the lightmap.
-    native static void SetSunIntensity(double intensity);
+	// Multiplier for the sun's intensity (or brightness)
+	// Calling this does NOT recalculate the lightmap.
+	native static void SetSunIntensity(double intensity);
 };
 
 enum FShadowCastingTypes
@@ -995,3 +1085,6 @@ enum FShadowCastingTypes
 	// Not yet implemented.
 	//SHADOWCASTING_Dynamic
 }
+
+// This is just here to prevent mods that used setting this directly from breaking.
+struct DecalBase native {}

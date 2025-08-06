@@ -47,6 +47,9 @@ struct HWViewpointUniforms
 
 	FVector3 mCameraNormal;
 
+	float mThickFogDistance = -1.f;
+	float mThickFogMultiplier = 30.f;
+
 	void CalcDependencies()
 	{
 		mNormalViewMatrix.computeNormalMatrix(mViewMatrix);

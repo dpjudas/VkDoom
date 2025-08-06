@@ -244,7 +244,16 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker, int dmgf
 	{
 		if (attacker == self)
 		{
-			message = "$OB_KILLEDSELF";
+			messagename = "$OB_KILLEDSELF";
+
+			IFVIRTUALPTR(self, AActor, GetSelfObituary)
+			{
+				VMValue params[] = { self, inflictor, mod.GetIndex() };
+				VMReturn rett(&ret);
+				VMCall(func, params, countof(params), &rett, 1);
+				if (ret.IsNotEmpty()) message = ret.GetChars();
+			}
+
 		}
 		else
 		{
@@ -623,7 +632,7 @@ void AActor::Die (AActor *source, AActor *inflictor, int dmgflags, FName MeansOf
 				player->Bot->t_respawn = (pr_botrespawn()%15)+((Level->BotInfo.botnum-1)*2)+TICRATE+1;
 
 			//Added by MC: Discard enemies.
-			for (int i = 0; i < MAXPLAYERS; i++)
+			for (unsigned int i = 0; i < MAXPLAYERS; i++)
 			{
 				DBot *Bot = Level->Players[i]->Bot;
 				if (Bot != nullptr && this == Bot->enemy)
@@ -850,8 +859,9 @@ static inline bool isFakePain(AActor *target, AActor *inflictor, int damage)
 }
 
 // [MC] Completely ripped out of DamageMobj to make it less messy.
-static void ReactToDamage(AActor *target, AActor *inflictor, AActor *source, int damage, FName mod, int flags, int originaldamage)
+static int ReactToDamage(AActor *target, AActor *inflictor, AActor *source, int damage, int mod, int flags, int originaldamage)
 {
+	FName modName = ENamedName(mod);
 	bool justhit = false;
 	int painchance = 0;
 	FState *woundstate = nullptr;
@@ -862,17 +872,17 @@ static void ReactToDamage(AActor *target, AActor *inflictor, AActor *source, int
 
 	// Dead or non-existent entity, do not react. Especially if the damage is cancelled.
 	if (target == nullptr || target->health < 1 || damage < 0)
-		return;
+		return false;
 
 	player_t *player = target->player;
 	if (player && player->mo)
 	{
 		if ((player->cheats & CF_GODMODE2) || (player->mo->flags5 & MF5_NOPAIN) ||
 			((player->cheats & CF_GODMODE) && damage < TELEFRAG_DAMAGE))
-			return;
+			return false;
 	}
 	
-	woundstate = target->FindState(NAME_Wound, mod);
+	woundstate = target->FindState(NAME_Wound, modName);
 	if (woundstate != nullptr)
 	{
 		int woundhealth = target->WoundHealth;
@@ -880,7 +890,7 @@ static void ReactToDamage(AActor *target, AActor *inflictor, AActor *source, int
 		if (target->health <= woundhealth)
 		{
 			target->SetState(woundstate);
-			return;
+			return true;
 		}
 	}
 	// [MC] NOPAIN will not stop the actor from waking up if damaged. 
@@ -895,10 +905,10 @@ static void ReactToDamage(AActor *target, AActor *inflictor, AActor *source, int
 		&& (forcedPain || damage >= target->PainThreshold))
 	{
 		if (inflictor && inflictor->PainType != NAME_None)
-			mod = inflictor->PainType;
+			modName = inflictor->PainType;
 
 		// Not called from ZScript.
-		justhit = TriggerPainChance(target, mod, forcedPain, false);
+		justhit = TriggerPainChance(target, modName, forcedPain, false);
 	}
 
 	if (wakeup && target->player == nullptr) target->reactiontime = 0;			// we're awake now...	
@@ -937,6 +947,36 @@ static void ReactToDamage(AActor *target, AActor *inflictor, AActor *source, int
 	// killough 11/98: Don't attack a friend, unless hit by that friend.
 	if (justhit && (target->target == source || !target->target || !target->IsFriend(target->target)))
 		target->flags |= MF_JUSTHIT;    // fight back!
+
+	return justhit;
+}
+
+static int CallReactToDamage(AActor* target, AActor* inflictor, AActor* source, int damage, FName mod, int flags, int originaldamage)
+{
+	int res = false;
+	IFVIRTUALPTR(target, AActor, ReactToDamage)
+	{
+		res = VMCallSingle<int, AActor*, AActor*, AActor*, int, int, int, int>(func, target, inflictor, source, damage, mod.GetIndex(), flags, originaldamage);
+	}
+	else
+	{
+		res = ReactToDamage(target, inflictor, source, damage, mod.GetIndex(), flags, originaldamage);
+	}
+
+	return res;
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(AActor, ReactToDamage, ReactToDamage)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_OBJECT(inflictor, AActor);
+	PARAM_OBJECT(source, AActor);
+	PARAM_INT(damage);
+	PARAM_NAME(mod);
+	PARAM_INT(flags);
+	PARAM_INT(originaldamage);
+
+	ACTION_RETURN_BOOL(ReactToDamage(self, inflictor, source, damage, mod.GetIndex(), flags, originaldamage));
 }
 
 static bool TriggerPainChance(AActor *target, FName mod = NAME_None, bool forcedPain = false, bool zscript = false)
@@ -1528,7 +1568,7 @@ static int DoDamageMobj(AActor *target, AActor *inflictor, AActor *source, int d
 	bool needevent = true;
 	int realdamage = DamageMobj(target, inflictor, source, damage, mod, flags, angle, needevent);
 	if (realdamage >= 0) //Keep this check separated. Mods relying upon negative numbers may break otherwise.
-		ReactToDamage(target, inflictor, source, realdamage, mod, flags, damage);
+		CallReactToDamage(target, inflictor, source, realdamage, mod, flags, damage);
 
 	if (realdamage > 0 && needevent)
 	{
