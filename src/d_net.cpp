@@ -2145,7 +2145,7 @@ static void CalculateNetStabilityBuffer(int diff)
 //
 // TryRunTics
 //
-void TryRunTics()
+void TryRunTics(int forceRunTics)
 {
 	GC::CheckGC();
 
@@ -2154,23 +2154,28 @@ void TryRunTics()
 		ToggleFullscreen = false;
 		AddCommandString("toggle vid_fullscreen");
 	}
-	
-	bool doWait = (cl_capfps || pauseext || (!netgame && r_NoInterpolate && !M_IsAnimated()));
-	if (vid_dontdowait && (vid_maxfps > 0 || vid_vsync))
-		doWait = false;
-	if (!netgame && !AppActive && vid_lowerinbackground)
-		doWait = true;
-
-	// Get the full number of tics the client can run.
-	if (doWait)
-		EnterTic = I_WaitForTic(LastEnterTic);
-	else
-		EnterTic = I_GetTime();
 
 	const int startCommand = ClientTic;
-	int totalTics = EnterTic - LastEnterTic;
-	if (totalTics > 1 && singletics)
-		totalTics = 1;
+	int totalTics = forceRunTics;
+	if (totalTics == 0)
+	{
+		bool doWait = (cl_capfps || pauseext || (!netgame && r_NoInterpolate && !M_IsAnimated()));
+		if (vid_dontdowait && (vid_maxfps > 0 || vid_vsync))
+			doWait = false;
+		if (!netgame && !AppActive && vid_lowerinbackground)
+			doWait = true;
+
+		// Get the full number of tics the client can run.
+		if (doWait)
+			EnterTic = I_WaitForTic(LastEnterTic);
+		else
+			EnterTic = I_GetTime();
+
+		totalTics = EnterTic - LastEnterTic;
+		if (totalTics > 1 && singletics)
+			totalTics = 1;
+	}
+
 
 	// Listen for other clients and send out data as needed. This is also
 	// needed for singleplayer! But is instead handled entirely through local

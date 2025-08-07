@@ -156,6 +156,10 @@ vec3 AmbientOcclusionColor()
 		fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
 	else
 		fogdist = max(16.0, pixelpos.w);
+
+	if (uThickFogDistance > 0.0 && fogdist > uThickFogDistance)
+		fogdist = fogdist + uThickFogMultiplier * (fogdist - uThickFogDistance);
+
 	float fogfactor = exp2 (uFogDensity * fogdist);
 
 	vec4 color = vec4(mix(uFogColor.rgb, vec3(0.0), fogfactor), 0.0);
@@ -198,6 +202,10 @@ vec4 ProcessLightMode(Material material)
 					fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
 				else
 					fogdist = max(16.0, pixelpos.w);
+
+				if (uThickFogDistance > 0.0 && fogdist > uThickFogDistance)
+					fogdist = fogdist + uThickFogMultiplier * (fogdist - uThickFogDistance);
+
 				float fogfactor = exp2 (uFogDensity * fogdist);
 
 				return vec4(uFogColor.rgb, (1.0 - fogfactor) * material.Base.a * 0.75 * vColor.a);

@@ -136,7 +136,7 @@ void NetUpdate(int tics);
 void D_QuitNetGame (void);
 
 //? how many ticks to run?
-void TryRunTics (void);
+void TryRunTics(int forceRunTics = 0);
 
 // [RH] Functions for making and using special "ticcmds"
 void Net_NewClientTic();

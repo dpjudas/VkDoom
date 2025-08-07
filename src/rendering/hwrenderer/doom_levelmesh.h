@@ -244,7 +244,7 @@ private:
 
 	void CreatePortals(FLevelLocals& doomMap);
 
-	LightListAllocInfo CreateLightList(FLightNode* node, int portalgroup);
+	LightListAllocInfo CreateLightList(FSection* section, side_t* side, int portalgroup);
 	int GetLightIndex(FDynamicLight* light, int portalgroup);
 	void UpdateLight(FDynamicLight* light);
 	void CopyToMeshLight(FDynamicLight* light, LevelMeshLight& meshlight, int portalgroup);

@@ -751,7 +751,7 @@ void HWWall::ProcessDecals(HWWallDispatcher* di, FRenderState& state)
 
 //==========================================================================
 
-int HWDecalCreateInfo::SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, FLightNode* node) const
+int HWDecalCreateInfo::SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, side_t* side) const
 {
 	lightdata.Clear();
 
@@ -762,58 +762,66 @@ int HWDecalCreateInfo::SetupLights(HWDrawInfo* di, FRenderState& state, FDynLigh
 	p.Set(normal, -normal.X * glseg.x1 - normal.Z * glseg.y1);
 
 	// Iterate through all dynamic lights which touch this wall and render them
-	while (node)
+	auto wallLightList = di->Level->lightlists.wall_dlist.CheckKey(side);
+
+	if (wallLightList)
 	{
-		if (node->lightsource->IsActive() && !node->lightsource->DontLightMap())
+		TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Iterator it(*wallLightList);
+		TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Pair* pair;
+		while (it.NextPair(pair))
 		{
-			iter_dlight++;
-
-			DVector3 posrel = node->lightsource->PosRelative(frontsector->PortalGroup);
-			float x = posrel.X;
-			float y = posrel.Y;
-			float z = posrel.Z;
-			float dist = fabsf(p.DistToPoint(x, z, y));
-			float radius = node->lightsource->GetRadius();
-			float scale = 1.0f / ((2.f * radius) - dist);
-			FVector3 fn, pos;
-
-			if (radius > 0.f && dist < radius)
+			auto node = pair->Value.get();
+			if (!node) continue;
+			if (node->lightsource->IsActive() && !node->lightsource->DontLightMap())
 			{
-				FVector3 nearPt, up, right;
+				iter_dlight++;
 
-				pos = { x, z, y };
-				fn = p.Normal();
+				DVector3 posrel = node->lightsource->PosRelative(frontsector->PortalGroup);
+				float x = posrel.X;
+				float y = posrel.Y;
+				float z = posrel.Z;
+				float dist = fabsf(p.DistToPoint(x, z, y));
+				float radius = node->lightsource->GetRadius();
+				float scale = 1.0f / ((2.f * radius) - dist);
+				FVector3 fn, pos;
 
-				fn.GetRightUp(right, up);
-
-				FVector3 tmpVec = fn * dist;
-				nearPt = pos + tmpVec;
-
-				FVector3 t1;
-				int outcnt[4] = { 0,0,0,0 };
-				texcoord tcs[4];
-
-				// do a quick check whether the light touches this polygon
-				for (int i = 0; i < 4; i++)
+				if (radius > 0.f && dist < radius)
 				{
-					t1 = FVector3(&vtx[i * 3]);
-					FVector3 nearToVert = t1 - nearPt;
-					tcs[i].u = ((nearToVert | right) * scale) + 0.5f;
-					tcs[i].v = ((nearToVert | up) * scale) + 0.5f;
+					FVector3 nearPt, up, right;
 
-					if (tcs[i].u < 0) outcnt[0]++;
-					if (tcs[i].u > 1) outcnt[1]++;
-					if (tcs[i].v < 0) outcnt[2]++;
-					if (tcs[i].v > 1) outcnt[3]++;
+					pos = { x, z, y };
+					fn = p.Normal();
 
-				}
-				if (outcnt[0] != 4 && outcnt[1] != 4 && outcnt[2] != 4 && outcnt[3] != 4)
-				{
-					draw_dlight += GetLight(lightdata, frontsector->PortalGroup, p, node->lightsource, true);
+					fn.GetRightUp(right, up);
+
+					FVector3 tmpVec = fn * dist;
+					nearPt = pos + tmpVec;
+
+					FVector3 t1;
+					int outcnt[4] = { 0,0,0,0 };
+					texcoord tcs[4];
+
+					// do a quick check whether the light touches this polygon
+					for (int i = 0; i < 4; i++)
+					{
+						t1 = FVector3(&vtx[i * 3]);
+						FVector3 nearToVert = t1 - nearPt;
+						tcs[i].u = ((nearToVert | right) * scale) + 0.5f;
+						tcs[i].v = ((nearToVert | up) * scale) + 0.5f;
+
+						if (tcs[i].u < 0) outcnt[0]++;
+						if (tcs[i].u > 1) outcnt[1]++;
+						if (tcs[i].v < 0) outcnt[2]++;
+						if (tcs[i].v > 1) outcnt[3]++;
+
+					}
+					if (outcnt[0] != 4 && outcnt[1] != 4 && outcnt[2] != 4 && outcnt[3] != 4)
+					{
+						draw_dlight += GetLight(lightdata, frontsector->PortalGroup, p, node->lightsource, true);
+					}
 				}
 			}
 		}
-		node = node->nextLight;
 	}
 	return state.UploadLights(lightdata);
 }

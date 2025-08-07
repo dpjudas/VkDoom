@@ -466,7 +466,7 @@ struct HWDecal
 struct HWDecalCreateInfo
 {
 	void ProcessDecal(HWDrawInfo* di, FRenderState& state, int dynlightindex) const;
-	int SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, FLightNode* node) const;
+	int SetupLights(HWDrawInfo* di, FRenderState& state, FDynLightData& lightdata, side_t* side) const;
 
 	DBaseDecal* decal;
 	FVector3 normal;

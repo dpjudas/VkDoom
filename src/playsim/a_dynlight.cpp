@@ -647,12 +647,10 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 		auto pos = collected_ss[i].pos;
 		section = collected_ss[i].sect;
 
-		AddLightNode(section, NULL);
-
-		if(markTiles)
-		{
+		if (markTiles)
 			LevelMeshUpdater->SectorLightListChanged(section->sector);
-		}
+
+		AddLightNode(section, NULL);
 
 		auto processSide = [&](side_t *sidedef, const vertex_t *v1, const vertex_t *v2)
 		{
@@ -664,12 +662,10 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 				{
 					linedef->validcount = ::validcount;
 
-					AddLightNode(NULL, sidedef);
-
-					if(markTiles)
-					{
+					if (markTiles)
 						LevelMeshUpdater->SideLightListChanged(sidedef);
-					}
+
+					AddLightNode(NULL, sidedef);
 				}
 				else if (linedef->sidedef[0] == sidedef && linedef->sidedef[1] == nullptr)
 				{
@@ -771,6 +767,8 @@ void FDynamicLight::CollectWithinRadius(const DVector3 &opos, FSection *section,
 
 void FDynamicLight::LinkLight()
 {
+	UnlinkLight();
+
 	if (radius>0)
 	{
 		// passing in radius*radius allows us to do a distance check without any calls to sqrt
@@ -779,38 +777,7 @@ void FDynamicLight::LinkLight()
 		dl_validcount++;
 		::validcount++;
 		CollectWithinRadius(Pos, sect, float(radius*radius));
-
 	}
-
-#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
-	bool markTiles = ((Trace() || lm_dynlights) && Level->levelMesh);
-	if(markTiles)
-	{
-		node = touching_sides;
-		while (node)
-		{
-			if (node->lightsource == nullptr)
-			{
-				LevelMeshUpdater->SideLightListChanged(node->targLine);
-				node = DeleteLightNode(node);
-			}
-			else
-				node = node->nextTarget;
-		}
-
-		node = touching_sector;
-		while (node)
-		{
-			if (node->lightsource == nullptr)
-			{
-				LevelMeshUpdater->SectorLightListChanged(node->targSection->sector);
-				node = DeleteLightNode(node);
-			}
-			else
-				node = node->nextTarget;
-		}
-	}
-#endif
 }
 
 
@@ -821,25 +788,6 @@ void FDynamicLight::LinkLight()
 //==========================================================================
 void FDynamicLight::UnlinkLight ()
 {
-#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
-	bool markTiles = ((Trace() || lm_dynlights) && Level->levelMesh);
-
-	if(markTiles)
-	{
-		while (touching_sides)
-		{
-			LevelMeshUpdater->SideLightListChanged(touching_sides->targLine);
-			touching_sides = DeleteLightNode(touching_sides);
-		}
-
-		while (touching_sector)
-		{
-			LevelMeshUpdater->SectorLightListChanged(touching_sector->targSection->sector);
-			touching_sector = DeleteLightNode(touching_sector);
-		}
-	}
-#endif
-	
 	TMap<side_t *, side_t *>::Iterator wit(touchlists.wall_tlist);
 	TMap<side_t *, side_t *>::Pair *wpair;
 	while (wit.NextPair(wpair))
@@ -850,6 +798,7 @@ void FDynamicLight::UnlinkLight ()
 		auto wallLightList = Level->lightlists.wall_dlist.CheckKey(sidedef);
 		if (wallLightList)
 		{
+			LevelMeshUpdater->SideLightListChanged(sidedef);
 			wallLightList->Remove(this);
 		}
 	}
@@ -864,6 +813,7 @@ void FDynamicLight::UnlinkLight ()
 		auto flatLightList = Level->lightlists.flat_dlist.CheckKey(sec);
 		if (flatLightList)
 		{
+			LevelMeshUpdater->SectorLightListChanged(sec->sector);
 			flatLightList->Remove(this);
 		}
 	}

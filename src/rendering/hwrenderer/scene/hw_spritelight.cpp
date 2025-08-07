@@ -131,25 +131,23 @@ float inverseSquareAttenuation(float dist, float radius, float strength, float l
 	return mix(((b * b) / (dist * dist + 1.0f) * strength), clamp((radius - dist) / radius, 0.0f, 1.0f), linearity);
 }
 
-void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache, double x, double y, double z, FSection *sec, int portalgroup, float *out, bool fullbright)
+void HWDrawInfo::GetDynSpriteLight(AActor* self, sun_trace_cache_t* traceCache, double x, double y, double z, FSection* sec, int portalgroup, float* out, bool fullbright)
 {
 
-	FDynamicLight *light;
+	FDynamicLight* light;
 	float frac, lr, lg, lb;
 	float radius;
-	
+
 	out[0] = out[1] = out[2] = 0.f;
 
 	if (fullbright || get_gl_spritelight() > 0)
 		return;
 
-#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
-
 	ActorTraceStaticLight staticLight(self);
 
 	if (ActorTraceStaticLight::TraceSunVisibility(x, y, z, traceCache, (self ? staticLight.ActorMoved : traceCache ? traceCache->Pos != DVector3(x, y, z) : false)))
 	{
-		if(!self && traceCache)
+		if (!self && traceCache)
 		{
 			traceCache->Pos = DVector3(x, y, z);
 		}
@@ -164,69 +162,19 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache,
 
 	if (flatLightList)
 	{
-		TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
-		TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Pair *pair;
+		TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
+		TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Pair* pair;
 		while (it.NextPair(pair))
 		{
 			auto node = pair->Value.get();
 			if (!node) continue;
 
-			light=node->lightsource;
+			light = node->lightsource;
 			if (light->ShouldLightActor(self))
 			{
 				float dist;
 				FVector3 L;
 
-<<<<<<< HEAD
-				DVector2 offset = Level->Displacements.getOffset(fromgroup, togroup);
-				L = FVector3(x - (float)(light->X() + offset.X), y - (float)(light->Y() + offset.Y), z - (float)light->Z());
-			}
-			else
-			{
-			direct:
-				L = FVector3(x - (float)light->X(), y - (float)light->Y(), z - (float)light->Z());
-			}
-
-			dist = (float)L.LengthSquared();
-			radius = light->GetRadius();
-
-			if (radius > 0 && dist < radius * radius)
-			{
-				dist = sqrtf(dist);	// only calculate the square root if we really need it.
-
-				if (light->IsSpot() || light->TraceActors())
-					L *= -1.0f / dist;
-
-				if (staticLight.TraceLightVisbility(node, L, dist, light->updated))
-				{
-					if(level.info->lightattenuationmode == ELightAttenuationMode::INVERSE_SQUARE)
-					{
-						frac = (inverseSquareAttenuation(std::max(dist, sqrt(radius) * 2), radius, light->GetStrength(), light->GetLinearity()));
-					}
-					else
-					{
-						frac = 1.0f - (dist / radius);
-					}
-
-					if (light->IsSpot())
-					{
-						DAngle negPitch = -*light->pPitch;
-						DAngle Angle = light->target->Angles.Yaw;
-						double xyLen = negPitch.Cos();
-						double spotDirX = -Angle.Cos() * xyLen;
-						double spotDirY = -Angle.Sin() * xyLen;
-						double spotDirZ = -negPitch.Sin();
-						double cosDir = L.X * spotDirX + L.Y * spotDirY + L.Z * spotDirZ;
-						frac *= (float)smoothstep(light->pSpotOuterAngle->Cos(), light->pSpotInnerAngle->Cos(), cosDir);
-					}
-
-					if (frac > 0 && (!light->shadowmapped || (self && light->TraceActors()) || screen->mShadowMap->ShadowTest(light->Pos, { x, y, z })))
-					{
-						lr = light->GetRed() / 255.0f;
-						lg = light->GetGreen() / 255.0f;
-						lb = light->GetBlue() / 255.0f;
-
-=======
 				// This is a performance critical section of code where we cannot afford to let the compiler decide whether to inline the function or not.
 				// This will do the calculations explicitly rather than calling one of AActor's utility functions.
 				if (Level->Displacements.size > 0)
@@ -247,63 +195,73 @@ void HWDrawInfo::GetDynSpriteLight(AActor *self, sun_trace_cache_t * traceCache,
 				dist = (float)L.LengthSquared();
 				radius = light->GetRadius();
 
-				if (dist < radius * radius)
+				if (radius > 0 && dist < radius * radius)
 				{
 					dist = sqrtf(dist);	// only calculate the square root if we really need it.
 
-					frac = 1.0f - (dist / radius);
-
-					if (light->IsSpot())
-					{
+					if (light->IsSpot() || light->TraceActors())
 						L *= -1.0f / dist;
-						DAngle negPitch = -*light->pPitch;
-						DAngle Angle = light->target->Angles.Yaw;
-						double xyLen = negPitch.Cos();
-						double spotDirX = -Angle.Cos() * xyLen;
-						double spotDirY = -Angle.Sin() * xyLen;
-						double spotDirZ = -negPitch.Sin();
-						double cosDir = L.X * spotDirX + L.Y * spotDirY + L.Z * spotDirZ;
-						frac *= (float)smoothstep(light->pSpotOuterAngle->Cos(), light->pSpotInnerAngle->Cos(), cosDir);
-					}
 
-					if (frac > 0 && (!light->shadowmapped || (light->GetRadius() > 0 && screen->mShadowMap.ShadowTest(light->Pos, { x, y, z }))))
+					if (staticLight.TraceLightVisbility(node, L, dist, light->updated))
 					{
-						lr = light->GetRed() / 255.0f;
-						lg = light->GetGreen() / 255.0f;
-						lb = light->GetBlue() / 255.0f;
-
->>>>>>> gzdoom/master
-						if (light->target && (light->target->renderflags2 & RF2_LIGHTMULTALPHA))
+						if (level.info->lightattenuationmode == ELightAttenuationMode::INVERSE_SQUARE)
 						{
-							float alpha = (float)light->target->Alpha;
-							lr *= alpha;
-							lg *= alpha;
-							lb *= alpha;
+							frac = (inverseSquareAttenuation(std::max(dist, sqrt(radius) * 2), radius, light->GetStrength(), light->GetLinearity()));
+						}
+						else
+						{
+							frac = 1.0f - (dist / radius);
 						}
 
-						// Get GLDEFS intensity
-						lr *= light->GetLightDefIntensity();
-						lg *= light->GetLightDefIntensity();
-						lb *= light->GetLightDefIntensity();
-
-						if (light->IsSubtractive())
+						if (light->IsSpot())
 						{
-							float bright = (float)FVector3(lr, lg, lb).Length();
-							FVector3 lightColor(lr, lg, lb);
-							lr = (bright - lr) * -1;
-							lg = (bright - lg) * -1;
-							lb = (bright - lb) * -1;
+							DAngle negPitch = -*light->pPitch;
+							DAngle Angle = light->target->Angles.Yaw;
+							double xyLen = negPitch.Cos();
+							double spotDirX = -Angle.Cos() * xyLen;
+							double spotDirY = -Angle.Sin() * xyLen;
+							double spotDirZ = -negPitch.Sin();
+							double cosDir = L.X * spotDirX + L.Y * spotDirY + L.Z * spotDirZ;
+							frac *= (float)smoothstep(light->pSpotOuterAngle->Cos(), light->pSpotInnerAngle->Cos(), cosDir);
 						}
 
-						out[0] += lr * frac;
-						out[1] += lg * frac;
-						out[2] += lb * frac;
+						if (frac > 0 && (!light->shadowmapped || (self && light->TraceActors()) || screen->mShadowMap->ShadowTest(light->Pos, { x, y, z })))
+						{
+							lr = light->GetRed() / 255.0f;
+							lg = light->GetGreen() / 255.0f;
+							lb = light->GetBlue() / 255.0f;
+
+							if (light->target && (light->target->renderflags2 & RF2_LIGHTMULTALPHA))
+							{
+								float alpha = (float)light->target->Alpha;
+								lr *= alpha;
+								lg *= alpha;
+								lb *= alpha;
+							}
+
+							// Get GLDEFS intensity
+							lr *= light->GetLightDefIntensity();
+							lg *= light->GetLightDefIntensity();
+							lb *= light->GetLightDefIntensity();
+
+							if (light->IsSubtractive())
+							{
+								float bright = (float)FVector3(lr, lg, lb).Length();
+								FVector3 lightColor(lr, lg, lb);
+								lr = (bright - lr) * -1;
+								lg = (bright - lg) * -1;
+								lb = (bright - lb) * -1;
+							}
+
+							out[0] += lr * frac;
+							out[1] += lg * frac;
+							out[2] += lb * frac;
+						}
 					}
 				}
 			}
 		}
 	}
-#endif
 }
 
 void HWDrawInfo::GetDynSpriteLight(AActor *thing, particle_t *particle, sun_trace_cache_t * traceCache, float *out)
@@ -322,8 +280,6 @@ void HWDrawInfo::GetDynSpriteLight(AActor *thing, particle_t *particle, sun_trac
 void HWDrawInfo::GetDynSpriteLightList(AActor *self, double x, double y, double z, sun_trace_cache_t * traceCache, FDynLightData &modellightdata, bool isModel)
 {
 	modellightdata.Clear();
-
-#ifdef NEEDS_BIG_BEAUTIFUL_MERGE_PORTING
 
 	if (self && (self->flags5 & MF5_BRIGHT))
 		return;
@@ -355,73 +311,48 @@ void HWDrawInfo::GetDynSpriteLightList(AActor *self, double x, double y, double 
 	{
 		auto section = subsector->section;
 		if (section->validcount == dl_validcount) return;	// already done from a previous subsector.
-		FLightNode * node = section->lighthead;
-		while (node) // check all lights touching a subsector
+
+		auto flatLightList = level.lightlists.flat_dlist.CheckKey(subsector->section);
+		if (flatLightList)
 		{
-<<<<<<< HEAD
-			FDynamicLight *light = node->lightsource;
-			if (light->ShouldLightActor(self))
-			{
-				int group = subsector->sector->PortalGroup;
-				DVector3 pos = light->PosRelative(group);
-				float radius = (float)(light->GetRadius() + actorradius);
-				double dx = pos.X - x;
-				double dy = pos.Y - y;
-				double dz = pos.Z - z;
-				double distSquared = dx * dx + dy * dy + dz * dz;
-				if (distSquared < radius * radius) // Light and actor touches
+			TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
+			TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Pair* pair;
+			while (it.NextPair(pair))
+			{ // check all lights touching a subsector
+				auto node = pair->Value.get();
+				if (!node) continue;
+				FDynamicLight* light = node->lightsource;
+				if (light->ShouldLightActor(self))
 				{
-					unsigned index = addedLights.SortedFind(light, false);
-					if(index == addedLights.Size() || addedLights[index] != light) // Check if we already added this light from a different subsector (use binary search instead of linear search)
+					int group = subsector->sector->PortalGroup;
+					DVector3 pos = light->PosRelative(group);
+					float radius = (float)(light->GetRadius() + actorradius);
+					double dx = pos.X - x;
+					double dy = pos.Y - y;
+					double dz = pos.Z - z;
+					double distSquared = dx * dx + dy * dy + dz * dz;
+					if (distSquared < radius * radius) // Light and actor touches
 					{
-						FVector3 L(dx, dy, dz);
-						float dist = sqrtf(distSquared);
-						if (gl_spritelight == 0 && light->TraceActors())
-							L *= 1.0f / dist;
+						unsigned index = addedLights.SortedFind(light, false);
+						if (index == addedLights.Size() || addedLights[index] != light) // Check if we already added this light from a different subsector (use binary search instead of linear search)
+						{
+							FVector3 L(dx, dy, dz);
+							float dist = sqrtf(distSquared);
+							if (gl_spritelight == 0 && light->TraceActors())
+								L *= 1.0f / dist;
 
-						if (gl_spritelight > 0 || staticLight.TraceLightVisbility(node, L, dist, light->updated))
-						{
-							AddLightToList(modellightdata, group, light, true, gl_spritelight > 0);
-=======
-			auto section = subsector->section;
-			if (section->validcount == dl_validcount) return;	// already done from a previous subsector.
-			auto flatLightList = self->Level->lightlists.flat_dlist.CheckKey(subsector->section);
-			if (flatLightList)
-			{
-				TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
-				TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Pair *pair;
-				while (it.NextPair(pair))
-				{ // check all lights touching a subsector
-					auto node = pair->Value.get();
-					if (!node) continue;
-					FDynamicLight *light = node->lightsource;
-					if (light->ShouldLightActor(self))
-					{
-						int group = subsector->sector->PortalGroup;
-						DVector3 pos = light->PosRelative(group);
-						float radius = (float)(light->GetRadius() + actorradius);
-						double dx = pos.X - x;
-						double dy = pos.Y - y;
-						double dz = pos.Z - z;
-						double distSquared = dx * dx + dy * dy + dz * dz;
-						if (distSquared < radius * radius) // Light and actor touches
-						{
-							if (std::find(addedLights.begin(), addedLights.end(), light) == addedLights.end()) // Check if we already added this light from a different subsector
+							if (gl_spritelight > 0 || staticLight.TraceLightVisbility(node, L, dist, light->updated))
 							{
-								AddLightToList(modellightdata, group, light, true);
-								addedLights.Push(light);
+								AddLightToList(modellightdata, group, light, true, gl_spritelight > 0);
 							}
->>>>>>> gzdoom/master
-						}
 
-						addedLights.Insert(index, light);
+							addedLights.Insert(index, light);
+						}
 					}
 				}
 			}
-			node = node->nextLight;
 		}
 	});
-#endif
 }
 
 void HWDrawInfo::GetDynSpriteLightList(AActor *thing, particle_t *particle, sun_trace_cache_t * traceCache, FDynLightData &modellightdata, bool isModel)
