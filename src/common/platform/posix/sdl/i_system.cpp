@@ -303,10 +303,8 @@ void I_PrintStr(const char *cp)
 		}
 	}
 
-	if (StartWindow) CleanProgressBar();
 	fputs(printData.GetChars(),stdout);
 	if (terminal) fputs("\033[0m",stdout);
-	if (StartWindow) RedrawProgressBar(ProgressBarCurPos,ProgressBarMaxPos);
 }
 
 bool HoldingQueryKey(const char* key)
