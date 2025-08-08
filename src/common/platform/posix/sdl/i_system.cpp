@@ -83,8 +83,6 @@ CVAR(Bool, con_printansi, true, CVAR_GLOBALCONFIG|CVAR_ARCHIVE);
 CVAR(Bool, con_4bitansi, false, CVAR_GLOBALCONFIG|CVAR_ARCHIVE);
 EXTERN_CVAR(Bool, longsavemessages)
 
-extern FStartupScreen *StartWindow;
-
 void I_SetIWADInfo()
 {
 }
