@@ -1,5 +1,4 @@
 #include "i_interface.h"
-#include "st_start.h"
 #include "gamestate.h"
 #include "startupinfo.h"
 #include "c_cvars.h"
@@ -17,7 +16,6 @@ static_assert(sizeof(void*) == 8,
 	"that lead to a bad user experience.");
 
 // Some global engine variables taken out of the backend code.
-FStartupScreen* StartWindow;
 SystemCallbacks sysCallbacks;
 FString endoomName;
 bool batchrun;

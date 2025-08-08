@@ -19,7 +19,9 @@
 **  3. This notice may not be removed or altered from any source distribution.
 */
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <cstdint>
 #include <string>

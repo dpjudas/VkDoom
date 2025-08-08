@@ -4,7 +4,6 @@
 #include "startupinfo.h"
 #include "gstrings.h"
 #include "palentry.h"
-#include "st_start.h"
 #include "i_input.h"
 #include "version.h"
 #include "utf8.h"

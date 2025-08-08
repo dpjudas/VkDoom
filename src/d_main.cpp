@@ -80,7 +80,7 @@
 #include "sbar.h"
 #include "decallib.h"
 #include "version.h"
-#include "st_start.h"
+#include "common/widgets/netstartwindow.h"
 #include "teaminfo.h"
 #include "hardware.h"
 #include "sbarinfo.h"
@@ -3418,14 +3418,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 	}
 
 	if (!batchrun && !RunningAsTool) Printf ("ST_Init: Init startup screen.\n");
-	if (!restart)
-	{
-		StartWindow = FStartupScreen::CreateInstance(max_progress);
-	}
-	else
-	{
-		StartWindow = new FStartupScreen(0);
-	}
 
 	CheckCmdLine();
 
@@ -3453,7 +3445,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 	SpriteFrames.Clear();
 	TexMan.AddTextures([]() 
 	{ 
-		StartWindow->Progress(); 
 		if (StartScreen) StartScreen->Progress(1); 
 	}, CheckForHacks, InitBuildTiles);
 	PatchTextures();
@@ -3462,7 +3453,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 
 	FixWideStatusBar();
 
-	StartWindow->Progress(); 
 	if (StartScreen) StartScreen->Progress(1);
 	V_InitFonts();
 	InitDoomFonts();
@@ -3491,7 +3481,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		I_FatalError ("No player classes defined");
 	}
 
-	StartWindow->Progress(); 
 	if (StartScreen) StartScreen->Progress (1);
 
 	ParseGLDefs();
@@ -3499,7 +3488,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 	if (!batchrun && !RunningAsTool) Printf ("R_Init: Init %s refresh subsystem.\n", gameinfo.ConfigName.GetChars());
 	if (StartScreen) StartScreen->LoadingStatus ("Loading graphics", 0x3f);
 	if (StartScreen) StartScreen->Progress(1);
-	StartWindow->Progress(); 
 	R_Init ();
 
 	if (!batchrun && !RunningAsTool) Printf ("DecalLibrary: Load decals.\n");
@@ -3640,7 +3628,6 @@ static int D_InitGame(const FIWADInfo* iwad_info, std::vector<std::string>& allw
 		if (RunningAsTool)
 			return 0;
 
-		StartWindow->Progress(max_progress);
 		if (StartScreen)
 		{
 			StartScreen->Progress(max_progress);	// advance progress bar to the end.
@@ -4065,7 +4052,6 @@ int GameMain()
 	I_ShutdownGraphics();
 	I_ShutdownInput();
 	M_SaveDefaultsFinal();
-	DeleteStartupScreen();
 	C_UninitCVars(); // must come last so that nothing will access the CVARs anymore after deletion.
 	if(ret != 1337)
 	{

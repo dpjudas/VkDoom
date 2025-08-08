@@ -53,7 +53,7 @@ add_definitions( -DTHIS_IS_GZDOOM )
 
 if( WIN32 )
 
-	add_definitions( -D_WIN32 )
+	add_definitions( -D_WIN32 -DNOMINMAX -DWIN32_LEAN_AND_MEAN )
 
 	set( PROJECT_LIBRARIES
 		psapi
@@ -389,7 +389,6 @@ set( PLAT_WIN32_SOURCES
 	common/platform/win32/i_mainwindow.cpp
 	common/platform/win32/i_system.cpp
 	common/platform/win32/i_specialpaths.cpp
-	common/platform/win32/st_start.cpp
 	common/platform/win32/base_sysfb.cpp
 	common/platform/win32/win32basevideo.cpp
 	common/platform/win32/i_crash.cpp
@@ -414,8 +413,7 @@ set( PLAT_SDL_SOURCES
 	common/platform/posix/sdl/i_input.cpp
 	common/platform/posix/sdl/i_joystick.cpp
 	common/platform/posix/sdl/i_main.cpp
-	common/platform/posix/sdl/i_system.cpp
-	common/platform/posix/sdl/st_start.cpp )
+	common/platform/posix/sdl/i_system.cpp )
 set( PLAT_UNIX_SOURCES
 	common/platform/posix/unix/i_specialpaths.cpp
 	common/platform/posix/unix/gtk_dialogs.cpp )
@@ -429,8 +427,7 @@ set( PLAT_COCOA_SOURCES
 	common/platform/posix/cocoa/i_main.mm
 	common/platform/posix/cocoa/i_system.mm
 	common/platform/posix/cocoa/i_video.mm
-	common/platform/posix/cocoa/st_console.mm
-	common/platform/posix/cocoa/st_start.mm )
+	common/platform/posix/cocoa/st_console.mm )
 
 if( WIN32 )
 	set( SYSTEM_SOURCES_DIR common/platform/win32 )

@@ -49,7 +49,6 @@
 #include "r_data/r_interpolate.h"
 #include "po_man.h"
 #include "p_effect.h"
-#include "st_start.h"
 #include "v_font.h"
 #include "swrenderer/r_renderer.h"
 #include "serializer.h"

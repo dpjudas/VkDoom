@@ -32,7 +32,9 @@
 **
 */
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <mmsystem.h>
 #include <objbase.h>
@@ -72,7 +74,6 @@
 #include "s_music.h"
 
 #include "stats.h"
-#include "st_start.h"
 #include "i_interface.h"
 #include "startupinfo.h"
 #include "printf.h"

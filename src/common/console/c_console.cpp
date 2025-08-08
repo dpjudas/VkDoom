@@ -67,7 +67,6 @@
 #include "vm.h"
 #include "common/widgets/errorwindow.h"
 #include "common/scripting/dap/GameEventEmit.h"
-#include "st_start.h"
 #include <algorithm>
 
 #define LEFTMARGIN 8
@@ -442,7 +441,6 @@ void I_CloseMainWindow();
 
 void ShowFatalError(const char* text)
 {
-	DeleteStartupScreen();
 	S_StopMusic(true);
 	I_CloseMainWindow();
 

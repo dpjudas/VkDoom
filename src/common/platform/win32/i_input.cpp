@@ -35,7 +35,9 @@
 // DI3 only supports up to 4 mouse buttons, and I want the joystick to
 // be read using DirectInput instead of winmm.
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #define __BYTEBOOL__
 #ifndef __GNUC__
 #define INITGUID

@@ -51,7 +51,9 @@
 
 /* [Petteri] Use Winsock for Win32: */
 #ifdef __WIN32__
+#ifndef WIN32_LEAN_AND_MEAN
 #	define WIN32_LEAN_AND_MEAN
+#endif
 #	include <windows.h>
 #	include <winsock.h>
 #else
@@ -70,7 +72,7 @@
 #include "i_system.h"
 #include "m_argv.h"
 #include "m_crc32.h"
-#include "st_start.h"
+#include "common/widgets/netstartwindow.h"
 #include "engineerrors.h"
 #include "cmdlib.h"
 #include "printf.h"
@@ -386,27 +388,27 @@ static void I_NetLog(const char* text, ...)
 // Gracefully closes the net window so that any error messaging can be properly displayed.
 static void I_NetError(const char* error)
 {
-	StartWindow->NetClose();
+	NetStartWindow::NetClose();
 	I_FatalError("%s", error);
 }
 
 static void I_NetInit(const char* msg, bool host)
 {
-	StartWindow->NetInit(msg, host);
+	NetStartWindow::NetInit(msg, host);
 }
 
 // todo: later these must be dispatched by the main menu, not the start screen.
 // Updates the general status of the lobby.
 static void I_NetMessage(const char* msg)
 {
-	StartWindow->NetMessage(msg);
+	NetStartWindow::NetMessage(msg);
 }
 
 // Listen for incoming connections while the lobby is active. The main thread needs to be locked up
 // here to prevent the engine from continuing to start the game until everyone is ready.
 static bool I_NetLoop(bool (*loopCallback)(void*), void* data)
 {
-	return StartWindow->NetLoop(loopCallback, data);
+	return NetStartWindow::NetLoop(loopCallback, data);
 }
 
 // A new client has just entered the game, so add them to the player list.
@@ -419,28 +421,28 @@ static void I_NetClientConnected(int client, unsigned int charLimit = 0u)
 	if (client == consoleplayer)
 		flags |= CFL_CONSOLEPLAYER;
 
-	StartWindow->NetConnect(client, name, flags, Connected[client].Status);
+	NetStartWindow::NetConnect(client, name, flags, Connected[client].Status);
 }
 
 // A client changed ready state.
 static void I_NetClientUpdated(int client)
 {
-	StartWindow->NetUpdate(client, Connected[client].Status);
+	NetStartWindow::NetUpdate(client, Connected[client].Status);
 }
 
 static void I_NetClientDisconnected(int client)
 {
-	StartWindow->NetDisconnect(client);
+	NetStartWindow::NetDisconnect(client);
 }
 
 static void I_NetUpdatePlayers(int current, int limit)
 {
-	StartWindow->NetProgress(current, limit);
+	NetStartWindow::NetProgress(current, limit);
 }
 
 static bool I_ShouldStartNetGame()
 {
-	return StartWindow->ShouldStartNet();
+	return NetStartWindow::ShouldStartNet();
 }
 
 static void I_GetKickClients(TArray<int>& clients)
@@ -448,7 +450,7 @@ static void I_GetKickClients(TArray<int>& clients)
 	clients.Clear();
 
 	int c = -1;
-	while ((c = StartWindow->GetNetKickClient()) != -1)
+	while ((c = NetStartWindow::GetNetKickClient()) != -1)
 		clients.Push(c);
 }
 
@@ -457,13 +459,13 @@ static void I_GetBanClients(TArray<int>& clients)
 	clients.Clear();
 
 	int c = -1;
-	while ((c = StartWindow->GetNetBanClient()) != -1)
+	while ((c = NetStartWindow::GetNetBanClient()) != -1)
 		clients.Push(c);
 }
 
 void I_NetDone()
 {
-	StartWindow->NetDone();
+	NetStartWindow::NetDone();
 }
 
 void I_ClearClient(size_t client)

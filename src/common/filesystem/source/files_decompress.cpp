@@ -34,7 +34,9 @@
 */
 
 // Caution: LzmaDec also pulls in windows.h!
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include "LzmaDec.h"
 #include "Xz.h"
 // CRC table needs to be generated prior to reading XZ compressed files.
