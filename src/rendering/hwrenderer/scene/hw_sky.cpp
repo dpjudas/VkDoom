@@ -157,10 +157,10 @@ void HWWall::SkyPlane(HWWallDispatcher *di, FRenderState& state, sector_t *secto
 		case PORTS_PORTAL:
 		case PORTS_LINKEDPORTAL:
 		{
-			if (di->di && di->di->Viewpoint.IsAllowedOoB())
+			if (di->di && di->di->Viewpoint.bDoOob)
 			{
 				secplane_t myplane = plane ? sector->ceilingplane : sector->floorplane;
-				if (di->di->Viewpoint.IsOrtho() && di->di->Viewpoint.ViewVector3D.dot(myplane.Normal()) > 0.0) return;
+				if (di->di->Viewpoint.bDoOrtho && di->di->Viewpoint.ViewVector3D.dot(myplane.Normal()) > 0.0) return;
 				else if (plane==1 && di->di->Viewpoint.Pos.Z >= myplane.ZatPoint(di->di->Viewpoint.Pos)) return;
 				else if (plane==0 && di->di->Viewpoint.Pos.Z <= myplane.ZatPoint(di->di->Viewpoint.Pos)) return;
 			}
@@ -323,7 +323,7 @@ void HWWall::SkyTop(HWWallDispatcher *di, FRenderState& state, seg_t * seg,secto
 			// if (backreflect > 0 && bs->ceilingplane.fD() == fs->ceilingplane.fD() && !bs->isClosed())
 			// {
 			// 	Don't add intra-portal line to the portal.
-			// 	if (!(di->di && di->di->Viewpoint.IsAllowedOoB()))
+			// 	if (!(di->di && di->di->Viewpoint.bDoOob))
 			// 	{
 			// 		return;
 			// 	}
@@ -406,7 +406,7 @@ void HWWall::SkyBottom(HWWallDispatcher *di, FRenderState& state, seg_t * seg,se
 			// if (backreflect > 0 && bs->floorplane.fD() == fs->floorplane.fD() && !bs->isClosed())
 			// {
 			// 	// Don't add intra-portal line to the portal.
-			// 	if (!(di->di && di->di->Viewpoint.IsAllowedOoB()))
+			// 	if (!(di->di && di->di->Viewpoint.bDoOob))
 			// 	{
 			// 		return;
 			// 	}

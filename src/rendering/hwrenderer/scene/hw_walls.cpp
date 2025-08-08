@@ -430,11 +430,9 @@ void HWWall::SetupLights(HWDrawInfo*di, FRenderState& state, FDynLightData &ligh
 	if ((seg->sidedef->Flags & WALLF_POLYOBJ) && sub)
 	{
 		// Polobject segs cannot be checked per sidedef so use the subsector instead.
-		auto flatLightList = di->Level->lightlists.flat_dlist.CheckKey(sub->section);
-
-		if (flatLightList)
+		if (di->Level->lightlists.flat_dlist.SSize() > sub->section->Index())
 		{
-			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
+			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(di->Level->lightlists.flat_dlist[sub->section->Index()]);
 			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Pair *pair;
 			while (it.NextPair(pair))
 			{
@@ -495,11 +493,9 @@ void HWWall::SetupLights(HWDrawInfo*di, FRenderState& state, FDynLightData &ligh
 	}
 	else
 	{
-		auto wallLightList = di->Level->lightlists.wall_dlist.CheckKey(seg->sidedef);
-
-		if (wallLightList)
+		if (di->Level->lightlists.wall_dlist.SSize() > seg->sidedef->Index())
 		{
-			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(*wallLightList);
+			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(di->Level->lightlists.wall_dlist[seg->sidedef->Index()]);
 			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Pair *pair;
 			while (it.NextPair(pair))
 			{
@@ -694,7 +690,7 @@ void HWWall::PutPortal(HWWallDispatcher *di, FRenderState& state, int ptype, int
 			break;
 
 		case PORTALTYPE_PLANEMIRROR:
-			if (ddi->Viewpoint.IsOrtho() ? (ddi->Viewpoint.ViewVector3D.dot(planemirror->Normal()) < 0)
+			if (ddi->Viewpoint.bDoOrtho ? (ddi->Viewpoint.ViewVector3D.dot(planemirror->Normal()) < 0)
 				: (ddi->drawctx->portalState.PlaneMirrorMode * planemirror->fC() <= 0))
 			{
 				planemirror = ddi->drawctx->portalState.UniquePlaneMirrors.Get(planemirror);

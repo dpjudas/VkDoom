@@ -242,7 +242,7 @@ void HWDrawInfo::ClearBuffers()
 void HWDrawInfo::UpdateCurrentMapSection()
 {
 	int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
-	if (Viewpoint.IsAllowedOoB() || Viewpoint.IsOrtho())
+	if (Viewpoint.bDoOob || Viewpoint.bDoOrtho)
 		mapsection = Level->PointInRenderSubsector(Viewpoint.OffPos)->mapsection;
 	CurrentMapSections.Set(mapsection);
 }
@@ -259,8 +259,8 @@ void HWDrawInfo::SetViewArea()
 	auto &vp = Viewpoint;
 	// The render_sector is better suited to represent the current position in GL
 	vp.sector = Level->PointInRenderSubsector(vp.Pos)->render_sector;
-	if (Viewpoint.IsAllowedOoB())
-	  vp.sector = Level->PointInRenderSubsector(vp.camera->Pos())->render_sector;
+	if (Viewpoint.bDoOob)
+		vp.sector = Level->PointInRenderSubsector(vp.camera->Pos())->render_sector;
 
 	// Get the heightsec state from the render sector, not the current one!
 	if (vp.sector->GetHeightSec())
@@ -359,7 +359,7 @@ angle_t OoBFrustumAngle(FRenderViewpoint* Viewpoint)
 
 angle_t HWDrawInfo::FrustumAngle()
 {
-	if (Viewpoint.IsAllowedOoB())
+	if (Viewpoint.bDoOob)
 	{
 		return OoBFrustumAngle(&Viewpoint);
 	}
@@ -610,7 +610,7 @@ void HWDrawInfo::CreateScene(bool drawpsprites, FRenderState& state)
 	angle_t a1 = FrustumAngle();
 	mClipper->SafeAddClipRangeRealAngles(vp.Angles.Yaw.BAMs() + a1, vp.Angles.Yaw.BAMs() - a1);
 	Viewpoint.FrustAngle = a1;
-	if (Viewpoint.IsAllowedOoB()) // No need for vertical clipper if viewpoint not allowed out of bounds
+	if (Viewpoint.bDoOob) // No need for vertical clipper if viewpoint not allowed out of bounds
 	{
 		double a2 = 20.0 + 0.5*Viewpoint.FieldOfView.Degrees(); // FrustumPitch for vertical clipping
 		if (a2 > 179.0) a2 = 179.0;
@@ -1253,7 +1253,7 @@ void HWDrawInfo::SetDitherTransFlags(AActor* actor)
 		double horiy = Viewpoint.Cos * actor->radius;
 		DVector3 actorpos = actor->Pos();
 		DVector3 vvec = actorpos - Viewpoint.Pos;
-		if (Viewpoint.IsOrtho())
+		if (Viewpoint.bDoOrtho)
 		{
 			vvec = 5.0 * Viewpoint.camera->ViewPos->Offset.Length() * Viewpoint.ViewVector3D; // Should be 4.0? (since zNear is behind screen by 3*dist in VREyeInfo::GetProjection())
 		}
@@ -1448,7 +1448,7 @@ void HWDrawInfo::DrawScene(int drawmode, FRenderState& state)
 	{
 		ssao_portals_available = gl_ssao_portals;
 		applySSAO = true;
-		if (r_dithertransparency && vp.IsAllowedOoB())
+		if (r_dithertransparency && vp.bDoOob)
 		{
 			if (vp.camera->tracer)
 				SetDitherTransFlags(vp.camera->tracer);
@@ -1526,7 +1526,7 @@ void HWDrawInfo::ProcessScene(bool toscreen, FRenderState& state)
 	drawctx->portalState.BeginScene();
 
 	int mapsection = Level->PointInRenderSubsector(Viewpoint.Pos)->mapsection;
-	if (Viewpoint.IsAllowedOoB() || Viewpoint.IsOrtho())
+	if (Viewpoint.bDoOob || Viewpoint.bDoOrtho)
 		mapsection = Level->PointInRenderSubsector(Viewpoint.OffPos)->mapsection;
 	CurrentMapSections.Set(mapsection);
 	DrawScene(toscreen ? DM_MAINVIEW : DM_OFFSCREEN, state);

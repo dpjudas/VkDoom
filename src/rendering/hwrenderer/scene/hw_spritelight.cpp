@@ -158,12 +158,10 @@ void HWDrawInfo::GetDynSpriteLight(AActor* self, sun_trace_cache_t* traceCache, 
 	}
 
 	// Go through both light lists
-	auto flatLightList = Level->lightlists.flat_dlist.CheckKey(sec);
-
-	if (flatLightList)
+	if (Level->lightlists.flat_dlist.SSize() > sec->Index())
 	{
-		TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
-		TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Pair* pair;
+		TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(Level->lightlists.flat_dlist[sec->Index()]);
+		TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Pair *pair;
 		while (it.NextPair(pair))
 		{
 			auto node = pair->Value.get();
@@ -312,11 +310,10 @@ void HWDrawInfo::GetDynSpriteLightList(AActor *self, double x, double y, double 
 		auto section = subsector->section;
 		if (section->validcount == dl_validcount) return;	// already done from a previous subsector.
 
-		auto flatLightList = level.lightlists.flat_dlist.CheckKey(subsector->section);
-		if (flatLightList)
+		if (level.lightlists.flat_dlist.SSize() > subsector->section->Index())
 		{
-			TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
-			TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Pair* pair;
+			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Iterator it(level.lightlists.flat_dlist[subsector->section->Index()]);
+			TMap<FDynamicLight *, std::unique_ptr<FLightNode>>::Pair *pair;
 			while (it.NextPair(pair))
 			{ // check all lights touching a subsector
 				auto node = pair->Value.get();

@@ -115,12 +115,9 @@ FBasicStartupScreen::~FBasicStartupScreen()
 //
 //==========================================================================
 
-void FBasicStartupScreen::Progress()
+void FBasicStartupScreen::Progress(int advance)
 {
-	if (CurPos < MaxPos)
-	{
-		CurPos++;
-	}
+	CurPos = min(CurPos + advance, MaxPos);
 }
 
 //==========================================================================

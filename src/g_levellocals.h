@@ -61,8 +61,9 @@
 
 struct FGlobalDLightLists
 {
-	TMap<FSection*, TMap<FDynamicLight*, std::unique_ptr<FLightNode>>> flat_dlist;
-	TMap<side_t*, TMap<FDynamicLight*, std::unique_ptr<FLightNode>>> wall_dlist;
+	//TODO add TSet and switch from TMap to TSet
+	TArray<TMap<FDynamicLight*, std::unique_ptr<FLightNode>>> flat_dlist;
+	TArray<TMap<FDynamicLight*, std::unique_ptr<FLightNode>>> wall_dlist;
 };
 
 #include "common/rendering/hwrenderer/data/hw_lightprobe.h"

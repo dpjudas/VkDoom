@@ -583,6 +583,9 @@ void G_InitNew (const char *mapname, bool bTitleLevel)
 	bool wantFast;
 	unsigned int i;
 
+	primaryLevel->lightlists.wall_dlist.Clear();
+	primaryLevel->lightlists.flat_dlist.Clear();
+	
 	// did we have any level before?
 	if (primaryLevel->info != nullptr)
 		staticEventManager.WorldUnloaded(FString());	// [MK] don't pass the new map, as it's not a level transition
@@ -646,9 +649,6 @@ void G_InitNew (const char *mapname, bool bTitleLevel)
 		primaryLevel->maptime = 0;
 		primaryLevel->totaltime = 0;
 		primaryLevel->spawnindex = 0;
-
-		primaryLevel->lightlists.wall_dlist.Clear();
-		primaryLevel->lightlists.flat_dlist.Clear();
 
 		if (!multiplayer || !deathmatch)
 		{

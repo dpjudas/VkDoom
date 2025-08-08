@@ -762,7 +762,7 @@ int HWDecalCreateInfo::SetupLights(HWDrawInfo* di, FRenderState& state, FDynLigh
 	p.Set(normal, -normal.X * glseg.x1 - normal.Z * glseg.y1);
 
 	// Iterate through all dynamic lights which touch this wall and render them
-	auto wallLightList = di->Level->lightlists.wall_dlist.CheckKey(side);
+	auto wallLightList = di->Level->lightlists.flat_dlist.SSize() > side->Index() ? &di->Level->lightlists.wall_dlist[side->Index()] : nullptr;
 
 	if (wallLightList)
 	{

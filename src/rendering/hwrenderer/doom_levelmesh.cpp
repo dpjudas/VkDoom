@@ -1046,7 +1046,7 @@ void DoomLevelMesh::UpdateLightShadows(sector_t* sector)
 {
 	for (FSection& section : level.sections.SectionsForSector(sector))
 	{
-		auto flatLightList = level.lightlists.flat_dlist.CheckKey(&section);
+		auto flatLightList = level.lightlists.flat_dlist.SSize() > section.Index() ? &level.lightlists.flat_dlist[section.Index()] : nullptr;
 		if (flatLightList)
 		{
 			TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Iterator it(*flatLightList);
@@ -1066,18 +1066,18 @@ void DoomLevelMesh::UpdateLightShadows(sector_t* sector)
 
 void DoomLevelMesh::UpdateLightShadows(FDynamicLight* light)
 {
-	auto touching_sector = light->touching_sector;
-	while (touching_sector)
+	for (int i = 0; i < light->touchlists.flat_tlist.SSize(); i++)
 	{
-		UpdateFlat(touching_sector->targSection->sector->Index(), SurfaceUpdateType::LightList);
-		touching_sector = touching_sector->nextTarget;
+		auto sec = light->touchlists.flat_tlist[i];
+		if (sec)
+			UpdateFlat(sec->sector->Index(), SurfaceUpdateType::LightList);
 	}
 
-	auto touching_sides = light->touching_sides;
-	while (touching_sides)
+	for (int i = 0; i < light->touchlists.wall_tlist.SSize(); i++)
 	{
-		UpdateSide(touching_sides->targLine->Index(), SurfaceUpdateType::LightList);
-		touching_sides = touching_sides->nextTarget;
+		auto sidedef = light->touchlists.wall_tlist[i];
+		if (sidedef)
+			UpdateSide(sidedef->Index(), SurfaceUpdateType::LightList);
 	}
 }
 
@@ -1315,9 +1315,13 @@ void DoomLevelMesh::UpdateFlat(unsigned int sectorIndex, SurfaceUpdateType updat
 
 LightListAllocInfo DoomLevelMesh::CreateLightList(FSection* section, side_t* side, int portalgroup)
 {
-	int lightcount = 0;
+	TMap<FDynamicLight*, std::unique_ptr<FLightNode>>* srcLightList = nullptr;
+	if (section && level.lightlists.flat_dlist.SSize() > section->Index())
+		srcLightList =  &level.lightlists.flat_dlist[section->Index()];
+	else if (side && level.lightlists.wall_dlist.SSize() > side->Index())
+		srcLightList = &level.lightlists.wall_dlist[side->Index()];
 
-	auto srcLightList = section ? level.lightlists.flat_dlist.CheckKey(section) : level.lightlists.wall_dlist.CheckKey(side);
+	int lightcount = 0;
 	if (srcLightList)
 	{
 		TMap<FDynamicLight*, std::unique_ptr<FLightNode>>::Iterator it(*srcLightList);
